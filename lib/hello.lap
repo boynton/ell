@@ -1,0 +1,5 @@
+(lap
+    (literal "hello")
+    (global println)
+    (call 1)
+    (return))

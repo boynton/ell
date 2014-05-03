@@ -1,0 +1,30 @@
+;; lap code for '(define fib (lambda (n) (if (<= n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))
+(lap
+	(closure									 ; bind into the environment. Note the globals, they must be in the environment
+	  (function 1						 		 ; 1 argument
+	    (literal 2)                   ; L0000: 2
+	    (local 0 0)                   ; L0002: 
+	    (global <=)                   ; L0005: <=
+	    (call 2)                      ; L0007: 
+	    (jumpfalse 5)                 ; L0009: -> L0014
+	    (literal 1)                   ; L0011: 1
+	    (return)                      ; L0013: 
+	    (literal 2)                   ; L0014: 2
+	    (local 0 0)                   ; L0016: 
+	    (global -)                    ; L0019: -
+	    (call 2)                      ; L0021: 
+	    (global fib)                  ; L0023: fib
+	    (call 1)                      ; L0025: 
+	    (literal 1)                   ; L0027: 1
+	    (local 0 0)                   ; L0029: 
+	    (global -)                    ; L0032: -
+	    (call 2)                      ; L0034: 
+	    (global fib)                  ; L0036: fib
+	    (call 1)                      ; L0038: 
+	    (global +)                    ; L0040: +
+	    (tailcall 2)))
+    (defglobal fib)
+    (literal 10)
+	 (global fib)
+	 (call 1)
+    (return))
