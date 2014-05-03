@@ -1,7 +1,6 @@
 package main
 
 import (
-	//    "fmt"
 	"bufio"
 	. "github.com/boynton/gell"
 	"io"
@@ -15,7 +14,6 @@ func main() {
 	if len(os.Args) < 2 {
 		s := "(foo 23 'bar\n(list \"foo\" 57.5))"
 		dr = MakeDataReader(strings.NewReader(s), make(Namespace))
-
 		//Println("REPL NYI. Please provide a filename")
 	} else {
 		fi, err := os.Open(os.Args[1])
