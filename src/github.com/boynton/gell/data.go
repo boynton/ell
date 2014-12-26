@@ -23,7 +23,7 @@ import (
 )
 
 //
-// The basic Ell object, which can be queried for its symbolic type
+// The generic Ell object, which can be queried for its symbolic type name at runtime
 //
 type LObject interface {
 	Type() LSymbol
@@ -34,70 +34,72 @@ type LObject interface {
 // ------------------- nil
 //
 
-type LNil int
+const NIL = lnil(0)
 
-// here is the single representation of nil.
-const NIL = LNil(0)
+type lnil int
 
-var symNil = LSymbol{"nil"}
+var symNil = newSymbol("nil")
 
-func (LNil) Type() LSymbol {
-	return symNil
-}
-
-//nil can be considered a sequence of length 0
-func (LNil) Length() int {
-	return 0
-}
-
-// the external representation is nil, same as the java implementation. Confusing in Go, sorry!
-func (LNil) String() string {
-	return "nil"
-}
 func IsNil(obj LObject) bool {
 	return obj == NIL
 }
 
-//
-// ------------------- end-of-information marker
-//
-
-type LEOI int
-
-// here is the single representation of nil.
-const EOI = LEOI(0)
-
-// nil has type nil
-var symEoi = LSymbol{"eoi"}
-
-func (LEOI) Type() LSymbol {
-	return symEoi
+func (lnil) Type() LSymbol {
+	return symNil
 }
-func (LEOI) String() string {
-	return "<end-of-input>"
+
+func (lnil) String() string {
+	return "nil"
 }
+
+//
+// ------------------- EOI (end-of-information) marker
+//
+
+const EOI = leoi(0)
+
+type leoi int
+
+var symEoi = newSymbol("eoi")
+
 func IsEOI(obj LObject) bool {
 	return obj == EOI
+}
+
+func (leoi) Type() LSymbol {
+	return symEoi
+}
+
+func (leoi) String() string {
+	return "<end-of-input>"
 }
 
 //
 // ------------------- boolean
 //
 
-type LBoolean bool
+type LBoolean interface {
+	Type() LSymbol
+	String() string
+}
 
-var symBoolean = LSymbol{"boolean"}
+const TRUE lboolean = lboolean(true)
+const FALSE lboolean = lboolean(false)
 
-const TRUE LBoolean = LBoolean(true)
-const FALSE LBoolean = LBoolean(false)
+type lboolean bool
 
-func (LBoolean) Type() LSymbol {
+var symBoolean = newSymbol("boolean")
+
+func IsBoolean(obj LObject) bool {
+	_, ok := obj.(lboolean)
+	return ok
+}
+
+func (lboolean) Type() LSymbol {
 	return symBoolean
 }
-func IsBoolean(obj LObject) bool {
-	return obj.Type() == symBoolean
-}
-func (b LBoolean) String() string {
+
+func (b lboolean) String() string {
 	return strconv.FormatBool(bool(b))
 }
 
@@ -105,41 +107,56 @@ func (b LBoolean) String() string {
 // ------------------- symbol
 //
 
-type LSymbol struct {
-	Name string
+type LSymbol interface {
+	Type() LSymbol
+	String() string
 }
 
-var symSymbol = LSymbol{"symbol"}
+type lsymbol struct {
+	Name  string
+	value LObject
+}
+
+func newSymbol(name string) *lsymbol {
+	sym := lsymbol{name, nil}
+	return &sym
+}
+
+var symSymbol = newSymbol("symbol")
 
 func IsSymbol(obj LObject) bool {
-	return obj.Type() == symSymbol
+	_, ok := obj.(*lsymbol)
+	return ok
 }
-func (LSymbol) Type() LSymbol {
+
+func (*lsymbol) Type() LSymbol {
 	return symSymbol
 }
-func (sym LSymbol) String() string {
+
+func (sym *lsymbol) String() string {
 	return sym.Name
 }
 
-var symtab = map[string]LSymbol {
+//the global symbol table. symbols for the basic types defined in this file are precached
+var symtab = map[string]*lsymbol{
 	"nil":     symNil,
 	"boolean": symBoolean,
 	"symbol":  symSymbol,
-	"keyword":  symKeyword,
+	"keyword": symKeyword,
 	"string":  symString,
 	"number":  symNumber,
-	"list":  symList,
+	"list":    symList,
 	"vector":  symVector,
-	"map":  symMap,
-	"eoi": symEoi,
-	"error": symError,
+	"map":     symMap,
+	"eoi":     symEoi,
+	"error":   symError,
 }
 
-func Intern(name string) LSymbol {
+func Intern(name string) LObject {
 	//to do: validate the symbol name, based on EllDN spec
 	v, ok := symtab[name]
 	if !ok {
-		v = LSymbol{name}
+		v = newSymbol(name)
 		symtab[name] = v
 	}
 	return v
@@ -149,19 +166,28 @@ func Intern(name string) LSymbol {
 // ------------------- keyword
 //
 
-type LKeyword struct {
-	sym LSymbol
+type LKeyword interface {
+	Type() LSymbol
+	String() string
+	Symbol() LSymbol
 }
 
-var symKeyword = LSymbol{"keyword"}
+type lkeyword struct {
+	sym *lsymbol
+}
+
+var symKeyword = newSymbol("keyword")
 
 func IsKeyword(obj LObject) bool {
-	return obj.Type() == symKeyword
+	_, ok := obj.(lkeyword)
+	return ok
 }
-func (LKeyword) Type() LSymbol {
+
+func (lkeyword) Type() LSymbol {
 	return symKeyword
 }
-func (key LKeyword) String() string {
+
+func (key lkeyword) String() string {
 	return key.sym.Name + ":"
 }
 
@@ -169,19 +195,31 @@ func (key LKeyword) String() string {
 // ------------------- string
 //
 
-type LString string
+type LString interface {
+	Type() LSymbol
+	String() string
+}
 
-var symString = LSymbol{"string"}
+type lstring string
+
+var symString = newSymbol("string")
+
+func NewString(val string) LString {
+	s := lstring(val)
+	return s
+}
 
 func IsString(obj LObject) bool {
-	return obj.Type() == symString
+	_, ok := obj.(lstring)
+	return ok
 }
-func (LString) Type() LSymbol {
+
+func (lstring) Type() LSymbol {
 	return symString
 }
 
 func encodeString(s string) string {
-	buf := []byte{}	
+	buf := []byte{}
 	buf = append(buf, '"')
 	for _, c := range s {
 		switch c {
@@ -212,47 +250,281 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
-func (s LString) String() string {
+func (s lstring) EncodedString() string {
 	return encodeString(string(s))
+}
+
+func (s lstring) String() string {
+	//return encodeString(string(s))
+	return string(s)
 }
 
 //
 // ------------------- number
 //
 
-type LNumber float64
+type LNumber interface {
+	Type() LSymbol
+	String() string
+	IntegerValue() int64
+	RealValue() float64
+}
 
-var symNumber = LSymbol{"number"}
+var symNumber = newSymbol("number")
 
 func IsNumber(obj LObject) bool {
-	return obj.Type() == symNumber
+	_, ok := obj.(linteger)
+	if ok {
+		return true
+	}
+	_, ok = obj.(lreal)
+	return ok
 }
-func (LNumber) Type() LSymbol {
+
+func NewInteger(n int64) LNumber {
+	v := linteger(n)
+	return v
+}
+
+func NewReal(n float64) LNumber {
+	v := lreal(n)
+	return v
+}
+
+func RealValue(obj LObject) (float64, LError) {
+	switch n := obj.(type) {
+	case linteger:
+		return float64(n), nil
+	case lreal:
+		return float64(n), nil
+	}
+	return 0, Error("Not a real number:", obj)
+}
+
+func IntegerValue(obj LObject) (int64, LError) {
+	switch n := obj.(type) {
+	case linteger:
+		return int64(n), nil
+	case lreal:
+		return int64(n), nil
+	default:
+		return 0, Error("Not a integer:", obj)
+	}
+}
+
+func GreaterOrEqual(n1 LObject, n2 LObject) (LObject, LError) {
+	f1, err := RealValue(n1)
+	if err == nil {
+		f2, err := RealValue(n2)
+		if err == nil {
+			if f1 >= f2 {
+				return TRUE, nil
+			} else {
+				return FALSE, nil
+			}
+		}
+		return nil, err
+	}
+	return nil, err
+}
+
+func LessOrEqual(n1 LObject, n2 LObject) (LObject, LError) {
+	f1, err := RealValue(n1)
+	if err == nil {
+		f2, err := RealValue(n2)
+		if err == nil {
+			if f1 <= f2 {
+				return TRUE, nil
+			} else {
+				return FALSE, nil
+			}
+		}
+		return nil, err
+	}
+	return nil, err
+}
+
+func Greater(n1 LObject, n2 LObject) (LObject, LError) {
+	f1, err := RealValue(n1)
+	if err == nil {
+		f2, err := RealValue(n2)
+		if err == nil {
+			if f1 > f2 {
+				return TRUE, nil
+			} else {
+				return FALSE, nil
+			}
+		}
+		return nil, err
+	}
+	return nil, err
+}
+
+func Less(n1 LObject, n2 LObject) (LObject, LError) {
+	f1, err := RealValue(n1)
+	if err == nil {
+		f2, err := RealValue(n2)
+		if err == nil {
+			if f1 < f2 {
+				return TRUE, nil
+			} else {
+				return FALSE, nil
+			}
+		}
+		return nil, err
+	}
+	return nil, err
+}
+
+func Equal(n1 LObject, n2 LObject) LObject {
+	if n1 == n2 {
+		return TRUE
+	} else {
+		return FALSE
+	}
+}
+
+type linteger int64
+
+func (linteger) Type() LSymbol {
 	return symNumber
 }
 
-func (n LNumber) String() string {
-	return strconv.FormatFloat(float64(n), 'f', -1, 64)
+func (i linteger) String() string {
+	return strconv.FormatInt(int64(i), 10)
+}
+
+func (i linteger) IntegerValue() int64 {
+	return int64(i)
+}
+func (i linteger) RealValue() float64 {
+	return float64(i)
+}
+
+type lreal float64
+
+func (lreal) Type() LSymbol {
+	return symNumber
+}
+
+func (f lreal) String() string {
+	return strconv.FormatFloat(float64(f), 'f', -1, 64)
+}
+
+func (f lreal) IntegerValue() int64 {
+	return int64(f)
+}
+
+func (f lreal) RealValue() float64 {
+	return float64(f)
+}
+
+func Add(num1 LObject, num2 LObject) (LObject, LError) {
+	n1, err := RealValue(num1)
+	if err != nil {
+		return nil, err
+	}
+	n2, err := RealValue(num2)
+	if err != nil {
+		return nil, err
+	}
+	return NewReal(n1 + n2), nil
+}
+
+func Sum(nums []LObject, argc int) (LObject, LError) {
+	var isum int64
+	var fsum float64
+	integral := true
+	isum = 0
+	for _, num := range nums {
+		switch n := num.(type) {
+		case linteger:
+			isum += int64(n)
+		case lreal:
+			if integral {
+				fsum = float64(isum)
+				integral = false
+			}
+			fsum += float64(n)
+		default:
+			return nil, Error("Not a number", num)
+		}
+	}
+	if integral {
+		return linteger(isum), nil
+	} else {
+		return lreal(fsum), nil
+	}
+}
+
+func Mul(num1 LObject, num2 LObject) (LObject, LError) {
+	n1, err := RealValue(num1)
+	if err != nil {
+		return nil, err
+	}
+	n2, err := RealValue(num2)
+	if err != nil {
+		return nil, err
+	}
+	return NewReal(n1 * n2), nil
+}
+
+func Product(argv []LObject, argc int) (LObject, LError) {
+	var iprod int64
+	var fprod float64
+	integral := true
+	iprod = 1
+	for _, num := range argv {
+		switch n := num.(type) {
+		case linteger:
+			iprod = iprod * int64(n)
+		case lreal:
+			if integral {
+				fprod = float64(iprod)
+				integral = false
+			}
+			fprod *= float64(n)
+		default:
+			return nil, Error("Not a number", num)
+		}
+	}
+	if integral {
+		return linteger(iprod), nil
+	} else {
+		return lreal(fprod), nil
+	}
 }
 
 //
 // ------------------- list
 //
-type LList struct {
+type LList interface {
+	Type() LSymbol
+	String() string
+	Length() int
+	Car() LObject
+	Cdr() LObject
+	//append
+	//reverse
+}
+
+type llist struct {
 	car LObject
 	cdr LObject
 }
 
-var symList = LSymbol{"list"}
+var symList = newSymbol("list")
 
 func IsList(obj LObject) bool {
-	return obj.Type() == symList
+	//	return obj.Type() == symList
+	_, ok := obj.(*llist)
+	return ok
 }
-func (LList) Type() LSymbol {
+func (*llist) Type() LSymbol {
 	return symList
 }
 
-func (lst LList) String() string {
+func (lst *llist) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
 	buf.WriteString(lst.car.String())
@@ -262,7 +534,7 @@ func (lst LList) String() string {
 		if tail == NIL {
 			b = false
 		} else if IsList(tail) {
-			lst = tail.(LList)
+			lst = tail.(*llist)
 			tail = lst.cdr
 			buf.WriteString(" ")
 			buf.WriteString(lst.car.String())
@@ -276,10 +548,7 @@ func (lst LList) String() string {
 	return buf.String()
 }
 
-func (lst LList) Length() int {
-	if IsNil(lst) {
-		return 0
-	}
+func (lst *llist) Length() int {
 	count := 1
 	var o LObject = lst.cdr
 	for o != NIL {
@@ -287,13 +556,50 @@ func (lst LList) Length() int {
 			return -1 //not a proper list
 		}
 		count++
-		o = o.(LList).cdr
+		o = o.(*llist).cdr
 	}
 	return count
 }
 
-func Cons(car LObject, cdr LObject) LList {
-	return LList{car, cdr}
+func Cons(car LObject, cdr LObject) LObject {
+	lst := llist{car, cdr}
+	return &lst
+}
+
+func Car(lst LObject) LObject {
+	if IsList(lst) {
+		return lst.(*llist).car
+	}
+	return NIL
+}
+
+func Caar(lst LObject) LObject {
+	return Car(Car(lst))
+}
+func Cadr(lst LObject) LObject {
+	return Car(Cdr(lst))
+}
+func Cddr(lst LObject) LObject {
+	return Cdr(Cdr(lst))
+}
+func Caddr(lst LObject) LObject {
+	return Car(Cdr(Cdr(lst)))
+}
+func Cdddr(lst LObject) LObject {
+	return Cdr(Cdr(Cdr(lst)))
+}
+func Cadddr(lst LObject) LObject {
+	return Car(Cdr(Cdr(Cdr(lst))))
+}
+func Cddddr(lst LObject) LObject {
+	return Cdr(Cdr(Cdr(Cdr(lst))))
+}
+
+func Cdr(lst LObject) LObject {
+	if IsList(lst) {
+		return lst.(*llist).cdr
+	}
+	return NIL
 }
 
 func ToList(vec []LObject) LObject {
@@ -310,47 +616,93 @@ func List(vec ...LObject) LObject {
 	return ToList(vec)
 }
 
-type LSequence interface {
-	Length() int
+func Length(seq LObject) int {
+	if seq == NIL {
+		return 0
+	} else if IsString(seq) {
+		return len(seq.(lstring))
+	} else if IsVector(seq) {
+		return seq.(*lvector).Length()
+	} else if IsList(seq) {
+		return seq.(*llist).Length()
+	} else {
+		return -1
+	}
 }
 
-func Length(seq LSequence) int {
-	return seq.Length()
-	/*
-		if seq == NIL {
-			return 0;
-		} else if IsList(seq) {
-			return seq.(LList).Length()
-		} else if IsList(seq) {
-			return seq.(LList).Length()
-		} else {
-			return -1;
+func Reverse(lst LObject) (LObject, error) {
+	var rev LObject
+	rev = NIL
+	for lst != NIL {
+		switch v := lst.(type) {
+		case *llist:
+			rev = Cons(v.car, rev)
+			lst = v.cdr
+		default:
+			return nil, Error("Not a proper list:", lst)
 		}
-	*/
+	}
+	return rev, nil
+}
+
+func Concat(seq1 LObject, seq2 LObject) (LObject, error) {
+	rev, err := Reverse(seq1)
+	if err != nil {
+		return nil, err
+	}
+	for rev != NIL {
+		switch v := rev.(type) {
+		case *llist:
+			seq2 = Cons(v.car, seq2)
+			rev = v.cdr
+		}
+	}
+	return seq2, nil
+
 }
 
 //
 // ------------------- vector
 //
-type LVector struct {
+
+type LVector interface {
+	Type() LSymbol
+	String() string
+	Length() int
+	Set(idx int, obj LObject)
+	Ref(idx int) LObject
+}
+
+type lvector struct {
 	elements []LObject
 }
 
-var symVector = LSymbol{"vector"}
+func NewVector(size int, init LObject) LVector {
+	elements := make([]LObject, size)
+	for i := 0; i < size; i++ {
+		elements[i] = init
+	}
+	vec := lvector{elements}
+	return &vec
+}
+
+func Vector(elements ...LObject) LVector {
+	vec := lvector{elements}
+	return &vec
+}
+
+var symVector = newSymbol("vector")
 
 func IsVector(obj LObject) bool {
-	return obj.Type() == symVector
+	_, ok := obj.(*lvector)
+	return ok
+	//	return obj.Type() == symVector
 }
-func (LVector) Type() LSymbol {
+
+func (*lvector) Type() LSymbol {
 	return symVector
 }
-func Vector(vec ...LObject) LVector {
-	return LVector{vec}
-}
-func (vec LVector) Length() int {
-	return len(vec.elements)
-}
-func (vec LVector) String() string {
+func (vec *lvector) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	count := len(vec.elements)
@@ -364,32 +716,73 @@ func (vec LVector) String() string {
 	buf.WriteString("]")
 	return buf.String()
 }
-func (vec LVector) Ref(idx int) LObject {
+func (vec *lvector) Length() int {
+	return len(vec.elements)
+}
+
+func (vec *lvector) Ref(idx int) LObject {
 	return vec.elements[idx]
 }
-func Ref(vec LVector, idx int) LObject {
-	return vec.elements[idx]
+
+func (vec *lvector) Set(idx int, obj LObject) {
+	vec.elements[idx] = obj
+}
+
+func Ref(vec LObject, idx int) LObject {
+	if IsVector(vec) {
+		return vec.(*lvector).Ref(idx)
+	}
+	return NIL
+}
+
+func theVector(obj LObject) (*lvector, bool) {
+	vec, ok := obj.(*lvector)
+	return vec, ok
+}
+
+func VectorSet(vec LObject, idx int, obj LObject) LError {
+	if v, ok := theVector(vec); ok {
+		v.elements[idx] = obj
+		return nil
+	}
+	return Error("Not a vector:", vec)
+}
+
+func VectorRef(vec LObject, idx int) (LObject, LError) {
+	if v, ok := theVector(vec); ok {
+		return v.elements[idx], nil //maybe should range check the index
+	}
+	return nil, Error("Not a vector:", vec)
 }
 
 //
 // ------------------- map
 //
-type LMap struct {
+type LMap interface {
+	Type() LSymbol
+	String() string
+	Length() int
+	Has(key LObject) bool
+	Get(key LObject) LObject
+	Put(key LObject, value LObject) LMap
+}
+
+type tMap struct {
 	bindings map[LObject]LObject
 }
 
-var symMap = LSymbol{"map"}
+var symMap = newSymbol("map")
 
-func IsMap(obj LObject) bool {
-	return obj.Type() == symMap
-}
-func (LMap) Type() LSymbol {
+//func IsMap(obj LObject) bool {
+//	return obj.Type() == symMap
+//}
+func (tMap) Type() LSymbol {
 	return symMap
 }
-func (m LMap) Length() int {
+func (m tMap) Length() int {
 	return len(m.bindings)
 }
-func (m LMap) String() string {
+func (m tMap) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
@@ -410,29 +803,27 @@ func (m LMap) String() string {
 func Map(pairwiseBindings ...LObject) LMap {
 	count := len(pairwiseBindings)
 	Println("map pairwise count is", count)
-	m := LMap{map[LObject]LObject{}}
+	m := tMap{map[LObject]LObject{}}
 	for i := 0; i < count; i += 2 {
 		m.Put(pairwiseBindings[i], pairwiseBindings[i+1])
 	}
 	return m
 }
 
-func (m LMap) Put(key LObject, value LObject) LMap {
+func (m tMap) Put(key LObject, value LObject) LMap {
 	m.bindings[key] = value
-	Println("map.PUT:", key, value)
 	return m
 }
 
-func (m LMap) Get(key LObject) LObject {
-	val, ok := m.bindings[key]
-	if ok {
+func (m tMap) Get(key LObject) LObject {
+	if val, ok := m.bindings[key]; ok {
 		return val
 	} else {
 		return NIL
 	}
 }
 
-func (m LMap) Has(key LObject) bool {
+func (m tMap) Has(key LObject) bool {
 	_, ok := m.bindings[key]
 	return ok
 }
@@ -441,18 +832,34 @@ func (m LMap) Has(key LObject) bool {
 // ------------------- error
 //
 
-type LError struct {
+type LError interface {
+	Type() LSymbol
+	String() string
+	Error() string
+}
+
+type tError struct {
 	msg string
 }
 
-var symError = LSymbol{"error"}
+func Error(arg1 interface{}, args ...interface{}) LError {
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("%v", arg1))
+	for _, o := range args {
+		buf.WriteString(fmt.Sprintf(" %v", o))
+	}
+	return tError{buf.String()}
+}
 
-func (e LError) Error() string {
+var symError = newSymbol("error")
+
+func (e tError) Error() string {
 	return e.msg
 }
-func (e LError) Type() LSymbol {
+
+func (e tError) Type() LSymbol {
 	return symError
 }
-func (e LError) String() string {
+func (e tError) String() string {
 	return fmt.Sprintf("<Error: %s>", e.msg)
 }
