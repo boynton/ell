@@ -169,13 +169,24 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 	if len(ops) == 0 {
 		return nil, Error("No code to execute")
 	}
+	trace := false
+	if trace {
+		Println("------------------ BEGIN EXECUTION of ", module)
+		Println(" ops: ", ops)
+	}
 	for {
 		switch ops[pc] {
 		case LITERAL_OPCODE:
+			if trace {
+				Println("const\t", module.constants[ops[pc+1]])
+			}
 			sp--
 			stack[sp] = module.constants[ops[pc+1]]
 			pc += 2
 		case GLOBAL_OPCODE:
+			if trace {
+				Println("glob\t", module.constants[ops[pc+1]])
+			}
 			sym := module.constants[ops[pc+1]]
 			//val := (sym.(*lsymbol)).value
 			val := module.Global(sym)
@@ -186,6 +197,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			stack[sp] = val
 			pc += 2
 		case DEFGLOBAL_OPCODE:
+			if trace {
+				Println("defglob\t", module.constants[ops[pc+1]])
+			}
 			sym := module.constants[ops[pc+1]]
 			//(sym.(*lsymbol)).value = stack[sp]
 			module.DefGlobal(sym, stack[sp])
@@ -194,6 +208,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			}
 			pc += 2
 		case LOCAL_OPCODE:
+			if trace {
+				Println("getloc\t", +ops[pc+1], " ", ops[pc+2])
+			}
 			tmpEnv := env
 			i := ops[pc+1]
 			for i > 0 {
@@ -206,6 +223,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			stack[sp] = val
 			pc += 3
 		case SETLOCAL_OPCODE:
+			if trace {
+				Println("setloc\t", +ops[pc+1], " ", ops[pc+2])
+			}
 			tmpEnv := env
 			i := ops[pc+1]
 			for i > 0 {
@@ -216,6 +236,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			tmpEnv.elements[j] = stack[sp]
 			pc += 3
 		case CALL_OPCODE:
+			if trace {
+				Println("call\t", ops[pc+1])
+			}
 			fun := stack[sp]
 			sp++
 			argc := ops[pc+1]
@@ -258,6 +281,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				return nil, Error("Not a function:", tfun)
 			}
 		case TAILCALL_OPCODE:
+			if trace {
+				Println("tcall\t", ops[pc+1])
+			}
 			fun := stack[sp]
 			sp++
 			argc := ops[pc+1]
@@ -299,7 +325,13 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				return nil, Error("Not a function:", tfun)
 			}
 		case RETURN_OPCODE:
+			if trace {
+				Println("ret")
+			}
 			if env.previous == nil {
+				if trace {
+					Println("------------------ END EXECUTION of ", module)
+				}
 				return stack[sp], nil
 			}
 			ops = env.ops
@@ -307,6 +339,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			module = env.module
 			env = env.previous
 		case JUMPFALSE_OPCODE:
+			if trace {
+				Println("fjmp\t", ops[pc+1])
+			}
 			b := stack[sp]
 			sp++
 			if b == FALSE {
@@ -315,28 +350,55 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				pc += 2
 			}
 		case JUMP_OPCODE:
+			if trace {
+				Println("jmp\t", ops[pc+1])
+			}
 			pc += ops[pc+1]
 		case POP_OPCODE:
+			if trace {
+				Println("pop")
+			}
 			sp++
 			pc++
 		case CLOSURE_OPCODE:
+			if trace {
+				Println("closure\t", module.constants[ops[pc+1]])
+			}
 			sp--
 			stack[sp] = &lclosure{module.constants[ops[pc+1]].(*lcode), env}
 			pc = pc + 2
 		case USE_OPCODE:
+			if trace {
+				Println("use\t", module.constants[ops[pc+1]])
+			}
+			if trace {
+				Println(" -> pc before:", pc, ", ops:", ops)
+			}
 			sym := module.constants[ops[pc+1]]
 			err := module.Use(sym)
 			if err != nil {
 				return nil, err
 			}
+			if trace {
+				Println(" -> pc after:", pc, ", ops:", ops)
+			}
 			pc += 2
 		case CAR_OPCODE:
+			if trace {
+				Println("car")
+			}
 			stack[sp] = Car(stack[sp])
 			pc++
 		case CDR_OPCODE:
+			if trace {
+				Println("cdr")
+			}
 			stack[sp] = Cdr(stack[sp])
 			pc++
 		case NULL_OPCODE:
+			if trace {
+				Println("null")
+			}
 			if stack[sp] == NIL {
 				stack[sp] = TRUE
 			} else {
@@ -344,6 +406,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			}
 			pc++
 		case ADD_OPCODE:
+			if trace {
+				Println("add")
+			}
 			v, err := Add(stack[sp], stack[sp+1])
 			if err != nil {
 				return nil, err
@@ -352,6 +417,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			stack[sp] = v
 			pc++
 		case MUL_OPCODE:
+			if trace {
+				Println("mul")
+			}
 			v, err := Mul(stack[sp], stack[sp+1])
 			if err != nil {
 				return nil, err
