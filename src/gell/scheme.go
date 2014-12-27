@@ -7,31 +7,31 @@ import (
 )
 
 func SchemePrimitives() map[string]Primitive {
-	var m map[string]Primitive
-	m["display"] = ell_display
-	m["newline"] = ell_newline
-	m["list"] = ell_list
-	m["+"] = ell_plus
-	m["-"] = ell_minus
-	m["*"] = ell_times
-	m["quotient"] = ell_quotient
-	m["remainder"] = ell_remainder
-	m["modulo"] = ell_remainder //fix!
-	m["make-vector"] = ell_make_vector
-	m["vector-set!"] = ell_vector_set_bang
-	m["vector-ref"] = ell_vector_ref
-	m["="] = ell_eq
-	m["<="] = ell_le
-	m[">="] = ell_ge
-	m[">"] = ell_gt
-	m["<"] = ell_lt
-	m["zero?"] = ell_zero_p
-	m["number->string"] = ell_number_to_string
-	m["string-length"] = ell_string_length
+	m := make(map[string]Primitive)
+	m["display"] = scheme_display
+	m["newline"] = scheme_newline
+	m["list"] = scheme_list
+	m["+"] = scheme_plus
+	m["-"] = scheme_minus
+	m["*"] = scheme_times
+	m["quotient"] = scheme_quotient
+	m["remainder"] = scheme_remainder
+	m["modulo"] = scheme_remainder //fix!
+	m["make-vector"] = scheme_make_vector
+	m["vector-set!"] = scheme_vector_set_bang
+	m["vector-ref"] = scheme_vector_ref
+	m["="] = scheme_eq
+	m["<="] = scheme_le
+	m[">="] = scheme_ge
+	m[">"] = scheme_gt
+	m["<"] = scheme_lt
+	m["zero?"] = scheme_zero_p
+	m["number->string"] = scheme_number_to_string
+	m["string-length"] = scheme_string_length
 	return m
 }
 
-func prim_display(argv []LObject, argc int) (LObject, error) {
+func scheme_display(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
 		//todo: add the optional port argument like schema
 		return argcError()
@@ -40,7 +40,7 @@ func prim_display(argv []LObject, argc int) (LObject, error) {
 	return nil, nil
 }
 
-func prim_newline(argv []LObject, argc int) (LObject, error) {
+func scheme_newline(argv []LObject, argc int) (LObject, error) {
 	if argc != 0 {
 		//todo: add the optional port argument like schema
 		return argcError()
@@ -49,7 +49,7 @@ func prim_newline(argv []LObject, argc int) (LObject, error) {
 	return nil, nil
 }
 
-func prim_list(argv []LObject, argc int) (LObject, error) {
+func scheme_list(argv []LObject, argc int) (LObject, error) {
 	var p LObject
 	p = NIL
 	for i := argc - 1; i >= 0; i-- {
@@ -58,7 +58,7 @@ func prim_list(argv []LObject, argc int) (LObject, error) {
 	return p, nil
 }
 
-func prim_quotient(argv []LObject, argc int) (LObject, error) {
+func scheme_quotient(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		n1, err := IntegerValue(argv[0])
 		if err != nil {
@@ -74,7 +74,7 @@ func prim_quotient(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_remainder(argv []LObject, argc int) (LObject, error) {
+func scheme_remainder(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		n1, err := IntegerValue(argv[0])
 		if err != nil {
@@ -90,7 +90,7 @@ func prim_remainder(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_plus(argv []LObject, argc int) (LObject, error) {
+func scheme_plus(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		return Add(argv[0], argv[1])
 	} else {
@@ -98,7 +98,7 @@ func prim_plus(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_minus(argv []LObject, argc int) (LObject, error) {
+func scheme_minus(argv []LObject, argc int) (LObject, error) {
 	//hack
 	if argc != 2 {
 		return argcError()
@@ -114,7 +114,7 @@ func prim_minus(argv []LObject, argc int) (LObject, error) {
 	return NewInteger(n1 - n2), nil
 }
 
-func prim_times(argv []LObject, argc int) (LObject, error) {
+func scheme_times(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		return Mul(argv[0], argv[1])
 	} else {
@@ -122,7 +122,7 @@ func prim_times(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_make_vector(argv []LObject, argc int) (LObject, error) {
+func scheme_make_vector(argv []LObject, argc int) (LObject, error) {
 	if argc > 0 {
 		var initVal LObject = NIL
 		vlen, err := IntegerValue(argv[0])
@@ -141,7 +141,7 @@ func prim_make_vector(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_vector_set_bang(argv []LObject, argc int) (LObject, error) {
+func scheme_vector_set_bang(argv []LObject, argc int) (LObject, error) {
 	if argc == 3 {
 		v := argv[0]
 		idx, err := IntegerValue(argv[1])
@@ -157,7 +157,7 @@ func prim_vector_set_bang(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func prim_vector_ref(argv []LObject, argc int) (LObject, error) {
+func scheme_vector_ref(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		v := argv[0]
 		idx, err := IntegerValue(argv[1])
@@ -173,7 +173,7 @@ func prim_vector_ref(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func prim_ge(argv []LObject, argc int) (LObject, error) {
+func scheme_ge(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		b, err := GreaterOrEqual(argv[0], argv[1])
 		if err != nil {
@@ -185,7 +185,7 @@ func prim_ge(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_le(argv []LObject, argc int) (LObject, error) {
+func scheme_le(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		b, err := LessOrEqual(argv[0], argv[1])
 		if err != nil {
@@ -197,7 +197,7 @@ func prim_le(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_gt(argv []LObject, argc int) (LObject, error) {
+func scheme_gt(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		b, err := Greater(argv[0], argv[1])
 		if err != nil {
@@ -209,7 +209,7 @@ func prim_gt(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_lt(argv []LObject, argc int) (LObject, error) {
+func scheme_lt(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		b, err := Less(argv[0], argv[1])
 		if err != nil {
@@ -221,7 +221,7 @@ func prim_lt(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_eq(argv []LObject, argc int) (LObject, error) {
+func scheme_eq(argv []LObject, argc int) (LObject, error) {
 	if argc == 2 {
 		b := Equal(argv[0], argv[1])
 		return b, nil
@@ -230,7 +230,7 @@ func prim_eq(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_zero_p(argv []LObject, argc int) (LObject, error) {
+func scheme_zero_p(argv []LObject, argc int) (LObject, error) {
 	if argc == 1 {
 		f, err := RealValue(argv[0])
 		if err != nil {
@@ -246,7 +246,7 @@ func prim_zero_p(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func prim_number_to_string(argv []LObject, argc int) (LObject, error) {
+func scheme_number_to_string(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
 		return argcError()
 	}
@@ -256,7 +256,7 @@ func prim_number_to_string(argv []LObject, argc int) (LObject, error) {
 	return NewString(argv[0].String()), nil
 }
 
-func prim_string_length(argv []LObject, argc int) (LObject, error) {
+func scheme_string_length(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
 		return argcError()
 	}

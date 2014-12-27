@@ -24,24 +24,24 @@ import (
 )
 
 const (
-	LITERAL_OPCODE   = 1
-	LOCAL_OPCODE     = 2
-	JUMPFALSE_OPCODE = 3
-	JUMP_OPCODE      = 4
-	TAILCALL_OPCODE  = 5
-	CALL_OPCODE      = 6
-	RETURN_OPCODE    = 7
-	CLOSURE_OPCODE   = 8
-	POP_OPCODE       = 9
-	GLOBAL_OPCODE    = 10
-	DEFGLOBAL_OPCODE = 11
-	SETLOCAL_OPCODE  = 12
-
-	NULL_OPCODE = 13
-	CAR_OPCODE  = 14
-	CDR_OPCODE  = 15
-	ADD_OPCODE  = 16
-	MUL_OPCODE  = 17
+	LITERAL_OPCODE   = iota
+	LOCAL_OPCODE     = iota
+	JUMPFALSE_OPCODE = iota
+	JUMP_OPCODE      = iota
+	TAILCALL_OPCODE  = iota
+	CALL_OPCODE      = iota
+	RETURN_OPCODE    = iota
+	CLOSURE_OPCODE   = iota
+	POP_OPCODE       = iota
+	GLOBAL_OPCODE    = iota
+	DEFGLOBAL_OPCODE = iota
+	SETLOCAL_OPCODE  = iota
+	NULL_OPCODE      = iota
+	CAR_OPCODE       = iota
+	CDR_OPCODE       = iota
+	ADD_OPCODE       = iota
+	MUL_OPCODE       = iota
+	USE_OPCODE       = iota
 )
 
 type LCode interface {
@@ -63,6 +63,7 @@ type LCode interface {
 	EmitJumpFalse(offset int) int
 	EmitJump(offset int) int
 	SetJumpLocation(loc int)
+	EmitUse(sym LObject)
 	EmitCar()
 	EmitCdr()
 	EmitNull()
@@ -88,6 +89,7 @@ type lcode struct {
 	symReturn    LObject
 	symPop       LObject
 	symDefGlobal LObject
+	symUse       LObject
 	symCar       LObject
 	symCdr       LObject
 	symNull      LObject
@@ -116,6 +118,7 @@ func NewCode(module LModule, argc int, restArgs LObject) LCode {
 		Intern("return"),
 		Intern("pop"),
 		Intern("defglobal"),
+		Intern("use"),
 		Intern("car"),
 		Intern("cdr"),
 		Intern("null"),
@@ -192,6 +195,9 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 		case JUMP_OPCODE:
 			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
 			buf.WriteString(" (jump " + strconv.Itoa(code.ops[offset+1]) + ")")
+			offset += 2
+		case USE_OPCODE:
+			buf.WriteString(" (use " + code.module.constants[code.ops[offset+1]].String() + ")")
 			offset += 2
 		case CAR_OPCODE:
 			buf.WriteString(" (car)")
@@ -296,6 +302,8 @@ func (code *lcode) LoadOps(lst LObject) error {
 			code.EmitPop()
 		case code.symDefGlobal:
 			code.EmitDefGlobal(Cadr(instr))
+		case code.symUse:
+			code.EmitUse(Cadr(instr))
 		case code.symCar:
 			code.EmitCar()
 		case code.symCdr:
@@ -369,6 +377,10 @@ func (code *lcode) EmitJump(offset int) int {
 }
 func (code *lcode) SetJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
+}
+func (code *lcode) EmitUse(sym LObject) {
+	code.ops = append(code.ops, USE_OPCODE)
+	code.ops = append(code.ops, code.module.putConstant(sym))
 }
 func (code *lcode) EmitCar() {
 	code.ops = append(code.ops, CAR_OPCODE)

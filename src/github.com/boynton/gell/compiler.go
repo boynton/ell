@@ -18,17 +18,7 @@ package gell
 
 func Compile(module LModule, expr LObject) (LCode, error) {
 	code := NewCode(module, 0, NIL)
-	env := NIL
-	if IsList(expr) {
-		if Car(expr) == Intern("lap") {
-			err := code.LoadOps(Cdr(expr))
-			if err != nil {
-				return nil, err
-			}
-			return code, nil
-		}
-	}
-	err := compileExpr(code, env, expr, false, false)
+	err := compileExpr(code, NIL, expr, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +93,7 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			}
 			var sym = Cadr(lst)
 			if !IsSymbol(sym) {
-				Error("Syntax error:", expr)
+				return Error("Syntax error:", expr)
 			}
 			//scope so we pick up "context" from current global def for syntax errors? sModuleName = lst.second()
 			err := compileExpr(code, env, Caddr(lst), false, false)
@@ -133,7 +123,7 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			}
 			var sym = Cadr(lst)
 			if !IsSymbol(sym) {
-				Error("Non-symbol first argument to set!:", expr)
+				return Error("Non-symbol first argument to set!:", expr)
 			}
 			err := compileExpr(code, env, Caddr(lst), false, false)
 			if err != nil {
@@ -152,10 +142,11 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			return nil
 		case Intern("lap"):
 			return code.LoadOps(Cdr(expr))
+		case Intern("use"):
+			return compileUse(code, Cdr(lst))
 		default: // a funcall
 			return compileFuncall(code, env, fn, Cdr(lst), isTail, ignoreResult)
 		}
-		return Error("WTF")
 	} else {
 		if !ignoreResult {
 			code.EmitLiteral(expr)
@@ -252,31 +243,41 @@ func compileArgs(code LCode, env LObject, args LObject) error {
 }
 
 func compilePrimopCall(code LCode, fn LObject, argc int, isTail bool, ignoreResult bool) (bool, error) {
-	b := false
-	if Intern("car") == fn && argc == 1 {
-		code.EmitCar()
-		b = true
-	} else if Intern("cdr") == fn && argc == 1 {
-		code.EmitCdr()
-		b = true
-	} else if Intern("null?") == fn && argc == 1 {
-		code.EmitNull()
-		b = true
-	} else if Intern("+") == fn && argc == 2 {
-		code.EmitAdd()
-		b = true
-	} else if true && Intern("*") == fn && argc == 2 {
-		code.EmitMul()
-		b = true
-	}
-	if b {
-		if isTail {
-			code.EmitReturn()
-		} else if ignoreResult {
-			code.EmitPop()
+	switch fn {
+	case Intern("car"):
+		if argc != 1 {
+			return false, nil
 		}
+		code.EmitCar()
+	case Intern("cdr"):
+		if argc != 1 {
+			return false, nil
+		}
+		code.EmitCdr()
+	case Intern("null?"):
+		if argc != 1 {
+			return false, nil
+		}
+		code.EmitNull()
+	case Intern("+"):
+		if argc != 2 {
+			return false, nil
+		}
+		code.EmitAdd()
+	case Intern("*"):
+		if argc != 2 {
+			return false, nil
+		}
+		code.EmitMul()
+	default:
+		return false, nil
 	}
-	return b, nil
+	if isTail {
+		code.EmitReturn()
+	} else if ignoreResult {
+		code.EmitPop()
+	}
+	return true, nil
 }
 
 func compileIfElse(code LCode, env LObject, predicate LObject, consequent LObject, antecedentOptional LObject, isTail bool, ignoreResult bool) error {
@@ -305,4 +306,18 @@ func compileIfElse(code LCode, env LObject, predicate LObject, consequent LObjec
 		}
 	}
 	return err
+}
+
+func compileUse(code LCode, rest LObject) error {
+	lstlen := Length(rest)
+	if lstlen != 1 {
+		//to do: other options for use.
+		return Error("Wrong number of arguments to use:", Cons(Intern("use"), rest))
+	}
+	sym := Car(rest)
+	if !IsSymbol(sym) {
+		return Error("Non-symbol first argument to use:", sym)
+	}
+	code.EmitUse(sym)
+	return nil
 }

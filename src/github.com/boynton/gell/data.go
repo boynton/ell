@@ -114,10 +114,14 @@ type LSymbol interface {
 
 type lsymbol struct {
 	Name string
+	tag  int
 }
 
+var symtag int
+
 func newSymbol(name string) *lsymbol {
-	sym := lsymbol{name}
+	sym := lsymbol{name, symtag}
+	symtag++
 	return &sym
 }
 

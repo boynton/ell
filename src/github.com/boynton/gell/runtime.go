@@ -80,7 +80,7 @@ func NewVM(stackSize int) LVM {
 //the only current use for it is the "use" primitive, which must load and run more code.
 //Perhaps that can be special cased as an op, so the other primitives can run faster. But,
 //it is language-dependent (ell vs scheme)
-type Primitive func(module LModule, argv []LObject, argc int) (LObject, error)
+type Primitive func(argv []LObject, argc int) (LObject, error)
 
 type lprimitive struct {
 	name string
@@ -223,7 +223,7 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			switch tfun := fun.(type) {
 			case *lprimitive:
 				//context for error reporting: tfun.name
-				val, err := tfun.fun(module, stack[sp:], argc)
+				val, err := tfun.fun(stack[sp:], argc)
 				if err != nil {
 					//to do: fix to throw an Ell continuation-based error
 					return nil, err
@@ -264,7 +264,7 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			switch tfun := fun.(type) {
 			case *lprimitive:
 				//context for error reporting: tfun.name
-				val, err := tfun.fun(module, stack[sp:], argc)
+				val, err := tfun.fun(stack[sp:], argc)
 				if err != nil {
 					return nil, err
 				}
@@ -323,6 +323,13 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			sp--
 			stack[sp] = &lclosure{module.constants[ops[pc+1]].(*lcode), env}
 			pc = pc + 2
+		case USE_OPCODE:
+			sym := module.constants[ops[pc+1]]
+			err := module.Use(sym)
+			if err != nil {
+				return nil, err
+			}
+			pc += 2
 		case CAR_OPCODE:
 			stack[sp] = Car(stack[sp])
 			pc++

@@ -18,6 +18,7 @@ package gell
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -35,16 +36,17 @@ type lmodule struct {
 	Name         string
 	constantsMap map[LObject]int
 	constants    []LObject
-	globals      map[LSymbol]LObject
+	globals      []LSymbol
 	exports      []LSymbol
+	primitives   map[string]Primitive
 }
 
 func newModule(name string, primitives map[string]Primitive) (LModule, error) {
 	constMap := make(map[LObject]int, 0)
 	constants := make([]LObject, 0)
-	globals := make(map[LSymbol]LObject, 0)
+	globals := make([]LSymbol, 100) //!
 	exports := make([]LSymbol, 0)
-	mod := lmodule{name, constMap, constants, globals, exports}
+	mod := lmodule{name, constMap, constants, globals, exports, primitives}
 	if primitives != nil {
 		for name, fun := range primitives {
 			mod.RegisterPrimitive(name, fun)
@@ -54,11 +56,9 @@ func newModule(name string, primitives map[string]Primitive) (LModule, error) {
 }
 
 func (module *lmodule) RegisterPrimitive(name string, fun Primitive) {
-	//need the current module!!!
 	sym := Intern(name)
 	if module.Global(sym) != nil {
 		Println("*** Warning: redefining ", name)
-		//check the argument signature. Define "primitiveN" differently than "primitive0" .. "primitive3"
 	}
 	prim := lprimitive{name, fun}
 	module.DefGlobal(sym, &prim)
@@ -73,24 +73,48 @@ func (module *lmodule) String() string {
 }
 
 func (module *lmodule) Global(sym LObject) LObject {
-	val, ok := module.globals[sym]
-	if !ok {
+	s := sym.(*lsymbol)
+	if s.tag >= len(module.globals) {
 		return nil
 	}
-	return val
-	//	return (sym.(*lsymbol)).value
+	return module.globals[s.tag]
 }
 
 func (module *lmodule) DefGlobal(sym LObject, val LObject) {
-	module.globals[sym] = val
+	s := sym.(*lsymbol)
+	if s.tag >= len(module.globals) {
+		glob := make([]LSymbol, s.tag+100)
+		copy(glob, module.globals)
+		module.globals = glob
+	}
+	module.globals[s.tag] = val
 }
 
 func (module *lmodule) SetGlobal(sym LObject, val LObject) error {
-	val, ok := module.globals[sym]
-	if !ok {
-		return Error("*** Warning: set on undefined global ", sym)
+	s := sym.(*lsymbol)
+	if s.tag < len(module.globals) {
+		if module.globals[s.tag] != nil {
+			module.globals[s.tag] = val
+			return nil
+		}
+
 	}
-	module.globals[sym] = val
+	return Error("*** Warning: set on undefined global ", sym)
+}
+
+func (module *lmodule) Use(sym LSymbol) error {
+	name := sym.String()
+	thunk, err := LoadModule(name, module.primitives)
+	if err != nil {
+		return err
+	}
+	moduleToUse := thunk.Module()
+	_, err = Exec(thunk)
+	exports := moduleToUse.Exports()
+	for _, sym := range exports {
+		val := moduleToUse.Global(sym)
+		module.DefGlobal(sym, val)
+	}
 	return nil
 }
 
@@ -146,7 +170,13 @@ func RunModule(name string, primitives map[string]Primitive) (LObject, error) {
 }
 
 func FindModule(moduleName string) (string, error) {
-	path := [...]string{".", "src/main/ell"} //fix
+	var path []string
+	spath := os.Getenv("ELL_PATH")
+	if spath != "" {
+		path = strings.Split(spath, ":")
+	} else {
+		path = []string{".", "tests/"}
+	}
 	name := moduleName
 	if !strings.HasSuffix(name, ".ell") {
 		name = name + ".ell"
