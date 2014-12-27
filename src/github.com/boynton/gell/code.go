@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	BAD_OPCODE       = iota
 	LITERAL_OPCODE   = iota
 	LOCAL_OPCODE     = iota
 	JUMPFALSE_OPCODE = iota
