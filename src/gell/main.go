@@ -40,9 +40,11 @@ func main() {
 			code, err := LoadModule(filename, prims)
 			if err != nil {
 				Println("*** ", err)
+				os.Exit(1)
+			} else {
+				Println(code.Decompile())
+				os.Exit(0)
 			}
-			Println(code.Decompile())
-			os.Exit(0)
 		}
 		val, err := RunModule(filename, prims)
 		if err != nil {
