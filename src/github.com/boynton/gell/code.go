@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -36,17 +37,19 @@ const (
 	DEFGLOBAL_OPCODE = 11
 	SETLOCAL_OPCODE  = 12
 
-	NULLP_OPCODE = 13
-	CAR_OPCODE   = 14
-	CDR_OPCODE   = 15
-	ADD_OPCODE   = 16
-	MUL_OPCODE   = 17
+	NULL_OPCODE = 13
+	CAR_OPCODE  = 14
+	CDR_OPCODE  = 15
+	ADD_OPCODE  = 16
+	MUL_OPCODE  = 17
 )
 
 type LCode interface {
 	Type() LSymbol
 	String() string
-	LoadOps(ops LObject) LError
+	Module() LModule
+	LoadOps(ops LObject) error
+	Decompile() string
 	EmitLiteral(val LObject)
 	EmitGlobal(sym LObject)
 	EmitCall(argc int)
@@ -62,22 +65,63 @@ type LCode interface {
 	SetJumpLocation(loc int)
 	EmitCar()
 	EmitCdr()
-	EmitNullP()
+	EmitNull()
 	EmitAdd()
 	EmitMul()
 }
 
 type lcode struct {
-	module *tModule
-	ops    []int
-	argc   int
-	rest   LObject
+	module       *lmodule
+	ops          []int
+	argc         int
+	rest         LObject
+	symClosure   LObject
+	symFunction  LObject
+	symLiteral   LObject
+	symLocal     LObject
+	symSetLocal  LObject
+	symGlobal    LObject
+	symJump      LObject
+	symJumpFalse LObject
+	symCall      LObject
+	symTailCall  LObject
+	symReturn    LObject
+	symPop       LObject
+	symDefGlobal LObject
+	symCar       LObject
+	symCdr       LObject
+	symNull      LObject
+	symAdd       LObject
+	symMul       LObject
 }
 
 func NewCode(module LModule, argc int, restArgs LObject) LCode {
 	ops := make([]int, 0)
-	mod := module.(*tModule)
-	code := lcode{mod, ops, argc, restArgs}
+	mod := module.(*lmodule)
+	code := lcode{
+		mod,
+		ops,
+		argc,
+		restArgs,
+		Intern("closure"),
+		Intern("function"),
+		Intern("literal"),
+		Intern("local"),
+		Intern("setlocal"),
+		Intern("global"),
+		Intern("jump"),
+		Intern("jumpfalse"),
+		Intern("call"),
+		Intern("tailcall"),
+		Intern("return"),
+		Intern("pop"),
+		Intern("defglobal"),
+		Intern("car"),
+		Intern("cdr"),
+		Intern("null"),
+		Intern("add"),
+		Intern("mul"),
+	}
 	return &code
 }
 
@@ -85,15 +129,18 @@ func (lcode) Type() LSymbol {
 	return Intern("code")
 }
 
+func (code lcode) Decompile() string {
+	var buf bytes.Buffer
+	code.decompile(&buf, "")
+	s := buf.String()
+	return strings.Replace(s, "function 0", "lap", 1)
+}
+
 func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 	offset := 0
 	max := len(code.ops)
 	buf.WriteString("(function ")
 	buf.WriteString(strconv.Itoa(code.argc))
-	if true {
-		buf.WriteString(fmt.Sprintf(" %v)", code.ops)) //HACK
-		return
-	}
 	for offset < max {
 		switch code.ops[offset] {
 		case LITERAL_OPCODE:
@@ -152,8 +199,8 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 		case CDR_OPCODE:
 			buf.WriteString(" (cdr)")
 			offset += 1
-		case NULLP_OPCODE:
-			buf.WriteString(" (null?)")
+		case NULL_OPCODE:
+			buf.WriteString(" (null)")
 			offset += 1
 		case ADD_OPCODE:
 			buf.WriteString(" (add)")
@@ -162,7 +209,7 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 			buf.WriteString(" (mul)")
 			offset += 1
 		default:
-			buf.WriteString("FIX ME: " + strconv.Itoa(code.ops[offset]))
+			panic(fmt.Sprintf("Bad instruction: %d", code.ops[offset]))
 			break
 		}
 	}
@@ -170,15 +217,101 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 }
 
 func (code lcode) String() string {
-	var buf bytes.Buffer
-	//buf.WriteString(fmt.Sprintf("<code ops:%v constants:%v>", code.ops, code.module.constants)) //HACK
-	//buf.WriteString(fmt.Sprintf("<code ops:%v>", code.ops)) //HACK
-	code.decompile(&buf, "")
-	return buf.String()
+	return fmt.Sprintf("(function %d %v)", code.argc, code.ops)
 }
 
-func (code *lcode) LoadOps(lst LObject) LError {
-	return Error("LoadOps NYI")
+func (code lcode) Module() LModule {
+	return code.module
+}
+
+func (code *lcode) LoadOps(lst LObject) error {
+	for lst != NIL {
+		instr := Car(lst)
+		op := Car(instr)
+		switch op {
+		case code.symClosure:
+			lstFunc := Cadr(instr)
+			if Car(lstFunc) != code.symFunction {
+				return Error("Bad argument for a closure: ", lstFunc)
+			}
+			lstFunc = Cdr(lstFunc)
+			ac, err := IntValue(Car(lstFunc))
+			if err != nil {
+				return err
+			}
+			fun := NewCode(code.module, ac, nil)
+			fun.LoadOps(Cdr(lstFunc))
+			code.EmitClosure(fun)
+		case code.symLiteral:
+			code.EmitLiteral(Cadr(instr))
+		case code.symLocal:
+			i, err := IntValue(Cadr(instr))
+			if err != nil {
+				return err
+			}
+			j, err := IntValue(Caddr(instr))
+			if err != nil {
+				return err
+			}
+			code.EmitLocal(i, j)
+		case code.symSetLocal:
+			i, err := IntValue(Cadr(instr))
+			if err != nil {
+				return err
+			}
+			j, err := IntValue(Caddr(instr))
+			if err != nil {
+				return err
+			}
+			code.EmitSetLocal(i, j)
+		case code.symGlobal:
+			code.EmitGlobal(Cadr(instr))
+		case code.symJump:
+			loc, err := IntValue(Cadr(instr))
+			if err != nil {
+				return err
+			}
+			code.EmitJump(loc)
+		case code.symJumpFalse:
+			loc, err := IntValue(Cadr(instr))
+			if err != nil {
+				return err
+			}
+			code.EmitJumpFalse(loc)
+		case code.symCall:
+			argc, err := IntValue(Cadr(instr))
+			if err != nil {
+				return err
+			}
+			code.EmitCall(argc)
+		case code.symTailCall:
+			argc, err := IntValue(Cadr(instr))
+			if err != nil {
+				return err
+			}
+			code.EmitTailCall(argc)
+		case code.symReturn:
+			code.EmitReturn()
+		case code.symPop:
+			code.EmitPop()
+		case code.symDefGlobal:
+			code.EmitDefGlobal(Cadr(instr))
+		case code.symCar:
+			code.EmitCar()
+		case code.symCdr:
+			code.EmitCdr()
+		case code.symNull:
+			code.EmitNull()
+		case code.symAdd:
+			code.EmitAdd()
+		case code.symMul:
+			code.EmitMul()
+		default:
+			panic(fmt.Sprintf("Bad instruction: %v", op))
+		}
+		lst = Cdr(lst)
+	}
+	return nil
 }
 
 func (code *lcode) EmitLiteral(val LObject) {
@@ -243,8 +376,8 @@ func (code *lcode) EmitCar() {
 func (code *lcode) EmitCdr() {
 	code.ops = append(code.ops, CDR_OPCODE)
 }
-func (code *lcode) EmitNullP() {
-	code.ops = append(code.ops, NULLP_OPCODE)
+func (code *lcode) EmitNull() {
+	code.ops = append(code.ops, NULL_OPCODE)
 }
 func (code *lcode) EmitAdd() {
 	code.ops = append(code.ops, ADD_OPCODE)

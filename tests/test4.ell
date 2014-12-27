@@ -1,0 +1,4 @@
+(use 'test4a)
+(define cat (lambda (n) (if (<= n 5) (p "small") (p "large"))))
+(cat 4)
+

@@ -57,7 +57,7 @@ func calculateLocation(sym LObject, env LObject) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResult bool) LError {
+func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResult bool) error {
 	if IsSymbol(expr) {
 		if i, j, ok := calculateLocation(expr, env); ok {
 			code.EmitLocal(i, j)
@@ -167,7 +167,7 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 	}
 }
 
-func compileLambda(code LCode, env LObject, args LObject, body LObject, isTail bool, ignoreResult bool) LError {
+func compileLambda(code LCode, env LObject, args LObject, body LObject, isTail bool, ignoreResult bool) error {
 	argc := 0
 	var rest LObject = NIL
 	tmp := args
@@ -194,7 +194,7 @@ func compileLambda(code LCode, env LObject, args LObject, body LObject, isTail b
 	return err
 }
 
-func compileSequence(code LCode, env LObject, exprs LObject, isTail bool, ignoreResult bool) LError {
+func compileSequence(code LCode, env LObject, exprs LObject, isTail bool, ignoreResult bool) error {
 	if exprs != NIL {
 		for Cdr(exprs) != NIL {
 			err := compileExpr(code, env, Car(exprs), false, true)
@@ -209,7 +209,7 @@ func compileSequence(code LCode, env LObject, exprs LObject, isTail bool, ignore
 	}
 }
 
-func compileFuncall(code LCode, env LObject, fn LObject, args LObject, isTail bool, ignoreResult bool) LError {
+func compileFuncall(code LCode, env LObject, fn LObject, args LObject, isTail bool, ignoreResult bool) error {
 	argc := Length(args)
 	if argc < 0 {
 		return Error("bad funcall:", Cons(fn, args))
@@ -240,7 +240,7 @@ func compileFuncall(code LCode, env LObject, fn LObject, args LObject, isTail bo
 	return nil
 }
 
-func compileArgs(code LCode, env LObject, args LObject) LError {
+func compileArgs(code LCode, env LObject, args LObject) error {
 	if args != NIL {
 		err := compileArgs(code, env, Cdr(args))
 		if err != nil {
@@ -251,7 +251,7 @@ func compileArgs(code LCode, env LObject, args LObject) LError {
 	return nil
 }
 
-func compilePrimopCall(code LCode, fn LObject, argc int, isTail bool, ignoreResult bool) (bool, LError) {
+func compilePrimopCall(code LCode, fn LObject, argc int, isTail bool, ignoreResult bool) (bool, error) {
 	b := false
 	if Intern("car") == fn && argc == 1 {
 		code.EmitCar()
@@ -260,7 +260,7 @@ func compilePrimopCall(code LCode, fn LObject, argc int, isTail bool, ignoreResu
 		code.EmitCdr()
 		b = true
 	} else if Intern("null?") == fn && argc == 1 {
-		code.EmitNullP()
+		code.EmitNull()
 		b = true
 	} else if Intern("+") == fn && argc == 2 {
 		code.EmitAdd()
@@ -279,7 +279,7 @@ func compilePrimopCall(code LCode, fn LObject, argc int, isTail bool, ignoreResu
 	return b, nil
 }
 
-func compileIfElse(code LCode, env LObject, predicate LObject, consequent LObject, antecedentOptional LObject, isTail bool, ignoreResult bool) LError {
+func compileIfElse(code LCode, env LObject, predicate LObject, consequent LObject, antecedentOptional LObject, isTail bool, ignoreResult bool) error {
 	var antecedent LObject = NIL
 	if antecedentOptional != NIL {
 		antecedent = Car(antecedentOptional)

@@ -40,27 +40,74 @@ func Println(args ...interface{}) {
 const DefaultStackSize = 1000
 
 func Exec(thunk LCode) (LObject, error) {
+	if verbose {
+		Println("; begin execution")
+	}
 	code := thunk.(*lcode)
-	vm := LVM{DefaultStackSize, nil}
-	return vm.exec(code)
+	vm := NewVM(DefaultStackSize)
+	result, err := vm.exec(code)
+	if err == nil {
+		exports := vm.Exported()
+		module := code.module
+		module.exports = exports[:]
+	}
+	if verbose {
+		//Println("; end execution")
+		if err == nil && result != nil {
+			Println("; => ", result)
+		}
+	}
+	return result, err
 }
 
-type LVM struct {
+type LVM interface {
+	exec(code *lcode) (LObject, error)
+	Exported() []LSymbol
+}
+
+type lvm struct {
 	stackSize int
 	defs      []LSymbol
 }
 
-type tFrame struct {
-	previous  *tFrame
+func NewVM(stackSize int) LVM {
+	defs := make([]LSymbol, 0)
+	vm := lvm{stackSize, defs}
+	return &vm
+}
+
+//pity: the module is rarely used, adds noticeable overhead
+//the only current use for it is the "use" primitive, which must load and run more code.
+//Perhaps that can be special cased as an op, so the other primitives can run faster. But,
+//it is language-dependent (ell vs scheme)
+type Primitive func(module LModule, argv []LObject, argc int) (LObject, error)
+
+type lprimitive struct {
+	name string
+	fun  Primitive
+}
+
+var symPrimitive = newSymbol("primitive")
+
+func (prim *lprimitive) Type() LSymbol {
+	return symPrimitive
+}
+
+func (prim *lprimitive) String() string {
+	return "<primitive " + prim.name + ">"
+}
+
+type lframe struct {
+	previous  *lframe
 	pc        int
 	ops       []int
-	locals    *tFrame
+	locals    *lframe
 	elements  []LObject
-	module    *tModule
+	module    *lmodule
 	constants []LObject
 }
 
-func (frame tFrame) String() string {
+func (frame lframe) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("<frame")
 	tmpEnv := &frame
@@ -72,19 +119,20 @@ func (frame tFrame) String() string {
 	return buf.String()
 }
 
-type tClosure struct {
+type lclosure struct {
 	code  *lcode
-	frame *tFrame
+	frame *lframe
 }
 
-func (tClosure) Type() LSymbol {
-	return Intern("closure") //optimize!
+func (lclosure) Type() LSymbol {
+	return Intern("closure")
 }
-func (closure tClosure) String() string {
+
+func (closure lclosure) String() string {
 	return "<closure: " + closure.code.String() + ">"
 }
 
-func showEnv(f *tFrame) string {
+func showEnv(f *lframe) string {
 	tmp := f
 	s := ""
 	for {
@@ -96,6 +144,7 @@ func showEnv(f *tFrame) string {
 	}
 	return s
 }
+
 func showStack(stack []LObject, sp int) string {
 	end := len(stack)
 	s := "["
@@ -106,10 +155,14 @@ func showStack(stack []LObject, sp int) string {
 	return s + " ]"
 }
 
-func (vm LVM) exec(code *lcode) (LObject, LError) {
+func (vm *lvm) Exported() []LSymbol {
+	return vm.defs
+}
+
+func (vm *lvm) exec(code *lcode) (LObject, error) {
 	stack := make([]LObject, vm.stackSize)
 	sp := vm.stackSize
-	env := new(tFrame)
+	env := new(lframe)
 	module := code.module
 	ops := code.ops
 	pc := 0
@@ -124,7 +177,8 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 			pc += 2
 		case GLOBAL_OPCODE:
 			sym := module.constants[ops[pc+1]]
-			val := (sym.(*lsymbol)).value
+			//val := (sym.(*lsymbol)).value
+			val := module.Global(sym)
 			if val == nil {
 				return nil, Error("Undefined symbol:", sym)
 			}
@@ -132,7 +186,9 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 			stack[sp] = val
 			pc += 2
 		case DEFGLOBAL_OPCODE:
-			sym := module.globalDefine(ops[pc+1], stack[sp])
+			sym := module.constants[ops[pc+1]]
+			//(sym.(*lsymbol)).value = stack[sp]
+			module.DefGlobal(sym, stack[sp])
 			if vm.defs != nil {
 				vm.defs = append(vm.defs, sym)
 			}
@@ -165,9 +221,9 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 			argc := ops[pc+1]
 			savedPc := pc + 2
 			switch tfun := fun.(type) {
-			case tPrimitive:
+			case *lprimitive:
 				//context for error reporting: tfun.name
-				val, err := tfun.fun(stack[sp:], argc)
+				val, err := tfun.fun(module, stack[sp:], argc)
 				if err != nil {
 					//to do: fix to throw an Ell continuation-based error
 					return nil, err
@@ -175,8 +231,8 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 				sp = sp + argc - 1
 				stack[sp] = val
 				pc = savedPc
-			case tClosure:
-				f := new(tFrame)
+			case *lclosure:
+				f := new(lframe)
 				f.previous = env
 				f.pc = savedPc
 				f.ops = ops
@@ -206,9 +262,9 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 			sp++
 			argc := ops[pc+1]
 			switch tfun := fun.(type) {
-			case tPrimitive:
+			case *lprimitive:
 				//context for error reporting: tfun.name
-				val, err := tfun.fun(stack[sp:], argc)
+				val, err := tfun.fun(module, stack[sp:], argc)
 				if err != nil {
 					return nil, err
 				}
@@ -218,8 +274,8 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 				ops = env.ops
 				module = env.module
 				env = env.previous
-			case tClosure:
-				newEnv := new(tFrame)
+			case *lclosure:
+				newEnv := new(lframe)
 				newEnv.previous = env.previous
 				newEnv.pc = env.pc
 				newEnv.ops = env.ops
@@ -265,7 +321,7 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 			pc++
 		case CLOSURE_OPCODE:
 			sp--
-			stack[sp] = tClosure{module.constants[ops[pc+1]].(*lcode), env}
+			stack[sp] = &lclosure{module.constants[ops[pc+1]].(*lcode), env}
 			pc = pc + 2
 		case CAR_OPCODE:
 			stack[sp] = Car(stack[sp])
@@ -273,7 +329,7 @@ func (vm LVM) exec(code *lcode) (LObject, LError) {
 		case CDR_OPCODE:
 			stack[sp] = Cdr(stack[sp])
 			pc++
-		case NULLP_OPCODE:
+		case NULL_OPCODE:
 			if stack[sp] == NIL {
 				stack[sp] = TRUE
 			} else {

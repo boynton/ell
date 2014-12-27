@@ -22,34 +22,86 @@ import (
 	"strings"
 )
 
-
 type LModule interface {
 	Type() LSymbol
 	String() string
-	RegisterPrimitive(name string, fun Primitive)
-	Global(sym LSymbol) (LObject, bool)
+	Global(sym LObject) LObject
+	DefGlobal(sym LObject, val LObject)
+	SetGlobal(sym LObject, val LObject) error
+	Exports() []LSymbol
 }
 
-type tModule struct {
+type lmodule struct {
 	Name         string
-	globals      map[LSymbol]LObject
 	constantsMap map[LObject]int
 	constants    []LObject
-	exports      []LObject
+	globals      map[LSymbol]LObject
+	exports      []LSymbol
 }
 
-func (tModule) Type() LSymbol {
+func newModule(name string, primitives map[string]Primitive) (LModule, error) {
+	constMap := make(map[LObject]int, 0)
+	constants := make([]LObject, 0)
+	globals := make(map[LSymbol]LObject, 0)
+	exports := make([]LSymbol, 0)
+	mod := lmodule{name, constMap, constants, globals, exports}
+	if primitives != nil {
+		for name, fun := range primitives {
+			mod.RegisterPrimitive(name, fun)
+		}
+	}
+	return &mod, nil
+}
+
+func (module *lmodule) RegisterPrimitive(name string, fun Primitive) {
+	//need the current module!!!
+	sym := Intern(name)
+	if module.Global(sym) != nil {
+		Println("*** Warning: redefining ", name)
+		//check the argument signature. Define "primitiveN" differently than "primitive0" .. "primitive3"
+	}
+	prim := lprimitive{name, fun}
+	module.DefGlobal(sym, &prim)
+}
+
+func (module *lmodule) Type() LSymbol {
 	return Intern("module")
 }
 
-func (module tModule) String() string {
+func (module *lmodule) String() string {
 	return fmt.Sprintf("<module %v, constants:%v>", module.Name, module.constants)
+}
+
+func (module *lmodule) Global(sym LObject) LObject {
+	val, ok := module.globals[sym]
+	if !ok {
+		return nil
+	}
+	return val
+	//	return (sym.(*lsymbol)).value
+}
+
+func (module *lmodule) DefGlobal(sym LObject, val LObject) {
+	module.globals[sym] = val
+}
+
+func (module *lmodule) SetGlobal(sym LObject, val LObject) error {
+	val, ok := module.globals[sym]
+	if !ok {
+		return Error("*** Warning: set on undefined global ", sym)
+	}
+	module.globals[sym] = val
+	return nil
+}
+
+func (module *lmodule) Exports() []LSymbol {
+	return module.exports
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare...
 //idea: I'd like all Ell objects to have a hashcode. Use that.
-func (module *tModule) putConstant(val LObject) int {
+func (module *lmodule) putConstant(val LObject) int {
 	idx, present := module.constantsMap[val]
 	if !present {
 		idx = len(module.constants)
@@ -59,103 +111,42 @@ func (module *tModule) putConstant(val LObject) int {
 	return idx
 }
 
-type Primitive func(argv []LObject, argc int) (LObject, LError)
+var verbose bool
 
-type tPrimitive struct {
-	name string
-	fun  Primitive
+func SetVerbose(b bool) {
+	verbose = b
 }
 
-var symPrimitive = newSymbol("primitive")
-
-func (prim tPrimitive) Type() LSymbol {
-	return symPrimitive
-}
-
-func (prim tPrimitive) String() string {
-	return "<primitive " + prim.name + ">"
-}
-
-func (module tModule) globalRef(idx int) (LObject, bool) {
-	sym := module.constants[idx]
-	v := (sym.(*lsymbol)).value
-	if v == nil {
-		return nil, false
-	}
-	return v, true
-}
-
-func (module tModule) globalDefine(idx int, obj LObject) LObject {
-	sym := module.constants[idx]
-	(sym.(*lsymbol)).value = obj
-	return sym
-}
-
-func (module tModule) Global(sym LSymbol) (LObject, bool) {
-	v := (sym.(*lsymbol)).value
-	b := v != nil
-	return v, b
-}
-
-func (module tModule) SetGlobal(sym LSymbol, val LObject) {
-	(sym.(*lsymbol)).value = val
-}
-
-func (module tModule) RegisterPrimitive(name string, fun Primitive) {
-	sym := Intern(name)
-	_, ok := module.Global(sym)
-	if ok {
-		Println("*** Warning: redefining ", name)
-		//check the argument signature. Define "primitiveN" differently than "primitive0" .. "primitive3"
-	}
-	po := tPrimitive{name, fun}
-	module.SetGlobal(sym, po)
-}
-
-func MakeModule(name string, primitives Primitives) (LModule, error) {
-	globals := map[LSymbol]LObject{}
-	constMap := map[LObject]int{}
-	constants := make([]LObject, 0)
-	mod := tModule{name, globals, constMap, constants, nil}
-	if primitives != nil {
-		err := primitives.Init(mod)
-		if err != nil {
-			return mod, nil
-		}
-	}
-	return &mod, nil
-}
-
-
-
-type Primitives interface {
-	Init(module LModule) error
-}
-
-func RunModule(name string, primitives Primitives) (LObject, error) {
-	thunk, err := LoadModule(name, primitives)
-	if err != nil {
-		return NIL, err
-	}
+func (mod *lmodule) xExec(thunk LCode) (LObject, error) {
 	code := thunk.(*lcode)
-	Println("; begin execution")
-	vm := LVM{DefaultStackSize, make([]LSymbol, 0)}
+	vm := NewVM(DefaultStackSize)
 	result, err := vm.exec(code)
 	if err != nil {
 		return NIL, err
 	}
-	if len(vm.defs) > 0 {
-		Println("export these: ", vm.defs)
-	}
-	if result != nil {
-		Println("; end execution")
-		Println("; => ", result)
+	exported := vm.Exported()
+	if len(exported) > 0 {
+		if verbose {
+			Println("export these: ", exported)
+		}
+		//		for _, sym := range exported {
+		//
+		//		}
+		//set up the module's exports
 	}
 	return result, nil
 }
 
+func RunModule(name string, primitives map[string]Primitive) (LObject, error) {
+	thunk, err := LoadModule(name, primitives)
+	if err != nil {
+		return NIL, err
+	}
+	return Exec(thunk)
+}
+
 func FindModule(moduleName string) (string, error) {
-	path := [...]string{"src/main/ell"} //fix
+	path := [...]string{".", "src/main/ell"} //fix
 	name := moduleName
 	if !strings.HasSuffix(name, ".ell") {
 		name = name + ".ell"
@@ -169,7 +160,7 @@ func FindModule(moduleName string) (string, error) {
 	return "", Error("not found")
 }
 
-func LoadModule(name string, primitives Primitives) (LCode, error) {
+func LoadModule(name string, primitives map[string]Primitive) (LCode, error) {
 	file := name
 	i := strings.Index(name, ".")
 	if i < 0 {
@@ -188,9 +179,11 @@ func LoadModule(name string, primitives Primitives) (LCode, error) {
 	return LoadFileModule(name, file, primitives)
 }
 
-func LoadFileModule(moduleName string, file string, primitives Primitives) (LCode, error) {
-	Println("; loadModule: " + moduleName + " from " + file)
-	module, err := MakeModule(moduleName, primitives)
+func LoadFileModule(moduleName string, file string, primitives map[string]Primitive) (LCode, error) {
+	if verbose {
+		Println("; loadModule: " + moduleName + " from " + file)
+	}
+	module, err := newModule(moduleName, primitives)
 	if err != nil {
 		return nil, err
 	}
@@ -213,12 +206,19 @@ func LoadFileModule(moduleName string, file string, primitives Primitives) (LCod
 		}
 	}
 	port.Close()
-	Println("; read: ", Write(source))
+	if verbose {
+		Println("; read: ", Write(source))
+	}
+	if Length(source) == 2 {
+		source = Cadr(source)
+	}
 	code, err := Compile(module, source)
 	if err != nil {
 		return nil, err
 	}
-	Println("; compiled to: ", Write(code))
-	Println("; module: ", module)
+	if verbose {
+		Println("; compiled to: ", code)
+		Println("; module: ", module)
+	}
 	return code, nil
 }

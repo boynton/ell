@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"reflect" //for debug only
 	"strconv"
 )
 
@@ -132,6 +131,15 @@ func (dr *DataReader) ReadData() (LObject, error) {
 				c, e = dr.getChar()
 				continue
 			}
+		} else if c == '\'' {
+			o, err := dr.ReadData()
+			if err != nil {
+				return nil, err
+			}
+			if o == EOI || o == NIL {
+				return o, nil
+			}
+			return List(Intern("quote"), o), nil
 		} else if c == '(' {
 			return dr.decodeList()
 		} else if c == '"' {
@@ -305,17 +313,23 @@ func Write(obj LObject) string {
 		return writeList(o)
 	case *lsymbol:
 		return o.String()
+	//map?
+	//vector?
 	case lstring:
 		s := encodeString(string(o))
 		return s
-	case linteger:
-		return o.String()
-	case lreal:
-		return o.String()
+		/*
+			case linteger:
+				return o.String()
+			case lreal:
+				return o.String()
+			case lboolean:
+				return o.String()
+		*/
 	case *lcode:
+		Println("ERROR: not external representation of code:")
 		return o.String()
 	default:
-		Println("FIX Write for this type:", reflect.TypeOf(obj))
 		return o.String()
 	}
 }

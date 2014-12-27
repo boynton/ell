@@ -113,12 +113,11 @@ type LSymbol interface {
 }
 
 type lsymbol struct {
-	Name  string
-	value LObject
+	Name string
 }
 
 func newSymbol(name string) *lsymbol {
-	sym := lsymbol{name, nil}
+	sym := lsymbol{name}
 	return &sym
 }
 
@@ -137,6 +136,16 @@ func (sym *lsymbol) String() string {
 	return sym.Name
 }
 
+/*
+func Global(sym LSymbol) LObject {
+	return (sym.(*lsymbol)).value
+}
+
+func SetGlobal(sym LSymbol, val LObject) {
+	(sym.(*lsymbol)).value = val
+}
+*/
+
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]*lsymbol{
 	"nil":     symNil,
@@ -149,7 +158,14 @@ var symtab = map[string]*lsymbol{
 	"vector":  symVector,
 	"map":     symMap,
 	"eoi":     symEoi,
-	"error":   symError,
+}
+
+func Symbols() []LSymbol {
+	syms := make([]LSymbol, 0, len(symtab))
+	for _, sym := range symtab {
+		syms = append(syms, sym)
+	}
+	return syms
 }
 
 func Intern(name string) LObject {
@@ -291,7 +307,7 @@ func NewReal(n float64) LNumber {
 	return v
 }
 
-func RealValue(obj LObject) (float64, LError) {
+func RealValue(obj LObject) (float64, error) {
 	switch n := obj.(type) {
 	case linteger:
 		return float64(n), nil
@@ -301,18 +317,29 @@ func RealValue(obj LObject) (float64, LError) {
 	return 0, Error("Not a real number:", obj)
 }
 
-func IntegerValue(obj LObject) (int64, LError) {
+func IntegerValue(obj LObject) (int64, error) {
 	switch n := obj.(type) {
 	case linteger:
 		return int64(n), nil
 	case lreal:
 		return int64(n), nil
 	default:
-		return 0, Error("Not a integer:", obj)
+		return 0, Error("Not an integer:", obj)
 	}
 }
 
-func GreaterOrEqual(n1 LObject, n2 LObject) (LObject, LError) {
+func IntValue(obj LObject) (int, error) {
+	switch n := obj.(type) {
+	case linteger:
+		return int(n), nil
+	case lreal:
+		return int(n), nil
+	default:
+		return 0, Error("Not an integer:", obj)
+	}
+}
+
+func GreaterOrEqual(n1 LObject, n2 LObject) (LObject, error) {
 	f1, err := RealValue(n1)
 	if err == nil {
 		f2, err := RealValue(n2)
@@ -328,7 +355,7 @@ func GreaterOrEqual(n1 LObject, n2 LObject) (LObject, LError) {
 	return nil, err
 }
 
-func LessOrEqual(n1 LObject, n2 LObject) (LObject, LError) {
+func LessOrEqual(n1 LObject, n2 LObject) (LObject, error) {
 	f1, err := RealValue(n1)
 	if err == nil {
 		f2, err := RealValue(n2)
@@ -344,7 +371,7 @@ func LessOrEqual(n1 LObject, n2 LObject) (LObject, LError) {
 	return nil, err
 }
 
-func Greater(n1 LObject, n2 LObject) (LObject, LError) {
+func Greater(n1 LObject, n2 LObject) (LObject, error) {
 	f1, err := RealValue(n1)
 	if err == nil {
 		f2, err := RealValue(n2)
@@ -360,7 +387,7 @@ func Greater(n1 LObject, n2 LObject) (LObject, LError) {
 	return nil, err
 }
 
-func Less(n1 LObject, n2 LObject) (LObject, LError) {
+func Less(n1 LObject, n2 LObject) (LObject, error) {
 	f1, err := RealValue(n1)
 	if err == nil {
 		f2, err := RealValue(n2)
@@ -419,7 +446,7 @@ func (f lreal) RealValue() float64 {
 	return float64(f)
 }
 
-func Add(num1 LObject, num2 LObject) (LObject, LError) {
+func Add(num1 LObject, num2 LObject) (LObject, error) {
 	n1, err := RealValue(num1)
 	if err != nil {
 		return nil, err
@@ -431,7 +458,7 @@ func Add(num1 LObject, num2 LObject) (LObject, LError) {
 	return NewReal(n1 + n2), nil
 }
 
-func Sum(nums []LObject, argc int) (LObject, LError) {
+func Sum(nums []LObject, argc int) (LObject, error) {
 	var isum int64
 	var fsum float64
 	integral := true
@@ -457,7 +484,7 @@ func Sum(nums []LObject, argc int) (LObject, LError) {
 	}
 }
 
-func Mul(num1 LObject, num2 LObject) (LObject, LError) {
+func Mul(num1 LObject, num2 LObject) (LObject, error) {
 	n1, err := RealValue(num1)
 	if err != nil {
 		return nil, err
@@ -469,7 +496,7 @@ func Mul(num1 LObject, num2 LObject) (LObject, LError) {
 	return NewReal(n1 * n2), nil
 }
 
-func Product(argv []LObject, argc int) (LObject, LError) {
+func Product(argv []LObject, argc int) (LObject, error) {
 	var iprod int64
 	var fprod float64
 	integral := true
@@ -740,7 +767,7 @@ func theVector(obj LObject) (*lvector, bool) {
 	return vec, ok
 }
 
-func VectorSet(vec LObject, idx int, obj LObject) LError {
+func VectorSet(vec LObject, idx int, obj LObject) error {
 	if v, ok := theVector(vec); ok {
 		v.elements[idx] = obj
 		return nil
@@ -748,7 +775,7 @@ func VectorSet(vec LObject, idx int, obj LObject) LError {
 	return Error("Not a vector:", vec)
 }
 
-func VectorRef(vec LObject, idx int) (LObject, LError) {
+func VectorRef(vec LObject, idx int) (LObject, error) {
 	if v, ok := theVector(vec); ok {
 		return v.elements[idx], nil //maybe should range check the index
 	}
@@ -832,34 +859,24 @@ func (m tMap) Has(key LObject) bool {
 // ------------------- error
 //
 
-type LError interface {
-	Type() LSymbol
-	String() string
-	Error() string
-}
-
-type tError struct {
-	msg string
-}
-
-func Error(arg1 interface{}, args ...interface{}) LError {
+func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))
 	for _, o := range args {
 		buf.WriteString(fmt.Sprintf(" %v", o))
 	}
-	return tError{buf.String()}
+	err := lerror{buf.String()}
+	return &err
 }
 
-var symError = newSymbol("error")
+type lerror struct {
+	msg string
+}
 
-func (e tError) Error() string {
+func (e *lerror) Error() string {
 	return e.msg
 }
 
-func (e tError) Type() LSymbol {
-	return symError
-}
-func (e tError) String() string {
+func (e *lerror) String() string {
 	return fmt.Sprintf("<Error: %s>", e.msg)
 }

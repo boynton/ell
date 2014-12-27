@@ -1,0 +1,3 @@
+(define test2 (lambda (x y) (println x) (println y)))
+(test2 "hello" "there")
+
