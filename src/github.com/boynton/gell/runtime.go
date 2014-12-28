@@ -198,7 +198,6 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 	for {
 		if true {
 			if topmod.CheckInterrupt() {
-				Println("returning based on interrupt")
 				return nil, Error("Interrupt")
 			}
 		}

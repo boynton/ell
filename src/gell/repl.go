@@ -18,6 +18,8 @@ type EllHandler struct {
 
 func (ell *EllHandler) Eval(expr string) (interface{}, bool, error) {
 	//return result, needMore, error
+	for ell.env.CheckInterrupt() {
+	} //to clear out any that happened while sitting in getc
 	whole := strings.Trim(ell.buf+expr, " ")
 	opens := len(strings.Split(whole, "("))
 	closes := len(strings.Split(whole, ")"))
@@ -189,14 +191,21 @@ func (ell *EllHandler) Start() []string {
 		//Println("[warning: cannot read ", HistoryFileName(), "]")
 		return nil
 	}
-	return strings.Split(string(content), "\n")
+	s := strings.Split(string(content), "\n")
+	var s2 []string
+	for _, v := range s {
+		if v != "" {
+			s2 = append(s2, v)
+		}
+	}
+	return s2
 }
 
 func (ell *EllHandler) Stop(history []string) {
 	if len(history) > 100 {
-		history = history[:100]
+		history = history[len(history)-100:]
 	}
-	content := strings.Join(history, "\n")
+	content := strings.Join(history, "\n") + "\n"
 	err := ioutil.WriteFile(HistoryFileName(), []byte(content), 0644)
 	if err != nil {
 		Println("[warning: cannot write ", HistoryFileName(), "]")

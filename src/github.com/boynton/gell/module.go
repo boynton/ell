@@ -42,6 +42,7 @@ type LModule interface {
 
 	Eval(expr LObject) (LObject, error)
 
+	CheckInterrupt() bool
 	CompileFile(filename string) (LObject, error)
 	LoadFile(filename string) error
 	LoadModule(filename string) error
