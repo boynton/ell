@@ -5,12 +5,27 @@ import (
 	//	"github.com/davecheney/profile"
 	"flag"
 	"os"
-	//	"strings"
+	"os/signal"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		Println("REPL NYI. Please provide a filename")
+	pCompile := flag.Bool("c", false, "compile the file and output lap")
+	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
+	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
+	flag.Parse()
+	args := flag.Args()
+	if *pVerbose {
+		SetVerbose(true)
+	}
+	if *pTrace {
+		SetTrace(true)
+	}
+	if len(args) < 1 {
+		interrupts := make(chan os.Signal, 1)
+		signal.Notify(interrupts, os.Interrupt)
+		defer signal.Stop(interrupts)
+		environment := NewEnvironment("main", Ell, interrupts)
+		REPL(environment)
 	} else {
 		/*
 			if len(os.Args) > 2 {
@@ -22,14 +37,7 @@ func main() {
 				defer profile.Start(&cfg).Stop()
 			}
 		*/
-		pCompile := flag.Bool("c", false, "compile the file and output lap")
-		pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
-		flag.Parse()
-		args := flag.Args()
-		if *pVerbose {
-			SetVerbose(true)
-		}
-		environment := NewEnvironment("main", EllPrimitiveFunctions(), EllPrimitiveMacros())
+		environment := NewEnvironment("main", Ell, nil)
 		for _, filename := range args {
 			if *pCompile {
 				//just compile and print LAP code

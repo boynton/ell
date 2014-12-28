@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func FileReadable(path string) bool {
@@ -94,6 +95,13 @@ func OpenInputFile(path string) (Port, error) {
 	return &port, nil
 }
 
+func OpenInputString(input string) Port {
+	r := strings.NewReader(input)
+	dr := NewDataReader(r)
+	port := LInputPort{nil, dr}
+	return &port
+}
+
 func Decode(in io.Reader) (LObject, error) {
 	br := bufio.NewReader(in)
 	dr := DataReader{br}
@@ -121,7 +129,7 @@ func (dr *DataReader) ReadData() (LObject, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
-		if isWhitespace(c) {
+		if IsWhitespace(c) {
 			c, e = dr.in.ReadByte()
 			continue
 		} else if c == ';' {
@@ -223,7 +231,7 @@ func (dr *DataReader) decodeList() (LObject, error) {
 	c, e := dr.getChar()
 	items := []LObject{}
 	for e == nil {
-		if isWhitespace(c) {
+		if IsWhitespace(c) {
 			c, e = dr.getChar()
 			continue
 		}
@@ -259,10 +267,10 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 	}
 	c, e := dr.getChar()
 	for e == nil {
-		if isWhitespace(c) {
+		if IsWhitespace(c) {
 			break
 		}
-		if isDelimiter(c) || c == ';' {
+		if IsDelimiter(c) || c == ';' {
 			dr.ungetChar()
 			break
 		}
@@ -281,16 +289,16 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 	if err == nil {
 		return lreal(f), nil
 	}
-	if s == "true" || s == "#t" {
+	if s == "#t" {
 		return TRUE, nil
-	} else if s == "false" || s == "#f" {
+	} else if s == "#f" {
 		return FALSE, nil
 	}
 	sym := Intern(s)
-	return sym, e
+	return sym, nil
 }
 
-func isWhitespace(b byte) bool {
+func IsWhitespace(b byte) bool {
 	if b == ' ' || b == '\n' || b == '\t' || b == '\r' {
 		return true
 	} else {
@@ -298,8 +306,8 @@ func isWhitespace(b byte) bool {
 	}
 }
 
-func isDelimiter(b byte) bool {
-	if b == ')' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' {
+func IsDelimiter(b byte) bool {
+	if b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' {
 		return true
 	} else {
 		return false

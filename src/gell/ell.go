@@ -14,41 +14,40 @@ func typeError(expected string, num int) (LObject, error) {
 	return nil, Error("Argument", num, "is not of type", expected)
 }
 
-func EllPrimitiveFunctions() map[string]Primitive {
-	m := make(map[string]Primitive)
-	m["display"] = ell_display
-	m["newline"] = ell_newline
-	m["print"] = ell_print
-	m["println"] = ell_println
-	m["list"] = ell_list
-	m["+"] = ell_plus
-	m["-"] = ell_minus
-	m["*"] = ell_times
-	m["quotient"] = ell_quotient
-	m["remainder"] = ell_remainder
-	m["modulo"] = ell_remainder //fix!
-	m["make-vector"] = ell_make_vector
-	m["vector-set!"] = ell_vector_set_bang
-	m["vector-ref"] = ell_vector_ref
-	m["="] = ell_eq
-	m["<="] = ell_le
-	m[">="] = ell_ge
-	m[">"] = ell_gt
-	m["<"] = ell_lt
-	m["zero?"] = ell_zero_p
-	m["number->string"] = ell_number_to_string
-	m["string-length"] = ell_string_length
-	m["error"] = ell_fatal
-	m["length"] = ell_length
-	m["cadr"] = ell_cadr
-	m["cddr"] = ell_cddr
-	m["cons"] = ell_cons
-	return m
-}
-func EllPrimitiveMacros() map[string]Primitive {
-	m := make(map[string]Primitive)
-	m["define"] = ell_define
-	return m
+func Ell(module LModule) {
+	module.Define("nil", NIL)
+	module.Define("true", TRUE)
+	module.Define("false", FALSE)
+
+	module.DefineMacro("define", ell_define)
+
+	module.DefineFunction("display", ell_display)
+	module.DefineFunction("newline", ell_newline)
+	module.DefineFunction("print", ell_print)
+	module.DefineFunction("println", ell_println)
+	module.DefineFunction("list", ell_list)
+	module.DefineFunction("+", ell_plus)
+	module.DefineFunction("-", ell_minus)
+	module.DefineFunction("*", ell_times)
+	module.DefineFunction("quotient", ell_quotient)
+	module.DefineFunction("remainder", ell_remainder)
+	module.DefineFunction("modulo", ell_remainder) //fix!
+	module.DefineFunction("make-vector", ell_make_vector)
+	module.DefineFunction("vector-set!", ell_vector_set_bang)
+	module.DefineFunction("vector-ref", ell_vector_ref)
+	module.DefineFunction("=", ell_eq)
+	module.DefineFunction("<=", ell_le)
+	module.DefineFunction(">=", ell_ge)
+	module.DefineFunction(">", ell_gt)
+	module.DefineFunction("<", ell_lt)
+	module.DefineFunction("zero?", ell_zero_p)
+	module.DefineFunction("number->string", ell_number_to_string)
+	module.DefineFunction("string-length", ell_string_length)
+	module.DefineFunction("error", ell_fatal)
+	module.DefineFunction("length", ell_length)
+	module.DefineFunction("cadr", ell_cadr)
+	module.DefineFunction("cddr", ell_cddr)
+	module.DefineFunction("cons", ell_cons)
 }
 
 const terminalRed = "\033[0;31m"
