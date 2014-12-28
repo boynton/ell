@@ -268,13 +268,20 @@ func (module *lmodule) FindModule(moduleName string) (string, error) {
 		path = []string{".", "tests/"}
 	}
 	name := moduleName
+	lname := moduleName
 	if !strings.HasSuffix(name, ".ell") {
 		name = name + ".ell"
+		lname = moduleName + ".lap"
 	}
 	for _, dirname := range path {
 		filename := filepath.Join(dirname, name)
 		if FileReadable(filename) {
 			return filename, nil
+		} else {
+			filename = filepath.Join(dirname, lname)
+			if FileReadable(filename) {
+				return filename, nil
+			}
 		}
 	}
 	return "", Error("not found")
