@@ -164,7 +164,9 @@ func (ell *EllHandler) Complete(expr string) (string, []string) {
 	}
 	sort.Strings(matches)
 	gcp := greatestCommonPrefix(prefix, matches)
-	addendum = gcp[len(prefix):]
+	if len(gcp) > len(prefix) {
+		addendum = gcp[len(prefix):]
+	}
 	return addendum, matches
 }
 
