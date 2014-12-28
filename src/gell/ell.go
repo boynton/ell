@@ -14,7 +14,7 @@ func typeError(expected string, num int) (LObject, error) {
 	return nil, Error("Argument", num, "is not of type", expected)
 }
 
-func EllPrimitives() map[string]Primitive {
+func EllPrimitiveFunctions() map[string]Primitive {
 	m := make(map[string]Primitive)
 	m["display"] = ell_display
 	m["newline"] = ell_newline
@@ -38,6 +38,16 @@ func EllPrimitives() map[string]Primitive {
 	m["zero?"] = ell_zero_p
 	m["number->string"] = ell_number_to_string
 	m["string-length"] = ell_string_length
+	m["error"] = ell_fatal
+	m["length"] = ell_length
+	m["cadr"] = ell_cadr
+	m["cddr"] = ell_cddr
+	m["cons"] = ell_cons
+	return m
+}
+func EllPrimitiveMacros() map[string]Primitive {
+	m := make(map[string]Primitive)
+	m["define"] = ell_define
 	return m
 }
 
@@ -61,6 +71,14 @@ func ell_newline(argv []LObject, argc int) (LObject, error) {
 	}
 	fmt.Printf("\n")
 	return nil, nil
+}
+
+func ell_fatal(argv []LObject, argc int) (LObject, error) {
+	s := ""
+	for _, o := range argv {
+		s += fmt.Sprintf("%v", o)
+	}
+	return nil, Error(s)
 }
 
 func ell_print(argv []LObject, argc int) (LObject, error) {
@@ -296,26 +314,61 @@ func ell_string_length(argv []LObject, argc int) (LObject, error) {
 	return NewInteger(int64(i)), nil
 }
 
-/*
-func ell_use(argv []LObject, argc int) (LObject, error) {
+func ell_length(argv []LObject, argc int) (LObject, error) {
+	if argc == 1 {
+		return NewInteger(int64(Length(argv[0]))), nil
+	} else {
+		return argcError()
+	}
+}
+
+func ell_cadr(argv []LObject, argc int) (LObject, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if IsList(lst) {
+			return Cadr(lst), nil
+		}
+		return typeError("list", 1)
+	} else {
+		return argcError()
+	}
+}
+
+func ell_cddr(argv []LObject, argc int) (LObject, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if IsList(lst) {
+			return Cddr(lst), nil
+		}
+		return typeError("list", 1)
+	} else {
+		return argcError()
+	}
+}
+
+func ell_cons(argv []LObject, argc int) (LObject, error) {
+	if argc == 2 {
+		return Cons(argv[0], argv[1]), nil
+	} else {
+		return argcError()
+	}
+}
+
+func ell_define(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	if !IsSymbol(argv[0]) {
-		return typeError("symbol", 1)
+	expr := argv[0]
+	exprLen := Length(expr)
+	if exprLen < 3 {
+		return nil, Error("syntax error: ", expr)
 	}
-	name := argv[0].String()
-	thunk, err := LoadModule(name, EllPrimitives())
-	if err != nil {
-		return nil, err
+	sym := Cadr(expr)
+	if !IsList(sym) {
+		//let it pass through, let the compiler syntax check the primitive define form
+		return expr, nil
 	}
-	moduleToUse := thunk.Module()
-	_, err = Exec(thunk)
-	exports := moduleToUse.Exports()
-	for _, sym := range exports {
-		val := moduleToUse.Global(sym)
-		module.DefGlobal(sym, val)
-	}
-	return argv[0], nil
+	args := Cdr(sym)
+	sym = Car(sym)
+	return List(Car(expr), sym, Cons(Intern("lambda"), Cons(args, Cddr(expr)))), nil
 }
-*/

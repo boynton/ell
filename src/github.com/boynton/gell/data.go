@@ -318,7 +318,7 @@ func RealValue(obj LObject) (float64, error) {
 	case lreal:
 		return float64(n), nil
 	}
-	return 0, Error("Not a real number:", obj)
+	return 0, Error("Not a real number: ", obj)
 }
 
 func IntegerValue(obj LObject) (int64, error) {
@@ -328,7 +328,7 @@ func IntegerValue(obj LObject) (int64, error) {
 	case lreal:
 		return int64(n), nil
 	default:
-		return 0, Error("Not an integer:", obj)
+		return 0, Error("Not an integer: ", obj)
 	}
 }
 
@@ -339,7 +339,7 @@ func IntValue(obj LObject) (int, error) {
 	case lreal:
 		return int(n), nil
 	default:
-		return 0, Error("Not an integer:", obj)
+		return 0, Error("Not an integer: ", obj)
 	}
 }
 
@@ -478,7 +478,7 @@ func Sum(nums []LObject, argc int) (LObject, error) {
 			}
 			fsum += float64(n)
 		default:
-			return nil, Error("Not a number", num)
+			return nil, Error("Not a number: ", num)
 		}
 	}
 	if integral {
@@ -516,7 +516,7 @@ func Product(argv []LObject, argc int) (LObject, error) {
 			}
 			fprod *= float64(n)
 		default:
-			return nil, Error("Not a number", num)
+			return nil, Error("Not a number: ", num)
 		}
 	}
 	if integral {
@@ -670,7 +670,7 @@ func Reverse(lst LObject) (LObject, error) {
 			rev = Cons(v.car, rev)
 			lst = v.cdr
 		default:
-			return nil, Error("Not a proper list:", lst)
+			return nil, Error("Not a proper list: ", lst)
 		}
 	}
 	return rev, nil
@@ -776,14 +776,14 @@ func VectorSet(vec LObject, idx int, obj LObject) error {
 		v.elements[idx] = obj
 		return nil
 	}
-	return Error("Not a vector:", vec)
+	return Error("Not a vector: ", vec)
 }
 
 func VectorRef(vec LObject, idx int) (LObject, error) {
 	if v, ok := theVector(vec); ok {
 		return v.elements[idx], nil //maybe should range check the index
 	}
-	return nil, Error("Not a vector:", vec)
+	return nil, Error("Not a vector: ", vec)
 }
 
 //
@@ -867,7 +867,7 @@ func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))
 	for _, o := range args {
-		buf.WriteString(fmt.Sprintf(" %v", o))
+		buf.WriteString(fmt.Sprintf("%v", o))
 	}
 	err := lerror{buf.String()}
 	return &err

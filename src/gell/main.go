@@ -5,7 +5,7 @@ import (
 	//	"github.com/davecheney/profile"
 	"flag"
 	"os"
-	"strings"
+	//	"strings"
 )
 
 func main() {
@@ -26,32 +26,27 @@ func main() {
 		pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
 		flag.Parse()
 		args := flag.Args()
-		filename := args[0]
-		var prims map[string]Primitive
-		if strings.HasSuffix(filename, ".scm") {
-			prims = SchemePrimitives()
-		} else { //assume Ell
-			prims = EllPrimitives()
-		}
 		if *pVerbose {
 			SetVerbose(true)
 		}
-		if *pCompile {
-			code, err := LoadModule(filename, prims)
-			if err != nil {
-				Println("*** ", err)
-				os.Exit(1)
+		environment := NewEnvironment("main", EllPrimitiveFunctions(), EllPrimitiveMacros())
+		for _, filename := range args {
+			if *pCompile {
+				//just compile and print LAP code
+				lap, err := environment.CompileFile(filename)
+				if err != nil {
+					Println("*** ", err)
+					os.Exit(1)
+				}
+				Println(lap)
 			} else {
-				Println(code.Decompile())
-				os.Exit(0)
+				//this executes the file
+				err := environment.LoadModule(filename)
+				if err != nil {
+					Println("*** ", err)
+					os.Exit(1)
+				}
 			}
-		}
-		val, err := RunModule(filename, prims)
-		if err != nil {
-			Println("*** ", err)
-		} else if val != nil {
-			//nil is used ot mean no value. Different thatn NIL, which means an Ell nil value
-			//Println("returned ", val)
 		}
 	}
 }

@@ -39,13 +39,16 @@ func Println(args ...interface{}) {
 
 const DefaultStackSize = 1000
 
-func Exec(thunk LCode) (LObject, error) {
+func Exec(thunk LCode, args ...LObject) (LObject, error) {
 	if verbose {
 		Println("; begin execution")
 	}
 	code := thunk.(*lcode)
 	vm := NewVM(DefaultStackSize)
-	result, err := vm.exec(code)
+	if len(args) != code.argc {
+		return nil, Error("Wrong number of arguments")
+	}
+	result, err := vm.exec(code, args)
 	if err == nil {
 		exports := vm.Exported()
 		module := code.module
@@ -61,7 +64,7 @@ func Exec(thunk LCode) (LObject, error) {
 }
 
 type LVM interface {
-	exec(code *lcode) (LObject, error)
+	exec(code *lcode, args []LObject) (LObject, error)
 	Exported() []LSymbol
 }
 
@@ -76,10 +79,6 @@ func NewVM(stackSize int) LVM {
 	return &vm
 }
 
-//pity: the module is rarely used, adds noticeable overhead
-//the only current use for it is the "use" primitive, which must load and run more code.
-//Perhaps that can be special cased as an op, so the other primitives can run faster. But,
-//it is language-dependent (ell vs scheme)
 type Primitive func(argv []LObject, argc int) (LObject, error)
 
 type lprimitive struct {
@@ -159,10 +158,12 @@ func (vm *lvm) Exported() []LSymbol {
 	return vm.defs
 }
 
-func (vm *lvm) exec(code *lcode) (LObject, error) {
+func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 	stack := make([]LObject, vm.stackSize)
 	sp := vm.stackSize
 	env := new(lframe)
+	env.elements = make([]LObject, len(args))
+	copy(env.elements, args)
 	module := code.module
 	ops := code.ops
 	pc := 0
@@ -171,7 +172,8 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 	}
 	trace := false
 	if trace {
-		Println("------------------ BEGIN EXECUTION of ", module)
+		Println("------------------ BEGIN EXECUTION of ", code)
+		Println(" ", showStack(stack, sp))
 		Println(" ops: ", ops)
 	}
 	for {
@@ -188,10 +190,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				Println("glob\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			//val := (sym.(*lsymbol)).value
 			val := module.Global(sym)
 			if val == nil {
-				return nil, Error("Undefined symbol:", sym)
+				return nil, Error("Undefined symbol: ", sym)
 			}
 			sp--
 			stack[sp] = val
@@ -201,8 +202,17 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				Println("defglob\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			//(sym.(*lsymbol)).value = stack[sp]
 			module.DefGlobal(sym, stack[sp])
+			if vm.defs != nil {
+				vm.defs = append(vm.defs, sym)
+			}
+			pc += 2
+		case DEFMACRO_OPCODE:
+			if trace {
+				Println("defmacro\t", module.constants[ops[pc+1]])
+			}
+			sym := module.constants[ops[pc+1]]
+			module.DefMacro(sym, stack[sp])
 			if vm.defs != nil {
 				vm.defs = append(vm.defs, sym)
 			}
@@ -221,6 +231,9 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			val := tmpEnv.elements[j]
 			sp--
 			stack[sp] = val
+			if trace {
+				Println("   -> \t", val)
+			}
 			pc += 3
 		case SETLOCAL_OPCODE:
 			if trace {
@@ -245,7 +258,6 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			savedPc := pc + 2
 			switch tfun := fun.(type) {
 			case *lprimitive:
-				//context for error reporting: tfun.name
 				val, err := tfun.fun(stack[sp:], argc)
 				if err != nil {
 					//to do: fix to throw an Ell continuation-based error
@@ -263,7 +275,7 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				f.locals = tfun.frame
 				if tfun.code.argc >= 0 {
 					if tfun.code.argc != argc {
-						return nil, Error("Wrong number of args ("+strconv.Itoa(ops[pc+1])+") to", tfun)
+						return nil, Error("Wrong number of args ("+strconv.Itoa(ops[pc+1])+") to ", tfun)
 					}
 					f.elements = make([]LObject, argc)
 					if argc > 0 {
@@ -289,7 +301,6 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			argc := ops[pc+1]
 			switch tfun := fun.(type) {
 			case *lprimitive:
-				//context for error reporting: tfun.name
 				val, err := tfun.fun(stack[sp:], argc)
 				if err != nil {
 					return nil, err
@@ -300,8 +311,22 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				ops = env.ops
 				module = env.module
 				env = env.previous
+				if env == nil {
+					if trace {
+						Println("------------------ END EXECUTION of ", module)
+						Println(" -> sp:", sp)
+					}
+					return stack[sp], nil
+				}
 			case *lclosure:
 				newEnv := new(lframe)
+				if env.previous == nil {
+					if trace {
+						Println("------------------ END EXECUTION of ", module)
+						Println(" -> sp:", sp)
+					}
+					return stack[sp], nil
+				}
 				newEnv.previous = env.previous
 				newEnv.pc = env.pc
 				newEnv.ops = env.ops
@@ -309,7 +334,7 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 				newEnv.locals = tfun.frame
 				if tfun.code.argc >= 0 {
 					if tfun.code.argc != argc {
-						return nil, Error("Wrong number of args ("+strconv.Itoa(ops[pc+1])+") to", tfun)
+						return nil, Error("Wrong number of args ("+strconv.Itoa(ops[pc+1])+") to ", tfun)
 					}
 					newEnv.elements = make([]LObject, argc)
 					copy(newEnv.elements, stack[sp:sp+argc])
@@ -331,6 +356,7 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			if env.previous == nil {
 				if trace {
 					Println("------------------ END EXECUTION of ", module)
+					Println(" -> sp:", sp)
 				}
 				return stack[sp], nil
 			}
@@ -379,6 +405,8 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			if err != nil {
 				return nil, err
 			}
+			sp--
+			stack[sp] = sym
 			if trace {
 				Println(" -> pc after:", pc, ", ops:", ops)
 			}
@@ -428,7 +456,7 @@ func (vm *lvm) exec(code *lcode) (LObject, error) {
 			stack[sp] = v
 			pc++
 		default:
-			return nil, Error("Bad instruction:", strconv.Itoa(ops[pc]))
+			return nil, Error("Bad instruction: ", strconv.Itoa(ops[pc]))
 		}
 	}
 	return nil, nil //never happens

@@ -313,22 +313,13 @@ func Write(obj LObject) string {
 		return writeList(o)
 	case *lsymbol:
 		return o.String()
-	//map?
-	//vector?
 	case lstring:
 		s := encodeString(string(o))
 		return s
-		/*
-			case linteger:
-				return o.String()
-			case lreal:
-				return o.String()
-			case lboolean:
-				return o.String()
-		*/
 	case *lcode:
-		Println("ERROR: not external representation of code:")
 		return o.String()
+	//map?
+	//vector?
 	default:
 		return o.String()
 	}

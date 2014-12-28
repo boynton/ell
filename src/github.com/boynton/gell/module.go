@@ -29,6 +29,11 @@ type LModule interface {
 	Global(sym LObject) LObject
 	DefGlobal(sym LObject, val LObject)
 	SetGlobal(sym LObject, val LObject) error
+	Macro(sym LObject) LMacro
+	DefMacro(sym LObject, val LObject)
+	CompileFile(filename string) (LObject, error)
+	LoadFile(filename string) error
+	LoadModule(filename string) error
 	Exports() []LSymbol
 }
 
@@ -37,22 +42,40 @@ type lmodule struct {
 	constantsMap map[LObject]int
 	constants    []LObject
 	globals      []LSymbol
+	macros       map[LSymbol]LMacro
 	exports      []LSymbol
-	primitives   map[string]Primitive
 }
 
-func newModule(name string, primitives map[string]Primitive) (LModule, error) {
+var primitives map[string]Primitive
+var mprimitives map[string]Primitive
+
+func NewEnvironment(name string, prims map[string]Primitive, mprims map[string]Primitive) LModule {
+	if primitives != nil {
+		panic("Cannot define an environment twice.")
+	}
+	primitives = prims
+	mprimitives = mprims
+	return newModule(name)
+}
+
+func newModule(name string) LModule {
 	constMap := make(map[LObject]int, 0)
 	constants := make([]LObject, 0)
 	globals := make([]LSymbol, 100) //!
+	macros := make(map[LSymbol]LMacro, 0)
 	exports := make([]LSymbol, 0)
-	mod := lmodule{name, constMap, constants, globals, exports, primitives}
+	mod := lmodule{name, constMap, constants, globals, macros, exports}
 	if primitives != nil {
 		for name, fun := range primitives {
 			mod.RegisterPrimitive(name, fun)
 		}
 	}
-	return &mod, nil
+	if mprimitives != nil {
+		for name, fun := range mprimitives {
+			mod.RegisterPrimitiveMacro(name, fun)
+		}
+	}
+	return &mod
 }
 
 func (module *lmodule) RegisterPrimitive(name string, fun Primitive) {
@@ -62,6 +85,15 @@ func (module *lmodule) RegisterPrimitive(name string, fun Primitive) {
 	}
 	prim := lprimitive{name, fun}
 	module.DefGlobal(sym, &prim)
+}
+
+func (module *lmodule) RegisterPrimitiveMacro(name string, fun Primitive) {
+	sym := Intern(name)
+	if module.Macro(sym) != nil {
+		Println("*** Warning: redefining macro ", name)
+	}
+	prim := lprimitive{name, fun}
+	module.DefMacro(sym, &prim)
 }
 
 func (module *lmodule) Type() LSymbol {
@@ -102,29 +134,20 @@ func (module *lmodule) SetGlobal(sym LObject, val LObject) error {
 	return Error("*** Warning: set on undefined global ", sym)
 }
 
-func (module *lmodule) Use(sym LSymbol) error {
-	name := sym.String()
-	thunk, err := LoadModule(name, module.primitives)
-	if err != nil {
-		return err
+func (module *lmodule) Macro(sym LObject) LMacro {
+	mac, ok := module.macros[sym]
+	if !ok {
+		return nil
 	}
-	moduleToUse := thunk.Module()
-	_, err = Exec(thunk)
-	exports := moduleToUse.Exports()
-	for _, sym := range exports {
-		val := moduleToUse.Global(sym)
-		module.DefGlobal(sym, val)
-	}
-	return nil
+	return mac
 }
 
-func (module *lmodule) Exports() []LSymbol {
-	return module.exports
+func (module *lmodule) DefMacro(sym LObject, val LObject) {
+	module.macros[sym] = NewMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
-//so, we will end up with duplicates, unless we do some deep compare...
-//idea: I'd like all Ell objects to have a hashcode. Use that.
+//so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
 func (module *lmodule) putConstant(val LObject) int {
 	idx, present := module.constantsMap[val]
 	if !present {
@@ -141,35 +164,35 @@ func SetVerbose(b bool) {
 	verbose = b
 }
 
-func (mod *lmodule) xExec(thunk LCode) (LObject, error) {
-	code := thunk.(*lcode)
-	vm := NewVM(DefaultStackSize)
-	result, err := vm.exec(code)
+func (module *lmodule) Use(sym LSymbol) error {
+	name := sym.String()
+	return module.LoadModule(name)
+}
+
+func (module *lmodule) Import(thunk LCode) error {
+	moduleToUse := thunk.Module()
+	_, err := Exec(thunk)
 	if err != nil {
-		return NIL, err
+		return err
 	}
-	exported := vm.Exported()
-	if len(exported) > 0 {
-		if verbose {
-			Println("export these: ", exported)
+	exports := moduleToUse.Exports()
+	for _, sym := range exports {
+		val := moduleToUse.Global(sym)
+		if val == nil {
+			val = moduleToUse.Macro(sym)
+			module.DefMacro(sym, (val.(*lmacro)).expander)
+		} else {
+			module.DefGlobal(sym, val)
 		}
-		//		for _, sym := range exported {
-		//
-		//		}
-		//set up the module's exports
 	}
-	return result, nil
+	return nil
 }
 
-func RunModule(name string, primitives map[string]Primitive) (LObject, error) {
-	thunk, err := LoadModule(name, primitives)
-	if err != nil {
-		return NIL, err
-	}
-	return Exec(thunk)
+func (module *lmodule) Exports() []LSymbol {
+	return module.exports
 }
 
-func FindModule(moduleName string) (string, error) {
+func (module *lmodule) FindModule(moduleName string) (string, error) {
 	var path []string
 	spath := os.Getenv("ELL_PATH")
 	if spath != "" {
@@ -190,65 +213,69 @@ func FindModule(moduleName string) (string, error) {
 	return "", Error("not found")
 }
 
-func LoadModule(name string, primitives map[string]Primitive) (LCode, error) {
+func (module *lmodule) LoadModule(name string) error {
 	file := name
 	i := strings.Index(name, ".")
 	if i < 0 {
-		f, err := FindModule(name)
+		f, err := module.FindModule(name)
 		if err != nil {
-			return nil, Error("Module not found:", name)
+			return Error("Module not found: ", name)
 		}
 		file = f
 	} else {
 		if !FileReadable(name) {
-			return nil, Error("Cannot read file:", name)
+			return Error("Cannot read file: ", name)
 		}
 		name = name[0:i]
 
 	}
-	return LoadFileModule(name, file, primitives)
+	return module.LoadFile(file)
 }
 
-func LoadFileModule(moduleName string, file string, primitives map[string]Primitive) (LCode, error) {
+func (module *lmodule) LoadFile(file string) error {
 	if verbose {
-		Println("; loadModule: " + moduleName + " from " + file)
-	}
-	module, err := newModule(moduleName, primitives)
-	if err != nil {
-		return nil, err
+		Println("; loadFile: " + file)
 	}
 	port, err := OpenInputFile(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	source := List(Intern("begin"))
+
 	expr, err := port.Read()
+	defer port.Close()
+
 	for {
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if expr == EOI {
-			break
+			return nil
 		}
-		source, err = Concat(source, List(expr))
-		if err == nil {
-			expr, err = port.Read()
+		if verbose {
+			Println("; read: ", Write(expr))
 		}
+		expanded, err := Macroexpand(module, expr)
+		if err != nil {
+			return err
+		}
+		if verbose {
+			Println("; expanded to: ", expanded)
+		}
+		code, err := Compile(module, expanded)
+		if err != nil {
+			return err
+		}
+		if verbose {
+			Println("; compiled to: ", code)
+		}
+		err = module.Import(code)
+		if err != nil {
+			return err
+		}
+		expr, err = port.Read()
 	}
-	port.Close()
-	if verbose {
-		Println("; read: ", Write(source))
-	}
-	if Length(source) == 2 {
-		source = Cadr(source)
-	}
-	code, err := Compile(module, source)
-	if err != nil {
-		return nil, err
-	}
-	if verbose {
-		Println("; compiled to: ", code)
-		Println("; module: ", module)
-	}
-	return code, nil
+}
+
+func (module *lmodule) CompileFile(file string) (LObject, error) {
+	return nil, Error("CompileFile NYI")
 }

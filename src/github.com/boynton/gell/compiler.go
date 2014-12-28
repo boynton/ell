@@ -64,13 +64,14 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 		lst := expr
 		lstlen := Length(lst)
 		if lstlen == 0 {
-			return Error("Cannot compile empty list:", lst)
+			return Error("Cannot compile empty list: ", lst)
 		}
 		fn := Car(lst)
 		switch fn {
 		case Intern("quote"):
+			// (quote <datum>)
 			if lstlen != 2 {
-				return Error("Syntax error:", expr)
+				return Error("Syntax error: ", expr)
 			}
 			if !ignoreResult {
 				code.EmitLiteral(Cadr(lst))
@@ -80,24 +81,26 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			}
 			return nil
 		case Intern("begin"):
+			// (begin <expr> ...)
 			return compileSequence(code, env, Cdr(lst), isTail, ignoreResult)
 		case Intern("if"):
+			// (if <pred> <consequent>)
+			// (if <pred> <consequent> <antecedent>)
 			if lstlen == 3 || lstlen == 4 {
 				return compileIfElse(code, env, Cadr(expr), Caddr(expr), Cdddr(expr), isTail, ignoreResult)
 			} else {
-				return Error("Syntax error:", expr)
+				return Error("Syntax error: ", expr)
 			}
 		case Intern("define"):
+			// (define <name> <val>)
 			if lstlen != 3 {
-				return Error("Syntax error:", expr)
+				return Error("Syntax error: ", expr)
 			}
 			var sym = Cadr(lst)
 			if !IsSymbol(sym) {
-				return Error("Syntax error:", expr)
+				return Error("Syntax error: ", expr)
 			}
-			//scope so we pick up "context" from current global def for syntax errors? sModuleName = lst.second()
 			err := compileExpr(code, env, Caddr(lst), false, false)
-			//sModuleName = sOldModuleName;
 			if err == nil {
 				code.EmitDefGlobal(sym)
 				if ignoreResult {
@@ -107,23 +110,46 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 				}
 			}
 			return err
+		case Intern("define-macro"):
+			// (defmacro <name> (lambda (expr) '(the expanded value)))
+			if lstlen != 3 {
+				return Error("Syntax error: ", expr)
+			}
+			var sym = Cadr(lst)
+			if !IsSymbol(sym) {
+				return Error("Syntax error: ", expr)
+			}
+			err := compileExpr(code, env, Caddr(lst), false, false)
+			if err == nil {
+				code.EmitDefMacro(sym)
+				if ignoreResult {
+					code.EmitPop()
+				} else if isTail {
+					code.EmitReturn()
+				}
+			}
+			return err
 		case Intern("lambda"):
+			// (lambda ()  <expr> ...)
+			// (lambda (arg1 ...)  <expr> ...)
+			// (lambda args <expr> ...) ;; NYI
 			if lstlen < 3 {
-				return Error("Syntax error:", expr)
+				return Error("Syntax error: ", expr)
 			}
 			body := Cddr(lst)
 			args := Cadr(lst)
 			if args != NIL && !IsList(args) {
-				return Error("Invalid function formal argument list:", args)
+				return Error("Invalid function formal argument list: ", args)
 			}
 			return compileLambda(code, env, args, body, isTail, ignoreResult)
 		case Intern("set!"):
+			// (set! <sym> <val>)
 			if lstlen != 3 {
-				return Error("Wrong number of arguments to set!:", expr)
+				return Error("Wrong number of arguments to set!: ", expr)
 			}
 			var sym = Cadr(lst)
 			if !IsSymbol(sym) {
-				return Error("Non-symbol first argument to set!:", expr)
+				return Error("Non-symbol first argument to set!: ", expr)
 			}
 			err := compileExpr(code, env, Caddr(lst), false, false)
 			if err != nil {
@@ -141,10 +167,14 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			}
 			return nil
 		case Intern("lap"):
+			// (lap <instruction> ...)
 			return code.LoadOps(Cdr(expr))
 		case Intern("use"):
+			// (use module_name)
 			return compileUse(code, Cdr(lst))
 		default: // a funcall
+			// (<fn>)
+			// (<fn> <arg> ...)
 			return compileFuncall(code, env, fn, Cdr(lst), isTail, ignoreResult)
 		}
 	} else {
@@ -165,7 +195,7 @@ func compileLambda(code LCode, env LObject, args LObject, body LObject, isTail b
 	//to do: deal with rest, optional, and keywords arguments
 	for tmp != NIL {
 		if !IsSymbol(Car(tmp)) {
-			return Error("Formal argument is not a symbol:", Car(tmp))
+			return Error("Formal argument is not a symbol: ", Car(tmp))
 		}
 		argc++
 		tmp = Cdr(tmp)
@@ -203,7 +233,7 @@ func compileSequence(code LCode, env LObject, exprs LObject, isTail bool, ignore
 func compileFuncall(code LCode, env LObject, fn LObject, args LObject, isTail bool, ignoreResult bool) error {
 	argc := Length(args)
 	if argc < 0 {
-		return Error("bad funcall:", Cons(fn, args))
+		return Error("Bad funcall: ", Cons(fn, args))
 	}
 	err := compileArgs(code, env, args)
 	if err != nil {
@@ -287,12 +317,12 @@ func compileIfElse(code LCode, env LObject, predicate LObject, consequent LObjec
 	}
 	err := compileExpr(code, env, predicate, false, false)
 	if err != nil {
-		return nil
+		return err
 	}
 	loc1 := code.EmitJumpFalse(0) //returns the location just *after* the jump. setJumpLocation knows this.
 	err = compileExpr(code, env, consequent, isTail, ignoreResult)
 	if err != nil {
-		return nil
+		return err
 	}
 	loc2 := 0
 	if !isTail {
@@ -312,11 +342,11 @@ func compileUse(code LCode, rest LObject) error {
 	lstlen := Length(rest)
 	if lstlen != 1 {
 		//to do: other options for use.
-		return Error("Wrong number of arguments to use:", Cons(Intern("use"), rest))
+		return Error("Wrong number of arguments to use: ", Cons(Intern("use"), rest))
 	}
 	sym := Car(rest)
 	if !IsSymbol(sym) {
-		return Error("Non-symbol first argument to use:", sym)
+		return Error("Non-symbol first argument to use: ", sym)
 	}
 	code.EmitUse(sym)
 	return nil

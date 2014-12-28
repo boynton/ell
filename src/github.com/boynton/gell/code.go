@@ -43,6 +43,7 @@ const (
 	ADD_OPCODE       = iota
 	MUL_OPCODE       = iota
 	USE_OPCODE       = iota
+	DEFMACRO_OPCODE  = iota
 )
 
 type LCode interface {
@@ -60,6 +61,7 @@ type LCode interface {
 	EmitLocal(i int, j int)
 	EmitSetLocal(i int, j int)
 	EmitDefGlobal(sym LObject)
+	EmitDefMacro(sym LObject)
 	EmitClosure(code LCode)
 	EmitJumpFalse(offset int) int
 	EmitJump(offset int) int
@@ -90,6 +92,7 @@ type lcode struct {
 	symReturn    LObject
 	symPop       LObject
 	symDefGlobal LObject
+	symDefMacro  LObject
 	symUse       LObject
 	symCar       LObject
 	symCdr       LObject
@@ -119,6 +122,7 @@ func NewCode(module LModule, argc int, restArgs LObject) LCode {
 		Intern("return"),
 		Intern("pop"),
 		Intern("defglobal"),
+		Intern("defmacro"),
 		Intern("use"),
 		Intern("car"),
 		Intern("cdr"),
@@ -184,6 +188,10 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 		case DEFGLOBAL_OPCODE:
 			//fmt.Printf("%sL%03d:\t(defglobal%6d ; %v)\n", indent, offset, code.ops[offset+1], code.module.constants[code.ops[offset+1]])
 			buf.WriteString(" (defglobal " + Write(code.module.constants[code.ops[offset+1]]) + ")")
+			offset += 2
+		case DEFMACRO_OPCODE:
+			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], code.module.constants[code.ops[offset+1]])
+			buf.WriteString(" (defmacro " + Write(code.module.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case SETLOCAL_OPCODE:
 			//Println("%sL%03d:\t(setlocal %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
@@ -303,6 +311,8 @@ func (code *lcode) LoadOps(lst LObject) error {
 			code.EmitPop()
 		case code.symDefGlobal:
 			code.EmitDefGlobal(Cadr(instr))
+		case code.symDefMacro:
+			code.EmitDefMacro(Cadr(instr))
 		case code.symUse:
 			code.EmitUse(Cadr(instr))
 		case code.symCar:
@@ -358,6 +368,10 @@ func (code *lcode) EmitSetLocal(i int, j int) {
 }
 func (code *lcode) EmitDefGlobal(sym LObject) {
 	code.ops = append(code.ops, DEFGLOBAL_OPCODE)
+	code.ops = append(code.ops, code.module.putConstant(sym))
+}
+func (code *lcode) EmitDefMacro(sym LObject) {
+	code.ops = append(code.ops, DEFMACRO_OPCODE)
 	code.ops = append(code.ops, code.module.putConstant(sym))
 }
 func (code *lcode) EmitClosure(newCode LCode) {

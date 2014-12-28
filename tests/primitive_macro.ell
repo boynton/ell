@@ -1,0 +1,2 @@
+(define (foo x) (println x) 23)
+(println (foo 57))

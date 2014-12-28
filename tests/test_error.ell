@@ -1,0 +1,2 @@
+(define digit? (lambda (x) (if (> x 9) (error "number is bigger than 9") true)))
+(digit? 10)
