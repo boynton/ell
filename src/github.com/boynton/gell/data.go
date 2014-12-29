@@ -709,6 +709,11 @@ func Vector(elements ...LObject) LObject {
 	return &vec
 }
 
+func ToVector(elements []LObject) LObject {
+	vec := lvector{elements}
+	return &vec
+}
+
 var symVector = newSymbol("vector")
 
 func IsVector(obj LObject) bool {
@@ -760,6 +765,9 @@ func theVector(obj LObject) (*lvector, bool) {
 
 func VectorSet(vec LObject, idx int, obj LObject) error {
 	if v, ok := theVector(vec); ok {
+		if idx <0 || idx >= len(v.elements) {
+			return Error("Vector index out of range")
+		}
 		v.elements[idx] = obj
 		return nil
 	}
@@ -768,7 +776,10 @@ func VectorSet(vec LObject, idx int, obj LObject) error {
 
 func VectorRef(vec LObject, idx int) (LObject, error) {
 	if v, ok := theVector(vec); ok {
-		return v.elements[idx], nil //maybe should range check the index
+		if idx <0 || idx >= len(v.elements) {
+			return nil, Error("Vector index out of range")
+		}
+		return v.elements[idx], nil
 	}
 	return nil, Error("Not a vector: ", vec)
 }
