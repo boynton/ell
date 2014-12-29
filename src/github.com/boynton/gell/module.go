@@ -33,7 +33,7 @@ type LModule interface {
 	DefGlobal(sym LObject, val LObject)
 	SetGlobal(sym LObject, val LObject) error
 	Macros() []LObject
-	Macro(sym LObject) LMacro
+	Macro(sym LObject) LObject
 	DefMacro(sym LObject, val LObject)
 
 	Define(name string, val LObject)
@@ -54,7 +54,7 @@ type lmodule struct {
 	constantsMap map[LObject]int
 	constants    []LObject
 	globals      []*binding
-	macros       map[LObject]LMacro
+	macros       map[LObject]LObject
 	exports      []LObject
 	interrupts   chan os.Signal
 }
@@ -90,7 +90,7 @@ func newModule(name string, interrupts chan os.Signal) LModule {
 	constMap := make(map[LObject]int, 0)
 	constants := make([]LObject, 0)
 	globals := make([]*binding, 100)
-	macros := make(map[LObject]LMacro, 0)
+	macros := make(map[LObject]LObject, 0)
 	exports := make([]LObject, 0)
 	mod := lmodule{name, constMap, constants, globals, macros, exports, interrupts}
 	if initializer != nil {
@@ -202,7 +202,7 @@ func (module *lmodule) Macros() []LObject {
 	return keys
 }
 
-func (module *lmodule) Macro(sym LObject) LMacro {
+func (module *lmodule) Macro(sym LObject) LObject {
 	mac, ok := module.macros[sym]
 	if !ok {
 		return nil

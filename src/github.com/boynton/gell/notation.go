@@ -34,7 +34,7 @@ func FileReadable(path string) bool {
 	return false
 }
 
-type Port interface {
+type LPort interface {
 	IsBinary() bool
 	IsInput() bool
 	IsOutput() bool
@@ -84,7 +84,7 @@ const (
 	WRITE = "write"
 )
 
-func OpenInputFile(path string) (Port, error) {
+func OpenInputFile(path string) (LPort, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func OpenInputFile(path string) (Port, error) {
 	return &port, nil
 }
 
-func OpenInputString(input string) Port {
+func OpenInputString(input string) LPort {
 	r := strings.NewReader(input)
 	dr := NewDataReader(r)
 	port := LInputPort{nil, dr}

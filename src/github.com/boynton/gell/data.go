@@ -22,7 +22,7 @@ import (
 	"strconv"
 )
 
-//the LAny interface is for both ell and non-ell values
+// for both ell and non-ell values
 type LAny interface{}
 
 //
@@ -843,7 +843,6 @@ func (m *lmap) Has(key LObject) bool {
 // ------------------- error
 //
 
-//func Error(arg1 interface{}, args ...interface{}) error {
 func Error(arg1 LAny, args ...LAny) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))

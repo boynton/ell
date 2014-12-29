@@ -20,31 +20,25 @@ import (
 	"fmt"
 )
 
-type LMacro interface {
-	Type() LObject
-	String() string
-	Expand(expr LObject) (LObject, error)
-}
-
 type lmacro struct {
 	name     LObject
 	expander LObject //a function of one argument
 }
 
-func NewMacro(name LObject, expander LObject) LMacro {
+func NewMacro(name LObject, expander LObject) LObject {
 	mac := lmacro{name, expander}
 	return &mac
 }
 
-func (lmacro) Type() LObject {
+func (*lmacro) Type() LObject {
 	return Intern("macro")
 }
 
-func (macro lmacro) String() string {
+func (macro *lmacro) String() string {
 	return fmt.Sprintf("(macro %v %v)", macro.name, macro.expander)
 }
 
-func (macro lmacro) Expand(expr LObject) (LObject, error) {
+func (macro *lmacro) Expand(expr LObject) (LObject, error) {
 	expander := macro.expander
 	switch fun := expander.(type) {
 	case *lclosure:
@@ -73,7 +67,7 @@ func Macroexpand(module LModule, expr LObject) (LObject, error) {
 		if IsSymbol(fn) {
 			macro := module.Macro(fn)
 			if macro != nil {
-				return macro.Expand(expr)
+				return (macro.(*lmacro)).Expand(expr)
 			} else {
 				head = Cons(fn, NIL)
 			}

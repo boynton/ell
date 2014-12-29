@@ -28,14 +28,14 @@ func SetTrace(b bool) {
 	trace = b
 }
 
-func Print(args ...interface{}) {
+func Print(args ...LAny) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(args[i])
 	}
 	fmt.Print(args[max])
 }
-func Println(args ...interface{}) {
+func Println(args ...LAny) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(args[i])
@@ -59,7 +59,7 @@ func Exec(thunk LCode, args ...LObject) (LObject, error) {
 		Println("; begin execution")
 	}
 	code := thunk.(*lcode)
-	vm := NewVM(DefaultStackSize)
+	vm := newVM(DefaultStackSize)
 	if len(args) != code.argc {
 		return nil, Error("Wrong number of arguments")
 	}
@@ -82,17 +82,12 @@ func Exec(thunk LCode, args ...LObject) (LObject, error) {
 	return result, err
 }
 
-type LVM interface {
-	exec(code *lcode, args []LObject) (LObject, error)
-	Exported() []LObject
-}
-
 type lvm struct {
 	stackSize int
 	defs      []LObject
 }
 
-func NewVM(stackSize int) LVM {
+func newVM(stackSize int) *lvm {
 	defs := make([]LObject, 0)
 	vm := lvm{stackSize, defs}
 	return &vm
