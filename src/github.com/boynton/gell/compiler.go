@@ -60,7 +60,7 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			code.EmitReturn()
 		}
 		return nil
-	} else if IsList(expr) {
+	} else if IsPair(expr) {
 		lst := expr
 		lstlen := Length(lst)
 		if lstlen == 0 {
@@ -138,7 +138,7 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			}
 			body := Cddr(lst)
 			args := Cadr(lst)
-			if args != NIL && !IsList(args) {
+			if args != NIL && !IsPair(args) {
 				return Error("Invalid function formal argument list: ", args)
 			}
 			return compileLambda(code, env, args, body, isTail, ignoreResult)

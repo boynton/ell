@@ -24,15 +24,15 @@ import (
 )
 
 type LModule interface {
-	Type() LSymbol
+	Type() LObject
 	String() string
 
-	Keywords() []LSymbol
-	Globals() []LSymbol
+	Keywords() []LObject
+	Globals() []LObject
 	Global(sym LObject) LObject
 	DefGlobal(sym LObject, val LObject)
 	SetGlobal(sym LObject, val LObject) error
-	Macros() []LSymbol
+	Macros() []LObject
 	Macro(sym LObject) LMacro
 	DefMacro(sym LObject, val LObject)
 
@@ -46,7 +46,7 @@ type LModule interface {
 	CompileFile(filename string) (LObject, error)
 	LoadFile(filename string) error
 	LoadModule(filename string) error
-	Exports() []LSymbol
+	Exports() []LObject
 }
 
 type lmodule struct {
@@ -54,8 +54,8 @@ type lmodule struct {
 	constantsMap map[LObject]int
 	constants    []LObject
 	globals      []*binding
-	macros       map[LSymbol]LMacro
-	exports      []LSymbol
+	macros       map[LObject]LMacro
+	exports      []LObject
 	interrupts   chan os.Signal
 }
 
@@ -90,8 +90,8 @@ func newModule(name string, interrupts chan os.Signal) LModule {
 	constMap := make(map[LObject]int, 0)
 	constants := make([]LObject, 0)
 	globals := make([]*binding, 100)
-	macros := make(map[LSymbol]LMacro, 0)
-	exports := make([]LSymbol, 0)
+	macros := make(map[LObject]LMacro, 0)
+	exports := make([]LObject, 0)
 	mod := lmodule{name, constMap, constants, globals, macros, exports, interrupts}
 	if initializer != nil {
 		initializer(&mod)
@@ -121,7 +121,7 @@ func (module *lmodule) DefineMacro(name string, fun Primitive) {
 	module.DefMacro(sym, &prim)
 }
 
-func (module *lmodule) Type() LSymbol {
+func (module *lmodule) Type() LObject {
 	return Intern("module")
 }
 
@@ -129,8 +129,8 @@ func (module *lmodule) String() string {
 	return fmt.Sprintf("<module %v, constants:%v>", module.Name, module.constants)
 }
 
-func (module *lmodule) Keywords() []LSymbol {
-	keywords := []LSymbol{
+func (module *lmodule) Keywords() []LObject {
+	keywords := []LObject{
 		Intern("quote"),
 		Intern("define"),
 		Intern("lambda"),
@@ -144,8 +144,8 @@ func (module *lmodule) Keywords() []LSymbol {
 	return keywords
 }
 
-func (module *lmodule) Globals() []LSymbol {
-	syms := make([]LSymbol, 0, symtag)
+func (module *lmodule) Globals() []LObject {
+	syms := make([]LObject, 0, symtag)
 	for _, b := range module.globals {
 		if b != nil {
 			syms = append(syms, b.sym)
@@ -167,7 +167,7 @@ func (module *lmodule) Global(sym LObject) LObject {
 }
 
 type binding struct {
-	sym LSymbol
+	sym LObject
 	val LObject
 }
 
@@ -194,8 +194,8 @@ func (module *lmodule) SetGlobal(sym LObject, val LObject) error {
 	return Error("*** Warning: set on undefined global ", sym)
 }
 
-func (module *lmodule) Macros() []LSymbol {
-	keys := make([]LSymbol, 0, len(module.macros))
+func (module *lmodule) Macros() []LObject {
+	keys := make([]LObject, 0, len(module.macros))
 	for k := range module.macros {
 		keys = append(keys, k)
 	}
@@ -232,7 +232,7 @@ func SetVerbose(b bool) {
 	verbose = b
 }
 
-func (module *lmodule) Use(sym LSymbol) error {
+func (module *lmodule) Use(sym LObject) error {
 	name := sym.String()
 	return module.LoadModule(name)
 }
@@ -256,7 +256,7 @@ func (module *lmodule) Import(thunk LCode) (LObject, error) {
 	return result, nil
 }
 
-func (module *lmodule) Exports() []LSymbol {
+func (module *lmodule) Exports() []LObject {
 	return module.exports
 }
 

@@ -16,7 +16,7 @@ type EllHandler struct {
 	buf string
 }
 
-func (ell *EllHandler) Eval(expr string) (interface{}, bool, error) {
+func (ell *EllHandler) Eval(expr string) (string, bool, error) {
 	//return result, needMore, error
 	for ell.env.CheckInterrupt() {
 	} //to clear out any that happened while sitting in getc
@@ -25,10 +25,10 @@ func (ell *EllHandler) Eval(expr string) (interface{}, bool, error) {
 	closes := len(strings.Split(whole, ")"))
 	if opens > closes {
 		ell.buf = whole + " "
-		return nil, true, nil
+		return "", true, nil
 	} else if closes > opens {
 		ell.buf = ""
-		return nil, false, errors.New("Unbalanced ')'")
+		return "", false, errors.New("Unbalanced ')'")
 	} else {
 		//this is the normal case
 		if whole == "" {
@@ -123,7 +123,7 @@ func (ell *EllHandler) Complete(expr string) (string, []string) {
 			}
 		}
 	}
-	candidates := map[LSymbol]bool{}
+	candidates := map[LObject]bool{}
 	if funPosition {
 		for _, sym := range ell.env.Keywords() {
 			str := sym.String()

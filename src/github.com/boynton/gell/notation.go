@@ -317,7 +317,7 @@ func IsDelimiter(b byte) bool {
 func Write(obj LObject) string {
 	//finish this
 	switch o := obj.(type) {
-	case *llist:
+	case *lpair:
 		return writeList(o)
 	case *lsymbol:
 		return o.String()
@@ -333,7 +333,7 @@ func Write(obj LObject) string {
 	}
 }
 
-func writeList(lst *llist) string {
+func writeList(lst *lpair) string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
 	buf.WriteString(lst.car.String())
@@ -342,15 +342,17 @@ func writeList(lst *llist) string {
 	for b {
 		if tail == NIL {
 			b = false
-		} else if IsList(tail) {
-			lst = tail.(*llist)
-			tail = lst.cdr
-			buf.WriteString(" ")
-			buf.WriteString(Write(lst.car))
 		} else {
-			buf.WriteString(" . ")
-			buf.WriteString(Write(tail))
-			b = false
+			p, isPair := tail.(*lpair)
+			if isPair {
+				tail = p.cdr
+				buf.WriteString(" ")
+				buf.WriteString(Write(p.car))
+			} else {
+				buf.WriteString(" . ")
+				buf.WriteString(Write(tail))
+				b = false
+			}
 		}
 	}
 	buf.WriteString(")")

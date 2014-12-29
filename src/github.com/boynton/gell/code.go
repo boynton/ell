@@ -47,7 +47,7 @@ const (
 )
 
 type LCode interface {
-	Type() LSymbol
+	Type() LObject
 	String() string
 	Module() LModule
 	LoadOps(ops LObject) error
@@ -133,7 +133,7 @@ func NewCode(module LModule, argc int, restArgs LObject) LCode {
 	return &code
 }
 
-func (lcode) Type() LSymbol {
+func (lcode) Type() LObject {
 	return Intern("code")
 }
 

@@ -16,11 +16,13 @@ func typeError(expected string, num int) (LObject, error) {
 
 func Ell(module LModule) {
 	module.Define("nil", NIL)
+	module.Define("null", NIL)
 	module.Define("true", TRUE)
 	module.Define("false", FALSE)
 
 	module.DefineMacro("define", ell_define)
 
+	module.DefineFunction("type", ell_type)
 	module.DefineFunction("display", ell_display)
 	module.DefineFunction("newline", ell_newline)
 	module.DefineFunction("print", ell_print)
@@ -52,6 +54,13 @@ func Ell(module LModule) {
 
 const terminalRed = "\033[0;31m"
 const terminalBlack = "\033[0;0m"
+
+func ell_type(argv []LObject, argc int) (LObject, error) {
+	if argc != 1 {
+		return argcError()
+	}
+	return argv[0].Type(), nil
+}
 
 func ell_display(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
@@ -327,7 +336,7 @@ func ell_cadr(argv []LObject, argc int) (LObject, error) {
 		if IsList(lst) {
 			return Cadr(lst), nil
 		}
-		return typeError("list", 1)
+		return typeError("pair", 1)
 	} else {
 		return argcError()
 	}
@@ -339,7 +348,7 @@ func ell_cddr(argv []LObject, argc int) (LObject, error) {
 		if IsList(lst) {
 			return Cddr(lst), nil
 		}
-		return typeError("list", 1)
+		return typeError("pair", 1)
 	} else {
 		return argcError()
 	}

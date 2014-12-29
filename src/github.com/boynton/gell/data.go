@@ -22,11 +22,14 @@ import (
 	"strconv"
 )
 
+//the LAny interface is for both ell and non-ell values
+type LAny interface{}
+
 //
 // The generic Ell object, which can be queried for its symbolic type name at runtime
 //
 type LObject interface {
-	Type() LSymbol
+	Type() LObject
 	String() string
 }
 
@@ -38,14 +41,14 @@ const NIL = lnil(0)
 
 type lnil int
 
-var symNil = newSymbol("nil")
+var symNull = newSymbol("null")
 
 func IsNil(obj LObject) bool {
 	return obj == NIL
 }
 
-func (lnil) Type() LSymbol {
-	return symNil
+func (lnil) Type() LObject {
+	return symNull
 }
 
 func (lnil) String() string {
@@ -66,7 +69,7 @@ func IsEOI(obj LObject) bool {
 	return obj == EOI
 }
 
-func (leoi) Type() LSymbol {
+func (leoi) Type() LObject {
 	return symEoi
 }
 
@@ -77,11 +80,6 @@ func (leoi) String() string {
 //
 // ------------------- boolean
 //
-
-type LBoolean interface {
-	Type() LSymbol
-	String() string
-}
 
 const TRUE lboolean = lboolean(true)
 const FALSE lboolean = lboolean(false)
@@ -95,7 +93,7 @@ func IsBoolean(obj LObject) bool {
 	return ok
 }
 
-func (lboolean) Type() LSymbol {
+func (lboolean) Type() LObject {
 	return symBoolean
 }
 
@@ -106,11 +104,6 @@ func (b lboolean) String() string {
 //
 // ------------------- symbol
 //
-
-type LSymbol interface {
-	Type() LSymbol
-	String() string
-}
 
 type lsymbol struct {
 	Name string
@@ -132,7 +125,7 @@ func IsSymbol(obj LObject) bool {
 	return ok
 }
 
-func (*lsymbol) Type() LSymbol {
+func (*lsymbol) Type() LObject {
 	return symSymbol
 }
 
@@ -140,32 +133,22 @@ func (sym *lsymbol) String() string {
 	return sym.Name
 }
 
-/*
-func Global(sym LSymbol) LObject {
-	return (sym.(*lsymbol)).value
-}
-
-func SetGlobal(sym LSymbol, val LObject) {
-	(sym.(*lsymbol)).value = val
-}
-*/
-
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]*lsymbol{
-	"nil":     symNil,
+	"null":    symNull,
 	"boolean": symBoolean,
 	"symbol":  symSymbol,
 	"keyword": symKeyword,
 	"string":  symString,
 	"number":  symNumber,
-	"list":    symList,
+	"pair":    symPair,
 	"vector":  symVector,
 	"map":     symMap,
 	"eoi":     symEoi,
 }
 
-func Symbols() []LSymbol {
-	syms := make([]LSymbol, 0, len(symtab))
+func Symbols() []LObject {
+	syms := make([]LObject, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
 	}
@@ -186,12 +169,6 @@ func Intern(name string) LObject {
 // ------------------- keyword
 //
 
-type LKeyword interface {
-	Type() LSymbol
-	String() string
-	Symbol() LSymbol
-}
-
 type lkeyword struct {
 	sym *lsymbol
 }
@@ -203,7 +180,7 @@ func IsKeyword(obj LObject) bool {
 	return ok
 }
 
-func (lkeyword) Type() LSymbol {
+func (lkeyword) Type() LObject {
 	return symKeyword
 }
 
@@ -215,16 +192,11 @@ func (key lkeyword) String() string {
 // ------------------- string
 //
 
-type LString interface {
-	Type() LSymbol
-	String() string
-}
-
 type lstring string
 
 var symString = newSymbol("string")
 
-func NewString(val string) LString {
+func NewString(val string) LObject {
 	s := lstring(val)
 	return s
 }
@@ -234,7 +206,7 @@ func IsString(obj LObject) bool {
 	return ok
 }
 
-func (lstring) Type() LSymbol {
+func (lstring) Type() LObject {
 	return symString
 }
 
@@ -283,13 +255,6 @@ func (s lstring) String() string {
 // ------------------- number
 //
 
-type LNumber interface {
-	Type() LSymbol
-	String() string
-	IntegerValue() int64
-	RealValue() float64
-}
-
 var symNumber = newSymbol("number")
 
 func IsNumber(obj LObject) bool {
@@ -301,12 +266,12 @@ func IsNumber(obj LObject) bool {
 	return ok
 }
 
-func NewInteger(n int64) LNumber {
+func NewInteger(n int64) LObject {
 	v := linteger(n)
 	return v
 }
 
-func NewReal(n float64) LNumber {
+func NewReal(n float64) LObject {
 	v := lreal(n)
 	return v
 }
@@ -417,7 +382,7 @@ func Equal(n1 LObject, n2 LObject) LObject {
 
 type linteger int64
 
-func (linteger) Type() LSymbol {
+func (linteger) Type() LObject {
 	return symNumber
 }
 
@@ -434,7 +399,7 @@ func (i linteger) RealValue() float64 {
 
 type lreal float64
 
-func (lreal) Type() LSymbol {
+func (lreal) Type() LObject {
 	return symNumber
 }
 
@@ -527,35 +492,46 @@ func Product(argv []LObject, argc int) (LObject, error) {
 }
 
 //
-// ------------------- list
+// ------------------- list, pair
 //
-type LList interface {
-	Type() LSymbol
-	String() string
-	Length() int
-	Car() LObject
-	Cdr() LObject
-	//append
-	//reverse
-}
-
-type llist struct {
+type lpair struct {
 	car LObject
 	cdr LObject
 }
 
-var symList = newSymbol("list")
+var symPair = newSymbol("pair")
 
-func IsList(obj LObject) bool {
-	//	return obj.Type() == symList
-	_, ok := obj.(*llist)
+func IsPair(obj LObject) bool {
+	_, ok := obj.(*lpair)
 	return ok
 }
-func (*llist) Type() LSymbol {
-	return symList
+
+//this is the union list?, not the scheme-compatible one, which is IsProperList
+func IsList(obj LObject) bool {
+	return obj == NIL || IsPair(obj)
 }
 
-func (lst *llist) String() string {
+//this is like Scheme's list? It protects against circularity
+func IsProperList(obj LObject) bool {
+	if obj == NIL {
+		return true
+	}
+	first := obj
+	for IsPair(obj) {
+		obj := Cdr(obj)
+		if obj == first {
+			//circular list
+			return true
+		}
+	}
+	return obj == NIL
+}
+
+func (*lpair) Type() LObject {
+	return symPair
+}
+
+func (lst *lpair) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
 	buf.WriteString(lst.car.String())
@@ -564,8 +540,8 @@ func (lst *llist) String() string {
 	for b {
 		if tail == NIL {
 			b = false
-		} else if IsList(tail) {
-			lst = tail.(*llist)
+		} else if IsPair(tail) {
+			lst = tail.(*lpair)
 			tail = lst.cdr
 			buf.WriteString(" ")
 			buf.WriteString(lst.car.String())
@@ -579,29 +555,37 @@ func (lst *llist) String() string {
 	return buf.String()
 }
 
-func (lst *llist) Length() int {
+func (lst *lpair) Length() int {
 	count := 1
 	var o LObject = lst.cdr
 	for o != NIL {
-		if !IsList(o) {
+		if !IsPair(o) {
 			return -1 //not a proper list
 		}
 		count++
-		o = o.(*llist).cdr
+		o = o.(*lpair).cdr
 	}
 	return count
 }
 
 func Cons(car LObject, cdr LObject) LObject {
-	lst := llist{car, cdr}
+	lst := lpair{car, cdr}
 	return &lst
 }
 
 func Car(lst LObject) LObject {
-	if IsList(lst) {
-		return lst.(*llist).car
-	}
+	switch p := lst.(type) {
+	case *lpair:
+		return p.car
+	} // unlike scheme, nil is returned, rather than an error, when applied to a non-pair
 	return NIL
+}
+
+func SetCar(lst LObject, obj LObject) {
+	switch p := lst.(type) {
+	case *lpair:
+		p.car = obj
+	}
 }
 
 func Caar(lst LObject) LObject {
@@ -627,10 +611,18 @@ func Cddddr(lst LObject) LObject {
 }
 
 func Cdr(lst LObject) LObject {
-	if IsList(lst) {
-		return lst.(*llist).cdr
-	}
+	switch p := lst.(type) {
+	case *lpair:
+		return p.cdr
+	} // unlike scheme, nil is returned, rather than an error, when applied to a non-pair
 	return NIL
+}
+
+func SetCdr(lst LObject, obj LObject) {
+	switch p := lst.(type) {
+	case *lpair:
+		p.cdr = obj
+	}
 }
 
 func ToList(vec []LObject) LObject {
@@ -650,14 +642,17 @@ func List(vec ...LObject) LObject {
 func Length(seq LObject) int {
 	if seq == NIL {
 		return 0
-	} else if IsString(seq) {
-		return len(seq.(lstring))
-	} else if IsVector(seq) {
-		return seq.(*lvector).Length()
-	} else if IsList(seq) {
-		return seq.(*llist).Length()
 	} else {
-		return -1
+		switch v := seq.(type) {
+		case lstring:
+			return len(v)
+		case *lvector:
+			return v.Length()
+		case *lpair:
+			return v.Length()
+		default:
+			return -1
+		}
 	}
 }
 
@@ -666,7 +661,7 @@ func Reverse(lst LObject) (LObject, error) {
 	rev = NIL
 	for lst != NIL {
 		switch v := lst.(type) {
-		case *llist:
+		case *lpair:
 			rev = Cons(v.car, rev)
 			lst = v.cdr
 		default:
@@ -683,7 +678,7 @@ func Concat(seq1 LObject, seq2 LObject) (LObject, error) {
 	}
 	for rev != NIL {
 		switch v := rev.(type) {
-		case *llist:
+		case *lpair:
 			seq2 = Cons(v.car, seq2)
 			rev = v.cdr
 		}
@@ -696,19 +691,11 @@ func Concat(seq1 LObject, seq2 LObject) (LObject, error) {
 // ------------------- vector
 //
 
-type LVector interface {
-	Type() LSymbol
-	String() string
-	Length() int
-	Set(idx int, obj LObject)
-	Ref(idx int) LObject
-}
-
 type lvector struct {
 	elements []LObject
 }
 
-func NewVector(size int, init LObject) LVector {
+func NewVector(size int, init LObject) LObject {
 	elements := make([]LObject, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
@@ -717,7 +704,7 @@ func NewVector(size int, init LObject) LVector {
 	return &vec
 }
 
-func Vector(elements ...LObject) LVector {
+func Vector(elements ...LObject) LObject {
 	vec := lvector{elements}
 	return &vec
 }
@@ -730,7 +717,7 @@ func IsVector(obj LObject) bool {
 	//	return obj.Type() == symVector
 }
 
-func (*lvector) Type() LSymbol {
+func (*lvector) Type() LObject {
 	return symVector
 }
 func (vec *lvector) String() string {
@@ -789,31 +776,34 @@ func VectorRef(vec LObject, idx int) (LObject, error) {
 //
 // ------------------- map
 //
-type LMap interface {
-	Type() LSymbol
-	String() string
-	Length() int
-	Has(key LObject) bool
-	Get(key LObject) LObject
-	Put(key LObject, value LObject) LMap
+type lmap struct {
+	bindings map[LObject]LObject
 }
 
-type tMap struct {
-	bindings map[LObject]LObject
+func Map(pairwiseBindings ...LObject) LObject {
+	count := len(pairwiseBindings)
+	tmp := lmap{map[LObject]LObject{}}
+	m := &tmp
+	for i := 0; i < count; i += 2 {
+		m.Put(pairwiseBindings[i], pairwiseBindings[i+1])
+	}
+	return m
 }
 
 var symMap = newSymbol("map")
 
-//func IsMap(obj LObject) bool {
-//	return obj.Type() == symMap
-//}
-func (tMap) Type() LSymbol {
+func IsMap(obj LObject) bool {
+	_, ok := obj.(*lmap)
+	return ok
+}
+func (*lmap) Type() LObject {
 	return symMap
 }
-func (m tMap) Length() int {
+
+func (m *lmap) Length() int {
 	return len(m.bindings)
 }
-func (m tMap) String() string {
+func (m *lmap) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
@@ -831,22 +821,12 @@ func (m tMap) String() string {
 	return buf.String()
 }
 
-func Map(pairwiseBindings ...LObject) LMap {
-	count := len(pairwiseBindings)
-	Println("map pairwise count is", count)
-	m := tMap{map[LObject]LObject{}}
-	for i := 0; i < count; i += 2 {
-		m.Put(pairwiseBindings[i], pairwiseBindings[i+1])
-	}
-	return m
-}
-
-func (m tMap) Put(key LObject, value LObject) LMap {
+func (m *lmap) Put(key LObject, value LObject) LObject {
 	m.bindings[key] = value
 	return m
 }
 
-func (m tMap) Get(key LObject) LObject {
+func (m *lmap) Get(key LObject) LObject {
 	if val, ok := m.bindings[key]; ok {
 		return val
 	} else {
@@ -854,7 +834,7 @@ func (m tMap) Get(key LObject) LObject {
 	}
 }
 
-func (m tMap) Has(key LObject) bool {
+func (m *lmap) Has(key LObject) bool {
 	_, ok := m.bindings[key]
 	return ok
 }
@@ -863,7 +843,8 @@ func (m tMap) Has(key LObject) bool {
 // ------------------- error
 //
 
-func Error(arg1 interface{}, args ...interface{}) error {
+//func Error(arg1 interface{}, args ...interface{}) error {
+func Error(arg1 LAny, args ...LAny) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))
 	for _, o := range args {

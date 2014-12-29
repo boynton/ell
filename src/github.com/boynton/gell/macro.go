@@ -21,22 +21,22 @@ import (
 )
 
 type LMacro interface {
-	Type() LSymbol
+	Type() LObject
 	String() string
 	Expand(expr LObject) (LObject, error)
 }
 
 type lmacro struct {
-	name     LSymbol
+	name     LObject
 	expander LObject //a function of one argument
 }
 
-func NewMacro(name LSymbol, expander LObject) LMacro {
+func NewMacro(name LObject, expander LObject) LMacro {
 	mac := lmacro{name, expander}
 	return &mac
 }
 
-func (lmacro) Type() LSymbol {
+func (lmacro) Type() LObject {
 	return Intern("macro")
 }
 
@@ -67,7 +67,7 @@ func (macro lmacro) Expand(expr LObject) (LObject, error) {
 }
 
 func Macroexpand(module LModule, expr LObject) (LObject, error) {
-	if IsList(expr) {
+	if IsPair(expr) {
 		var head LObject = NIL
 		fn := Car(expr)
 		if IsSymbol(fn) {
@@ -86,18 +86,18 @@ func Macroexpand(module LModule, expr LObject) (LObject, error) {
 		}
 		var tail LObject = head
 		rest := Cdr(expr)
-		for IsList(rest) {
+		for IsPair(rest) {
 			expanded, err := Macroexpand(module, Car(rest))
 			if err != nil {
 				return nil, err
 			}
 			tmp := Cons(expanded, NIL)
-			(tail.(*llist)).cdr = tmp
+			(tail.(*lpair)).cdr = tmp
 			tail = tmp
 			rest = Cdr(rest)
 		}
 		if rest != NIL {
-			(tail.(*llist)).cdr = rest
+			(tail.(*lpair)).cdr = rest
 		}
 		return head, nil
 	}

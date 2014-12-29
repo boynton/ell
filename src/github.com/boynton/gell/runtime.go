@@ -84,16 +84,16 @@ func Exec(thunk LCode, args ...LObject) (LObject, error) {
 
 type LVM interface {
 	exec(code *lcode, args []LObject) (LObject, error)
-	Exported() []LSymbol
+	Exported() []LObject
 }
 
 type lvm struct {
 	stackSize int
-	defs      []LSymbol
+	defs      []LObject
 }
 
 func NewVM(stackSize int) LVM {
-	defs := make([]LSymbol, 0)
+	defs := make([]LObject, 0)
 	vm := lvm{stackSize, defs}
 	return &vm
 }
@@ -107,7 +107,7 @@ type lprimitive struct {
 
 var symPrimitive = newSymbol("primitive")
 
-func (prim *lprimitive) Type() LSymbol {
+func (prim *lprimitive) Type() LObject {
 	return symPrimitive
 }
 
@@ -142,7 +142,7 @@ type lclosure struct {
 	frame *lframe
 }
 
-func (lclosure) Type() LSymbol {
+func (lclosure) Type() LObject {
 	return Intern("closure")
 }
 
@@ -173,7 +173,7 @@ func showStack(stack []LObject, sp int) string {
 	return s + " ]"
 }
 
-func (vm *lvm) Exported() []LSymbol {
+func (vm *lvm) Exported() []LObject {
 	return vm.defs
 }
 
