@@ -11,7 +11,11 @@ func argcError() (LObject, error) {
 }
 
 func typeError(expected string, num int) (LObject, error) {
-	return nil, Error("Argument", num, "is not of type", expected)
+	return nil, Error("Argument ", num, " is not of type ", expected)
+}
+
+func rangeError(expected string, num int) (LObject, error) {
+	return nil, Error("Argument ", num, " is out of range: ", expected)
 }
 
 func Ell(module LModule) {
