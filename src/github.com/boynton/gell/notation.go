@@ -150,6 +150,8 @@ func (dr *DataReader) ReadData() (LObject, error) {
 			return List(Intern("quote"), o), nil
 		} else if c == '(' {
 			return dr.decodeList()
+		} else if c == '[' {
+			return dr.decodeVector()
 		} else if c == '"' {
 			return dr.decodeString()
 		} else {
@@ -228,6 +230,22 @@ func (dr *DataReader) decodeString() (LObject, error) {
 }
 
 func (dr *DataReader) decodeList() (LObject, error) {
+	items, err := dr.decodeSequence(')')
+	if err != nil {
+		return nil, err
+	}
+	return ToList(items), nil
+}
+
+func (dr *DataReader) decodeVector() (LObject, error) {
+	items, err := dr.decodeSequence(']')
+	if err != nil {
+		return nil, err
+	}
+	return ToVector(items), nil
+}
+
+func (dr *DataReader) decodeSequence(endChar byte) ([]LObject, error) {
 	c, e := dr.getChar()
 	items := []LObject{}
 	for e == nil {
@@ -242,7 +260,7 @@ func (dr *DataReader) decodeList() (LObject, error) {
 			}
 			continue
 		}
-		if c == ')' {
+		if c == endChar {
 			break
 		}
 		dr.ungetChar()
@@ -255,9 +273,9 @@ func (dr *DataReader) decodeList() (LObject, error) {
 		c, e = dr.getChar()
 	}
 	if e != nil {
-		return NIL, e
+		return nil, e
 	}
-	return ToList(items), nil
+	return items, nil
 }
 
 func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
