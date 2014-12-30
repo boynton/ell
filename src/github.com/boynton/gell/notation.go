@@ -465,8 +465,8 @@ func writeMap(m *lmap, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
-	delim := " "
-	sep := ": " //!
+	delim := ", "
+	sep := " "
 	if json {
 		delim = ", "
 		sep = ": "
