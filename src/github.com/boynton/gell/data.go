@@ -651,6 +651,8 @@ func Length(seq LObject) int {
 			return len(v.elements)
 		case *lpair:
 			return v.Length()
+		case *lmap:
+			return len(v.bindings)
 		default:
 			return -1
 		}
