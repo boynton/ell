@@ -132,14 +132,15 @@ func (dr *DataReader) ReadData() (LObject, error) {
 		if IsWhitespace(c) {
 			c, e = dr.in.ReadByte()
 			continue
-		} else if c == ';' {
+		}
+		switch c {
+		case ';':
 			if dr.decodeComment() != nil {
 				break
 			} else {
 				c, e = dr.getChar()
-				continue
 			}
-		} else if c == '\'' {
+		case '\'':
 			o, err := dr.ReadData()
 			if err != nil {
 				return nil, err
@@ -148,20 +149,21 @@ func (dr *DataReader) ReadData() (LObject, error) {
 				return o, nil
 			}
 			return List(Intern("quote"), o), nil
-		} else if c == '(' {
+		case '(':
 			return dr.decodeList()
-		} else if c == '[' {
+		case '[':
 			return dr.decodeVector()
-		} else if c == '{' {
+		case '{':
 			return dr.decodeMap()
-		} else if c == '"' {
+		case '"':
 			return dr.decodeString()
-		} else {
+		case ')', ']', '}':
+			return nil, Error("Unexpected '", string(c), "'")
+		default:
 			atom, err := dr.decodeAtom(c)
 			return atom, err
 		}
 	}
-	//fixme: discern between EOF and other errors
 	return EOI, e
 }
 
@@ -232,15 +234,19 @@ func (dr *DataReader) decodeString() (LObject, error) {
 }
 
 func (dr *DataReader) decodeList() (LObject, error) {
-	items, err := dr.decodeSequence(')')
+	items, tail, err := dr.decodeSequence(')', '.')
 	if err != nil {
 		return nil, err
 	}
-	return ToList(items), nil
+	if tail != nil {
+		return ToImproperList(items, tail), nil
+	} else {
+		return ToList(items), nil
+	}
 }
 
 func (dr *DataReader) decodeVector() (LObject, error) {
-	items, err := dr.decodeSequence(']')
+	items, _, err := dr.decodeSequence(']', 0)
 	if err != nil {
 		return nil, err
 	}
@@ -248,44 +254,52 @@ func (dr *DataReader) decodeVector() (LObject, error) {
 }
 
 func (dr *DataReader) decodeMap() (LObject, error) {
-	items, err := dr.decodeSequence('}')
+	items, _, err := dr.decodeSequence('}', 0)
 	if err != nil {
 		return nil, err
 	}
 	return ToMap(items, len(items))
 }
 
-func (dr *DataReader) decodeSequence(endChar byte) ([]LObject, error) {
-	c, e := dr.getChar()
+func (dr *DataReader) decodeSequence(endChar byte, tailTag byte) ([]LObject, LObject, error) {
+	c, err := dr.getChar()
 	items := []LObject{}
-	for e == nil {
+	var tail LObject
+	for err == nil {
 		if IsWhitespace(c) {
-			c, e = dr.getChar()
+			c, err = dr.getChar()
 			continue
 		}
 		if c == ';' {
-			e = dr.decodeComment()
-			if e == nil {
-				c, e = dr.getChar()
+			err = dr.decodeComment()
+			if err == nil {
+				c, err = dr.getChar()
 			}
 			continue
 		}
 		if c == endChar {
-			break
+			return items, tail, nil
 		}
-		dr.ungetChar()
-		element, err := dr.ReadData()
-		if err != nil {
-			break
+		if tail != nil {
+			return nil, nil, Error("Syntax error: object beyond tail of dotted pair")
+		}
+		if c == tailTag {
+			tail, err = dr.ReadData()
+			if err != nil {
+				return nil, nil, err
+			}
 		} else {
-			items = append(items, element)
+			dr.ungetChar()
+			element, err := dr.ReadData()
+			if err != nil {
+				return nil, nil, err
+			} else {
+				items = append(items, element)
+			}
 		}
-		c, e = dr.getChar()
+		c, err = dr.getChar()
 	}
-	if e != nil {
-		return nil, e
-	}
-	return items, nil
+	return nil, nil, err
 }
 
 func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {

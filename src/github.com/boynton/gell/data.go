@@ -604,6 +604,16 @@ func ToList(vec []LObject) LObject {
 	return p
 }
 
+func ToImproperList(vec []LObject, rest LObject) LObject {
+	var p LObject
+	p = rest
+	for i := len(vec) - 1; i >= 0; i-- {
+		v := vec[i]
+		p = Cons(v, p)
+	}
+	return p
+}
+
 func List(vec ...LObject) LObject {
 	return ToList(vec)
 }
