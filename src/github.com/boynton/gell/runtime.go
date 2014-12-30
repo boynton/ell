@@ -142,7 +142,14 @@ func (lclosure) Type() LObject {
 }
 
 func (closure lclosure) String() string {
-	return "<closure: " + closure.code.String() + ">"
+	//	return "<closure: " + closure.code.String() + ">"
+	if closure.code.argc == 1 {
+		return fmt.Sprintf("<function of 1 argument>")
+	} else if closure.code.argc >= 0 {
+		return fmt.Sprintf("<function of %d arguments>", closure.code.argc)
+	} else {
+		return fmt.Sprintf("<function of %d or more arguments>", -closure.code.argc-1)
+	}
 }
 
 func showEnv(f *lframe) string {
@@ -289,17 +296,24 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				f.ops = ops
 				f.module = module
 				f.locals = tfun.frame
-				if tfun.code.argc >= 0 {
-					if tfun.code.argc != argc {
-						return nil, Error("Wrong number of args ("+strconv.Itoa(ops[pc+1])+") to ", tfun)
+				expectedArgc := tfun.code.argc
+				if expectedArgc >= 0 {
+					if argc != expectedArgc {
+						return nil, Error("Wrong number of args (", argc, ") to ", tfun)
 					}
 					f.elements = make([]LObject, argc)
-					if argc > 0 {
-						copy(f.elements, stack[sp:sp+argc])
-						sp += argc
-					}
+					copy(f.elements, stack[sp:sp+argc])
+					sp += argc
 				} else {
-					return nil, Error("rest args NYI")
+					requiredArgc := -expectedArgc - 1
+					if argc < requiredArgc {
+						return nil, Error("Wrong number of args (", argc, ") to ", tfun)
+					}
+					f.elements = make([]LObject, requiredArgc+1)
+					copy(f.elements, stack[sp:sp+requiredArgc])
+					restElements := stack[sp+requiredArgc : sp+argc]
+					f.elements[requiredArgc] = ToList(restElements)
+					sp += argc
 				}
 				env = f
 				ops = tfun.code.ops

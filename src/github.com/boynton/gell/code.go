@@ -236,6 +236,7 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 }
 
 func (code lcode) String() string {
+	//	return code.Decompile()
 	return fmt.Sprintf("(function %d %v)", code.argc, code.ops)
 }
 

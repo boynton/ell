@@ -28,10 +28,10 @@ func Compile(module LModule, expr LObject) (LCode, error) {
 
 func calculateLocation(sym LObject, env LObject) (int, int, bool) {
 	i := 0
-	for env != NIL {
+	for IsPair(env) {
 		j := 0
 		e := Car(env)
-		for e != NIL {
+		for IsPair(e) {
 			if Car(e) == sym {
 				return i, j, true
 			}
@@ -132,16 +132,14 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			return err
 		case Intern("lambda"):
 			// (lambda ()  <expr> ...)
-			// (lambda (arg1 ...)  <expr> ...)
-			// (lambda args <expr> ...) ;; NYI
+			// (lambda (sym ...)  <expr> ...)
+			// (lambda (sym ... . rest)  <expr> ...)
+			// (lambda sym <expr> ...) ;; all args in a list, bound to sym
 			if lstlen < 3 {
 				return Error("Syntax error: ", expr)
 			}
 			body := Cddr(lst)
 			args := Cadr(lst)
-			if args != NIL && !IsPair(args) {
-				return Error("Invalid function formal argument list: ", args)
-			}
 			return compileLambda(code, env, args, body, isTail, ignoreResult)
 		case Intern("set!"):
 			// (set! <sym> <val>)
@@ -224,12 +222,20 @@ func compileLambda(code LCode, env LObject, args LObject, body LObject, isTail b
 	var rest LObject = NIL
 	tmp := args
 	//to do: deal with rest, optional, and keywords arguments
-	for tmp != NIL {
+	for IsPair(tmp) {
 		if !IsSymbol(Car(tmp)) {
 			return Error("Formal argument is not a symbol: ", Car(tmp))
 		}
 		argc++
 		tmp = Cdr(tmp)
+	}
+	if tmp != NIL {
+		//rest arg
+		if IsSymbol(tmp) {
+			argc = -argc - 1
+		} else {
+			return Error("Formal argument list is malformed: ", tmp)
+		}
 	}
 	newEnv := Cons(args, env)
 	mod := (code.(*lcode)).module
