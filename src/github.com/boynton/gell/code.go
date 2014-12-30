@@ -37,15 +37,17 @@ const (
 	GLOBAL_OPCODE    = iota // 10
 	DEFGLOBAL_OPCODE = iota
 	SETLOCAL_OPCODE  = iota
-	NULL_OPCODE      = iota
-	CAR_OPCODE       = iota
-	CDR_OPCODE       = iota // 15
-	ADD_OPCODE       = iota
-	MUL_OPCODE       = iota
 	USE_OPCODE       = iota
 	DEFMACRO_OPCODE  = iota
-	VECTOR_OPCODE    = iota // 20
+	VECTOR_OPCODE    = iota // 15
 	MAP_OPCODE       = iota
+
+	//extended instructions
+	NULL_OPCODE = iota
+	CAR_OPCODE  = iota
+	CDR_OPCODE  = iota
+	ADD_OPCODE  = iota // 20
+	MUL_OPCODE  = iota
 )
 
 type LCode interface {

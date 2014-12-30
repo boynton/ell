@@ -12,13 +12,17 @@ func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
 	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
+	pExtended := flag.Bool("e", false, "enable extended VM instructions for common primitive operations")
 	flag.Parse()
 	args := flag.Args()
 	if *pVerbose {
-		SetVerbose(true)
+		SetVerbose(*pVerbose)
 	}
 	if *pTrace {
-		SetTrace(true)
+		SetTrace(*pTrace)
+	}
+	if *pExtended {
+		EnableExtendedInstructions(*pExtended)
 	}
 	if len(args) < 1 {
 		interrupts := make(chan os.Signal, 1)

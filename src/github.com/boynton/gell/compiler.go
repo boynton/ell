@@ -16,6 +16,12 @@ limitations under the License.
 
 package gell
 
+var extendedInstructions bool = false
+
+func EnableExtendedInstructions(b bool) {
+	extendedInstructions = b
+}
+
 func Compile(module LModule, expr LObject) (LCode, error) {
 	code := NewCode(module, 0, NIL)
 	err := compileExpr(code, NIL, expr, false, false)
@@ -276,12 +282,14 @@ func compileFuncall(code LCode, env LObject, fn LObject, args LObject, isTail bo
 	if err != nil {
 		return err
 	}
-	ok, err := compilePrimopCall(code, fn, argc, isTail, ignoreResult)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return nil
+	if extendedInstructions {
+		ok, err := compilePrimopCall(code, fn, argc, isTail, ignoreResult)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
 	}
 	err = compileExpr(code, env, fn, false, false)
 	if err != nil {

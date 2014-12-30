@@ -29,6 +29,13 @@ func Ell(module LModule) {
 	module.DefineFunction("equal?", ell_eq)
 	module.DefineFunction("identical?", ell_identical_p)
 
+	module.DefineFunction("null?", ell_null_p)
+	module.DefineFunction("cons", ell_cons)
+	module.DefineFunction("car", ell_car)
+	module.DefineFunction("cdr", ell_cdr)
+
+	module.DefineFunction("cadr", ell_cadr)
+	module.DefineFunction("cddr", ell_cddr)
 	module.DefineFunction("display", ell_display)
 	module.DefineFunction("write", ell_write)
 	module.DefineFunction("newline", ell_newline)
@@ -57,9 +64,6 @@ func Ell(module LModule) {
 	module.DefineFunction("string-length", ell_string_length)
 	module.DefineFunction("error", ell_fatal)
 	module.DefineFunction("length", ell_length)
-	module.DefineFunction("cadr", ell_cadr)
-	module.DefineFunction("cddr", ell_cddr)
-	module.DefineFunction("cons", ell_cons)
 	module.DefineFunction("json", ell_json)
 }
 
@@ -369,6 +373,42 @@ func ell_string_length(argv []LObject, argc int) (LObject, error) {
 func ell_length(argv []LObject, argc int) (LObject, error) {
 	if argc == 1 {
 		return NewInteger(int64(Length(argv[0]))), nil
+	} else {
+		return argcError()
+	}
+}
+
+func ell_null_p(argv []LObject, argc int) (LObject, error) {
+	if argc == 1 {
+		if argv[0] == NIL {
+			return TRUE, nil
+		} else {
+			return FALSE, nil
+		}
+	} else {
+		return argcError()
+	}
+}
+
+func ell_car(argv []LObject, argc int) (LObject, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if IsList(lst) {
+			return Car(lst), nil
+		}
+		return typeError("pair", 1)
+	} else {
+		return argcError()
+	}
+}
+
+func ell_cdr(argv []LObject, argc int) (LObject, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if IsList(lst) {
+			return Cdr(lst), nil
+		}
+		return typeError("pair", 1)
 	} else {
 		return argcError()
 	}
