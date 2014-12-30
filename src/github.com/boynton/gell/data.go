@@ -549,7 +549,7 @@ func (lst *lpair) String() string {
 
 func (lst *lpair) Length() int {
 	count := 1
-	var o LObject = lst.cdr	
+	var o LObject = lst.cdr
 	for o != NIL {
 		if p, ok := o.(*lpair); ok {
 			count++
@@ -711,7 +711,7 @@ func Vector(elements ...LObject) LObject {
 }
 
 func ToVector(elements []LObject, count int) LObject {
-        el := make([]LObject, count)
+	el := make([]LObject, count)
 	copy(el, elements[0:count])
 	vec := lvector{el}
 	return &vec
@@ -751,12 +751,12 @@ func VectorLength(vec LObject) (int, error) {
 		return len(v.elements), nil
 	}
 	return 0, TypeError(symVector, vec)
-//	return Error("Not a vector: ", vec)
+	//	return Error("Not a vector: ", vec)
 }
 
 func VectorSet(vec LObject, idx int, obj LObject) error {
 	if v, ok := vec.(*lvector); ok {
-		if idx <0 || idx >= len(v.elements) {
+		if idx < 0 || idx >= len(v.elements) {
 			return Error("Vector index out of range")
 		}
 		v.elements[idx] = obj
@@ -767,7 +767,7 @@ func VectorSet(vec LObject, idx int, obj LObject) error {
 
 func VectorRef(vec LObject, idx int) (LObject, error) {
 	if v, ok := vec.(*lvector); ok {
-		if idx <0 || idx >= len(v.elements) {
+		if idx < 0 || idx >= len(v.elements) {
 			return nil, Error("Vector index out of range")
 		}
 		return v.elements[idx], nil
@@ -783,7 +783,7 @@ type lmap struct {
 }
 
 func ToMap(pairwiseBindings []LObject, count int) (LObject, error) {
-	if count % 2 != 0 {
+	if count%2 != 0 {
 		return nil, Error("Initializing a map requires an even number of elements")
 	}
 	bindings := make(map[LObject]LObject, count/2)
@@ -844,26 +844,25 @@ func (m *lmap) Has(key LObject) bool {
 }
 
 func Has(obj LObject, key LObject) (bool, error) {
-        if aMap, ok := obj.(*lmap); ok {
+	if aMap, ok := obj.(*lmap); ok {
 		return aMap.Has(key), nil
 	}
 	return false, TypeError(symMap, obj)
 }
 
 func Get(obj LObject, key LObject) (LObject, error) {
-        if aMap, ok := obj.(*lmap); ok {
+	if aMap, ok := obj.(*lmap); ok {
 		return aMap.Get(key), nil
 	}
 	return nil, TypeError(symMap, obj)
 }
 
 func Put(obj LObject, key LObject, value LObject) (LObject, error) {
-        if aMap, ok := obj.(*lmap); ok {
+	if aMap, ok := obj.(*lmap); ok {
 		return aMap.Put(key, value), nil
 	}
 	return nil, TypeError(symMap, obj)
 }
-
 
 //
 // ------------------- error

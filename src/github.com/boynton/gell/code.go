@@ -25,26 +25,26 @@ import (
 
 const (
 	BAD_OPCODE       = iota
-	LITERAL_OPCODE   = iota		// 1
+	LITERAL_OPCODE   = iota // 1
 	LOCAL_OPCODE     = iota
 	JUMPFALSE_OPCODE = iota
 	JUMP_OPCODE      = iota
-	TAILCALL_OPCODE  = iota		// 5
+	TAILCALL_OPCODE  = iota // 5
 	CALL_OPCODE      = iota
 	RETURN_OPCODE    = iota
 	CLOSURE_OPCODE   = iota
 	POP_OPCODE       = iota
-	GLOBAL_OPCODE    = iota		// 10
+	GLOBAL_OPCODE    = iota // 10
 	DEFGLOBAL_OPCODE = iota
 	SETLOCAL_OPCODE  = iota
 	NULL_OPCODE      = iota
 	CAR_OPCODE       = iota
-	CDR_OPCODE       = iota		// 15
+	CDR_OPCODE       = iota // 15
 	ADD_OPCODE       = iota
 	MUL_OPCODE       = iota
 	USE_OPCODE       = iota
 	DEFMACRO_OPCODE  = iota
-	VECTOR_OPCODE    = iota		// 20
+	VECTOR_OPCODE    = iota // 20
 	MAP_OPCODE       = iota
 )
 
