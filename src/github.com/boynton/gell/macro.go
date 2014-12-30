@@ -33,6 +33,12 @@ func NewMacro(name LObject, expander LObject) LObject {
 func (*lmacro) Type() LObject {
 	return Intern("macro")
 }
+func (m *lmacro) Equal(another LObject) bool {
+	if a, ok := another.(*lmacro); ok {
+		return m == a
+	}
+	return false
+}
 
 func (macro *lmacro) String() string {
 	return fmt.Sprintf("(macro %v %v)", macro.name, macro.expander)

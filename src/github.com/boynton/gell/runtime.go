@@ -106,6 +106,13 @@ func (prim *lprimitive) Type() LObject {
 	return symPrimitive
 }
 
+func (prim *lprimitive) Equal(another LObject) bool {
+	if a, ok := another.(*lprimitive); ok {
+		return prim == a
+	}
+	return false
+}
+
 func (prim *lprimitive) String() string {
 	return "<primitive " + prim.name + ">"
 }
@@ -139,6 +146,13 @@ type lclosure struct {
 
 func (lclosure) Type() LObject {
 	return Intern("closure")
+}
+
+func (closure *lclosure) Equal(another LObject) bool {
+	if a, ok := another.(*lclosure); ok {
+		return closure == a
+	}
+	return false
 }
 
 func (closure lclosure) String() string {

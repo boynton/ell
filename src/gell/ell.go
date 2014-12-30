@@ -25,8 +25,10 @@ func Ell(module LModule) {
 	module.Define("false", FALSE)
 
 	module.DefineMacro("define", ell_define)
-
 	module.DefineFunction("type", ell_type)
+	module.DefineFunction("equal?", ell_eq)
+	module.DefineFunction("identical?", ell_identical_p)
+
 	module.DefineFunction("display", ell_display)
 	module.DefineFunction("write", ell_write)
 	module.DefineFunction("newline", ell_newline)
@@ -45,7 +47,7 @@ func Ell(module LModule) {
 	module.DefineFunction("get", ell_get)
 	module.DefineFunction("put!", ell_put_bang)
 	module.DefineFunction("has?", ell_has_p)
-	module.DefineFunction("=", ell_eq)
+	module.DefineFunction("=", ell_numeq)
 	module.DefineFunction("<=", ell_le)
 	module.DefineFunction(">=", ell_ge)
 	module.DefineFunction(">", ell_gt)
@@ -66,6 +68,45 @@ func ell_type(argv []LObject, argc int) (LObject, error) {
 		return argcError()
 	}
 	return argv[0].Type(), nil
+}
+
+func ell_identical_p(argv []LObject, argc int) (LObject, error) {
+	if argc == 2 {
+		b := Identical(argv[0], argv[1])
+		if b {
+			return TRUE, nil
+		} else {
+			return FALSE, nil
+		}
+	} else {
+		return argcError()
+	}
+}
+
+func ell_eq(argv []LObject, argc int) (LObject, error) {
+	if argc < 1 {
+		return argcError()
+	}
+	obj := argv[0]
+	for i := 1; i < argc; i++ {
+		if !Equal(obj, argv[1]) {
+			return FALSE, nil
+		}
+	}
+	return TRUE, nil
+}
+
+func ell_numeq(argv []LObject, argc int) (LObject, error) {
+	if argc < 1 {
+		return argcError()
+	}
+	obj := argv[0]
+	for i := 1; i < argc; i++ {
+		if b, err := NumericallyEqual(obj, argv[1]); err != nil && !b {
+			return FALSE, err
+		}
+	}
+	return TRUE, nil
 }
 
 func ell_display(argv []LObject, argc int) (LObject, error) {
@@ -282,15 +323,6 @@ func ell_lt(argv []LObject, argc int) (LObject, error) {
 		if err != nil {
 			return nil, err
 		}
-		return b, nil
-	} else {
-		return argcError()
-	}
-}
-
-func ell_eq(argv []LObject, argc int) (LObject, error) {
-	if argc == 2 {
-		b := Equal(argv[0], argv[1])
 		return b, nil
 	} else {
 		return argcError()

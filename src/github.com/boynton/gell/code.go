@@ -51,6 +51,7 @@ const (
 type LCode interface {
 	Type() LObject
 	String() string
+	Equal(another LObject) bool
 	Module() LModule
 	LoadOps(ops LObject) error
 	Decompile() string
@@ -137,18 +138,25 @@ func NewCode(module LModule, argc int, restArgs LObject) LCode {
 	return &code
 }
 
-func (lcode) Type() LObject {
+func (*lcode) Type() LObject {
 	return Intern("code")
 }
 
-func (code lcode) Decompile() string {
+func (code *lcode) Equal(another LObject) bool {
+	if c, ok := another.(*lcode); ok {
+		return code == c
+	}
+	return false
+}
+
+func (code *lcode) Decompile() string {
 	var buf bytes.Buffer
 	code.decompile(&buf, "")
 	s := buf.String()
 	return strings.Replace(s, "function 0", "lap", 1)
 }
 
-func (code lcode) decompile(buf *bytes.Buffer, indent string) {
+func (code *lcode) decompile(buf *bytes.Buffer, indent string) {
 	offset := 0
 	max := len(code.ops)
 	buf.WriteString("(function ")
@@ -235,12 +243,12 @@ func (code lcode) decompile(buf *bytes.Buffer, indent string) {
 	buf.WriteString(")")
 }
 
-func (code lcode) String() string {
+func (code *lcode) String() string {
 	//	return code.Decompile()
 	return fmt.Sprintf("(function %d %v)", code.argc, code.ops)
 }
 
-func (code lcode) Module() LModule {
+func (code *lcode) Module() LModule {
 	return code.module
 }
 

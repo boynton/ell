@@ -31,6 +31,7 @@ type LAny interface{}
 type LObject interface {
 	Type() LObject
 	String() string
+	Equal(another LObject) bool
 }
 
 //
@@ -45,6 +46,10 @@ var symNull = newSymbol("null")
 
 func (lnil) Type() LObject {
 	return symNull
+}
+
+func (lnil) Equal(another LObject) bool {
+	return another == NIL
 }
 
 func (lnil) String() string {
@@ -63,6 +68,10 @@ var symEoi = newSymbol("eoi")
 
 func (leoi) Type() LObject {
 	return symEoi
+}
+
+func (leoi) Equal(another LObject) bool {
+	return another == EOI
 }
 
 func (leoi) String() string {
@@ -87,6 +96,13 @@ func IsBoolean(obj LObject) bool {
 
 func (lboolean) Type() LObject {
 	return symBoolean
+}
+
+func (b lboolean) Equal(another LObject) bool {
+	if a, ok := another.(lboolean); ok {
+		return b == a
+	}
+	return false
 }
 
 func (b lboolean) String() string {
@@ -119,6 +135,13 @@ func IsSymbol(obj LObject) bool {
 
 func (*lsymbol) Type() LObject {
 	return symSymbol
+}
+
+func (sym *lsymbol) Equal(another LObject) bool {
+	if a, ok := another.(*lsymbol); ok {
+		return sym == a
+	}
+	return false
 }
 
 func (sym *lsymbol) String() string {
@@ -176,6 +199,13 @@ func IsString(obj LObject) bool {
 
 func (lstring) Type() LObject {
 	return symString
+}
+
+func (s lstring) Equal(another LObject) bool {
+	if a, ok := another.(lstring); ok {
+		return s == a
+	}
+	return false
 }
 
 func encodeString(s string) string {
@@ -340,11 +370,46 @@ func Less(n1 LObject, n2 LObject) (LObject, error) {
 	return nil, err
 }
 
-func Equal(n1 LObject, n2 LObject) LObject {
-	if n1 == n2 {
-		return TRUE
+func Equal(o1 LObject, o2 LObject) bool {
+	//value based
+	if o1 == o2 {
+		return true
 	} else {
-		return FALSE
+		return o1.Equal(o2)
+	}
+}
+
+func NumericallyEqual(o1 LObject, o2 LObject) (bool, error) {
+	//for scheme, only accepts numbers, else error
+	switch n1 := o1.(type) {
+	case linteger:
+		switch n2 := o2.(type) {
+		case linteger:
+			return n1 == n2, nil
+		case lreal:
+			return float64(n1) == float64(n2), nil
+		default:
+			return false, Error("Not a number: ", o2)
+		}
+	case lreal:
+		switch n2 := o2.(type) {
+		case linteger:
+			return float64(n2) == float64(n1), nil
+		case lreal:
+			return n1 == n2, nil
+		default:
+			return false, Error("Not a number: ", o2)
+		}
+	default:
+		return false, Error("Not a number: ", o1)
+	}
+}
+
+func Identical(n1 LObject, n2 LObject) bool {
+	if n1 == n2 {
+		return true
+	} else {
+		return false
 	}
 }
 
@@ -352,6 +417,13 @@ type linteger int64
 
 func (linteger) Type() LObject {
 	return symNumber
+}
+
+func (i linteger) Equal(another LObject) bool {
+	if a, err := IntegerValue(another); err == nil {
+		return int64(i) == a
+	}
+	return false
 }
 
 func (i linteger) String() string {
@@ -369,6 +441,13 @@ type lreal float64
 
 func (lreal) Type() LObject {
 	return symNumber
+}
+
+func (f lreal) Equal(another LObject) bool {
+	if a, err := RealValue(another); err == nil {
+		return float64(f) == a
+	}
+	return false
 }
 
 func (f lreal) String() string {
@@ -497,6 +576,13 @@ func IsProperList(obj LObject) bool {
 
 func (*lpair) Type() LObject {
 	return symPair
+}
+
+func (lst *lpair) Equal(another LObject) bool {
+	if a, ok := another.(*lpair); ok {
+		return Equal(lst.car, a.car) && Equal(lst.cdr, a.cdr)
+	}
+	return false
 }
 
 func (lst *lpair) String() string {
@@ -716,6 +802,22 @@ func IsVector(obj LObject) bool {
 func (*lvector) Type() LObject {
 	return symVector
 }
+
+func (vec *lvector) Equal(another LObject) bool {
+	if a, ok := another.(*lvector); ok {
+		vlen := len(vec.elements)
+		if vlen == len(a.elements) {
+			for i := 0; i < vlen; i++ {
+				if !Equal(vec.elements[i], a.elements[i]) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
 func (vec *lvector) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
@@ -792,9 +894,29 @@ func (*lmap) Type() LObject {
 	return symMap
 }
 
+func (m *lmap) Equal(another LObject) bool {
+	if a, ok := another.(*lmap); ok {
+		mlen := len(m.bindings)
+		if mlen == len(a.bindings) {
+			for k, v := range m.bindings {
+				if v2, ok := a.bindings[k]; ok {
+					if !Equal(v, v2) {
+						return false
+					}
+				} else {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
 func (m *lmap) Length() int {
 	return len(m.bindings)
 }
+
 func (m *lmap) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
