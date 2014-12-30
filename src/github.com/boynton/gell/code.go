@@ -25,25 +25,27 @@ import (
 
 const (
 	BAD_OPCODE       = iota
-	LITERAL_OPCODE   = iota
+	LITERAL_OPCODE   = iota		// 1
 	LOCAL_OPCODE     = iota
 	JUMPFALSE_OPCODE = iota
 	JUMP_OPCODE      = iota
-	TAILCALL_OPCODE  = iota
+	TAILCALL_OPCODE  = iota		// 5
 	CALL_OPCODE      = iota
 	RETURN_OPCODE    = iota
 	CLOSURE_OPCODE   = iota
 	POP_OPCODE       = iota
-	GLOBAL_OPCODE    = iota
+	GLOBAL_OPCODE    = iota		// 10
 	DEFGLOBAL_OPCODE = iota
 	SETLOCAL_OPCODE  = iota
 	NULL_OPCODE      = iota
 	CAR_OPCODE       = iota
-	CDR_OPCODE       = iota
+	CDR_OPCODE       = iota		// 15
 	ADD_OPCODE       = iota
 	MUL_OPCODE       = iota
 	USE_OPCODE       = iota
 	DEFMACRO_OPCODE  = iota
+	VECTOR_OPCODE    = iota		// 20
+	MAP_OPCODE       = iota
 )
 
 type LCode interface {
@@ -66,6 +68,8 @@ type LCode interface {
 	EmitJumpFalse(offset int) int
 	EmitJump(offset int) int
 	SetJumpLocation(loc int)
+	EmitVector(length int)
+	EmitMap(length int)
 	EmitUse(sym LObject)
 	EmitCar()
 	EmitCdr()
@@ -392,6 +396,14 @@ func (code *lcode) EmitJump(offset int) int {
 }
 func (code *lcode) SetJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
+}
+func (code *lcode) EmitVector(vlen int) {
+	code.ops = append(code.ops, VECTOR_OPCODE)
+	code.ops = append(code.ops, vlen)
+}
+func (code *lcode) EmitMap(vlen int) {
+	code.ops = append(code.ops, MAP_OPCODE)
+	code.ops = append(code.ops, vlen)
 }
 func (code *lcode) EmitUse(sym LObject) {
 	code.ops = append(code.ops, USE_OPCODE)

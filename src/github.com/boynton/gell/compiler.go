@@ -48,6 +48,7 @@ func calculateLocation(sym LObject, env LObject) (int, int, bool) {
 }
 
 func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResult bool) error {
+	//Println("COMPILE: ", expr, " isTail: ", isTail, ", ignoreResult: ", ignoreResult)
 	if IsSymbol(expr) {
 		if i, j, ok := calculateLocation(expr, env); ok {
 			code.EmitLocal(i, j)
@@ -177,6 +178,36 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			// (<fn> <arg> ...)
 			return compileFuncall(code, env, fn, Cdr(lst), isTail, ignoreResult)
 		}
+	} else if vec, ok := expr.(*lvector); ok {
+		//vector literal: the elements are evaluated
+		vlen := len(vec.elements)
+		for i := vlen - 1; i >= 0; i-- {
+			obj := vec.elements[i]
+			err := compileExpr(code, env, obj, false, false)
+			if err != nil {
+				return err
+			}
+		}
+		code.EmitVector(vlen)
+		return nil
+	} else if amap, ok := expr.(*lmap); ok {
+		//vector literal: the elements are evaluated
+		mlen := len(amap.bindings)
+		vlen := mlen * 2
+		vals := make([]LObject, 0, vlen)
+		for k, v := range amap.bindings {
+			vals = append(vals, k)
+			vals = append(vals, v)
+		}
+		for i := vlen - 1; i >= 0; i-- {
+			obj := vals[i]
+			err := compileExpr(code, env, obj, false, false)
+			if err != nil {
+				return err
+			}
+		}
+		code.EmitMap(vlen)
+		return nil
 	} else {
 		if !ignoreResult {
 			code.EmitLiteral(expr)

@@ -343,14 +343,14 @@ func (module *lmodule) Eval(expr LObject) (LObject, error) {
 		return nil, err
 	}
 	if verbose {
-		Println("; expanded to: ", expanded)
+		Println("; expanded to: ", Write(expanded))
 	}
 	code, err := Compile(module, expanded)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
-		Println("; compiled to: ", code)
+		Println("; compiled to: ", Write(code))
 	}
 	result, err := module.Import(code)
 	return result, err

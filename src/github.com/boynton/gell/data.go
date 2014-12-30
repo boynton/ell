@@ -43,10 +43,6 @@ type lnil int
 
 var symNull = newSymbol("null")
 
-func IsNil(obj LObject) bool {
-	return obj == NIL
-}
-
 func (lnil) Type() LObject {
 	return symNull
 }
@@ -64,10 +60,6 @@ const EOI = leoi(0)
 type leoi int
 
 var symEoi = newSymbol("eoi")
-
-func IsEOI(obj LObject) bool {
-	return obj == EOI
-}
 
 func (leoi) Type() LObject {
 	return symEoi
@@ -557,13 +549,14 @@ func (lst *lpair) String() string {
 
 func (lst *lpair) Length() int {
 	count := 1
-	var o LObject = lst.cdr
+	var o LObject = lst.cdr	
 	for o != NIL {
-		if !IsPair(o) {
+		if p, ok := o.(*lpair); ok {
+			count++
+			o = p.cdr
+		} else {
 			return -1 //not a proper list
 		}
-		count++
-		o = o.(*lpair).cdr
 	}
 	return count
 }
@@ -639,6 +632,14 @@ func List(vec ...LObject) LObject {
 	return ToList(vec)
 }
 
+func VectorToList(vec LObject) (LObject, error) {
+	v, ok := vec.(*lvector)
+	if !ok {
+		return nil, TypeError(symVector, vec)
+	}
+	return ToList(v.elements), nil
+}
+
 func Length(seq LObject) int {
 	if seq == NIL {
 		return 0
@@ -647,7 +648,7 @@ func Length(seq LObject) int {
 		case lstring:
 			return len(v)
 		case *lvector:
-			return v.Length()
+			return len(v.elements)
 		case *lpair:
 			return v.Length()
 		default:
@@ -709,8 +710,10 @@ func Vector(elements ...LObject) LObject {
 	return &vec
 }
 
-func ToVector(elements []LObject) LObject {
-	vec := lvector{elements}
+func ToVector(elements []LObject, count int) LObject {
+        el := make([]LObject, count)
+	copy(el, elements[0:count])
+	vec := lvector{el}
 	return &vec
 }
 
@@ -743,28 +746,16 @@ func (vec *lvector) Length() int {
 	return len(vec.elements)
 }
 
-func (vec *lvector) Ref(idx int) LObject {
-	return vec.elements[idx]
-}
-
-func (vec *lvector) Set(idx int, obj LObject) {
-	vec.elements[idx] = obj
-}
-
-func Ref(vec LObject, idx int) LObject {
-	if IsVector(vec) {
-		return vec.(*lvector).Ref(idx)
+func VectorLength(vec LObject) (int, error) {
+	if v, ok := vec.(*lvector); ok {
+		return len(v.elements), nil
 	}
-	return NIL
-}
-
-func theVector(obj LObject) (*lvector, bool) {
-	vec, ok := obj.(*lvector)
-	return vec, ok
+	return 0, TypeError(symVector, vec)
+//	return Error("Not a vector: ", vec)
 }
 
 func VectorSet(vec LObject, idx int, obj LObject) error {
-	if v, ok := theVector(vec); ok {
+	if v, ok := vec.(*lvector); ok {
 		if idx <0 || idx >= len(v.elements) {
 			return Error("Vector index out of range")
 		}
@@ -775,7 +766,7 @@ func VectorSet(vec LObject, idx int, obj LObject) error {
 }
 
 func VectorRef(vec LObject, idx int) (LObject, error) {
-	if v, ok := theVector(vec); ok {
+	if v, ok := vec.(*lvector); ok {
 		if idx <0 || idx >= len(v.elements) {
 			return nil, Error("Vector index out of range")
 		}
@@ -791,22 +782,24 @@ type lmap struct {
 	bindings map[LObject]LObject
 }
 
-func Map(pairwiseBindings ...LObject) LObject {
-	count := len(pairwiseBindings)
-	tmp := lmap{map[LObject]LObject{}}
-	m := &tmp
-	for i := 0; i < count; i += 2 {
-		m.Put(pairwiseBindings[i], pairwiseBindings[i+1])
+func ToMap(pairwiseBindings []LObject, count int) (LObject, error) {
+	if count % 2 != 0 {
+		return nil, Error("Initializing a map requires an even number of elements")
 	}
-	return m
+	bindings := make(map[LObject]LObject, count/2)
+	for i := 0; i < count; i += 2 {
+		bindings[pairwiseBindings[i]] = pairwiseBindings[i+1]
+	}
+	m := lmap{bindings}
+	return &m, nil
+}
+
+func Map(pairwiseBindings ...LObject) (LObject, error) {
+	return ToMap(pairwiseBindings, len(pairwiseBindings))
 }
 
 var symMap = newSymbol("map")
 
-func IsMap(obj LObject) bool {
-	_, ok := obj.(*lmap)
-	return ok
-}
 func (*lmap) Type() LObject {
 	return symMap
 }
@@ -850,6 +843,28 @@ func (m *lmap) Has(key LObject) bool {
 	return ok
 }
 
+func Has(obj LObject, key LObject) (bool, error) {
+        if aMap, ok := obj.(*lmap); ok {
+		return aMap.Has(key), nil
+	}
+	return false, TypeError(symMap, obj)
+}
+
+func Get(obj LObject, key LObject) (LObject, error) {
+        if aMap, ok := obj.(*lmap); ok {
+		return aMap.Get(key), nil
+	}
+	return nil, TypeError(symMap, obj)
+}
+
+func Put(obj LObject, key LObject, value LObject) (LObject, error) {
+        if aMap, ok := obj.(*lmap); ok {
+		return aMap.Put(key, value), nil
+	}
+	return nil, TypeError(symMap, obj)
+}
+
+
 //
 // ------------------- error
 //
@@ -858,7 +873,11 @@ func Error(arg1 LAny, args ...LAny) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))
 	for _, o := range args {
-		buf.WriteString(fmt.Sprintf("%v", o))
+		if l, ok := o.(LObject); ok {
+			buf.WriteString(fmt.Sprintf("%v", Write(l)))
+		} else {
+			buf.WriteString(fmt.Sprintf("%v", o))
+		}
 	}
 	err := lerror{buf.String()}
 	return &err
@@ -874,4 +893,8 @@ func (e *lerror) Error() string {
 
 func (e *lerror) String() string {
 	return fmt.Sprintf("<Error: %s>", e.msg)
+}
+
+func TypeError(typeSym LObject, obj LObject) error {
+	return Error("Type error: expected ", typeSym, ", got ", obj)
 }

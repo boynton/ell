@@ -373,6 +373,7 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				if trace {
 					Println("------------------ END EXECUTION of ", module)
 					Println(" -> sp:", sp)
+					Println(" = ", stack[sp])
 				}
 				return stack[sp], nil
 			}
@@ -420,6 +421,24 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			}
 			sp--
 			stack[sp] = sym
+			pc += 2
+		case VECTOR_OPCODE:
+			if trace {
+				Println(pc, "\tvec\t", ops[pc+1])
+			}
+			vlen := ops[pc+1]
+			v := ToVector(stack[sp:], vlen)
+			sp = sp + vlen - 1
+			stack[sp] = v
+			pc += 2
+		case MAP_OPCODE:
+			if trace {
+				Println(pc, "\tmap\t", ops[pc+1])
+			}
+			vlen := ops[pc+1]
+			v, _ := ToMap(stack[sp:], vlen)
+			sp = sp + vlen - 1
+			stack[sp] = v
 			pc += 2
 		case CAR_OPCODE:
 			if trace {
