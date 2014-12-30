@@ -212,11 +212,6 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 		Println("    module: ", module)
 	}
 	for {
-		if true {
-			if topmod.CheckInterrupt() {
-				return nil, Error("Interrupt")
-			}
-		}
 		switch ops[pc] {
 		case LITERAL_OPCODE:
 			if trace {
@@ -286,6 +281,9 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			tmpEnv.elements[j] = stack[sp]
 			pc += 3
 		case CALL_OPCODE:
+			if topmod.CheckInterrupt() {
+				return nil, Error("Interrupt")
+			}
 			if trace {
 				Println(pc, "\tcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
@@ -295,7 +293,7 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			savedPc := pc + 2
 			switch tfun := fun.(type) {
 			case *lprimitive:
-				val, err := tfun.fun(stack[sp:], argc)
+				val, err := tfun.fun(stack[sp:sp+argc], argc)
 				if err != nil {
 					//to do: fix to throw an Ell continuation-based error
 					return nil, err
@@ -337,6 +335,9 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				return nil, Error("Not a function:", tfun)
 			}
 		case TAILCALL_OPCODE:
+			if topmod.CheckInterrupt() {
+				return nil, Error("Interrupt")
+			}
 			if trace {
 				Println(pc, "\ttcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
@@ -345,7 +346,7 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			argc := ops[pc+1]
 			switch tfun := fun.(type) {
 			case *lprimitive:
-				val, err := tfun.fun(stack[sp:], argc)
+				val, err := tfun.fun(stack[sp:sp+argc], argc)
 				if err != nil {
 					return nil, err
 				}
@@ -394,6 +395,9 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				return nil, Error("Not a function:", tfun)
 			}
 		case RETURN_OPCODE:
+			if topmod.CheckInterrupt() {
+				return nil, Error("Interrupt")
+			}
 			if trace {
 				Println(pc, "\tret")
 			}
