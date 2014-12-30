@@ -41,7 +41,7 @@ func (ell *EllHandler) Eval(expr string) (string, bool, error) {
 			if err == nil {
 				result := ""
 				if val != nil {
-					result = "= \033[0;34m" + val.String() + "\033[0;0m"
+					result = "= " + Write(val)
 				}
 				return result, false, nil
 			} else {

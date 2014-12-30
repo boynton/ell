@@ -28,6 +28,7 @@ func Ell(module LModule) {
 
 	module.DefineFunction("type", ell_type)
 	module.DefineFunction("display", ell_display)
+	module.DefineFunction("write", ell_write)
 	module.DefineFunction("newline", ell_newline)
 	module.DefineFunction("print", ell_print)
 	module.DefineFunction("println", ell_println)
@@ -41,6 +42,9 @@ func Ell(module LModule) {
 	module.DefineFunction("make-vector", ell_make_vector)
 	module.DefineFunction("vector-set!", ell_vector_set_bang)
 	module.DefineFunction("vector-ref", ell_vector_ref)
+	module.DefineFunction("get", ell_get)
+	module.DefineFunction("put!", ell_put_bang)
+	module.DefineFunction("has?", ell_has_p)
 	module.DefineFunction("=", ell_eq)
 	module.DefineFunction("<=", ell_le)
 	module.DefineFunction(">=", ell_ge)
@@ -54,10 +58,8 @@ func Ell(module LModule) {
 	module.DefineFunction("cadr", ell_cadr)
 	module.DefineFunction("cddr", ell_cddr)
 	module.DefineFunction("cons", ell_cons)
+	module.DefineFunction("json", ell_json)
 }
-
-const terminalRed = "\033[0;31m"
-const terminalBlack = "\033[0;0m"
 
 func ell_type(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
@@ -71,8 +73,16 @@ func ell_display(argv []LObject, argc int) (LObject, error) {
 		//todo: add the optional port argument like schema
 		return argcError()
 	}
-	fmt.Printf("%s%v%s", terminalRed, argv[0], terminalBlack)
-	//fmt.Printf("%v", argv[0])
+	fmt.Printf("%v", argv[0])
+	return nil, nil
+}
+
+func ell_write(argv []LObject, argc int) (LObject, error) {
+	if argc != 1 {
+		//todo: add the optional port argument like schema
+		return argcError()
+	}
+	fmt.Printf("%v", argv[0])
 	return nil, nil
 }
 
@@ -94,11 +104,9 @@ func ell_fatal(argv []LObject, argc int) (LObject, error) {
 }
 
 func ell_print(argv []LObject, argc int) (LObject, error) {
-	fmt.Printf(terminalRed)
 	for _, o := range argv {
 		fmt.Printf("%v", o)
 	}
-	fmt.Printf(terminalBlack)
 	return nil, nil
 }
 
@@ -383,4 +391,43 @@ func ell_define(argv []LObject, argc int) (LObject, error) {
 	args := Cdr(sym)
 	sym = Car(sym)
 	return List(Car(expr), sym, Cons(Intern("lambda"), Cons(args, Cddr(expr)))), nil
+}
+
+func ell_get(argv []LObject, argc int) (LObject, error) {
+	if argc != 2 {
+		return argcError()
+	}
+	return Get(argv[0], argv[1])
+}
+
+func ell_has_p(argv []LObject, argc int) (LObject, error) {
+	if argc != 2 {
+		return argcError()
+	}
+	b, err := Has(argv[0], argv[1])
+	if err != nil {
+		return nil, err
+	} else if b {
+		return TRUE, nil
+	} else {
+		return FALSE, nil
+	}
+}
+
+func ell_put_bang(argv []LObject, argc int) (LObject, error) {
+	if argc != 3 {
+		return argcError()
+	}
+	return Put(argv[0], argv[1], argv[2])
+}
+
+func ell_json(argv []LObject, argc int) (LObject, error) {
+	if argc != 1 {
+		return argcError()
+	}
+	s, err := JSON(argv[0])
+	if err != nil {
+		return nil, err
+	}
+	return NewString(s), nil
 }
