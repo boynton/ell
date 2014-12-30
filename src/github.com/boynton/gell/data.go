@@ -127,16 +127,15 @@ func (sym *lsymbol) String() string {
 
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]*lsymbol{
-	"null":    symNull,
+	"null":    symNull, //the type of NIL
 	"boolean": symBoolean,
 	"symbol":  symSymbol,
-	"keyword": symKeyword,
 	"string":  symString,
 	"number":  symNumber,
 	"pair":    symPair,
 	"vector":  symVector,
 	"map":     symMap,
-	"eoi":     symEoi,
+	"eoi":     symEoi, //End Of Information
 }
 
 func Symbols() []LObject {
@@ -155,29 +154,6 @@ func Intern(name string) LObject {
 		symtab[name] = v
 	}
 	return v
-}
-
-//
-// ------------------- keyword
-//
-
-type lkeyword struct {
-	sym *lsymbol
-}
-
-var symKeyword = newSymbol("keyword")
-
-func IsKeyword(obj LObject) bool {
-	_, ok := obj.(lkeyword)
-	return ok
-}
-
-func (lkeyword) Type() LObject {
-	return symKeyword
-}
-
-func (key lkeyword) String() string {
-	return key.sym.Name + ":"
 }
 
 //

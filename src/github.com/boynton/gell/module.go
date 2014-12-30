@@ -130,6 +130,7 @@ func (module *lmodule) String() string {
 }
 
 func (module *lmodule) Keywords() []LObject {
+	//keywords reserved for the base language that Ell compiles
 	keywords := []LObject{
 		Intern("quote"),
 		Intern("define"),
