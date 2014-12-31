@@ -357,6 +357,80 @@ func (module *lmodule) Eval(expr LObject) (LObject, error) {
 	return result, err
 }
 
-func (module *lmodule) CompileFile(file string) (LObject, error) {
+//caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
+func (module *lmodule) CompileFile(name string) (LObject, error) {
+	pretty := true
+	//without macros, this used towork fine. Just wrap the file's expressions in a big begin, and compile it
+	// this only makes sense for files that contain definitions only (not executions of those definitions)
+	// i.e. it is harmless to execute them
+	//
+	file := name
+	i := strings.Index(name, ".")
+	if i < 0 {
+		f, err := module.FindModule(name)
+		if err != nil {
+			return nil, Error("Module not found: ", name)
+		}
+		file = f
+	} else {
+		if !FileReadable(name) {
+			return nil, Error("Cannot read file: ", name)
+		}
+		name = name[0:i]
+
+	}
+	if verbose {
+		Println("; loadFile: " + file)
+	}
+	port, err := OpenInputFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	expr, err := port.Read()
+	defer port.Close()
+	result := ""
+	if pretty {
+		result = ";\n; code generated from " + file + "\n;\n"
+	}
+	for {
+		if err != nil {
+			return nil, err
+		}
+		if expr == EOI {
+			return NewString(result), nil
+		}
+		if verbose {
+			Println("; compile: ", Write(expr))
+		}
+		expanded, err := Macroexpand(module, expr)
+		if err != nil {
+			return nil, err
+		}
+		if verbose {
+			Println("; expanded to: ", Write(expanded))
+		}
+		code, err := Compile(module, expanded)
+		if err != nil {
+			return nil, err
+		}
+		if verbose {
+			Println("; compiled to: ", Write(code))
+		}
+		if pretty {
+			result = result + code.Decompile(true) + "\n"
+		} else {
+			result = result + " " + code.Decompile(true)
+		}
+		if false {
+			//if the code contains macro defs, we need to run it. It may depend on other code. So, we run it all
+			_, err = module.Import(code)
+			if err != nil {
+				return nil, err
+			}
+		}
+		expr, err = port.Read()
+	}
+
 	return nil, Error("CompileFile NYI")
 }

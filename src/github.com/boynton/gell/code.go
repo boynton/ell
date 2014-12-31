@@ -56,7 +56,7 @@ type LCode interface {
 	Equal(another LObject) bool
 	Module() LModule
 	LoadOps(ops LObject) error
-	Decompile() string
+	Decompile(pretty bool) string
 	EmitLiteral(val LObject)
 	EmitGlobal(sym LObject)
 	EmitCall(argc int)
@@ -151,91 +151,106 @@ func (code *lcode) Equal(another LObject) bool {
 	return false
 }
 
-func (code *lcode) Decompile() string {
+func (code *lcode) Decompile(pretty bool) string {
 	var buf bytes.Buffer
-	code.decompile(&buf, "")
+	code.decompile(&buf, "", pretty)
 	s := buf.String()
 	return strings.Replace(s, "function 0", "lap", 1)
 }
 
-func (code *lcode) decompile(buf *bytes.Buffer, indent string) {
+func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
+	indentAmount := "   "
 	offset := 0
 	max := len(code.ops)
-	buf.WriteString("(function ")
+	begin := " "
+	buf.WriteString(indent + "(function ")
 	buf.WriteString(strconv.Itoa(code.argc))
+	if pretty {
+		indent = indent + indentAmount
+		begin = "\n" + indent
+	}
 	for offset < max {
 		switch code.ops[offset] {
 		case LITERAL_OPCODE:
 			//fmt.Printf("%sL%03d:\t(literal %d)  \t; %v\n", indent, offset, code.ops[offset+1], code.module.constants[code.ops[offset+1]])
-			buf.WriteString(" (literal " + Write(code.module.constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(begin + "(literal " + Write(code.module.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case GLOBAL_OPCODE:
 			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, code.module.constants[code.ops[offset+1]])
-			buf.WriteString(" (global " + Write(code.module.constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(begin + "(global " + Write(code.module.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case CALL_OPCODE:
 			//fmt.Printf("%sL%03d:\t(call %d)\n", indent, offset, code.ops[offset+1])
-			buf.WriteString(" (call " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(begin + "(call " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case TAILCALL_OPCODE:
 			//fmt.Printf("%s%03d:\t(tailcall %d)\n", indent, offset, code.ops[offset+1])
-			buf.WriteString(" (tailcall " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(begin + "(tailcall " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case POP_OPCODE:
 			//fmt.Printf("%sL%03d:\t(pop)\n", indent, offset)
-			buf.WriteString(" (pop)")
+			buf.WriteString(begin + "(pop)")
 			offset += 1
 		case RETURN_OPCODE:
 			//fmt.Printf("%sL%03d:\t(return)\n", indent, offset)
-			buf.WriteString(" (return)")
+			buf.WriteString(begin + "(return)")
 			offset += 1
 		case CLOSURE_OPCODE:
 			//fmt.Printf("%sL%03d:\t(closure %v)\n", indent, offset, code.ops[offset+1])
-			buf.WriteString(" (closure ")
-			(code.module.constants[code.ops[offset+1]].(*lcode)).decompile(buf, indent+"\t")
+			buf.WriteString(begin + "(closure")
+			if pretty {
+				buf.WriteString("\n")
+			} else {
+				buf.WriteString(" ")
+			}
+			indent2 := ""
+			if pretty {
+				indent2 = indent + indentAmount
+			}
+			(code.module.constants[code.ops[offset+1]].(*lcode)).decompile(buf, indent2, pretty)
 			buf.WriteString(")")
 			offset += 2
 		case LOCAL_OPCODE:
 			//fmt.Printf("%sL%03d:\t(local %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
-			buf.WriteString(" (local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
+			buf.WriteString(begin + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case DEFGLOBAL_OPCODE:
 			//fmt.Printf("%sL%03d:\t(defglobal%6d ; %v)\n", indent, offset, code.ops[offset+1], code.module.constants[code.ops[offset+1]])
-			buf.WriteString(" (defglobal " + Write(code.module.constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(begin + "(defglobal " + Write(code.module.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case DEFMACRO_OPCODE:
 			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], code.module.constants[code.ops[offset+1]])
-			buf.WriteString(" (defmacro " + Write(code.module.constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(begin + "(defmacro " + Write(code.module.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case SETLOCAL_OPCODE:
 			//Println("%sL%03d:\t(setlocal %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
-			buf.WriteString(" (setlocal " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
+			buf.WriteString(begin + "(setlocal " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case JUMPFALSE_OPCODE:
 			//fmt.Printf("%sL%03d:\t(jumpfalse %d)\t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
-			buf.WriteString(" (jumpfalse " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(begin + "(jumpfalse " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case JUMP_OPCODE:
 			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
-			buf.WriteString(" (jump " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(begin + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case USE_OPCODE:
-			buf.WriteString(" (use " + code.module.constants[code.ops[offset+1]].String() + ")")
+			buf.WriteString(begin + "(use " + code.module.constants[code.ops[offset+1]].String() + ")")
 			offset += 2
 		case CAR_OPCODE:
-			buf.WriteString(" (car)")
+			buf.WriteString(begin + "(car)")
 			offset += 1
 		case CDR_OPCODE:
-			buf.WriteString(" (cdr)")
+			buf.WriteString(begin + "(cdr)")
 			offset += 1
 		case NULL_OPCODE:
-			buf.WriteString(" (null)")
+			buf.WriteString(begin + "(null)")
 			offset += 1
 		case ADD_OPCODE:
-			buf.WriteString(" (add)")
+			buf.WriteString(begin + "(add)")
 			offset += 1
 		case MUL_OPCODE:
-			buf.WriteString(" (mul)")
+			buf.WriteString(begin + "(mul)")
 			offset += 1
 		default:
 			panic(fmt.Sprintf("Bad instruction: %d", code.ops[offset]))
