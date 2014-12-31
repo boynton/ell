@@ -23,7 +23,7 @@ func EnableExtendedInstructions(b bool) {
 }
 
 func Compile(module LModule, expr LObject) (LCode, error) {
-	code := NewCode(module, 0, NIL)
+	code := NewCode(module, 0, nil, nil)
 	err := compileExpr(code, NIL, expr, false, false)
 	if err != nil {
 		return nil, err
@@ -43,9 +43,6 @@ func calculateLocation(sym LObject, env LObject) (int, int, bool) {
 			}
 			j++
 			e = Cdr(e)
-		}
-		if e == sym { //a "rest" argument
-			return i, j, true
 		}
 		i++
 		env = Cdr(env)
@@ -225,27 +222,77 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 
 func compileLambda(code LCode, env LObject, args LObject, body LObject, isTail bool, ignoreResult bool) error {
 	argc := 0
-	var rest LObject = NIL
+	syms := []LObject{}
+	var defaults []LObject
+	var keys []LObject
 	tmp := args
 	//to do: deal with rest, optional, and keywords arguments
 	for IsPair(tmp) {
-		if !IsSymbol(Car(tmp)) {
-			return Error("Formal argument is not a symbol: ", Car(tmp))
+		a := Car(tmp)
+		if vec, ok := a.(*lvector); ok {
+			//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
+			if Cdr(tmp) != NIL {
+				return Error("optional args must be the last in the list")
+			}
+			defaults = make([]LObject, 0, len(vec.elements))
+			for _, sym := range vec.elements {
+				var def LObject = NIL
+				if lst, ok := sym.(*lpair); ok {
+					next := lst.cdr
+					sym = lst.car
+					if lst2, ok := next.(*lpair); ok {
+						def = lst2.car
+					}
+				}
+				if !IsSymbol(sym) {
+					return Error("Formal argument is not a symbol: ", sym)
+				}
+				syms = append(syms, sym)
+				defaults = append(defaults, def)
+			}
+			tmp = NIL
+			break
+		} else if mp, ok := a.(*lmap); ok {
+			//i.e. (x {y: 23, z: 57}]) is for optional y and z, keyword args, with defaults
+			if Cdr(tmp) != NIL {
+				return Error("keywords args must be the last in the list")
+			}
+			defaults = make([]LObject, 0, len(mp.bindings))
+			keys = make([]LObject, 0, len(mp.bindings))
+			for sym, defValue := range mp.bindings {
+				if IsPair(sym) && Car(sym) == Intern("quote") && IsPair(Cdr(sym)) {
+					sym = Cadr(sym)
+				}
+				if !IsSymbol(sym) {
+					return Error("Formal argument is not a symbol: ", sym)
+				}
+				syms = append(syms, sym)
+				keys = append(keys, sym)
+				defaults = append(defaults, defValue)
+			}
+			tmp = NIL
+			break
+		} else if !IsSymbol(a) {
+			return Error("Formal argument is not a symbol: ", a)
+		} else {
+			argc++
+			syms = append(syms, a)
+			tmp = Cdr(tmp)
 		}
-		argc++
-		tmp = Cdr(tmp)
 	}
 	if tmp != NIL {
 		//rest arg
 		if IsSymbol(tmp) {
-			argc = -argc - 1
+			syms = append(syms, tmp) //note: added, but argv not incremented
+			defaults = make([]LObject, 0)
 		} else {
 			return Error("Formal argument list is malformed: ", tmp)
 		}
 	}
+	args = ToList(syms) //why not just use the array format in general?
 	newEnv := Cons(args, env)
 	mod := (code.(*lcode)).module
-	lambdaCode := NewCode(mod, argc, rest)
+	lambdaCode := NewCode(mod, argc, defaults, keys)
 	err := compileSequence(lambdaCode, newEnv, body, true, false)
 	if err == nil {
 		if !ignoreResult {

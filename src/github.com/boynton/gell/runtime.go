@@ -157,12 +157,12 @@ func (closure *lclosure) Equal(another LObject) bool {
 
 func (closure lclosure) String() string {
 	//	return "<closure: " + closure.code.String() + ">"
-	if closure.code.argc == 1 {
+	if closure.code.defaults != nil {
+		return fmt.Sprintf("<function of %d or more arguments>", closure.code.argc)
+	} else if closure.code.argc == 1 {
 		return fmt.Sprintf("<function of 1 argument>")
-	} else if closure.code.argc >= 0 {
-		return fmt.Sprintf("<function of %d arguments>", closure.code.argc)
 	} else {
-		return fmt.Sprintf("<function of %d or more arguments>", -closure.code.argc-1)
+		return fmt.Sprintf("<function of %d arguments>", closure.code.argc)
 	}
 }
 
@@ -191,6 +191,72 @@ func showStack(stack []LObject, sp int) string {
 
 func (vm *lvm) Exported() []LObject {
 	return vm.defs
+}
+
+func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, argc int, stack []LObject, sp int) (*lframe, error) {
+	f := new(lframe)
+	f.previous = env
+	f.pc = pc
+	f.ops = ops
+	f.module = module
+	f.locals = fun.frame
+	expectedArgc := fun.code.argc
+	defaults := fun.code.defaults
+	if defaults == nil {
+		if argc != expectedArgc {
+			return nil, Error("Wrong number of args (", argc, ") to ", fun)
+		}
+		el := make([]LObject, argc)
+		copy(el, stack[sp:sp+argc])
+		f.elements = el
+		return f, nil
+	}
+	keys := fun.code.keys
+	rest := false
+	extra := len(defaults)
+	if extra == 0 {
+		rest = true
+		extra = 1
+	}
+	if argc < expectedArgc {
+		return nil, Error("Wrong number of args (", argc, ") to ", fun)
+	}
+	totalArgc := expectedArgc + extra
+	el := make([]LObject, totalArgc)
+	end := sp + expectedArgc
+	if rest {
+		copy(el, stack[sp:end])
+		restElements := stack[end : sp+argc]
+		el[expectedArgc] = ToList(restElements)
+	} else if keys != nil {
+		bindings := stack[sp+expectedArgc : sp+argc]
+		if len(bindings)%2 != 0 {
+			return nil, Error("Bad keyword arguments: ", bindings)
+		}
+		copy(el, stack[sp:sp+expectedArgc]) //the required ones
+		for i := expectedArgc; i < totalArgc; i++ {
+			el[i+expectedArgc-1] = defaults[i-1]
+		}
+		for i := expectedArgc; i < argc; i += 2 {
+			key := stack[sp+i]
+			if !IsSymbol(key) {
+				return nil, Error("Bad keyword for argument: ", key)
+			}
+			for j := 0; j < extra; j++ {
+				if keys[j] == key {
+					el[expectedArgc+j] = stack[sp+i+1]
+					break
+				}
+			}
+		}
+	} else {
+		copy(el, stack[sp:sp+argc])
+		for i := argc; i < totalArgc; i++ {
+			el[i+expectedArgc-1] = defaults[i-1]
+		}
+	}
+	f.elements = el
+	return f, nil
 }
 
 func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
@@ -281,9 +347,6 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			tmpEnv.elements[j] = stack[sp]
 			pc += 3
 		case CALL_OPCODE:
-			if topmod.CheckInterrupt() {
-				return nil, Error("Interrupt")
-			}
 			if trace {
 				Println(pc, "\tcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
@@ -302,31 +365,14 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				stack[sp] = val
 				pc = savedPc
 			case *lclosure:
-				f := new(lframe)
-				f.previous = env
-				f.pc = savedPc
-				f.ops = ops
-				f.module = module
-				f.locals = tfun.frame
-				expectedArgc := tfun.code.argc
-				if expectedArgc >= 0 {
-					if argc != expectedArgc {
-						return nil, Error("Wrong number of args (", argc, ") to ", tfun)
-					}
-					f.elements = make([]LObject, argc)
-					copy(f.elements, stack[sp:sp+argc])
-					sp += argc
-				} else {
-					requiredArgc := -expectedArgc - 1
-					if argc < requiredArgc {
-						return nil, Error("Wrong number of args (", argc, ") to ", tfun)
-					}
-					f.elements = make([]LObject, requiredArgc+1)
-					copy(f.elements, stack[sp:sp+requiredArgc])
-					restElements := stack[sp+requiredArgc : sp+argc]
-					f.elements[requiredArgc] = ToList(restElements)
-					sp += argc
+				if topmod.CheckInterrupt() {
+					return nil, Error("Interrupt")
 				}
+				f, err := buildFrame(env, savedPc, ops, module, tfun, argc, stack, sp)
+				if err != nil {
+					return nil, err
+				}
+				sp += argc
 				env = f
 				ops = tfun.code.ops
 				module = tfun.code.module
@@ -364,7 +410,6 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 					return stack[sp], nil
 				}
 			case *lclosure:
-				newEnv := new(lframe)
 				if env.previous == nil {
 					if trace {
 						Println("------------------ END EXECUTION of ", module)
@@ -372,25 +417,15 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 					}
 					return stack[sp], nil
 				}
-				newEnv.previous = env.previous
-				newEnv.pc = env.pc
-				newEnv.ops = env.ops
-				newEnv.module = env.module
-				newEnv.locals = tfun.frame
-				if tfun.code.argc >= 0 {
-					if tfun.code.argc != argc {
-						return nil, Error("Wrong number of args ("+strconv.Itoa(ops[pc+1])+") to ", tfun)
-					}
-					newEnv.elements = make([]LObject, argc)
-					copy(newEnv.elements, stack[sp:sp+argc])
-					sp += argc
-				} else {
-					return nil, Error("rest args NYI")
+				f, err := buildFrame(env.previous, env.pc, env.ops, env.module, tfun, argc, stack, sp)
+				if err != nil {
+					return nil, err
 				}
+				sp += argc
 				ops = tfun.code.ops
 				module = tfun.code.module
 				pc = 0
-				env = newEnv
+				env = f
 			default:
 				return nil, Error("Not a function:", tfun)
 			}

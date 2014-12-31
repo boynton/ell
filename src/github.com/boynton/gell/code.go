@@ -85,7 +85,8 @@ type lcode struct {
 	module       *lmodule
 	ops          []int
 	argc         int
-	rest         LObject
+	defaults     []LObject
+	keys         []LObject
 	symClosure   LObject
 	symFunction  LObject
 	symLiteral   LObject
@@ -108,14 +109,15 @@ type lcode struct {
 	symMul       LObject
 }
 
-func NewCode(module LModule, argc int, restArgs LObject) LCode {
+func NewCode(module LModule, argc int, defaults []LObject, keys []LObject) LCode {
 	ops := make([]int, 0)
 	mod := module.(*lmodule)
 	code := lcode{
 		mod,
 		ops,
 		argc,
-		restArgs,
+		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
+		keys,
 		Intern("closure"),
 		Intern("function"),
 		Intern("literal"),
@@ -155,7 +157,7 @@ func (code *lcode) Decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompile(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "function 0", "lap", 1)
+	return strings.Replace(s, "(function (0)", "(lap", 1)
 }
 
 func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
@@ -163,8 +165,17 @@ func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
 	offset := 0
 	max := len(code.ops)
 	begin := " "
-	buf.WriteString(indent + "(function ")
+	buf.WriteString(indent + "(function (")
 	buf.WriteString(strconv.Itoa(code.argc))
+	if code.defaults != nil {
+		buf.WriteString(" ")
+		buf.WriteString(fmt.Sprintf("%v", code.defaults))
+	}
+	if code.keys != nil {
+		buf.WriteString(" ")
+		buf.WriteString(fmt.Sprintf("%v", code.keys))
+	}
+	buf.WriteString(")")
 	if pretty {
 		indent = indent + indentAmount
 		begin = "\n" + indent
@@ -262,7 +273,7 @@ func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
 
 func (code *lcode) String() string {
 	//	return code.Decompile()
-	return fmt.Sprintf("(function %d %v)", code.argc, code.ops)
+	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
 func (code *lcode) Module() LModule {
@@ -280,11 +291,39 @@ func (code *lcode) LoadOps(lst LObject) error {
 				return Error("Bad argument for a closure: ", lstFunc)
 			}
 			lstFunc = Cdr(lstFunc)
-			ac, err := IntValue(Car(lstFunc))
-			if err != nil {
-				return err
+			funcParams := Car(lstFunc)
+			var argc int
+			var defaults []LObject
+			var keys []LObject
+			var err error
+			if IsSymbol(funcParams) {
+				//legacy form, just the argc
+				argc, err = IntValue(funcParams)
+				if err != nil {
+					return err
+				}
+				if argc < 0 {
+					argc = -argc - 1
+					defaults = make([]LObject, 0)
+				}
+			} else if IsPair(funcParams) && Length(funcParams) == 3 {
+				a := Car(funcParams)
+				argc, err = IntValue(a)
+				if err != nil {
+					return Error("Bad lap format")
+				}
+				b := Cadr(funcParams)
+				if vec, ok := b.(*lvector); ok {
+					defaults = vec.elements
+				}
+				c := Caddr(funcParams)
+				if vec, ok := c.(*lvector); ok {
+					keys = vec.elements
+				}
+			} else {
+				return Error("Bad lap format")
 			}
-			fun := NewCode(code.module, ac, nil)
+			fun := NewCode(code.module, argc, defaults, keys)
 			fun.LoadOps(Cdr(lstFunc))
 			code.EmitClosure(fun)
 		case code.symLiteral:
