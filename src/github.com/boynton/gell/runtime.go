@@ -231,7 +231,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
-			return nil, Error("Bad keyword arguments: ", bindings)
+			return nil, Error("Bad keyword argument(s): ", bindings)
 		}
 		copy(el, stack[sp:sp+expectedArgc]) //the required ones
 		for i := expectedArgc; i < totalArgc; i++ {
@@ -378,7 +378,7 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				module = tfun.code.module
 				pc = 0
 			default:
-				return nil, Error("Not a function:", tfun)
+				return nil, Error("Not a function: ", tfun)
 			}
 		case TAILCALL_OPCODE:
 			if topmod.CheckInterrupt() {
