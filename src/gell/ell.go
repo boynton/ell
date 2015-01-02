@@ -25,6 +25,9 @@ func Ell(module LModule) {
 	module.Define("false", FALSE)
 
 	module.DefineMacro("define", ell_define)
+	module.DefineMacro("let", ell_let)
+	module.DefineMacro("letrec", ell_letrec)
+
 	module.DefineFunction("type", ell_type)
 	module.DefineFunction("equal?", ell_eq)
 	module.DefineFunction("identical?", ell_identical_p)
@@ -106,7 +109,7 @@ func ell_numeq(argv []LObject, argc int) (LObject, error) {
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
-		if b, err := NumericallyEqual(obj, argv[1]); err != nil && !b {
+		if b, err := NumericallyEqual(obj, argv[1]); err != nil || !b {
 			return FALSE, err
 		}
 	}
@@ -180,6 +183,9 @@ func ell_quotient(argv []LObject, argc int) (LObject, error) {
 		if err != nil {
 			return nil, err
 		}
+		if n2 == 0 {
+			return nil, Error("Quotient: divide by zero")
+		}
 		return NewInteger(n1 / n2), nil
 	} else {
 		return argcError()
@@ -193,6 +199,9 @@ func ell_remainder(argv []LObject, argc int) (LObject, error) {
 			return nil, err
 		}
 		n2, err := IntegerValue(argv[1])
+		if n2 == 0 {
+			return nil, Error("Remainder: divide by zero")
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -463,6 +472,20 @@ func ell_define(argv []LObject, argc int) (LObject, error) {
 	args := Cdr(sym)
 	sym = Car(sym)
 	return List(Car(expr), sym, Cons(Intern("lambda"), Cons(args, Cddr(expr)))), nil
+}
+
+func ell_letrec(argv []LObject, argc int) (LObject, error) {
+	if argc != 1 {
+		return argcError()
+	}
+	return ExpandLetrec(argv[0])
+}
+
+func ell_let(argv []LObject, argc int) (LObject, error) {
+	if argc != 1 {
+		return argcError()
+	}
+	return ExpandLet(argv[0])
 }
 
 func ell_get(argv []LObject, argc int) (LObject, error) {

@@ -623,6 +623,14 @@ func (lst *lpair) Length() int {
 	return count
 }
 
+func NewList(count int, val LObject) LObject {
+	var result LObject = NIL
+	for i := 0; i < count; i++ {
+		result = Cons(val, result)
+	}
+	return result
+}
+
 func Cons(car LObject, cdr LObject) LObject {
 	lst := lpair{car, cdr}
 	return &lst

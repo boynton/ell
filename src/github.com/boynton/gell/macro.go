@@ -44,7 +44,9 @@ func (macro *lmacro) String() string {
 	return fmt.Sprintf("(macro %v %v)", macro.name, macro.expander)
 }
 
-func (macro *lmacro) Expand(expr LObject) (LObject, error) {
+var currentModule LModule
+
+func (macro *lmacro) Expand(module LModule, expr LObject) (LObject, error) {
 	expander := macro.expander
 	switch fun := expander.(type) {
 	case *lclosure:
@@ -57,6 +59,7 @@ func (macro *lmacro) Expand(expr LObject) (LObject, error) {
 		}
 	case *lprimitive:
 		args := []LObject{expr}
+		currentModule = module //not ideal
 		expanded, err := fun.fun(args, 1)
 		if err != nil {
 			return nil, Error("macro error in '", macro.name, "': ", err)
@@ -73,7 +76,7 @@ func Macroexpand(module LModule, expr LObject) (LObject, error) {
 		if IsSymbol(fn) {
 			macro := module.Macro(fn)
 			if macro != nil {
-				return (macro.(*lmacro)).Expand(expr)
+				return (macro.(*lmacro)).Expand(module, expr)
 			} else {
 				head = Cons(fn, NIL)
 			}
@@ -103,3 +106,118 @@ func Macroexpand(module LModule, expr LObject) (LObject, error) {
 	}
 	return expr, nil
 }
+
+func crackLetrecBindings(bindings LObject, tail LObject) (LObject, LObject, bool) {
+	var names []LObject
+	for bindings != NIL {
+		if IsPair(bindings) {
+			tmp := Car(bindings)
+			if IsPair(tmp) {
+				name := Car(tmp)
+				if IsSymbol(name) {
+					names = append(names, name)
+				} else {
+					return nil, nil, false
+				}
+				if IsPair(Cdr(tmp)) {
+					tail = Cons(Cons(Intern("set!"), tmp), tail)
+				} else {
+					return nil, nil, false
+				}
+			} else {
+				return nil, nil, false
+			}
+
+		} else {
+			return nil, nil, false
+		}
+		bindings = Cdr(bindings)
+	}
+	return ToList(names), tail, true
+}
+
+func ExpandLetrec(expr LObject) (LObject, error) {
+	// (letrec () expr ...) -> (begin expr ...)
+	// (letrec ((x 1) (y 2)) expr ...) -> ((lambda (x y) (set! x 1) (set! y 2) expr ...) nil nil)
+	body := Cddr(expr)
+	if body == NIL {
+                return nil, Error("no body in letrec: ", expr)
+	}
+	names, body, ok := crackLetrecBindings(Cadr(expr), body)
+	if !ok {
+		return nil, Error("bad bindings declaration syntax for letrec: ", expr)
+	}
+	code, err := Macroexpand(currentModule, Cons(Intern("lambda"), Cons(names, body)))
+	if err != nil {
+		return nil, err
+	}
+	values := NewList(Length(names), NIL)
+	return Cons(code, values), nil
+}
+
+// some standard expanders
+func crackLetBindings(bindings LObject) (LObject, LObject, bool) {
+	var names []LObject
+	var values []LObject
+	for bindings != NIL {
+		if IsPair(bindings) {
+			tmp := Car(bindings)
+			if IsPair(tmp) {
+				name := Car(tmp)
+				if IsSymbol(name) {
+					names = append(names, name)
+				} else {
+					
+					return nil, nil, false
+				}
+				tmp2 := Cdr(tmp)
+				if IsPair(tmp2) {
+					values = append(values, Car(tmp2))
+				} else {
+					return nil, nil, false
+				}
+			} else {
+				return nil, nil, false
+			}
+		} else {
+			return nil, nil, false
+		}
+		bindings = Cdr(bindings)
+	}
+	return ToList(names), ToList(values), true
+}
+
+func ExpandLet(expr LObject) (LObject, error) {
+	// (let () expr ...) -> (begin expr ...)
+	// (let ((x 1) (y 2)) expr ...) -> ((lambda (x y) expr ...) 1 2)
+	// (let label ((x 1) (y 2)) expr ...) -> (lambda (label) expr
+	if IsSymbol(Cadr(expr)) {
+		//return ell_expand_named_let(argv, argc)
+		return ExpandNamedLet(expr)
+	}
+	names, values, ok := crackLetBindings(Cadr(expr))
+	if !ok {
+		return nil, Error("bad syntax for let: ", expr)
+	}
+	body := Cddr(expr)
+	if body == NIL {
+                return nil, Error("bad syntax for let: ", expr)
+	}
+	code, err := Macroexpand(currentModule, Cons(Intern("lambda"), Cons(names, body)))
+	if err != nil {
+		return nil, err
+	}
+	return Cons(code, values), nil
+}
+
+func ExpandNamedLet(expr LObject) (LObject, error) {
+	name := Cadr(expr)
+        names, values, ok := crackLetBindings(Caddr(expr))
+	if !ok {
+                return nil, Error("bad syntax for let: ", expr)
+	}
+	body := Cdddr(expr)
+	tmp := List(Intern("letrec"), List(List(name, Cons(Intern("lambda"), Cons(names, body)))), Cons(name, values))
+	return Macroexpand(currentModule, tmp)
+}
+

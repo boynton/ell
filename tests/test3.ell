@@ -1,0 +1,14 @@
+;(println (let () 5))
+;(println (let ((x 1) (y 2)) (+ x y 2)))
+;(println (let ((x 1) (y 2)) (define xxx x) (+ x y 2)))
+(let foo ((x 4))
+   (if (= x 0)
+      'done
+      (begin
+        (display x)
+        (newline)
+        (foo (- x 1)))))
+
+
+
+
