@@ -421,6 +421,11 @@ func writeData(obj LObject, json bool) (string, error) {
 }
 
 func writeList(lst *lpair) string {
+	if lst.car == Intern("quote") {
+		if tmp, ok := lst.cdr.(*lpair); ok {
+			return "'" + tmp.car.String()
+		}
+	}
 	var buf bytes.Buffer
 	buf.WriteString("(")
 	buf.WriteString(Write(lst.car))
