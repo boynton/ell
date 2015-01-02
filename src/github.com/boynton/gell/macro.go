@@ -141,7 +141,7 @@ func ExpandLetrec(expr LObject) (LObject, error) {
 	// (letrec ((x 1) (y 2)) expr ...) -> ((lambda (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := Cddr(expr)
 	if body == NIL {
-                return nil, Error("no body in letrec: ", expr)
+		return nil, Error("no body in letrec: ", expr)
 	}
 	names, body, ok := crackLetrecBindings(Cadr(expr), body)
 	if !ok {
@@ -167,7 +167,7 @@ func crackLetBindings(bindings LObject) (LObject, LObject, bool) {
 				if IsSymbol(name) {
 					names = append(names, name)
 				} else {
-					
+
 					return nil, nil, false
 				}
 				tmp2 := Cdr(tmp)
@@ -201,7 +201,7 @@ func ExpandLet(expr LObject) (LObject, error) {
 	}
 	body := Cddr(expr)
 	if body == NIL {
-                return nil, Error("bad syntax for let: ", expr)
+		return nil, Error("bad syntax for let: ", expr)
 	}
 	code, err := Macroexpand(currentModule, Cons(Intern("lambda"), Cons(names, body)))
 	if err != nil {
@@ -212,12 +212,11 @@ func ExpandLet(expr LObject) (LObject, error) {
 
 func ExpandNamedLet(expr LObject) (LObject, error) {
 	name := Cadr(expr)
-        names, values, ok := crackLetBindings(Caddr(expr))
+	names, values, ok := crackLetBindings(Caddr(expr))
 	if !ok {
-                return nil, Error("bad syntax for let: ", expr)
+		return nil, Error("bad syntax for let: ", expr)
 	}
 	body := Cdddr(expr)
 	tmp := List(Intern("letrec"), List(List(name, Cons(Intern("lambda"), Cons(names, body)))), Cons(name, values))
 	return Macroexpand(currentModule, tmp)
 }
-
