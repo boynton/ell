@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -376,7 +377,7 @@ func namedChar(name string) (rune, error) {
 	default:
 		if strings.HasPrefix(name, "x") {
 			hex := name[1:]
-			i, err := strconv.ParseInt(hex, 16, 16)
+			i, err := strconv.ParseInt(hex, 16, 64)
 			if err != nil {
 				return 0, err
 			}
@@ -521,7 +522,11 @@ func writeData(obj LObject, json bool) (string, error) {
 		case 127:
 			return "#\\delete", nil
 		default:
-			return "#\\" + string(rune(o)), nil
+			if o < 127 {
+				return "#\\" + string(rune(o)), nil
+			} else {
+				return fmt.Sprintf("#\\x%04X", int(o)), nil
+			}
 		}
 	default:
 		if json {
