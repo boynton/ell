@@ -107,6 +107,25 @@ func Macroexpand(module LModule, expr LObject) (LObject, error) {
 	return expr, nil
 }
 
+func ExpandDefine(expr LObject) (LObject, error) {
+	exprLen := Length(expr)
+	if exprLen < 3 {
+		return nil, Error("syntax error: ", expr)
+	}
+	sym := Cadr(expr)
+	if !IsList(sym) {
+		//let it pass through, let the compiler syntax check the primitive define form
+		return expr, nil
+	}
+	args := Cdr(sym)
+	sym = Car(sym)
+	body, err := Macroexpand(currentModule, Cddr(expr))
+	if err != nil {
+		return nil, err
+	}
+	return List(Car(expr), sym, Cons(Intern("lambda"), Cons(args, body))), nil
+}
+
 func crackLetrecBindings(bindings LObject, tail LObject) (LObject, LObject, bool) {
 	var names []LObject
 	for bindings != NIL {

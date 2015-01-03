@@ -459,19 +459,7 @@ func ell_define(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	expr := argv[0]
-	exprLen := Length(expr)
-	if exprLen < 3 {
-		return nil, Error("syntax error: ", expr)
-	}
-	sym := Cadr(expr)
-	if !IsList(sym) {
-		//let it pass through, let the compiler syntax check the primitive define form
-		return expr, nil
-	}
-	args := Cdr(sym)
-	sym = Car(sym)
-	return List(Car(expr), sym, Cons(Intern("lambda"), Cons(args, Cddr(expr)))), nil
+	return ExpandDefine(argv[0])
 }
 
 func ell_letrec(argv []LObject, argc int) (LObject, error) {
