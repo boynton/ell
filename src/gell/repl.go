@@ -214,5 +214,8 @@ func (ell *EllHandler) Stop(history []string) {
 
 func REPL(environment LModule) {
 	handler := EllHandler{environment, ""}
-	repl.REPL(&handler)
+	err := repl.REPL(&handler)
+	if err != nil {
+		Println("REPL error: ", err)
+	}
 }

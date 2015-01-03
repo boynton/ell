@@ -1,1 +1,0 @@
-(lap (use test4a) (return))(lap (closure (function 1 (literal 5) (local 0 0) (global <=) (call 2) (jumpfalse 8) (literal "small") (global p) (tailcall 1) (literal "large") (global p) (tailcall 1))) (defglobal foo) (return))(lap (literal 4) (global foo) (call 1) (return))

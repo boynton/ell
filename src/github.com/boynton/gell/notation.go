@@ -355,15 +355,24 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 
 func namedChar(name string) (rune, error) {
 	switch name {
-	case "null": return 0, nil
-	case "alarm": return 7, nil
-	case "backspace": return 8, nil
-	case "tab": return 9, nil
-	case "newline": return 10, nil
-	case "return": return 13, nil
-	case "escape": return 27, nil
-	case "space": return 32, nil
-	case "delete": return 127, nil
+	case "null":
+		return 0, nil
+	case "alarm":
+		return 7, nil
+	case "backspace":
+		return 8, nil
+	case "tab":
+		return 9, nil
+	case "newline":
+		return 10, nil
+	case "return":
+		return 13, nil
+	case "escape":
+		return 27, nil
+	case "space":
+		return 32, nil
+	case "delete":
+		return 127, nil
 	default:
 		if strings.HasPrefix(name, "x") {
 			hex := name[1:]
@@ -385,7 +394,7 @@ func (dr *DataReader) decodeReaderMacro() (LObject, error) {
 	switch c {
 	case '\\':
 		c, e = dr.getChar()
-		if e !=nil {
+		if e != nil {
 			return nil, e
 		}
 		if IsWhitespace(c) || IsDelimiter(c) {
@@ -398,7 +407,7 @@ func (dr *DataReader) decodeReaderMacro() (LObject, error) {
 			}
 			c2 = 32
 		}
-                if !IsWhitespace(c2) && !IsDelimiter(c2) {
+		if !IsWhitespace(c2) && !IsDelimiter(c2) {
 			name := make([]byte, 0)
 			name = append(name, c)
 			name = append(name, c2)
@@ -493,16 +502,26 @@ func writeData(obj LObject, json bool) (string, error) {
 		return o.String(), nil
 	case lchar:
 		switch o {
-		case 0: return "#\\null", nil
-		case 7: return "#\\alarm", nil
-		case 8: return "#\\backspace", nil
-		case 9: return "#\\tab", nil
-		case 10: return "#\\newline", nil
-		case 13: return "#\\return", nil
-		case 27: return "#\\escape", nil
-		case 32: return "#\\space", nil
-		case 127: return "#\\delete", nil
-		default: return "#\\" + string(rune(o)), nil
+		case 0:
+			return "#\\null", nil
+		case 7:
+			return "#\\alarm", nil
+		case 8:
+			return "#\\backspace", nil
+		case 9:
+			return "#\\tab", nil
+		case 10:
+			return "#\\newline", nil
+		case 13:
+			return "#\\return", nil
+		case 27:
+			return "#\\escape", nil
+		case 32:
+			return "#\\space", nil
+		case 127:
+			return "#\\delete", nil
+		default:
+			return "#\\" + string(rune(o)), nil
 		}
 	default:
 		if json {

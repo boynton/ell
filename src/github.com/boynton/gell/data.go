@@ -286,7 +286,6 @@ func (i lchar) String() string {
 	return string(buf)
 }
 
-
 //
 // ------------------- number
 //
