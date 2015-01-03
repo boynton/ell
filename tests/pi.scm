@@ -53,7 +53,7 @@
                                                                  (display s)
                                                                  (begin
                                                                      (display
-                                                                         "0")
+                                                                         #\0)
                                                                      (system_loop
                                                                          (+ 1
                                                                             l))))))
@@ -64,8 +64,8 @@
                                                 (+ b (quotient q r))))
                                            (display
                                                (if (zero? (modulo j 10))
-                                                   "\n"
-                                                   " ")))
+                                                   #\newline
+                                                   #\ )))
                                        (system_loop
                                            (remainder q r)
                                            0
