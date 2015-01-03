@@ -149,6 +149,11 @@ func (dr *DataReader) ReadData() (LObject, error) {
 				return o, nil
 			}
 			return List(Intern("quote"), o), nil
+		case '#':
+			o, e := dr.decodeReaderMacro()
+			if e != nil || o != nil {
+				return o, e
+			}
 		case '(':
 			return dr.decodeList()
 		case '[':
@@ -317,24 +322,17 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 		if IsWhitespace(c) {
 			break
 		}
-		if IsDelimiter(c) || c == ';' {
+		if IsDelimiter(c) {
 			dr.ungetChar()
 			break
 		}
 		buf = append(buf, c)
 		c, e = dr.getChar()
 	}
-	s := string(buf)
-	if s[0] == '#' {
-		//todo: generic reader macro dispatch to make this extensible
-		if s == "#t" {
-			return TRUE, nil
-		} else if s == "#f" {
-			return FALSE, nil
-		} else {
-			return nil, Error("Bad reader macro: ", s)
-		}
+	if e != nil {
+		return nil, e
 	}
+	s := string(buf)
 	if strings.HasSuffix(s, ":") {
 		//macro for quoted symbol (rather than introduce keywords as types)
 		s := s[:len(s)-1]
@@ -355,6 +353,87 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 	return sym, nil
 }
 
+func namedChar(name string) (rune, error) {
+	switch name {
+	case "null": return 0, nil
+	case "alarm": return 7, nil
+	case "backspace": return 8, nil
+	case "tab": return 9, nil
+	case "newline": return 10, nil
+	case "return": return 13, nil
+	case "escape": return 27, nil
+	case "space": return 32, nil
+	case "delete": return 127, nil
+	default:
+		if strings.HasPrefix(name, "x") {
+			hex := name[1:]
+			i, err := strconv.ParseInt(hex, 16, 16)
+			if err != nil {
+				return 0, err
+			}
+			return rune(i), nil
+		}
+		return 0, Error("bad named character: #\\", name)
+	}
+}
+
+func (dr *DataReader) decodeReaderMacro() (LObject, error) {
+	c, e := dr.getChar()
+	if e != nil {
+		return nil, e
+	}
+	switch c {
+	case '\\':
+		c, e = dr.getChar()
+		if e !=nil {
+			return nil, e
+		}
+		if IsWhitespace(c) || IsDelimiter(c) {
+			return NewCharacter(rune(c)), nil
+		}
+		c2, e := dr.getChar()
+		if e != nil {
+			if e != io.EOF {
+				return nil, e
+			}
+			c2 = 32
+		}
+                if !IsWhitespace(c2) && !IsDelimiter(c2) {
+			name := make([]byte, 0)
+			name = append(name, c)
+			name = append(name, c2)
+			c, e = dr.getChar()
+			for (e == nil || e != io.EOF) && !IsWhitespace(c) && !IsDelimiter(c) {
+				name = append(name, c)
+				c, e = dr.getChar()
+			}
+			if e != io.EOF && e != nil {
+				return nil, e
+			}
+			r, e := namedChar(string(name))
+			if e != nil {
+				return nil, e
+			}
+			return NewCharacter(r), nil
+		} else if e == nil {
+			dr.ungetChar()
+		}
+		return NewCharacter(rune(c)), nil
+	case 'f':
+		return FALSE, nil
+	case 't':
+		return TRUE, nil
+	case '(': //scheme vector
+		items, _, err := dr.decodeSequence(')', 0)
+		if err != nil {
+			return nil, err
+		}
+		return ToVector(items, len(items)), nil
+	default:
+		return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
+	}
+}
+
 func IsWhitespace(b byte) bool {
 	if b == ' ' || b == '\n' || b == '\t' || b == '\r' || b == ',' {
 		return true
@@ -364,7 +443,7 @@ func IsWhitespace(b byte) bool {
 }
 
 func IsDelimiter(b byte) bool {
-	if b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' {
+	if b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';' {
 		return true
 	} else {
 		return false
@@ -412,6 +491,19 @@ func writeData(obj LObject, json bool) (string, error) {
 		return writeMap(o, json)
 	case linteger, lreal:
 		return o.String(), nil
+	case lchar:
+		switch o {
+		case 0: return "#\\null", nil
+		case 7: return "#\\alarm", nil
+		case 8: return "#\\backspace", nil
+		case 9: return "#\\tab", nil
+		case 10: return "#\\newline", nil
+		case 13: return "#\\return", nil
+		case 27: return "#\\escape", nil
+		case 32: return "#\\space", nil
+		case 127: return "#\\delete", nil
+		default: return "#\\" + string(rune(o)), nil
+		}
 	default:
 		if json {
 			return "", Error("data cannot be described in JSON: ", obj)

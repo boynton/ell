@@ -250,6 +250,44 @@ func (s lstring) String() string {
 }
 
 //
+// ------------------- character
+//
+var symCharacter = newSymbol("character")
+
+func IsCharacter(obj LObject) bool {
+	_, ok := obj.(lchar)
+	if ok {
+		return true
+	}
+	_, ok = obj.(lreal)
+	return ok
+}
+
+func NewCharacter(c rune) LObject {
+	v := lchar(c)
+	return v
+}
+
+type lchar rune
+
+func (lchar) Type() LObject {
+	return symCharacter
+}
+
+func (i lchar) Equal(another LObject) bool {
+	if a, err := IntValue(another); err == nil {
+		return int(i) == a
+	}
+	return false
+}
+
+func (i lchar) String() string {
+	buf := []rune{rune(i)}
+	return string(buf)
+}
+
+
+//
 // ------------------- number
 //
 
@@ -290,6 +328,8 @@ func IntegerValue(obj LObject) (int64, error) {
 		return int64(n), nil
 	case lreal:
 		return int64(n), nil
+	case lchar:
+		return int64(n), nil
 	default:
 		return 0, Error("Not an integer: ", obj)
 	}
@@ -300,6 +340,8 @@ func IntValue(obj LObject) (int, error) {
 	case linteger:
 		return int(n), nil
 	case lreal:
+		return int(n), nil
+	case lchar:
 		return int(n), nil
 	default:
 		return 0, Error("Not an integer: ", obj)
