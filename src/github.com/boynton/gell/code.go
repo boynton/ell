@@ -157,7 +157,7 @@ func (code *lcode) Decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompile(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "(function (0)", "(lap", 1)
+	return strings.Replace(s, "(function (0 [] [])", "(lap", 1)
 }
 
 func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
@@ -170,10 +170,14 @@ func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
 	if code.defaults != nil {
 		buf.WriteString(" ")
 		buf.WriteString(fmt.Sprintf("%v", code.defaults))
+	} else {
+		buf.WriteString(" []")
 	}
 	if code.keys != nil {
 		buf.WriteString(" ")
 		buf.WriteString(fmt.Sprintf("%v", code.keys))
+	} else {
+		buf.WriteString(" []")
 	}
 	buf.WriteString(")")
 	if pretty {
@@ -310,7 +314,7 @@ func (code *lcode) LoadOps(lst LObject) error {
 				a := Car(funcParams)
 				argc, err = IntValue(a)
 				if err != nil {
-					return Error("Bad lap format")
+					return Error("Bad lap format: ", funcParams)
 				}
 				b := Cadr(funcParams)
 				if vec, ok := b.(*lvector); ok {
@@ -321,7 +325,7 @@ func (code *lcode) LoadOps(lst LObject) error {
 					keys = vec.elements
 				}
 			} else {
-				return Error("Bad lap format")
+				return Error("Bad lap format: ", funcParams)
 			}
 			fun := NewCode(code.module, argc, defaults, keys)
 			fun.LoadOps(Cdr(lstFunc))
