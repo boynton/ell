@@ -351,9 +351,13 @@ func crackDoBindings(module LModule, bindings LObject) (LObject, LObject, LObjec
 	}
 	var err error
 	inits, err = Macroexpand(module, inits)
-	if err != nil { return nil, nil, nil, false }
+	if err != nil {
+		return nil, nil, nil, false
+	}
 	steps, err = Macroexpand(module, steps)
-	if err != nil { return nil, nil, nil, false }
+	if err != nil {
+		return nil, nil, nil, false
+	}
 	return names, inits, steps, true
 }
 
