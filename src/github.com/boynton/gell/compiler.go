@@ -97,14 +97,21 @@ func compileExpr(code LCode, env LObject, expr LObject, isTail bool, ignoreResul
 			}
 		case Intern("define"):
 			// (define <name> <val>)
-			if lstlen != 3 {
+			if lstlen < 3 {
 				return Error("Syntax error: ", expr)
 			}
-			var sym = Cadr(lst)
+			var sym LObject = Cadr(lst)
+			var val LObject = Caddr(lst)
 			if !IsSymbol(sym) {
-				return Error("Syntax error: ", expr)
+				if IsPair(sym) && Length(sym) >= 1 {
+					args := Cdr(sym)
+					sym = Car(sym)
+					val = List(Intern("lambda"), args, val)
+				} else {
+					return Error("Syntax error: ", expr)
+				}
 			}
-			err := compileExpr(code, env, Caddr(lst), false, false)
+			err := compileExpr(code, env, val, false, false)
 			if err == nil {
 				code.EmitDefGlobal(sym)
 				if ignoreResult {
