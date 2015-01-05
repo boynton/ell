@@ -19,9 +19,9 @@ package gell
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
-	"fmt"
 	"strconv"
 	"strings"
 )

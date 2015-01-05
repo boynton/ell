@@ -24,9 +24,9 @@ func Ell(module LModule) {
 	module.Define("true", TRUE)
 	module.Define("false", FALSE)
 
-	module.DefineMacro("define", ell_define)
 	module.DefineMacro("let", ell_let)
 	module.DefineMacro("letrec", ell_letrec)
+	module.DefineMacro("do", ell_do)
 
 	module.DefineFunction("type", ell_type)
 	module.DefineFunction("equal?", ell_eq)
@@ -130,7 +130,7 @@ func ell_write(argv []LObject, argc int) (LObject, error) {
 		//todo: add the optional port argument like schema
 		return argcError()
 	}
-	fmt.Printf("%v", argv[0])
+	fmt.Printf("%v", Write(argv[0]))
 	return nil, nil
 }
 
@@ -455,13 +455,6 @@ func ell_cons(argv []LObject, argc int) (LObject, error) {
 	}
 }
 
-func ell_define(argv []LObject, argc int) (LObject, error) {
-	if argc != 1 {
-		return argcError()
-	}
-	return ExpandDefine(argv[0])
-}
-
 func ell_letrec(argv []LObject, argc int) (LObject, error) {
 	if argc != 1 {
 		return argcError()
@@ -474,6 +467,13 @@ func ell_let(argv []LObject, argc int) (LObject, error) {
 		return argcError()
 	}
 	return ExpandLet(argv[0])
+}
+
+func ell_do(argv []LObject, argc int) (LObject, error) {
+	if argc != 1 {
+		return argcError()
+	}
+	return ExpandDo(argv[0])
 }
 
 func ell_get(argv []LObject, argc int) (LObject, error) {
