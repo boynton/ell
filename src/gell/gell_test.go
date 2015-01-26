@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func testType(t *testing.T, name string, sym LSymbol) {
+func testType(t *testing.T, name string, sym LObject) {
 	if !IsSymbol(sym) {
 		t.Error("nil type is not a symbol:", sym)
 	}
@@ -25,16 +25,12 @@ func testNotIdentical(t *testing.T, o1 LObject, o2 LObject) {
 	}
 }
 
-func TestTypes(t *testing.T) {
-	testType(t, "nil", NIL.Type())
-}
-
 func TestNil(t *testing.T) {
 	n1 := NIL
 	testIdentical(t, n1, NIL)
 	testNotIdentical(t, NIL, nil)
-	testType(t, "nil", NIL.Type())
-	if !IsNil(n1) {
+	testType(t, "null", NIL.Type())
+	if n1 != NIL {
 		t.Error("nil isn't")
 	}
 }
