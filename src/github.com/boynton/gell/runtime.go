@@ -555,5 +555,4 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			return nil, Error("Bad instruction: ", strconv.Itoa(ops[pc]))
 		}
 	}
-	return nil, nil //never happens
 }

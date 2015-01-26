@@ -269,7 +269,6 @@ func (code *lcode) decompile(buf *bytes.Buffer, indent string, pretty bool) {
 			offset += 1
 		default:
 			panic(fmt.Sprintf("Bad instruction: %d", code.ops[offset]))
-			break
 		}
 	}
 	buf.WriteString(")")

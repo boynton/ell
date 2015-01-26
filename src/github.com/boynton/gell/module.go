@@ -431,6 +431,4 @@ func (module *lmodule) CompileFile(name string) (LObject, error) {
 		}
 		expr, err = port.Read()
 	}
-
-	return nil, Error("CompileFile NYI")
 }
