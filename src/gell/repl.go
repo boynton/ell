@@ -11,12 +11,12 @@ import (
 	"strings"
 )
 
-type EllHandler struct {
+type ellHandler struct {
 	env LModule
 	buf string
 }
 
-func (ell *EllHandler) Eval(expr string) (string, bool, error) {
+func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 	//return result, needMore, error
 	for ell.env.CheckInterrupt() {
 	} //to clear out any that happened while sitting in getc
@@ -44,15 +44,14 @@ func (ell *EllHandler) Eval(expr string) (string, bool, error) {
 					result = "= " + Write(val)
 				}
 				return result, false, nil
-			} else {
-				return "", false, err
 			}
+			return "", false, err
 		}
 		return "", false, err
 	}
 }
 
-func (ell *EllHandler) Reset() {
+func (ell *ellHandler) Reset() {
 	ell.buf = ""
 }
 
@@ -92,7 +91,7 @@ func greatestCommonPrefix(prefix string, matches []string) string {
 	}
 }
 
-func (ell *EllHandler) Complete(expr string) (string, []string) {
+func (ell *ellHandler) Complete(expr string) (string, []string) {
 	matches := []string{}
 	addendum := ""
 	exprLen := len(expr)
@@ -172,23 +171,21 @@ func (ell *EllHandler) Complete(expr string) (string, []string) {
 	return addendum, matches
 }
 
-func (ell *EllHandler) Prompt() string {
+func (ell *ellHandler) Prompt() string {
 	prompt := ell.env.Global(Intern("*prompt*"))
 	if prompt != nil {
 		return prompt.String()
-	} else {
-		return "? "
 	}
+	return "? "
 }
 
-func HistoryFileName() string {
+func historyFileName() string {
 	return filepath.Join(os.Getenv("HOME"), ".ell_history")
 
 }
-func (ell *EllHandler) Start() []string {
-	content, err := ioutil.ReadFile(HistoryFileName())
+func (ell *ellHandler) Start() []string {
+	content, err := ioutil.ReadFile(historyFileName())
 	if err != nil {
-		//Println("[warning: cannot read ", HistoryFileName(), "]")
 		return nil
 	}
 	s := strings.Split(string(content), "\n")
@@ -201,19 +198,20 @@ func (ell *EllHandler) Start() []string {
 	return s2
 }
 
-func (ell *EllHandler) Stop(history []string) {
+func (ell *ellHandler) Stop(history []string) {
 	if len(history) > 100 {
 		history = history[len(history)-100:]
 	}
 	content := strings.Join(history, "\n") + "\n"
-	err := ioutil.WriteFile(HistoryFileName(), []byte(content), 0644)
+	err := ioutil.WriteFile(historyFileName(), []byte(content), 0644)
 	if err != nil {
-		Println("[warning: cannot write ", HistoryFileName(), "]")
+		Println("[warning: cannot write ", historyFileName(), "]")
 	}
 }
 
+// REPL is the Read-Eval-Print-Loop for gell
 func REPL(environment LModule) {
-	handler := EllHandler{environment, ""}
+	handler := ellHandler{environment, ""}
 	err := repl.REPL(&handler)
 	if err != nil {
 		Println("REPL error: ", err)
