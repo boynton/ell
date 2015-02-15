@@ -160,38 +160,49 @@ func expandSet(module module, expr lob) (lob, error) {
 	return list(car(expr), cadr(expr), val), nil
 }
 
+func expandPrimitive(module module, fn lob, expr lob) (lob, error) {
+	switch fn {
+	case intern("quote"):
+		return expr, nil
+	case intern("begin"):
+		return expandSequence(module, expr)
+	case intern("if"):
+		return expandIf(module, expr)
+	case intern("define"):
+		return expandDefine(module, expr)
+	case intern("define-macro"):
+		return expandDefine(module, expr)
+		//return expandDefineMacro(module, expr)
+	case intern("lambda"):
+		return expandLambda(module, expr)
+	case intern("set!"):
+		return expandSet(module, expr)
+	case intern("lap"):
+		return expr, nil
+	case intern("use"):
+		return expr, nil
+	default:
+		macro := module.macro(fn)
+		if macro != nil {
+			return (macro.(*lmacro)).expand(module, expr)
+		}
+		return nil, nil
+	}
+}
+
 func macroexpand(module module, expr lob) (lob, error) {
 	if isPair(expr) {
 		var head lob = NIL
 		fn := car(expr)
 		if isSymbol(fn) {
-			switch fn {
-			case intern("quote"):
-				return expr, nil
-			case intern("begin"):
-				return expandSequence(module, expr)
-			case intern("if"):
-				return expandIf(module, expr)
-			case intern("define"):
-				return expandDefine(module, expr)
-			case intern("define-macro"):
-				return expandDefine(module, expr)
-				//return expandDefineMacro(module, expr)
-			case intern("lambda"):
-				return expandLambda(module, expr)
-			case intern("set!"):
-				return expandSet(module, expr)
-			case intern("lap"):
-				return expr, nil
-			case intern("use"):
-				return expr, nil
-			default:
-				macro := module.macro(fn)
-				if macro != nil {
-					return (macro.(*lmacro)).expand(module, expr)
-				}
-				head = fn
+			result, err := expandPrimitive(module, fn, expr)
+			if err != nil {
+				return nil, err
 			}
+			if result != nil {
+				return result, nil
+			}
+			head = fn
 		} else {
 			expanded, err := macroexpand(module, fn)
 			if err != nil {

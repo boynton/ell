@@ -71,10 +71,10 @@ func newEnvironment(name string, init environmentInitializer, interrupts chan os
 	return newModule(name, interrupts)
 }
 
-func (module *lmodule) checkInterrupt() bool {
-	if module.interrupts != nil {
+func (mod *lmodule) checkInterrupt() bool {
+	if mod.interrupts != nil {
 		select {
-		case msg := <-module.interrupts:
+		case msg := <-mod.interrupts:
 			return msg != nil
 		default:
 			return false
@@ -96,37 +96,37 @@ func newModule(name string, interrupts chan os.Signal) module {
 	return &mod
 }
 
-func (module *lmodule) define(name string, obj lob) {
-	module.defGlobal(intern(name), obj)
+func (mod *lmodule) define(name string, obj lob) {
+	mod.defGlobal(intern(name), obj)
 }
 
-func (module *lmodule) defineFunction(name string, fun primitive) {
+func (mod *lmodule) defineFunction(name string, fun primitive) {
 	sym := intern(name)
-	if module.global(sym) != nil {
+	if mod.global(sym) != nil {
 		println("*** Warning: redefining ", name)
 	}
 	prim := lprimitive{name, fun}
-	module.defGlobal(sym, &prim)
+	mod.defGlobal(sym, &prim)
 }
 
-func (module *lmodule) defineMacro(name string, fun primitive) {
+func (mod *lmodule) defineMacro(name string, fun primitive) {
 	sym := intern(name)
-	if module.macro(sym) != nil {
+	if mod.macro(sym) != nil {
 		println("*** Warning: redefining macro ", name)
 	}
 	prim := lprimitive{name, fun}
-	module.defMacro(sym, &prim)
+	mod.defMacro(sym, &prim)
 }
 
-func (module *lmodule) typeSymbol() lob {
+func (mod *lmodule) typeSymbol() lob {
 	return intern("module")
 }
 
-func (module *lmodule) String() string {
-	return fmt.Sprintf("<module %v, constants:%v>", module.Name, module.constants)
+func (mod *lmodule) String() string {
+	return fmt.Sprintf("<module %v, constants:%v>", mod.Name, mod.constants)
 }
 
-func (module *lmodule) keywords() []lob {
+func (mod *lmodule) keywords() []lob {
 	//keywords reserved for the base language that Ell compiles
 	keywords := []lob{
 		intern("quote"),
@@ -142,9 +142,9 @@ func (module *lmodule) keywords() []lob {
 	return keywords
 }
 
-func (module *lmodule) globals() []lob {
+func (mod *lmodule) globals() []lob {
 	syms := make([]lob, 0, symtag)
-	for _, b := range module.globalMap {
+	for _, b := range mod.globalMap {
 		if b != nil {
 			syms = append(syms, b.sym)
 		}
@@ -152,12 +152,12 @@ func (module *lmodule) globals() []lob {
 	return syms
 }
 
-func (module *lmodule) global(sym lob) lob {
+func (mod *lmodule) global(sym lob) lob {
 	s := sym.(*lsymbol)
-	if s.tag >= len(module.globalMap) {
+	if s.tag >= len(mod.globalMap) {
 		return nil
 	}
-	tmp := module.globalMap[s.tag]
+	tmp := mod.globalMap[s.tag]
 	if tmp == nil {
 		return nil
 	}
@@ -169,22 +169,22 @@ type binding struct {
 	val lob
 }
 
-func (module *lmodule) defGlobal(sym lob, val lob) {
+func (mod *lmodule) defGlobal(sym lob, val lob) {
 	s := sym.(*lsymbol)
-	if s.tag >= len(module.globalMap) {
+	if s.tag >= len(mod.globalMap) {
 		glob := make([]*binding, s.tag+100)
-		copy(glob, module.globalMap)
-		module.globalMap = glob
+		copy(glob, mod.globalMap)
+		mod.globalMap = glob
 	}
 	b := binding{sym, val}
-	module.globalMap[s.tag] = &b
+	mod.globalMap[s.tag] = &b
 }
 
-func (module *lmodule) setGlobal(sym lob, val lob) error {
+func (mod *lmodule) setGlobal(sym lob, val lob) error {
 	s := sym.(*lsymbol)
-	if s.tag < len(module.globalMap) {
-		if module.globalMap[s.tag] != nil {
-			module.globalMap[s.tag].val = val
+	if s.tag < len(mod.globalMap) {
+		if mod.globalMap[s.tag] != nil {
+			mod.globalMap[s.tag].val = val
 			return nil
 		}
 
@@ -192,44 +192,44 @@ func (module *lmodule) setGlobal(sym lob, val lob) error {
 	return newError("*** Warning: set on undefined global ", sym)
 }
 
-func (module *lmodule) macros() []lob {
-	keys := make([]lob, 0, len(module.macroMap))
-	for k := range module.macroMap {
+func (mod *lmodule) macros() []lob {
+	keys := make([]lob, 0, len(mod.macroMap))
+	for k := range mod.macroMap {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func (module *lmodule) macro(sym lob) lob {
-	mac, ok := module.macroMap[sym]
+func (mod *lmodule) macro(sym lob) lob {
+	mac, ok := mod.macroMap[sym]
 	if !ok {
 		return nil
 	}
 	return mac
 }
 
-func (module *lmodule) defMacro(sym lob, val lob) {
-	module.macroMap[sym] = newMacro(sym, val)
+func (mod *lmodule) defMacro(sym lob, val lob) {
+	mod.macroMap[sym] = newMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func (module *lmodule) putConstant(val lob) int {
-	idx, present := module.constantsMap[val]
+func (mod *lmodule) putConstant(val lob) int {
+	idx, present := mod.constantsMap[val]
 	if !present {
-		idx = len(module.constants)
-		module.constants = append(module.constants, val)
-		module.constantsMap[val] = idx
+		idx = len(mod.constants)
+		mod.constants = append(mod.constants, val)
+		mod.constantsMap[val] = idx
 	}
 	return idx
 }
 
-func (module *lmodule) use(sym lob) error {
+func (mod *lmodule) use(sym lob) error {
 	name := sym.String()
-	return module.loadModule(name)
+	return mod.loadModule(name)
 }
 
-func (module *lmodule) importCode(thunk code) (lob, error) {
+func (mod *lmodule) importCode(thunk code) (lob, error) {
 	moduleToUse := thunk.module()
 	result, err := exec(thunk)
 	if err != nil {
@@ -240,19 +240,19 @@ func (module *lmodule) importCode(thunk code) (lob, error) {
 		val := moduleToUse.global(sym)
 		if val == nil {
 			val = moduleToUse.macro(sym)
-			module.defMacro(sym, (val.(*lmacro)).expander)
+			mod.defMacro(sym, (val.(*lmacro)).expander)
 		} else {
-			module.defGlobal(sym, val)
+			mod.defGlobal(sym, val)
 		}
 	}
 	return result, nil
 }
 
-func (module *lmodule) exports() []lob {
-	return module.exported
+func (mod *lmodule) exports() []lob {
+	return mod.exported
 }
 
-func (module *lmodule) findModule(moduleName string) (string, error) {
+func (mod *lmodule) findModuleByName(moduleName string) (string, error) {
 	var path []string
 	spath := os.Getenv("ELL_PATH")
 	if spath != "" {
@@ -276,29 +276,18 @@ func (module *lmodule) findModule(moduleName string) (string, error) {
 			return filename, nil
 		}
 	}
-	return "", newError("not found")
+	return "", newError("Module not found: ", moduleName)
 }
 
-func (module *lmodule) loadModule(name string) error {
-	file := name
-	i := strings.Index(name, ".")
-	if i < 0 {
-		f, err := module.findModule(name)
-		if err != nil {
-			return newError("Module not found: ", name)
-		}
-		file = f
-	} else {
-		if !fileReadable(name) {
-			return newError("Cannot read file: ", name)
-		}
-		name = name[0:i]
-
+func (mod *lmodule) loadModule(name string) error {
+	file, err := mod.findModuleFile(name)
+	if err != nil {
+		return err
 	}
-	return module.loadFile(file)
+	return mod.loadFile(file)
 }
 
-func (module *lmodule) loadFile(file string) error {
+func (mod *lmodule) loadFile(file string) error {
 	if verbose {
 		println("; loadFile: " + file)
 	}
@@ -317,7 +306,7 @@ func (module *lmodule) loadFile(file string) error {
 		if expr == EOF {
 			return nil
 		}
-		_, err = module.eval(expr)
+		_, err = mod.eval(expr)
 		if err != nil {
 			return err
 		}
@@ -325,49 +314,69 @@ func (module *lmodule) loadFile(file string) error {
 	}
 }
 
-func (module *lmodule) eval(expr lob) (lob, error) {
+func (mod *lmodule) eval(expr lob) (lob, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
-	expanded, err := macroexpand(module, expr)
+	expanded, err := macroexpand(mod, expr)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
 		println("; expanded to: ", write(expanded))
 	}
-	code, err := compile(module, expanded)
+	code, err := compile(mod, expanded)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
 		println("; compiled to: ", write(code))
 	}
-	result, err := module.importCode(code)
+	result, err := mod.importCode(code)
 	return result, err
 }
 
-//caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func (module *lmodule) compileFile(name string) (lob, error) {
-	pretty := true
-	//without macros, this used towork fine. Just wrap the file's expressions in a big begin, and compile it
-	// this only makes sense for files that contain definitions only (not executions of those definitions)
-	// i.e. it is harmless to execute them
-	//
-	file := name
+func (mod *lmodule) findModuleFile(name string) (string, error) {
 	i := strings.Index(name, ".")
 	if i < 0 {
-		f, err := module.findModule(name)
+		file, err := mod.findModuleByName(name)
 		if err != nil {
-			return nil, newError("Module not found: ", name)
+			return "", err
 		}
-		file = f
-	} else {
-		if !fileReadable(name) {
-			return nil, newError("Cannot read file: ", name)
-		}
-		name = name[0:i]
+		return file, nil
+	}
+	if !fileReadable(name) {
+		return "", newError("Cannot read file: ", name)
+	}
+	return name, nil
+}
 
+func (mod *lmodule) compileExpr(expr lob) (string, error) {
+	if verbose {
+		println("; compile: ", write(expr))
+	}
+	expanded, err := macroexpand(mod, expr)
+	if err != nil {
+		return "", err
+	}
+	if verbose {
+		println("; expanded to: ", write(expanded))
+	}
+	code, err := compile(mod, expanded)
+	if err != nil {
+		return "", err
+	}
+	if verbose {
+		println("; compiled to: ", write(code))
+	}
+	return code.decompile(true) + "\n", nil
+}
+
+//caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
+func (mod *lmodule) compileFile(name string) (lob, error) {
+	file, err := mod.findModuleFile(name)
+	if err != nil {
+		return nil, err
 	}
 	if verbose {
 		println("; loadFile: " + file)
@@ -379,46 +388,18 @@ func (module *lmodule) compileFile(name string) (lob, error) {
 
 	expr, err := port.read()
 	defer port.close()
-	result := ""
-	if pretty {
-		result = ";\n; code generated from " + file + "\n;\n"
-	}
-	for {
-		if err != nil {
-			return nil, err
-		}
+	result := ";\n; code generated from " + file + "\n;\n"
+	var lap string
+	for err == nil {
 		if expr == EOF {
 			return newString(result), nil
 		}
-		if verbose {
-			println("; compile: ", write(expr))
-		}
-		expanded, err := macroexpand(module, expr)
+		lap, err = mod.compileExpr(expr)
 		if err != nil {
 			return nil, err
 		}
-		if verbose {
-			println("; expanded to: ", write(expanded))
-		}
-		code, err := compile(module, expanded)
-		if err != nil {
-			return nil, err
-		}
-		if verbose {
-			println("; compiled to: ", write(code))
-		}
-		if pretty {
-			result = result + code.decompile(true) + "\n"
-		} else {
-			result = result + " " + code.decompile(true)
-		}
-		if false {
-			//if the code contains macro defs, we need to run it. It may depend on other code. So, we run it all
-			_, err = module.importCode(code)
-			if err != nil {
-				return nil, err
-			}
-		}
+		result += lap
 		expr, err = port.read()
 	}
+	return nil, err
 }

@@ -90,13 +90,10 @@ func greatestCommonPrefix(prefix string, matches []string) string {
 	}
 }
 
-func (ell *ellHandler) Complete(expr string) (string, []string) {
-	matches := []string{}
-	addendum := ""
-	exprLen := len(expr)
+func (ell *ellHandler) completePrefix(expr string) (string, bool) {
 	prefix := ""
 	funPosition := false
-	//perhaps: detect if we are in a funarg position, then the "empty prefix" could show function arg usage
+	exprLen := len(expr)
 	if exprLen > 0 {
 		i := exprLen - 1
 		ch := expr[i]
@@ -121,6 +118,13 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 			}
 		}
 	}
+	return prefix, funPosition
+}
+
+func (ell *ellHandler) Complete(expr string) (string, []string) {
+	matches := []string{}
+	addendum := ""
+	prefix, funPosition := ell.completePrefix(expr)
 	candidates := map[lob]bool{}
 	if funPosition {
 		for _, sym := range ell.env.keywords() {
