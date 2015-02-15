@@ -3,84 +3,79 @@ package main
 // the primitive functions for the languages
 import (
 	"fmt"
-	. "github.com/boynton/gell"
 )
 
-func argcError() (LObject, error) {
-	return nil, Error("Wrong number of arguments")
+func argcError() (lob, error) {
+	return nil, newError("Wrong number of arguments")
 }
 
-func typeError(expected string, num int) (LObject, error) {
-	return nil, Error("Argument ", num, " is not of type ", expected)
-}
-
-func rangeError(expected string, num int) (LObject, error) {
-	return nil, Error("Argument ", num, " is out of range: ", expected)
+func ellTypeError(expected string, num int) (lob, error) {
+	return nil, newError("Argument ", num, " is not of type ", expected)
 }
 
 // Ell defines the global functions for the top level environment
-func Ell(module LModule) {
-	module.Define("nil", NIL)
-	module.Define("null", NIL)
-	module.Define("true", TRUE)
-	module.Define("false", FALSE)
+func Ell(module module) {
+	module.define("nil", NIL)
+	module.define("null", NIL)
+	module.define("true", TRUE)
+	module.define("false", FALSE)
 
-	module.DefineMacro("let", ellLet)
-	module.DefineMacro("letrec", ellLetrec)
-	module.DefineMacro("do", ellDo)
+	module.defineMacro("let", ellLet)
+	module.defineMacro("letrec", ellLetrec)
+	module.defineMacro("do", ellDo)
 
-	module.DefineFunction("type", ellType)
-	module.DefineFunction("equal?", ellEq)
-	module.DefineFunction("identical?", ellIdenticalP)
+	module.defineFunction("type", ellType)
+	module.defineFunction("equal?", ellEq)
+	module.defineFunction("identical?", ellIdenticalP)
 
-	module.DefineFunction("null?", ellNullP)
-	module.DefineFunction("cons", ellCons)
-	module.DefineFunction("car", ellCar)
-	module.DefineFunction("cdr", ellCdr)
+	module.defineFunction("null?", ellNullP)
+	module.defineFunction("cons", ellCons)
+	module.defineFunction("car", ellCar)
+	module.defineFunction("cdr", ellCdr)
 
-	module.DefineFunction("cadr", ellCadr)
-	module.DefineFunction("cddr", ellCddr)
-	module.DefineFunction("display", ellDisplay)
-	module.DefineFunction("write", ellWrite)
-	module.DefineFunction("newline", ellNewline)
-	module.DefineFunction("print", ellPrint)
-	module.DefineFunction("println", ellPrintln)
-	module.DefineFunction("list", ellList)
-	module.DefineFunction("+", ellPlus)
-	module.DefineFunction("-", ellMinus)
-	module.DefineFunction("*", ellTimes)
-	module.DefineFunction("quotient", ellQuotient)
-	module.DefineFunction("remainder", ellRemainder)
-	module.DefineFunction("modulo", ellRemainder) //fix!
-	module.DefineFunction("make-vector", ellMakeVector)
-	module.DefineFunction("vector-set!", ellVectorSetBang)
-	module.DefineFunction("vector-ref", ellVectorRef)
-	module.DefineFunction("get", ellGet)
-	module.DefineFunction("put!", ellPutBang)
-	module.DefineFunction("has?", ellHasP)
-	module.DefineFunction("=", ellNumeq)
-	module.DefineFunction("<=", ellLe)
-	module.DefineFunction(">=", ellGe)
-	module.DefineFunction(">", ellGt)
-	module.DefineFunction("<", ellLt)
-	module.DefineFunction("zero?", ellZeroP)
-	module.DefineFunction("number->string", ellNumberToString)
-	module.DefineFunction("string-length", ellStringLength)
-	module.DefineFunction("error", ellFatal)
-	module.DefineFunction("length", ellLength)
-	module.DefineFunction("json", ellJSON)
+	module.defineFunction("cadr", ellCadr)
+	module.defineFunction("cddr", ellCddr)
+	module.defineFunction("display", ellDisplay)
+	module.defineFunction("write", ellWrite)
+	module.defineFunction("newline", ellNewline)
+	module.defineFunction("print", ellPrint)
+	module.defineFunction("println", ellPrintln)
+	module.defineFunction("list", ellList)
+	module.defineFunction("+", ellPlus)
+	module.defineFunction("-", ellMinus)
+	module.defineFunction("*", ellTimes)
+	module.defineFunction("quotient", ellQuotient)
+	module.defineFunction("remainder", ellRemainder)
+	module.defineFunction("modulo", ellRemainder) //fix!
+	module.defineFunction("make-vector", ellMakeVector)
+	module.defineFunction("vector-set!", ellVectorSetBang)
+	module.defineFunction("vector-ref", ellVectorRef)
+	module.defineFunction("get", ellGet)
+	module.defineFunction("put!", ellPutBang)
+	module.defineFunction("has?", ellHasP)
+	module.defineFunction("=", ellNumeq)
+	module.defineFunction("<=", ellLe)
+	module.defineFunction(">=", ellGe)
+	module.defineFunction(">", ellGt)
+	module.defineFunction("<", ellLt)
+	module.defineFunction("zero?", ellZeroP)
+	module.defineFunction("number->string", ellNumberToString)
+	module.defineFunction("string-length", ellStringLength)
+	module.defineFunction("error", ellFatal)
+	module.defineFunction("length", ellLength)
+	module.defineFunction("json", ellJSON)
 }
 
-func ellType(argv []LObject, argc int) (LObject, error) {
+func ellType(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	return argv[0].Type(), nil
+	return argv[0].typeSymbol(), nil
 }
 
-func ellIdenticalP(argv []LObject, argc int) (LObject, error) {
+func ellIdenticalP(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		b := Identical(argv[0], argv[1])
+		b := identical(argv[0], argv[1])
 		if b {
 			return TRUE, nil
 		}
@@ -89,33 +84,33 @@ func ellIdenticalP(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellEq(argv []LObject, argc int) (LObject, error) {
+func ellEq(argv []lob, argc int) (lob, error) {
 	if argc < 1 {
 		return argcError()
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
-		if !Equal(obj, argv[1]) {
+		if !equal(obj, argv[1]) {
 			return FALSE, nil
 		}
 	}
 	return TRUE, nil
 }
 
-func ellNumeq(argv []LObject, argc int) (LObject, error) {
+func ellNumeq(argv []lob, argc int) (lob, error) {
 	if argc < 1 {
 		return argcError()
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
-		if b, err := NumericallyEqual(obj, argv[1]); err != nil || !b {
+		if b, err := numericallyEqual(obj, argv[1]); err != nil || !b {
 			return FALSE, err
 		}
 	}
 	return TRUE, nil
 }
 
-func ellDisplay(argv []LObject, argc int) (LObject, error) {
+func ellDisplay(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		//todo: add the optional port argument like schema
 		return argcError()
@@ -124,16 +119,16 @@ func ellDisplay(argv []LObject, argc int) (LObject, error) {
 	return nil, nil
 }
 
-func ellWrite(argv []LObject, argc int) (LObject, error) {
+func ellWrite(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		//todo: add the optional port argument like schema
 		return argcError()
 	}
-	fmt.Printf("%v", Write(argv[0]))
+	fmt.Printf("%v", write(argv[0]))
 	return nil, nil
 }
 
-func ellNewline(argv []LObject, argc int) (LObject, error) {
+func ellNewline(argv []lob, argc int) (lob, error) {
 	if argc != 0 {
 		//todo: add the optional port argument like schema
 		return argcError()
@@ -142,106 +137,106 @@ func ellNewline(argv []LObject, argc int) (LObject, error) {
 	return nil, nil
 }
 
-func ellFatal(argv []LObject, argc int) (LObject, error) {
+func ellFatal(argv []lob, argc int) (lob, error) {
 	s := ""
 	for _, o := range argv {
 		s += fmt.Sprintf("%v", o)
 	}
-	return nil, Error(s)
+	return nil, newError(s)
 }
 
-func ellPrint(argv []LObject, argc int) (LObject, error) {
+func ellPrint(argv []lob, argc int) (lob, error) {
 	for _, o := range argv {
 		fmt.Printf("%v", o)
 	}
 	return nil, nil
 }
 
-func ellPrintln(argv []LObject, argc int) (LObject, error) {
+func ellPrintln(argv []lob, argc int) (lob, error) {
 	ellPrint(argv, argc)
 	fmt.Println("")
 	return nil, nil
 }
 
-func ellList(argv []LObject, argc int) (LObject, error) {
-	var p LObject
+func ellList(argv []lob, argc int) (lob, error) {
+	var p lob
 	p = NIL
 	for i := argc - 1; i >= 0; i-- {
-		p = Cons(argv[i], p)
+		p = cons(argv[i], p)
 	}
 	return p, nil
 }
 
-func ellQuotient(argv []LObject, argc int) (LObject, error) {
+func ellQuotient(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		n1, err := IntegerValue(argv[0])
+		n1, err := integerValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
-		n2, err := IntegerValue(argv[1])
+		n2, err := integerValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
 		if n2 == 0 {
-			return nil, Error("Quotient: divide by zero")
+			return nil, newError("Quotient: divide by zero")
 		}
-		return NewInteger(n1 / n2), nil
+		return newInteger(n1 / n2), nil
 	}
 	return argcError()
 }
 
-func ellRemainder(argv []LObject, argc int) (LObject, error) {
+func ellRemainder(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		n1, err := IntegerValue(argv[0])
+		n1, err := integerValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
-		n2, err := IntegerValue(argv[1])
+		n2, err := integerValue(argv[1])
 		if n2 == 0 {
-			return nil, Error("Remainder: divide by zero")
+			return nil, newError("Remainder: divide by zero")
 		}
 		if err != nil {
 			return nil, err
 		}
-		return NewInteger(n1 % n2), nil
+		return newInteger(n1 % n2), nil
 	}
 	return argcError()
 }
 
-func ellPlus(argv []LObject, argc int) (LObject, error) {
+func ellPlus(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		return Add(argv[0], argv[1])
+		return add(argv[0], argv[1])
 	}
-	return Sum(argv, argc)
+	return sum(argv, argc)
 }
 
-func ellMinus(argv []LObject, argc int) (LObject, error) {
+func ellMinus(argv []lob, argc int) (lob, error) {
 	//hack
 	if argc != 2 {
 		return argcError()
 	}
-	n1, err := IntegerValue(argv[0])
+	n1, err := integerValue(argv[0])
 	if err != nil {
 		return nil, err
 	}
-	n2, err := IntegerValue(argv[1])
+	n2, err := integerValue(argv[1])
 	if err != nil {
 		return nil, err
 	}
-	return NewInteger(n1 - n2), nil
+	return newInteger(n1 - n2), nil
 }
 
-func ellTimes(argv []LObject, argc int) (LObject, error) {
+func ellTimes(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		return Mul(argv[0], argv[1])
+		return mul(argv[0], argv[1])
 	}
-	return Product(argv, argc)
+	return product(argv, argc)
 }
 
-func ellMakeVector(argv []LObject, argc int) (LObject, error) {
+func ellMakeVector(argv []lob, argc int) (lob, error) {
 	if argc > 0 {
-		var initVal LObject = NIL
-		vlen, err := IntegerValue(argv[0])
+		var initVal lob = NIL
+		vlen, err := integerValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
@@ -251,19 +246,19 @@ func ellMakeVector(argv []LObject, argc int) (LObject, error) {
 			}
 			initVal = argv[1]
 		}
-		return NewVector(int(vlen), initVal), nil
+		return newVector(int(vlen), initVal), nil
 	}
 	return argcError()
 }
 
-func ellVectorSetBang(argv []LObject, argc int) (LObject, error) {
+func ellVectorSetBang(argv []lob, argc int) (lob, error) {
 	if argc == 3 {
 		v := argv[0]
-		idx, err := IntegerValue(argv[1])
+		idx, err := integerValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
-		err = VectorSet(v, int(idx), argv[2])
+		err = vectorSet(v, int(idx), argv[2])
 		if err != nil {
 			return nil, err
 		}
@@ -272,14 +267,14 @@ func ellVectorSetBang(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellVectorRef(argv []LObject, argc int) (LObject, error) {
+func ellVectorRef(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
 		v := argv[0]
-		idx, err := IntegerValue(argv[1])
+		idx, err := integerValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
-		val, err := VectorRef(v, int(idx))
+		val, err := vectorRef(v, int(idx))
 		if err != nil {
 			return nil, err
 		}
@@ -288,9 +283,9 @@ func ellVectorRef(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellGe(argv []LObject, argc int) (LObject, error) {
+func ellGe(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		b, err := GreaterOrEqual(argv[0], argv[1])
+		b, err := greaterOrEqual(argv[0], argv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -299,9 +294,9 @@ func ellGe(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellLe(argv []LObject, argc int) (LObject, error) {
+func ellLe(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		b, err := LessOrEqual(argv[0], argv[1])
+		b, err := lessOrEqual(argv[0], argv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -310,9 +305,9 @@ func ellLe(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellGt(argv []LObject, argc int) (LObject, error) {
+func ellGt(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		b, err := Greater(argv[0], argv[1])
+		b, err := greater(argv[0], argv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -321,9 +316,9 @@ func ellGt(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellLt(argv []LObject, argc int) (LObject, error) {
+func ellLt(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		b, err := Less(argv[0], argv[1])
+		b, err := less(argv[0], argv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -332,9 +327,9 @@ func ellLt(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellZeroP(argv []LObject, argc int) (LObject, error) {
+func ellZeroP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		f, err := RealValue(argv[0])
+		f, err := realValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
@@ -346,35 +341,35 @@ func ellZeroP(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellNumberToString(argv []LObject, argc int) (LObject, error) {
+func ellNumberToString(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	if !IsNumber(argv[0]) {
-		return nil, Error("Not a number:", argv[0])
+	if !isNumber(argv[0]) {
+		return ellTypeError("number", 1)
 	}
-	return NewString(argv[0].String()), nil
+	return newString(argv[0].String()), nil
 }
 
-func ellStringLength(argv []LObject, argc int) (LObject, error) {
+func ellStringLength(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	if !IsString(argv[0]) {
-		return typeError("string", 1)
+	if !isString(argv[0]) {
+		return ellTypeError("string", 1)
 	}
-	i := Length(argv[0])
-	return NewInteger(int64(i)), nil
+	i := length(argv[0])
+	return newInteger(int64(i)), nil
 }
 
-func ellLength(argv []LObject, argc int) (LObject, error) {
+func ellLength(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		return NewInteger(int64(Length(argv[0]))), nil
+		return newInteger(int64(length(argv[0]))), nil
 	}
 	return argcError()
 }
 
-func ellNullP(argv []LObject, argc int) (LObject, error) {
+func ellNullP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if argv[0] == NIL {
 			return TRUE, nil
@@ -384,90 +379,90 @@ func ellNullP(argv []LObject, argc int) (LObject, error) {
 	return argcError()
 }
 
-func ellCar(argv []LObject, argc int) (LObject, error) {
+func ellCar(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		lst := argv[0]
-		if IsList(lst) {
-			return Car(lst), nil
+		if isList(lst) {
+			return car(lst), nil
 		}
-		return typeError("pair", 1)
+		return ellTypeError("pair", 1)
 	}
 	return argcError()
 }
 
-func ellCdr(argv []LObject, argc int) (LObject, error) {
+func ellCdr(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		lst := argv[0]
-		if IsList(lst) {
-			return Cdr(lst), nil
+		if isList(lst) {
+			return cdr(lst), nil
 		}
-		return typeError("pair", 1)
+		return ellTypeError("pair", 1)
 	}
 	return argcError()
 }
 
-func ellCadr(argv []LObject, argc int) (LObject, error) {
+func ellCadr(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		lst := argv[0]
-		if IsList(lst) {
-			return Cadr(lst), nil
+		if isList(lst) {
+			return cadr(lst), nil
 		}
-		return typeError("pair", 1)
+		return ellTypeError("pair", 1)
 	}
 	return argcError()
 }
 
-func ellCddr(argv []LObject, argc int) (LObject, error) {
+func ellCddr(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		lst := argv[0]
-		if IsList(lst) {
-			return Cddr(lst), nil
+		if isList(lst) {
+			return cddr(lst), nil
 		}
-		return typeError("pair", 1)
+		return ellTypeError("pair", 1)
 	}
 	return argcError()
 }
 
-func ellCons(argv []LObject, argc int) (LObject, error) {
+func ellCons(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		return Cons(argv[0], argv[1]), nil
+		return cons(argv[0], argv[1]), nil
 	}
 	return argcError()
 }
 
-func ellLetrec(argv []LObject, argc int) (LObject, error) {
+func ellLetrec(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	return ExpandLetrec(argv[0])
+	return expandLetrec(argv[0])
 }
 
-func ellLet(argv []LObject, argc int) (LObject, error) {
+func ellLet(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	return ExpandLet(argv[0])
+	return expandLet(argv[0])
 }
 
-func ellDo(argv []LObject, argc int) (LObject, error) {
+func ellDo(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	return ExpandDo(argv[0])
+	return expandDo(argv[0])
 }
 
-func ellGet(argv []LObject, argc int) (LObject, error) {
+func ellGet(argv []lob, argc int) (lob, error) {
 	if argc != 2 {
 		return argcError()
 	}
-	return Get(argv[0], argv[1])
+	return get(argv[0], argv[1])
 }
 
-func ellHasP(argv []LObject, argc int) (LObject, error) {
+func ellHasP(argv []lob, argc int) (lob, error) {
 	if argc != 2 {
 		return argcError()
 	}
-	b, err := Has(argv[0], argv[1])
+	b, err := has(argv[0], argv[1])
 	if err != nil {
 		return nil, err
 	}
@@ -477,20 +472,20 @@ func ellHasP(argv []LObject, argc int) (LObject, error) {
 	return FALSE, nil
 }
 
-func ellPutBang(argv []LObject, argc int) (LObject, error) {
+func ellPutBang(argv []lob, argc int) (lob, error) {
 	if argc != 3 {
 		return argcError()
 	}
-	return Put(argv[0], argv[1], argv[2])
+	return put(argv[0], argv[1], argv[2])
 }
 
-func ellJSON(argv []LObject, argc int) (LObject, error) {
+func ellJSON(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError()
 	}
-	s, err := JSON(argv[0])
+	s, err := toJSON(argv[0])
 	if err != nil {
 		return nil, err
 	}
-	return NewString(s), nil
+	return newString(s), nil
 }

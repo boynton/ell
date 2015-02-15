@@ -1,12 +1,14 @@
 package main
 
 import (
-	. "github.com/boynton/gell"
 	//	"github.com/davecheney/profile"
 	"flag"
 	"os"
 	"os/signal"
 )
+
+var verbose bool
+var extendedInstructions = false
 
 func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
@@ -16,20 +18,20 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if *pVerbose {
-		SetVerbose(*pVerbose)
+		verbose = *pVerbose
 	}
 	if *pTrace {
-		SetTrace(*pTrace)
+		setTrace(*pTrace)
 	}
 	if *pExtended {
-		EnableExtendedInstructions(*pExtended)
+		extendedInstructions = *pExtended
 	}
 	if len(args) < 1 {
 		interrupts := make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
-		environment := NewEnvironment("main", Ell, interrupts)
-		REPL(environment)
+		environment := newEnvironment("main", Ell, interrupts)
+		readEvalPrintLoop(environment)
 	} else {
 		/*
 			if len(os.Args) > 2 {
@@ -41,21 +43,21 @@ func main() {
 				defer profile.Start(&cfg).Stop()
 			}
 		*/
-		environment := NewEnvironment("main", Ell, nil)
+		environment := newEnvironment("main", Ell, nil)
 		for _, filename := range args {
 			if *pCompile {
 				//just compile and print LAP code
-				lap, err := environment.CompileFile(filename)
+				lap, err := environment.compileFile(filename)
 				if err != nil {
-					Println("*** ", err)
+					println("*** ", err)
 					os.Exit(1)
 				}
-				Println(lap)
+				println(lap)
 			} else {
 				//this executes the file
-				err := environment.LoadModule(filename)
+				err := environment.loadModule(filename)
 				if err != nil {
-					Println("*** ", err)
+					println("*** ", err)
 					os.Exit(1)
 				}
 			}

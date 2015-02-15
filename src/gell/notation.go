@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gell
+package main
 
 import (
 	"bufio"
@@ -26,7 +26,7 @@ import (
 	"strings"
 )
 
-func FileReadable(path string) bool {
+func fileReadable(path string) bool {
 	if info, err := os.Stat(path); err == nil {
 		if info.Mode().IsRegular() {
 			return true
@@ -35,43 +35,43 @@ func FileReadable(path string) bool {
 	return false
 }
 
-type LPort interface {
-	IsBinary() bool
-	IsInput() bool
-	IsOutput() bool
-	Read() (LObject, error)
-	Write(obj LObject) error
-	Close() error
+type port interface {
+	isBinary() bool
+	isInput() bool
+	isOutput() bool
+	read() (lob, error)
+	write(obj lob) error
+	close() error
 }
 
-type LInputPort struct {
+type linport struct {
 	file   *os.File
-	reader *DataReader
+	reader *dataReader
 }
 
-func (in LInputPort) IsBinary() bool {
+func (in linport) isBinary() bool {
 	return false
 }
-func (in LInputPort) IsInput() bool {
+func (in linport) isInput() bool {
 	return true
 }
-func (in LInputPort) IsOutput() bool {
+func (in linport) isOutput() bool {
 	return false
 }
-func (in LInputPort) Read() (LObject, error) {
-	obj, err := in.reader.ReadData()
+func (in linport) read() (lob, error) {
+	obj, err := in.reader.readData()
 	if err != nil {
 		if err == io.EOF {
-			return EOI, nil
+			return EOF, nil
 		}
 		return nil, err
 	}
 	return obj, nil
 }
-func (in LInputPort) Write(obj LObject) error {
-	return Error("Cannot write an input port")
+func (in linport) write(obj lob) error {
+	return newError("Cannot write an input port")
 }
-func (in LInputPort) Close() error {
+func (in linport) close() error {
 	if in.file != nil {
 		return in.file.Close()
 	}
@@ -80,57 +80,52 @@ func (in LInputPort) Close() error {
 
 //todo: implement LOutputPort
 
-const (
-	READ  = "read"
-	WRITE = "write"
-)
-
-func OpenInputFile(path string) (LPort, error) {
+func openInputFile(path string) (port, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	r := bufio.NewReader(fi)
-	dr := NewDataReader(r)
-	port := LInputPort{fi, dr}
+	dr := newDataReader(r)
+	port := linport{fi, dr}
 	return &port, nil
 }
 
-func OpenInputString(input string) LPort {
+func openInputString(input string) port {
 	r := strings.NewReader(input)
-	dr := NewDataReader(r)
-	port := LInputPort{nil, dr}
+	dr := newDataReader(r)
+	port := linport{nil, dr}
 	return &port
 }
 
-func Decode(in io.Reader) (LObject, error) {
+func decode(in io.Reader) (lob, error) {
 	br := bufio.NewReader(in)
-	dr := DataReader{br}
-	return dr.ReadData()
+	dr := dataReader{br}
+	return dr.readData()
 }
 
-type DataReader struct {
+type dataReader struct {
 	in *bufio.Reader
 }
 
-func NewDataReader(in io.Reader) *DataReader {
+func newDataReader(in io.Reader) *dataReader {
 	br := bufio.NewReader(in)
-	return &DataReader{br}
+	return &dataReader{br}
 }
 
-func (dr *DataReader) getChar() (byte, error) {
+func (dr *dataReader) getChar() (byte, error) {
 	return dr.in.ReadByte()
 }
 
-func (dr *DataReader) ungetChar() error {
+func (dr *dataReader) ungetChar() error {
 	return dr.in.UnreadByte()
 }
 
-func (dr *DataReader) ReadData() (LObject, error) {
+func (dr *dataReader) readData() (lob, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
-		if IsWhitespace(c) {
+		if isWhitespace(c) {
 			c, e = dr.in.ReadByte()
 			continue
 		}
@@ -142,14 +137,14 @@ func (dr *DataReader) ReadData() (LObject, error) {
 				c, e = dr.getChar()
 			}
 		case '\'':
-			o, err := dr.ReadData()
+			o, err := dr.readData()
 			if err != nil {
 				return nil, err
 			}
-			if o == EOI || o == NIL {
+			if o == EOF || o == NIL {
 				return o, nil
 			}
-			return List(Intern("quote"), o), nil
+			return list(intern("quote"), o), nil
 		case '#':
 			o, e := dr.decodeReaderMacro()
 			if e != nil || o != nil {
@@ -164,28 +159,27 @@ func (dr *DataReader) ReadData() (LObject, error) {
 		case '"':
 			return dr.decodeString()
 		case ')', ']', '}':
-			return nil, Error("Unexpected '", string(c), "'")
+			return nil, newError("Unexpected '", string(c), "'")
 		default:
 			atom, err := dr.decodeAtom(c)
 			return atom, err
 		}
 	}
-	return EOI, e
+	return EOF, e
 }
 
-func (dr *DataReader) decodeComment() error {
+func (dr *dataReader) decodeComment() error {
 	c, e := dr.getChar()
 	for e == nil {
 		if c == '\n' {
 			return nil
-		} else {
-			c, e = dr.getChar()
 		}
+		c, e = dr.getChar()
 	}
 	return e
 }
 
-func (dr *DataReader) decodeString() (LObject, error) {
+func (dr *dataReader) decodeString() (lob, error) {
 	buf := []byte{}
 	c, e := dr.getChar()
 	escape := false
@@ -235,44 +229,43 @@ func (dr *DataReader) decodeString() (LObject, error) {
 		}
 		c, e = dr.getChar()
 	}
-	s := NewString(string(buf))
+	s := newString(string(buf))
 	return s, e
 }
 
-func (dr *DataReader) decodeList() (LObject, error) {
+func (dr *dataReader) decodeList() (lob, error) {
 	items, tail, err := dr.decodeSequence(')', '.')
 	if err != nil {
 		return nil, err
 	}
 	if tail != nil {
-		return ToImproperList(items, tail), nil
-	} else {
-		return ToList(items), nil
+		return toImproperList(items, tail), nil
 	}
+	return toList(items), nil
 }
 
-func (dr *DataReader) decodeVector() (LObject, error) {
+func (dr *dataReader) decodeVector() (lob, error) {
 	items, _, err := dr.decodeSequence(']', 0)
 	if err != nil {
 		return nil, err
 	}
-	return ToVector(items, len(items)), nil
+	return toVector(items, len(items)), nil
 }
 
-func (dr *DataReader) decodeMap() (LObject, error) {
+func (dr *dataReader) decodeMap() (lob, error) {
 	items, _, err := dr.decodeSequence('}', 0)
 	if err != nil {
 		return nil, err
 	}
-	return ToMap(items, len(items))
+	return toMap(items, len(items))
 }
 
-func (dr *DataReader) decodeSequence(endChar byte, tailTag byte) ([]LObject, LObject, error) {
+func (dr *dataReader) decodeSequence(endChar byte, tailTag byte) ([]lob, lob, error) {
 	c, err := dr.getChar()
-	items := []LObject{}
-	var tail LObject
+	items := []lob{}
+	var tail lob
 	for err == nil {
-		if IsWhitespace(c) {
+		if isWhitespace(c) {
 			c, err = dr.getChar()
 			continue
 		}
@@ -287,50 +280,48 @@ func (dr *DataReader) decodeSequence(endChar byte, tailTag byte) ([]LObject, LOb
 			return items, tail, nil
 		}
 		if tail != nil {
-			return nil, nil, Error("Syntax error: object beyond tail of dotted pair")
+			return nil, nil, newError("Syntax error: object beyond tail of dotted pair")
 		}
 		if c == tailTag {
-			tail, err = dr.ReadData()
+			tail, err = dr.readData()
 			if err != nil {
 				return nil, nil, err
 			}
 		} else {
 			dr.ungetChar()
-			element, err := dr.ReadData()
+			element, err := dr.readData()
 			if err != nil {
 				return nil, nil, err
-			} else {
-				items = append(items, element)
 			}
+			items = append(items, element)
 		}
 		c, err = dr.getChar()
 	}
 	return nil, nil, err
 }
 
-func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
+func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 	buf := []byte{}
 	if firstChar != 0 {
 		if firstChar == ':' {
 			//leading colon is treated as a delimiter, letting us read JSON/EllDn directly
-			return dr.ReadData()
-		} else {
-			buf = append(buf, firstChar)
+			return dr.readData()
 		}
+		buf = append(buf, firstChar)
 	}
 	c, e := dr.getChar()
 	for e == nil {
-		if IsWhitespace(c) {
+		if isWhitespace(c) {
 			break
 		}
-		if IsDelimiter(c) {
+		if isDelimiter(c) {
 			dr.ungetChar()
 			break
 		}
 		buf = append(buf, c)
 		c, e = dr.getChar()
 	}
-	if e != nil {
+	if e != nil && e != io.EOF {
 		return nil, e
 	}
 	s := string(buf)
@@ -338,9 +329,9 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 		//macro for quoted symbol (rather than introduce keywords as types)
 		s := s[:len(s)-1]
 		if s == "" {
-			return dr.ReadData()
+			return dr.readData()
 		}
-		return List(Intern("quote"), Intern(s)), nil
+		return list(intern("quote"), intern(s)), nil
 	}
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err == nil {
@@ -350,7 +341,7 @@ func (dr *DataReader) decodeAtom(firstChar byte) (LObject, error) {
 	if err == nil {
 		return lreal(f), nil
 	}
-	sym := Intern(s)
+	sym := intern(s)
 	return sym, nil
 }
 
@@ -383,11 +374,11 @@ func namedChar(name string) (rune, error) {
 			}
 			return rune(i), nil
 		}
-		return 0, Error("bad named character: #\\", name)
+		return 0, newError("bad named character: #\\", name)
 	}
 }
 
-func (dr *DataReader) decodeReaderMacro() (LObject, error) {
+func (dr *dataReader) decodeReaderMacro() (lob, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -398,8 +389,8 @@ func (dr *DataReader) decodeReaderMacro() (LObject, error) {
 		if e != nil {
 			return nil, e
 		}
-		if IsWhitespace(c) || IsDelimiter(c) {
-			return NewCharacter(rune(c)), nil
+		if isWhitespace(c) || isDelimiter(c) {
+			return newCharacter(rune(c)), nil
 		}
 		c2, e := dr.getChar()
 		if e != nil {
@@ -408,12 +399,12 @@ func (dr *DataReader) decodeReaderMacro() (LObject, error) {
 			}
 			c2 = 32
 		}
-		if !IsWhitespace(c2) && !IsDelimiter(c2) {
-			name := make([]byte, 0)
+		if !isWhitespace(c2) && !isDelimiter(c2) {
+			var name []byte
 			name = append(name, c)
 			name = append(name, c2)
 			c, e = dr.getChar()
-			for (e == nil || e != io.EOF) && !IsWhitespace(c) && !IsDelimiter(c) {
+			for (e == nil || e != io.EOF) && !isWhitespace(c) && !isDelimiter(c) {
 				name = append(name, c)
 				c, e = dr.getChar()
 			}
@@ -424,11 +415,11 @@ func (dr *DataReader) decodeReaderMacro() (LObject, error) {
 			if e != nil {
 				return nil, e
 			}
-			return NewCharacter(r), nil
+			return newCharacter(r), nil
 		} else if e == nil {
 			dr.ungetChar()
 		}
-		return NewCharacter(rune(c)), nil
+		return newCharacter(rune(c)), nil
 	case 'f':
 		return FALSE, nil
 	case 't':
@@ -438,34 +429,26 @@ func (dr *DataReader) decodeReaderMacro() (LObject, error) {
 		if err != nil {
 			return nil, err
 		}
-		return ToVector(items, len(items)), nil
+		return toVector(items, len(items)), nil
 	default:
-		return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
+		return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
 	}
 }
 
-func IsWhitespace(b byte) bool {
-	if b == ' ' || b == '\n' || b == '\t' || b == '\r' || b == ',' {
-		return true
-	} else {
-		return false
-	}
+func isWhitespace(b byte) bool {
+	return b == ' ' || b == '\n' || b == '\t' || b == '\r' || b == ','
 }
 
-func IsDelimiter(b byte) bool {
-	if b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';' {
-		return true
-	} else {
-		return false
-	}
+func isDelimiter(b byte) bool {
+	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';'
 }
 
-func Write(obj LObject) string {
+func write(obj lob) string {
 	elldn, _ := writeData(obj, false)
 	return elldn
 }
 
-func writeData(obj LObject, json bool) (string, error) {
+func writeData(obj lob, json bool) (string, error) {
 	//an error is never returned for non-json
 	if json {
 		if obj == TRUE {
@@ -479,12 +462,12 @@ func writeData(obj LObject, json bool) (string, error) {
 	switch o := obj.(type) {
 	case *lpair:
 		if json {
-			return "", Error("pair cannot be described in JSON: ", obj)
+			return "", newError("pair cannot be described in JSON: ", obj)
 		}
 		return writeList(o), nil
 	case *lsymbol:
 		if json {
-			return "", Error("symbol cannot be described in JSON: ", obj)
+			return "", newError("symbol cannot be described in JSON: ", obj)
 		}
 		return o.String(), nil
 	case lstring:
@@ -492,7 +475,7 @@ func writeData(obj LObject, json bool) (string, error) {
 		return s, nil
 	case *lcode:
 		if json {
-			return "", Error("code cannot be described in JSON: ", obj)
+			return "", newError("code cannot be described in JSON: ", obj)
 		}
 		return o.String(), nil
 	case *lvector:
@@ -524,28 +507,27 @@ func writeData(obj LObject, json bool) (string, error) {
 		default:
 			if o < 127 {
 				return "#\\" + string(rune(o)), nil
-			} else {
-				return fmt.Sprintf("#\\x%04X", int(o)), nil
 			}
+			return fmt.Sprintf("#\\x%04X", int(o)), nil
 		}
 	default:
 		if json {
-			return "", Error("data cannot be described in JSON: ", obj)
+			return "", newError("data cannot be described in JSON: ", obj)
 		}
 		return o.String(), nil
 	}
 }
 
 func writeList(lst *lpair) string {
-	if lst.car == Intern("quote") {
+	if lst.car == intern("quote") {
 		if tmp, ok := lst.cdr.(*lpair); ok {
 			return "'" + tmp.car.String()
 		}
 	}
 	var buf bytes.Buffer
 	buf.WriteString("(")
-	buf.WriteString(Write(lst.car))
-	var tail LObject = lst.cdr
+	buf.WriteString(write(lst.car))
+	tail := lst.cdr
 	b := true
 	for b {
 		if tail == NIL {
@@ -632,6 +614,6 @@ func writeMap(m *lmap, json bool) (string, error) {
 //return a JSON string of the object, or an error if it cannot be expressed in JSON
 //this is very close to EllDn, the standard output format. Exceptions:
 //  1. the only symbols allowed are true, false, null
-func JSON(obj LObject) (string, error) {
+func toJSON(obj lob) (string, error) {
 	return writeData(obj, true)
 }

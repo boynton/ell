@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	. "github.com/boynton/gell"
 	"github.com/boynton/repl"
 	"io/ioutil"
 	"os"
@@ -12,13 +11,13 @@ import (
 )
 
 type ellHandler struct {
-	env LModule
+	env module
 	buf string
 }
 
 func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 	//return result, needMore, error
-	for ell.env.CheckInterrupt() {
+	for ell.env.checkInterrupt() {
 	} //to clear out any that happened while sitting in getc
 	whole := strings.Trim(ell.buf+expr, " ")
 	opens := len(strings.Split(whole, "("))
@@ -34,14 +33,14 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		if whole == "" {
 			return "", false, nil
 		}
-		lexpr, err := OpenInputString(whole).Read()
+		lexpr, err := openInputString(whole).read()
 		ell.buf = ""
 		if err == nil {
-			val, err := ell.env.Eval(lexpr)
+			val, err := ell.env.eval(lexpr)
 			if err == nil {
 				result := ""
 				if val != nil {
-					result = "= " + Write(val)
+					result = "= " + write(val)
 				}
 				return result, false, nil
 			}
@@ -101,12 +100,12 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 	if exprLen > 0 {
 		i := exprLen - 1
 		ch := expr[i]
-		if !IsWhitespace(ch) && !IsDelimiter(ch) {
+		if !isWhitespace(ch) && !isDelimiter(ch) {
 			if i > 0 {
 				i--
 				for {
 					ch = expr[i]
-					if IsWhitespace(ch) || IsDelimiter(ch) {
+					if isWhitespace(ch) || isDelimiter(ch) {
 						funPosition = ch == '('
 						prefix = expr[i+1:]
 						break
@@ -122,15 +121,15 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 			}
 		}
 	}
-	candidates := map[LObject]bool{}
+	candidates := map[lob]bool{}
 	if funPosition {
-		for _, sym := range ell.env.Keywords() {
+		for _, sym := range ell.env.keywords() {
 			str := sym.String()
 			if strings.HasPrefix(str, prefix) {
 				candidates[sym] = true
 			}
 		}
-		for _, sym := range ell.env.Macros() {
+		for _, sym := range ell.env.macros() {
 			_, ok := candidates[sym]
 			if !ok {
 				str := sym.String()
@@ -140,7 +139,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 			}
 		}
 	}
-	for _, sym := range ell.env.Globals() {
+	for _, sym := range ell.env.globals() {
 		_, ok := candidates[sym]
 		if !ok {
 			_, ok := candidates[sym]
@@ -148,8 +147,8 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 				str := sym.String()
 				if strings.HasPrefix(str, prefix) {
 					if funPosition {
-						val := ell.env.Global(sym)
-						if IsFunction(val) {
+						val := ell.env.global(sym)
+						if isFunction(val) {
 							candidates[sym] = true
 						}
 					} else {
@@ -172,7 +171,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 }
 
 func (ell *ellHandler) Prompt() string {
-	prompt := ell.env.Global(Intern("*prompt*"))
+	prompt := ell.env.global(intern("*prompt*"))
 	if prompt != nil {
 		return prompt.String()
 	}
@@ -205,15 +204,14 @@ func (ell *ellHandler) Stop(history []string) {
 	content := strings.Join(history, "\n") + "\n"
 	err := ioutil.WriteFile(historyFileName(), []byte(content), 0644)
 	if err != nil {
-		Println("[warning: cannot write ", historyFileName(), "]")
+		println("[warning: cannot write ", historyFileName(), "]")
 	}
 }
 
-// REPL is the Read-Eval-Print-Loop for gell
-func REPL(environment LModule) {
+func readEvalPrintLoop(environment module) {
 	handler := ellHandler{environment, ""}
 	err := repl.REPL(&handler)
 	if err != nil {
-		Println("REPL error: ", err)
+		println("REPL error: ", err)
 	}
 }

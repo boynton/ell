@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gell
+package main
 
 import (
 	"bytes"
@@ -24,18 +24,18 @@ import (
 
 var trace bool
 
-func SetTrace(b bool) {
+func setTrace(b bool) {
 	trace = b
 }
 
-func Print(args ...LAny) {
+func print(args ...any) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(args[i])
 	}
 	fmt.Print(args[max])
 }
-func Println(args ...LAny) {
+func println(args ...any) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(args[i])
@@ -43,7 +43,7 @@ func Println(args ...LAny) {
 	fmt.Println(args[max])
 }
 
-func IsFunction(obj LObject) bool {
+func isFunction(obj lob) bool {
 	switch obj.(type) {
 	case *lcode, *lclosure, *lprimitive:
 		return true
@@ -52,31 +52,31 @@ func IsFunction(obj LObject) bool {
 	}
 }
 
-const DefaultStackSize = 1000
+const defaultStackSize = 1000
 
-func Exec(thunk LCode, args ...LObject) (LObject, error) {
+func exec(thunk code, args ...lob) (lob, error) {
 	if verbose {
-		Println("; begin execution")
+		println("; begin execution")
 	}
 	code := thunk.(*lcode)
-	vm := newVM(DefaultStackSize)
+	vm := newVM(defaultStackSize)
 	if len(args) != code.argc {
-		return nil, Error("Wrong number of arguments")
+		return nil, newError("Wrong number of arguments")
 	}
 	result, err := vm.exec(code, args)
 	if verbose {
-		Println("; end execution")
+		println("; end execution")
 	}
 	if err != nil {
 		return nil, err
 	}
-	exports := vm.Exported()
-	module := code.module
-	module.exports = exports[:]
+	exports := vm.exported()
+	module := code.module().(*lmodule)
+	module.exported = exports[:]
 	if verbose {
 		//Println("; end execution")
 		if err == nil && result != nil {
-			Println("; => ", result)
+			println("; => ", result)
 		}
 	}
 	return result, err
@@ -84,29 +84,29 @@ func Exec(thunk LCode, args ...LObject) (LObject, error) {
 
 type lvm struct {
 	stackSize int
-	defs      []LObject
+	defs      []lob
 }
 
 func newVM(stackSize int) *lvm {
-	defs := make([]LObject, 0)
+	var defs []lob
 	vm := lvm{stackSize, defs}
 	return &vm
 }
 
-type Primitive func(argv []LObject, argc int) (LObject, error)
+type primitive func(argv []lob, argc int) (lob, error)
 
 type lprimitive struct {
 	name string
-	fun  Primitive
+	fun  primitive
 }
 
 var symPrimitive = newSymbol("primitive")
 
-func (prim *lprimitive) Type() LObject {
+func (prim *lprimitive) typeSymbol() lob {
 	return symPrimitive
 }
 
-func (prim *lprimitive) Equal(another LObject) bool {
+func (prim *lprimitive) equal(another lob) bool {
 	if a, ok := another.(*lprimitive); ok {
 		return prim == a
 	}
@@ -122,9 +122,9 @@ type lframe struct {
 	pc        int
 	ops       []int
 	locals    *lframe
-	elements  []LObject
+	elements  []lob
 	module    *lmodule
-	constants []LObject
+	constants []lob
 }
 
 func (frame lframe) String() string {
@@ -144,11 +144,11 @@ type lclosure struct {
 	frame *lframe
 }
 
-func (lclosure) Type() LObject {
-	return Intern("closure")
+func (lclosure) typeSymbol() lob {
+	return intern("closure")
 }
 
-func (closure *lclosure) Equal(another LObject) bool {
+func (closure *lclosure) equal(another lob) bool {
 	if a, ok := another.(*lclosure); ok {
 		return closure == a
 	}
@@ -179,7 +179,7 @@ func showEnv(f *lframe) string {
 	return s
 }
 
-func showStack(stack []LObject, sp int) string {
+func showStack(stack []lob, sp int) string {
 	end := len(stack)
 	s := "["
 	for sp < end {
@@ -189,11 +189,11 @@ func showStack(stack []LObject, sp int) string {
 	return s + " ]"
 }
 
-func (vm *lvm) Exported() []LObject {
+func (vm *lvm) exported() []lob {
 	return vm.defs
 }
 
-func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, argc int, stack []LObject, sp int) (*lframe, error) {
+func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, argc int, stack []lob, sp int) (*lframe, error) {
 	f := new(lframe)
 	f.previous = env
 	f.pc = pc
@@ -204,9 +204,9 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	defaults := fun.code.defaults
 	if defaults == nil {
 		if argc != expectedArgc {
-			return nil, Error("Wrong number of args (", argc, ") to ", fun)
+			return nil, newError("Wrong number of args (", argc, ") to ", fun)
 		}
-		el := make([]LObject, argc)
+		el := make([]lob, argc)
 		copy(el, stack[sp:sp+argc])
 		f.elements = el
 		return f, nil
@@ -219,19 +219,19 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 		extra = 1
 	}
 	if argc < expectedArgc {
-		return nil, Error("Wrong number of args (", argc, ") to ", fun)
+		return nil, newError("Wrong number of args (", argc, ") to ", fun)
 	}
 	totalArgc := expectedArgc + extra
-	el := make([]LObject, totalArgc)
+	el := make([]lob, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
 		restElements := stack[end : sp+argc]
-		el[expectedArgc] = ToList(restElements)
+		el[expectedArgc] = toList(restElements)
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
-			return nil, Error("Bad keyword argument(s): ", bindings)
+			return nil, newError("Bad keyword argument(s): ", bindings)
 		}
 		copy(el, stack[sp:sp+expectedArgc]) //the required ones
 		for i := expectedArgc; i < totalArgc; i++ {
@@ -239,8 +239,8 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 		}
 		for i := expectedArgc; i < argc; i += 2 {
 			key := stack[sp+i]
-			if !IsSymbol(key) {
-				return nil, Error("Bad keyword for argument: ", key)
+			if !isSymbol(key) {
+				return nil, newError("Bad keyword for argument: ", key)
 			}
 			for j := 0; j < extra; j++ {
 				if keys[j] == key {
@@ -259,68 +259,68 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	return f, nil
 }
 
-func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
-	topmod := code.module
-	stack := make([]LObject, vm.stackSize)
+func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
+	topmod := code.mod
+	stack := make([]lob, vm.stackSize)
 	sp := vm.stackSize
 	env := new(lframe)
-	env.elements = make([]LObject, len(args))
+	env.elements = make([]lob, len(args))
 	copy(env.elements, args)
-	module := code.module
+	module := code.mod
 	ops := code.ops
 	pc := 0
 	if len(ops) == 0 {
-		return nil, Error("No code to execute")
+		return nil, newError("No code to execute")
 	}
 	if trace {
-		Println("------------------ BEGIN EXECUTION of ", code)
-		Println("    stack: ", showStack(stack, sp))
-		Println("    module: ", module)
+		println("------------------ BEGIN EXECUTION of ", code)
+		println("    stack: ", showStack(stack, sp))
+		println("    module: ", module)
 	}
 	for {
 		switch ops[pc] {
-		case LITERAL_OPCODE:
+		case opcodeLiteral:
 			if trace {
-				Println(pc, "\tconst\t", module.constants[ops[pc+1]])
+				println(pc, "\tconst\t", module.constants[ops[pc+1]])
 			}
 			sp--
 			stack[sp] = module.constants[ops[pc+1]]
 			pc += 2
-		case GLOBAL_OPCODE:
+		case opcodeGlobal:
 			if trace {
-				Println(pc, "\tglob\t", module.constants[ops[pc+1]])
+				println(pc, "\tglob\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			val := module.Global(sym)
+			val := module.global(sym)
 			if val == nil {
-				return nil, Error("Undefined symbol: ", sym)
+				return nil, newError("Undefined symbol: ", sym)
 			}
 			sp--
 			stack[sp] = val
 			pc += 2
-		case DEFGLOBAL_OPCODE:
+		case opcodeDefGlobal:
 			if trace {
-				Println(pc, "\tdefglob\t", module.constants[ops[pc+1]])
+				println(pc, "\tdefglob\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			module.DefGlobal(sym, stack[sp])
+			module.defGlobal(sym, stack[sp])
 			if vm.defs != nil {
 				vm.defs = append(vm.defs, sym)
 			}
 			pc += 2
-		case DEFMACRO_OPCODE:
+		case opcodeDefMacro:
 			if trace {
-				Println(pc, "\tdefmacro\t", module.constants[ops[pc+1]])
+				println(pc, "\tdefmacro\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			module.DefMacro(sym, stack[sp])
+			module.defMacro(sym, stack[sp])
 			if vm.defs != nil {
 				vm.defs = append(vm.defs, sym)
 			}
 			pc += 2
-		case LOCAL_OPCODE:
+		case opcodeLocal:
 			if trace {
-				Println(pc, "\tgetloc\t", +ops[pc+1], " ", ops[pc+2])
+				println(pc, "\tgetloc\t", +ops[pc+1], " ", ops[pc+2])
 			}
 			tmpEnv := env
 			i := ops[pc+1]
@@ -333,9 +333,9 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			sp--
 			stack[sp] = val
 			pc += 3
-		case SETLOCAL_OPCODE:
+		case opcodeSetLocal:
 			if trace {
-				Println(pc, "\tsetloc\t", +ops[pc+1], " ", ops[pc+2])
+				println(pc, "\tsetloc\t", +ops[pc+1], " ", ops[pc+2])
 			}
 			tmpEnv := env
 			i := ops[pc+1]
@@ -346,9 +346,9 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			j := ops[pc+2]
 			tmpEnv.elements[j] = stack[sp]
 			pc += 3
-		case CALL_OPCODE:
+		case opcodeCall:
 			if trace {
-				Println(pc, "\tcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				println(pc, "\tcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
 			fun := stack[sp]
 			sp++
@@ -365,8 +365,8 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				stack[sp] = val
 				pc = savedPc
 			case *lclosure:
-				if topmod.CheckInterrupt() {
-					return nil, Error("Interrupt")
+				if topmod.checkInterrupt() {
+					return nil, newError("Interrupt")
 				}
 				f, err := buildFrame(env, savedPc, ops, module, tfun, argc, stack, sp)
 				if err != nil {
@@ -375,17 +375,17 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				sp += argc
 				env = f
 				ops = tfun.code.ops
-				module = tfun.code.module
+				module = tfun.code.mod
 				pc = 0
 			default:
-				return nil, Error("Not a function: ", tfun)
+				return nil, newError("Not a function: ", tfun)
 			}
-		case TAILCALL_OPCODE:
-			if topmod.CheckInterrupt() {
-				return nil, Error("Interrupt")
+		case opcodeTailCall:
+			if topmod.checkInterrupt() {
+				return nil, newError("Interrupt")
 			}
 			if trace {
-				Println(pc, "\ttcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				println(pc, "\ttcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
 			fun := stack[sp]
 			sp++
@@ -404,16 +404,16 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				env = env.previous
 				if env == nil {
 					if trace {
-						Println("------------------ END EXECUTION of ", module)
-						Println(" -> sp:", sp)
+						println("------------------ END EXECUTION of ", module)
+						println(" -> sp:", sp)
 					}
 					return stack[sp], nil
 				}
 			case *lclosure:
 				if env.previous == nil {
 					if trace {
-						Println("------------------ END EXECUTION of ", module)
-						Println(" -> sp:", sp)
+						println("------------------ END EXECUTION of ", module)
+						println(" -> sp:", sp)
 					}
 					return stack[sp], nil
 				}
@@ -423,24 +423,24 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				}
 				sp += argc
 				ops = tfun.code.ops
-				module = tfun.code.module
+				module = tfun.code.mod
 				pc = 0
 				env = f
 			default:
-				return nil, Error("Not a function:", tfun)
+				return nil, newError("Not a function:", tfun)
 			}
-		case RETURN_OPCODE:
-			if topmod.CheckInterrupt() {
-				return nil, Error("Interrupt")
+		case opcodeReturn:
+			if topmod.checkInterrupt() {
+				return nil, newError("Interrupt")
 			}
 			if trace {
-				Println(pc, "\tret")
+				println(pc, "\tret")
 			}
 			if env.previous == nil {
 				if trace {
-					Println("------------------ END EXECUTION of ", module)
-					Println(" -> sp:", sp)
-					Println(" = ", stack[sp])
+					println("------------------ END EXECUTION of ", module)
+					println(" -> sp:", sp)
+					println(" = ", stack[sp])
 				}
 				return stack[sp], nil
 			}
@@ -448,9 +448,9 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			pc = env.pc
 			module = env.module
 			env = env.previous
-		case JUMPFALSE_OPCODE:
+		case opcodeJumpFalse:
 			if trace {
-				Println(pc, "\tfjmp\t", pc+ops[pc+1])
+				println(pc, "\tfjmp\t", pc+ops[pc+1])
 			}
 			b := stack[sp]
 			sp++
@@ -459,69 +459,69 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			} else {
 				pc += 2
 			}
-		case JUMP_OPCODE:
+		case opcodeJump:
 			if trace {
-				Println(pc, "\tjmp\t", pc+ops[pc+1])
+				println(pc, "\tjmp\t", pc+ops[pc+1])
 			}
 			pc += ops[pc+1]
-		case POP_OPCODE:
+		case opcodePop:
 			if trace {
-				Println(pc, "\tpop")
+				println(pc, "\tpop")
 			}
 			sp++
 			pc++
-		case CLOSURE_OPCODE:
+		case opcodeClosure:
 			if trace {
-				Println(pc, "\tclosure\t", module.constants[ops[pc+1]])
+				println(pc, "\tclosure\t", module.constants[ops[pc+1]])
 			}
 			sp--
 			stack[sp] = &lclosure{module.constants[ops[pc+1]].(*lcode), env}
 			pc = pc + 2
-		case USE_OPCODE:
+		case opcodeUse:
 			if trace {
-				Println(pc, "\tuse\t", module.constants[ops[pc+1]])
+				println(pc, "\tuse\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			err := module.Use(sym)
+			err := module.use(sym)
 			if err != nil {
 				return nil, err
 			}
 			sp--
 			stack[sp] = sym
 			pc += 2
-		case VECTOR_OPCODE:
+		case opcodeVector:
 			if trace {
-				Println(pc, "\tvec\t", ops[pc+1])
+				println(pc, "\tvec\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v := ToVector(stack[sp:], vlen)
+			v := toVector(stack[sp:], vlen)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
-		case MAP_OPCODE:
+		case opcodeMap:
 			if trace {
-				Println(pc, "\tmap\t", ops[pc+1])
+				println(pc, "\tmap\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v, _ := ToMap(stack[sp:], vlen)
+			v, _ := toMap(stack[sp:], vlen)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
-		case CAR_OPCODE:
+		case opcodeCar:
 			if trace {
-				Println(pc, "\tcar")
+				println(pc, "\tcar")
 			}
-			stack[sp] = Car(stack[sp])
+			stack[sp] = car(stack[sp])
 			pc++
-		case CDR_OPCODE:
+		case opcodeCdr:
 			if trace {
-				Println(pc, "\tcdr")
+				println(pc, "\tcdr")
 			}
-			stack[sp] = Cdr(stack[sp])
+			stack[sp] = cdr(stack[sp])
 			pc++
-		case NULL_OPCODE:
+		case opcodeNull:
 			if trace {
-				Println(pc, "\tnull")
+				println(pc, "\tnull")
 			}
 			if stack[sp] == NIL {
 				stack[sp] = TRUE
@@ -529,22 +529,22 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 				stack[sp] = FALSE
 			}
 			pc++
-		case ADD_OPCODE:
+		case opcodeAdd:
 			if trace {
-				Println(pc, "\tadd")
+				println(pc, "\tadd")
 			}
-			v, err := Add(stack[sp], stack[sp+1])
+			v, err := add(stack[sp], stack[sp+1])
 			if err != nil {
 				return nil, err
 			}
 			sp++
 			stack[sp] = v
 			pc++
-		case MUL_OPCODE:
+		case opcodeMul:
 			if trace {
-				Println(pc, "\tmul")
+				println(pc, "\tmul")
 			}
-			v, err := Mul(stack[sp], stack[sp+1])
+			v, err := mul(stack[sp], stack[sp+1])
 			if err != nil {
 				return nil, err
 			}
@@ -552,7 +552,7 @@ func (vm *lvm) exec(code *lcode, args []LObject) (LObject, error) {
 			stack[sp] = v
 			pc++
 		default:
-			return nil, Error("Bad instruction: ", strconv.Itoa(ops[pc]))
+			return nil, newError("Bad instruction: ", strconv.Itoa(ops[pc]))
 		}
 	}
 }

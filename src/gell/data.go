@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gell
+package main
 
 import (
 	"bytes"
@@ -23,32 +23,33 @@ import (
 )
 
 // for both ell and non-ell values
-type LAny interface{}
+type any interface{}
 
 //
 // The generic Ell object, which can be queried for its symbolic type name at runtime
 //
-type LObject interface {
-	Type() LObject
+type lob interface {
+	typeSymbol() lob
+	equal(another lob) bool
 	String() string
-	Equal(another LObject) bool
 }
 
 //
 // ------------------- nil
 //
 
+// NIL is Ell's version of nil, not Go's
 const NIL = lnil(0)
 
 type lnil int
 
 var symNull = newSymbol("null")
 
-func (lnil) Type() LObject {
+func (lnil) typeSymbol() lob {
 	return symNull
 }
 
-func (lnil) Equal(another LObject) bool {
+func (lnil) equal(another lob) bool {
 	return another == NIL
 }
 
@@ -57,48 +58,52 @@ func (lnil) String() string {
 }
 
 //
-// ------------------- EOI (end-of-information) marker
+// ------------------- EOF marker
 //
 
-const EOI = leoi(0)
+// EOF is Ell's EOF object
+const EOF = leof(0)
 
-type leoi int
+type leof int
 
-var symEoi = newSymbol("eoi")
+var symEOF = newSymbol("eof")
 
-func (leoi) Type() LObject {
-	return symEoi
+func (leof) typeSymbol() lob {
+	return symEOF
 }
 
-func (leoi) Equal(another LObject) bool {
-	return another == EOI
+func (leof) equal(another lob) bool {
+	return another == EOF
 }
 
-func (leoi) String() string {
-	return "<end-of-input>"
+func (leof) String() string {
+	return "<EOF>"
 }
 
 //
 // ------------------- boolean
 //
 
+//TRUE is Ell's true constant
 const TRUE lboolean = lboolean(true)
+
+//FALSE is Ell's flse constant
 const FALSE lboolean = lboolean(false)
 
 type lboolean bool
 
 var symBoolean = newSymbol("boolean")
 
-func IsBoolean(obj LObject) bool {
+func isBoolean(obj lob) bool {
 	_, ok := obj.(lboolean)
 	return ok
 }
 
-func (lboolean) Type() LObject {
+func (lboolean) typeSymbol() lob {
 	return symBoolean
 }
 
-func (b lboolean) Equal(another LObject) bool {
+func (b lboolean) equal(another lob) bool {
 	if a, ok := another.(lboolean); ok {
 		return b == a
 	}
@@ -120,7 +125,8 @@ type lsymbol struct {
 
 var symtag int
 
-func newSymbol(name string) *lsymbol {
+//func newSymbol(name string) *lsymbol {
+func newSymbol(name string) lob {
 	sym := lsymbol{name, symtag}
 	symtag++
 	return &sym
@@ -128,16 +134,16 @@ func newSymbol(name string) *lsymbol {
 
 var symSymbol = newSymbol("symbol")
 
-func IsSymbol(obj LObject) bool {
+func isSymbol(obj lob) bool {
 	_, ok := obj.(*lsymbol)
 	return ok
 }
 
-func (*lsymbol) Type() LObject {
+func (*lsymbol) typeSymbol() lob {
 	return symSymbol
 }
 
-func (sym *lsymbol) Equal(another LObject) bool {
+func (sym *lsymbol) equal(another lob) bool {
 	if a, ok := another.(*lsymbol); ok {
 		return sym == a
 	}
@@ -149,7 +155,7 @@ func (sym *lsymbol) String() string {
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
-var symtab = map[string]*lsymbol{
+var symtab = map[string]lob{
 	"null":    symNull, //the type of NIL
 	"boolean": symBoolean,
 	"symbol":  symSymbol,
@@ -158,18 +164,18 @@ var symtab = map[string]*lsymbol{
 	"pair":    symPair,
 	"vector":  symVector,
 	"map":     symMap,
-	"eoi":     symEoi, //End Of Information
+	"eof":     symEOF,
 }
 
-func Symbols() []LObject {
-	syms := make([]LObject, 0, len(symtab))
+func symbols() []lob {
+	syms := make([]lob, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
 	}
 	return syms
 }
 
-func Intern(name string) LObject {
+func intern(name string) lob {
 	//to do: validate the symbol name, based on EllDN spec
 	v, ok := symtab[name]
 	if !ok {
@@ -187,21 +193,21 @@ type lstring string
 
 var symString = newSymbol("string")
 
-func NewString(val string) LObject {
+func newString(val string) lob {
 	s := lstring(val)
 	return s
 }
 
-func IsString(obj LObject) bool {
+func isString(obj lob) bool {
 	_, ok := obj.(lstring)
 	return ok
 }
 
-func (lstring) Type() LObject {
+func (lstring) typeSymbol() lob {
 	return symString
 }
 
-func (s lstring) Equal(another LObject) bool {
+func (s lstring) equal(another lob) bool {
 	if a, ok := another.(lstring); ok {
 		return s == a
 	}
@@ -240,7 +246,7 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
-func (s lstring) EncodedString() string {
+func (s lstring) encodedString() string {
 	return encodeString(string(s))
 }
 
@@ -254,7 +260,7 @@ func (s lstring) String() string {
 //
 var symCharacter = newSymbol("character")
 
-func IsCharacter(obj LObject) bool {
+func isCharacter(obj lob) bool {
 	_, ok := obj.(lchar)
 	if ok {
 		return true
@@ -263,19 +269,19 @@ func IsCharacter(obj LObject) bool {
 	return ok
 }
 
-func NewCharacter(c rune) LObject {
+func newCharacter(c rune) lob {
 	v := lchar(c)
 	return v
 }
 
 type lchar rune
 
-func (lchar) Type() LObject {
+func (lchar) typeSymbol() lob {
 	return symCharacter
 }
 
-func (i lchar) Equal(another LObject) bool {
-	if a, err := IntValue(another); err == nil {
+func (i lchar) equal(another lob) bool {
+	if a, err := intValue(another); err == nil {
 		return int(i) == a
 	}
 	return false
@@ -292,7 +298,7 @@ func (i lchar) String() string {
 
 var symNumber = newSymbol("number")
 
-func IsNumber(obj LObject) bool {
+func isNumber(obj lob) bool {
 	_, ok := obj.(linteger)
 	if ok {
 		return true
@@ -301,27 +307,27 @@ func IsNumber(obj LObject) bool {
 	return ok
 }
 
-func NewInteger(n int64) LObject {
+func newInteger(n int64) lob {
 	v := linteger(n)
 	return v
 }
 
-func NewReal(n float64) LObject {
+func newReal(n float64) lob {
 	v := lreal(n)
 	return v
 }
 
-func RealValue(obj LObject) (float64, error) {
+func realValue(obj lob) (float64, error) {
 	switch n := obj.(type) {
 	case linteger:
 		return float64(n), nil
 	case lreal:
 		return float64(n), nil
 	}
-	return 0, Error("Not a real number: ", obj)
+	return 0, typeError(symNumber, obj)
 }
 
-func IntegerValue(obj LObject) (int64, error) {
+func integerValue(obj lob) (int64, error) {
 	switch n := obj.(type) {
 	case linteger:
 		return int64(n), nil
@@ -330,11 +336,11 @@ func IntegerValue(obj LObject) (int64, error) {
 	case lchar:
 		return int64(n), nil
 	default:
-		return 0, Error("Not an integer: ", obj)
+		return 0, typeError(symNumber, obj)
 	}
 }
 
-func IntValue(obj LObject) (int, error) {
+func intValue(obj lob) (int, error) {
 	switch n := obj.(type) {
 	case linteger:
 		return int(n), nil
@@ -343,84 +349,79 @@ func IntValue(obj LObject) (int, error) {
 	case lchar:
 		return int(n), nil
 	default:
-		return 0, Error("Not an integer: ", obj)
+		return 0, typeError(symNumber, obj)
 	}
 }
 
-func GreaterOrEqual(n1 LObject, n2 LObject) (LObject, error) {
-	f1, err := RealValue(n1)
+func greaterOrEqual(n1 lob, n2 lob) (lob, error) {
+	f1, err := realValue(n1)
 	if err == nil {
-		f2, err := RealValue(n2)
+		f2, err := realValue(n2)
 		if err == nil {
 			if f1 >= f2 {
 				return TRUE, nil
-			} else {
-				return FALSE, nil
 			}
+			return FALSE, nil
 		}
 		return nil, err
 	}
 	return nil, err
 }
 
-func LessOrEqual(n1 LObject, n2 LObject) (LObject, error) {
-	f1, err := RealValue(n1)
+func lessOrEqual(n1 lob, n2 lob) (lob, error) {
+	f1, err := realValue(n1)
 	if err == nil {
-		f2, err := RealValue(n2)
+		f2, err := realValue(n2)
 		if err == nil {
 			if f1 <= f2 {
 				return TRUE, nil
-			} else {
-				return FALSE, nil
 			}
+			return FALSE, nil
 		}
 		return nil, err
 	}
 	return nil, err
 }
 
-func Greater(n1 LObject, n2 LObject) (LObject, error) {
-	f1, err := RealValue(n1)
+func greater(n1 lob, n2 lob) (lob, error) {
+	f1, err := realValue(n1)
 	if err == nil {
-		f2, err := RealValue(n2)
+		f2, err := realValue(n2)
 		if err == nil {
 			if f1 > f2 {
 				return TRUE, nil
-			} else {
-				return FALSE, nil
 			}
+			return FALSE, nil
 		}
 		return nil, err
 	}
 	return nil, err
 }
 
-func Less(n1 LObject, n2 LObject) (LObject, error) {
-	f1, err := RealValue(n1)
+func less(n1 lob, n2 lob) (lob, error) {
+	f1, err := realValue(n1)
 	if err == nil {
-		f2, err := RealValue(n2)
+		f2, err := realValue(n2)
 		if err == nil {
 			if f1 < f2 {
 				return TRUE, nil
-			} else {
-				return FALSE, nil
 			}
+			return FALSE, nil
 		}
 		return nil, err
 	}
 	return nil, err
 }
 
-func Equal(o1 LObject, o2 LObject) bool {
+func equal(o1 lob, o2 lob) bool {
 	//value based
 	if o1 == o2 {
 		return true
-	} else {
-		return o1.Equal(o2)
 	}
+	return o1.equal(o2)
 }
 
-func NumericallyEqual(o1 LObject, o2 LObject) (bool, error) {
+func numericallyEqual(o1 lob, o2 lob) (bool, error) {
 	//for scheme, only accepts numbers, else error
 	switch n1 := o1.(type) {
 	case linteger:
@@ -430,7 +431,7 @@ func NumericallyEqual(o1 LObject, o2 LObject) (bool, error) {
 		case lreal:
 			return float64(n1) == float64(n2), nil
 		default:
-			return false, Error("Not a number: ", o2)
+			return false, typeError(symNumber, o2)
 		}
 	case lreal:
 		switch n2 := o2.(type) {
@@ -439,29 +440,25 @@ func NumericallyEqual(o1 LObject, o2 LObject) (bool, error) {
 		case lreal:
 			return n1 == n2, nil
 		default:
-			return false, Error("Not a number: ", o2)
+			return false, typeError(symNumber, o2)
 		}
 	default:
-		return false, Error("Not a number: ", o1)
+		return false, typeError(symNumber, o2)
 	}
 }
 
-func Identical(n1 LObject, n2 LObject) bool {
-	if n1 == n2 {
-		return true
-	} else {
-		return false
-	}
+func identical(n1 lob, n2 lob) bool {
+	return n1 == n2
 }
 
 type linteger int64
 
-func (linteger) Type() LObject {
+func (linteger) typeSymbol() lob {
 	return symNumber
 }
 
-func (i linteger) Equal(another LObject) bool {
-	if a, err := IntegerValue(another); err == nil {
+func (i linteger) equal(another lob) bool {
+	if a, err := integerValue(another); err == nil {
 		return int64(i) == a
 	}
 	return false
@@ -471,21 +468,21 @@ func (i linteger) String() string {
 	return strconv.FormatInt(int64(i), 10)
 }
 
-func (i linteger) IntegerValue() int64 {
+func (i linteger) integerValue() int64 {
 	return int64(i)
 }
-func (i linteger) RealValue() float64 {
+func (i linteger) realValue() float64 {
 	return float64(i)
 }
 
 type lreal float64
 
-func (lreal) Type() LObject {
+func (lreal) typeSymbol() lob {
 	return symNumber
 }
 
-func (f lreal) Equal(another LObject) bool {
-	if a, err := RealValue(another); err == nil {
+func (f lreal) equal(another lob) bool {
+	if a, err := realValue(another); err == nil {
 		return float64(f) == a
 	}
 	return false
@@ -495,27 +492,27 @@ func (f lreal) String() string {
 	return strconv.FormatFloat(float64(f), 'f', -1, 64)
 }
 
-func (f lreal) IntegerValue() int64 {
+func (f lreal) integerValue() int64 {
 	return int64(f)
 }
 
-func (f lreal) RealValue() float64 {
+func (f lreal) realValue() float64 {
 	return float64(f)
 }
 
-func Add(num1 LObject, num2 LObject) (LObject, error) {
-	n1, err := RealValue(num1)
+func add(num1 lob, num2 lob) (lob, error) {
+	n1, err := realValue(num1)
 	if err != nil {
 		return nil, err
 	}
-	n2, err := RealValue(num2)
+	n2, err := realValue(num2)
 	if err != nil {
 		return nil, err
 	}
-	return NewReal(n1 + n2), nil
+	return newReal(n1 + n2), nil
 }
 
-func Sum(nums []LObject, argc int) (LObject, error) {
+func sum(nums []lob, argc int) (lob, error) {
 	var isum int64
 	var fsum float64
 	integral := true
@@ -531,29 +528,28 @@ func Sum(nums []LObject, argc int) (LObject, error) {
 			}
 			fsum += float64(n)
 		default:
-			return nil, Error("Not a number: ", num)
+			return nil, typeError(symNumber, num)
 		}
 	}
 	if integral {
 		return linteger(isum), nil
-	} else {
-		return lreal(fsum), nil
 	}
+	return lreal(fsum), nil
 }
 
-func Mul(num1 LObject, num2 LObject) (LObject, error) {
-	n1, err := RealValue(num1)
+func mul(num1 lob, num2 lob) (lob, error) {
+	n1, err := realValue(num1)
 	if err != nil {
 		return nil, err
 	}
-	n2, err := RealValue(num2)
+	n2, err := realValue(num2)
 	if err != nil {
 		return nil, err
 	}
-	return NewReal(n1 * n2), nil
+	return newReal(n1 * n2), nil
 }
 
-func Product(argv []LObject, argc int) (LObject, error) {
+func product(argv []lob, argc int) (lob, error) {
 	var iprod int64
 	var fprod float64
 	integral := true
@@ -569,44 +565,43 @@ func Product(argv []LObject, argc int) (LObject, error) {
 			}
 			fprod *= float64(n)
 		default:
-			return nil, Error("Not a number: ", num)
+			return nil, typeError(symNumber, num)
 		}
 	}
 	if integral {
 		return linteger(iprod), nil
-	} else {
-		return lreal(fprod), nil
 	}
+	return lreal(fprod), nil
 }
 
 //
 // ------------------- list, pair
 //
 type lpair struct {
-	car LObject
-	cdr LObject
+	car lob
+	cdr lob
 }
 
 var symPair = newSymbol("pair")
 
-func IsPair(obj LObject) bool {
+func isPair(obj lob) bool {
 	_, ok := obj.(*lpair)
 	return ok
 }
 
 //this is the union list?, not the scheme-compatible one, which is IsProperList
-func IsList(obj LObject) bool {
-	return obj == NIL || IsPair(obj)
+func isList(obj lob) bool {
+	return obj == NIL || isPair(obj)
 }
 
 //this is like Scheme's list? It protects against circularity
-func IsProperList(obj LObject) bool {
+func isProperList(obj lob) bool {
 	if obj == NIL {
 		return true
 	}
 	first := obj
-	for IsPair(obj) {
-		obj := Cdr(obj)
+	for isPair(obj) {
+		obj := cdr(obj)
 		if obj == first {
 			//circular list
 			return true
@@ -615,13 +610,13 @@ func IsProperList(obj LObject) bool {
 	return obj == NIL
 }
 
-func (*lpair) Type() LObject {
+func (*lpair) typeSymbol() lob {
 	return symPair
 }
 
-func (lst *lpair) Equal(another LObject) bool {
+func (lst *lpair) equal(another lob) bool {
 	if a, ok := another.(*lpair); ok {
-		return Equal(lst.car, a.car) && Equal(lst.cdr, a.cdr)
+		return equal(lst.car, a.car) && equal(lst.cdr, a.cdr)
 	}
 	return false
 }
@@ -630,12 +625,12 @@ func (lst *lpair) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
 	buf.WriteString(lst.car.String())
-	var tail LObject = lst.cdr
+	tail := lst.cdr
 	b := true
 	for b {
 		if tail == NIL {
 			b = false
-		} else if IsPair(tail) {
+		} else if isPair(tail) {
 			lst = tail.(*lpair)
 			tail = lst.cdr
 			buf.WriteString(" ")
@@ -650,9 +645,9 @@ func (lst *lpair) String() string {
 	return buf.String()
 }
 
-func (lst *lpair) Length() int {
+func (lst *lpair) length() int {
 	count := 1
-	var o LObject = lst.cdr
+	o := lst.cdr
 	for o != NIL {
 		if p, ok := o.(*lpair); ok {
 			count++
@@ -664,20 +659,20 @@ func (lst *lpair) Length() int {
 	return count
 }
 
-func NewList(count int, val LObject) LObject {
-	var result LObject = NIL
+func newList(count int, val lob) lob {
+	var result lob = NIL
 	for i := 0; i < count; i++ {
-		result = Cons(val, result)
+		result = cons(val, result)
 	}
 	return result
 }
 
-func Cons(car LObject, cdr LObject) LObject {
+func cons(car lob, cdr lob) lob {
 	lst := lpair{car, cdr}
 	return &lst
 }
 
-func Car(lst LObject) LObject {
+func car(lst lob) lob {
 	switch p := lst.(type) {
 	case *lpair:
 		return p.car
@@ -685,36 +680,36 @@ func Car(lst LObject) LObject {
 	return NIL
 }
 
-func SetCar(lst LObject, obj LObject) {
+func setCar(lst lob, obj lob) {
 	switch p := lst.(type) {
 	case *lpair:
 		p.car = obj
 	}
 }
 
-func Caar(lst LObject) LObject {
-	return Car(Car(lst))
+func caar(lst lob) lob {
+	return car(car(lst))
 }
-func Cadr(lst LObject) LObject {
-	return Car(Cdr(lst))
+func cadr(lst lob) lob {
+	return car(cdr(lst))
 }
-func Cddr(lst LObject) LObject {
-	return Cdr(Cdr(lst))
+func cddr(lst lob) lob {
+	return cdr(cdr(lst))
 }
-func Caddr(lst LObject) LObject {
-	return Car(Cdr(Cdr(lst)))
+func caddr(lst lob) lob {
+	return car(cdr(cdr(lst)))
 }
-func Cdddr(lst LObject) LObject {
-	return Cdr(Cdr(Cdr(lst)))
+func cdddr(lst lob) lob {
+	return cdr(cdr(cdr(lst)))
 }
-func Cadddr(lst LObject) LObject {
-	return Car(Cdr(Cdr(Cdr(lst))))
+func cadddr(lst lob) lob {
+	return car(cdr(cdr(cdr(lst))))
 }
-func Cddddr(lst LObject) LObject {
-	return Cdr(Cdr(Cdr(Cdr(lst))))
+func cddddr(lst lob) lob {
+	return cdr(cdr(cdr(cdr(lst))))
 }
 
-func Cdr(lst LObject) LObject {
+func cdr(lst lob) lob {
 	switch p := lst.(type) {
 	case *lpair:
 		return p.cdr
@@ -722,88 +717,87 @@ func Cdr(lst LObject) LObject {
 	return NIL
 }
 
-func SetCdr(lst LObject, obj LObject) {
+func setCdr(lst lob, obj lob) {
 	switch p := lst.(type) {
 	case *lpair:
 		p.cdr = obj
 	}
 }
 
-func ToList(vec []LObject) LObject {
-	var p LObject
+func toList(vec []lob) lob {
+	var p lob
 	p = NIL
 	for i := len(vec) - 1; i >= 0; i-- {
 		v := vec[i]
-		p = Cons(v, p)
+		p = cons(v, p)
 	}
 	return p
 }
 
-func ToImproperList(vec []LObject, rest LObject) LObject {
-	var p LObject
+func toImproperList(vec []lob, rest lob) lob {
+	var p lob
 	p = rest
 	for i := len(vec) - 1; i >= 0; i-- {
 		v := vec[i]
-		p = Cons(v, p)
+		p = cons(v, p)
 	}
 	return p
 }
 
-func List(vec ...LObject) LObject {
-	return ToList(vec)
+func list(vec ...lob) lob {
+	return toList(vec)
 }
 
-func VectorToList(vec LObject) (LObject, error) {
+func vectorToList(vec lob) (lob, error) {
 	v, ok := vec.(*lvector)
 	if !ok {
-		return nil, TypeError(symVector, vec)
+		return nil, typeError(symVector, vec)
 	}
-	return ToList(v.elements), nil
+	return toList(v.elements), nil
 }
 
-func Length(seq LObject) int {
+func length(seq lob) int {
 	if seq == NIL {
 		return 0
-	} else {
-		switch v := seq.(type) {
-		case lstring:
-			return len(v)
-		case *lvector:
-			return len(v.elements)
-		case *lpair:
-			return v.Length()
-		case *lmap:
-			return len(v.bindings)
-		default:
-			return -1
-		}
+	}
+	switch v := seq.(type) {
+	case lstring:
+		return len(v)
+	case *lvector:
+		return len(v.elements)
+	case *lpair:
+		return v.length()
+	case *lmap:
+		return len(v.bindings)
+	default:
+		return -1
 	}
 }
 
-func Reverse(lst LObject) (LObject, error) {
-	var rev LObject
+func reverse(lst lob) (lob, error) {
+	var rev lob
 	rev = NIL
 	for lst != NIL {
 		switch v := lst.(type) {
 		case *lpair:
-			rev = Cons(v.car, rev)
+			rev = cons(v.car, rev)
 			lst = v.cdr
 		default:
-			return nil, Error("Not a proper list: ", lst)
+			return nil, newError("Not a proper list: ", lst)
 		}
 	}
 	return rev, nil
 }
 
-func Concat(seq1 LObject, seq2 LObject) (LObject, error) {
-	rev, err := Reverse(seq1)
+func concat(seq1 lob, seq2 lob) (lob, error) {
+	rev, err := reverse(seq1)
 	if err != nil {
 		return nil, err
 	}
 	for rev != NIL {
 		switch v := rev.(type) {
 		case *lpair:
-			seq2 = Cons(v.car, seq2)
+			seq2 = cons(v.car, seq2)
 			rev = v.cdr
 		}
 	}
@@ -816,11 +810,11 @@ func Concat(seq1 LObject, seq2 LObject) (LObject, error) {
 //
 
 type lvector struct {
-	elements []LObject
+	elements []lob
 }
 
-func NewVector(size int, init LObject) LObject {
-	elements := make([]LObject, size)
+func newVector(size int, init lob) lob {
+	elements := make([]lob, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
@@ -828,13 +822,13 @@ func NewVector(size int, init LObject) LObject {
 	return &vec
 }
 
-func Vector(elements ...LObject) LObject {
+func vector(elements ...lob) lob {
 	vec := lvector{elements}
 	return &vec
 }
 
-func ToVector(elements []LObject, count int) LObject {
-	el := make([]LObject, count)
+func toVector(elements []lob, count int) lob {
+	el := make([]lob, count)
 	copy(el, elements[0:count])
 	vec := lvector{el}
 	return &vec
@@ -842,22 +836,22 @@ func ToVector(elements []LObject, count int) LObject {
 
 var symVector = newSymbol("vector")
 
-func IsVector(obj LObject) bool {
+func isVector(obj lob) bool {
 	_, ok := obj.(*lvector)
 	return ok
 	//	return obj.Type() == symVector
 }
 
-func (*lvector) Type() LObject {
+func (*lvector) typeSymbol() lob {
 	return symVector
 }
 
-func (vec *lvector) Equal(another LObject) bool {
+func (vec *lvector) equal(another lob) bool {
 	if a, ok := another.(*lvector); ok {
 		vlen := len(vec.elements)
 		if vlen == len(a.elements) {
 			for i := 0; i < vlen; i++ {
-				if !Equal(vec.elements[i], a.elements[i]) {
+				if !equal(vec.elements[i], a.elements[i]) {
 					return false
 				}
 			}
@@ -881,51 +875,50 @@ func (vec *lvector) String() string {
 	buf.WriteString("]")
 	return buf.String()
 }
-func (vec *lvector) Length() int {
+func (vec *lvector) length() int {
 	return len(vec.elements)
 }
 
-func VectorLength(vec LObject) (int, error) {
+func vectorLength(vec lob) (int, error) {
 	if v, ok := vec.(*lvector); ok {
 		return len(v.elements), nil
 	}
-	return 0, TypeError(symVector, vec)
-	//	return Error("Not a vector: ", vec)
+	return 1, typeError(symVector, vec)
 }
 
-func VectorSet(vec LObject, idx int, obj LObject) error {
+func vectorSet(vec lob, idx int, obj lob) error {
 	if v, ok := vec.(*lvector); ok {
 		if idx < 0 || idx >= len(v.elements) {
-			return Error("Vector index out of range")
+			return newError("Vector index out of range")
 		}
 		v.elements[idx] = obj
 		return nil
 	}
-	return Error("Not a vector: ", vec)
+	return typeError(symVector, vec)
 }
 
-func VectorRef(vec LObject, idx int) (LObject, error) {
+func vectorRef(vec lob, idx int) (lob, error) {
 	if v, ok := vec.(*lvector); ok {
 		if idx < 0 || idx >= len(v.elements) {
-			return nil, Error("Vector index out of range")
+			return nil, newError("Vector index out of range")
 		}
 		return v.elements[idx], nil
 	}
-	return nil, Error("Not a vector: ", vec)
+	return nil, typeError(symVector, vec)
 }
 
 //
 // ------------------- map
 //
 type lmap struct {
-	bindings map[LObject]LObject
+	bindings map[lob]lob
 }
 
-func ToMap(pairwiseBindings []LObject, count int) (LObject, error) {
+func toMap(pairwiseBindings []lob, count int) (lob, error) {
 	if count%2 != 0 {
-		return nil, Error("Initializing a map requires an even number of elements")
+		return nil, newError("Initializing a map requires an even number of elements")
 	}
-	bindings := make(map[LObject]LObject, count/2)
+	bindings := make(map[lob]lob, count/2)
 	for i := 0; i < count; i += 2 {
 		bindings[pairwiseBindings[i]] = pairwiseBindings[i+1]
 	}
@@ -933,23 +926,23 @@ func ToMap(pairwiseBindings []LObject, count int) (LObject, error) {
 	return &m, nil
 }
 
-func Map(pairwiseBindings ...LObject) (LObject, error) {
-	return ToMap(pairwiseBindings, len(pairwiseBindings))
+func newMap(pairwiseBindings ...lob) (lob, error) {
+	return toMap(pairwiseBindings, len(pairwiseBindings))
 }
 
 var symMap = newSymbol("map")
 
-func (*lmap) Type() LObject {
+func (*lmap) typeSymbol() lob {
 	return symMap
 }
 
-func (m *lmap) Equal(another LObject) bool {
+func (m *lmap) equal(another lob) bool {
 	if a, ok := another.(*lmap); ok {
 		mlen := len(m.bindings)
 		if mlen == len(a.bindings) {
 			for k, v := range m.bindings {
 				if v2, ok := a.bindings[k]; ok {
-					if !Equal(v, v2) {
+					if !equal(v, v2) {
 						return false
 					}
 				} else {
@@ -962,7 +955,7 @@ func (m *lmap) Equal(another LObject) bool {
 	return false
 }
 
-func (m *lmap) Length() int {
+func (m *lmap) length() int {
 	return len(m.bindings)
 }
 
@@ -984,55 +977,54 @@ func (m *lmap) String() string {
 	return buf.String()
 }
 
-func (m *lmap) Put(key LObject, value LObject) LObject {
+func (m *lmap) put(key lob, value lob) lob {
 	m.bindings[key] = value
 	return m
 }
 
-func (m *lmap) Get(key LObject) LObject {
+func (m *lmap) get(key lob) lob {
 	if val, ok := m.bindings[key]; ok {
 		return val
-	} else {
-		return NIL
 	}
+	return NIL
 }
 
-func (m *lmap) Has(key LObject) bool {
+func (m *lmap) has(key lob) bool {
 	_, ok := m.bindings[key]
 	return ok
 }
 
-func Has(obj LObject, key LObject) (bool, error) {
+func has(obj lob, key lob) (bool, error) {
 	if aMap, ok := obj.(*lmap); ok {
-		return aMap.Has(key), nil
+		return aMap.has(key), nil
 	}
-	return false, TypeError(symMap, obj)
+	return false, typeError(symMap, obj)
 }
 
-func Get(obj LObject, key LObject) (LObject, error) {
+func get(obj lob, key lob) (lob, error) {
 	if aMap, ok := obj.(*lmap); ok {
-		return aMap.Get(key), nil
+		return aMap.get(key), nil
 	}
-	return nil, TypeError(symMap, obj)
+	return nil, typeError(symMap, obj)
 }
 
-func Put(obj LObject, key LObject, value LObject) (LObject, error) {
+func put(obj lob, key lob, value lob) (lob, error) {
 	if aMap, ok := obj.(*lmap); ok {
-		return aMap.Put(key, value), nil
+		return aMap.put(key, value), nil
 	}
-	return nil, TypeError(symMap, obj)
+	return nil, typeError(symMap, obj)
 }
 
 //
 // ------------------- error
 //
 
-func Error(arg1 LAny, args ...LAny) error {
+func newError(arg1 any, args ...any) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))
 	for _, o := range args {
-		if l, ok := o.(LObject); ok {
-			buf.WriteString(fmt.Sprintf("%v", Write(l)))
+		if l, ok := o.(lob); ok {
+			buf.WriteString(fmt.Sprintf("%v", write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
 		}
@@ -1053,6 +1045,6 @@ func (e *lerror) String() string {
 	return fmt.Sprintf("<Error: %s>", e.msg)
 }
 
-func TypeError(typeSym LObject, obj LObject) error {
-	return Error("Type error: expected ", typeSym, ", got ", obj)
+func typeError(typeSym lob, obj lob) error {
+	return newError("Type error: expected ", typeSym, ", got ", obj)
 }
