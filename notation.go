@@ -430,6 +430,9 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 			return nil, err
 		}
 		return toVector(items, len(items)), nil
+	case '!':
+		err := dr.decodeComment()
+		return NIL, err
 	default:
 		return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
 	}

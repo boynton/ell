@@ -280,9 +280,13 @@ func (mod *lmodule) findModuleByName(moduleName string) (string, error) {
 }
 
 func (mod *lmodule) loadModule(name string) error {
-	file, err := mod.findModuleFile(name)
-	if err != nil {
-		return err
+	file := name
+	if !fileReadable(name) {
+		f, err := mod.findModuleFile(name)
+		if err != nil {
+			return err
+		}
+		file = f
 	}
 	return mod.loadFile(file)
 }
