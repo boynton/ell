@@ -43,9 +43,17 @@ func println(args ...any) {
 	fmt.Println(args[max])
 }
 
+func argcError() (lob, error) {
+	return nil, newError("Wrong number of arguments")
+}
+
+func argTypeError(expected string, num int, arg lob) (lob, error) {
+	return nil, newError("Argument ", num, " is not of type ", expected, ": ", arg)
+}
+
 func isFunction(obj lob) bool {
 	switch obj.(type) {
-	case *lcode, *lclosure, *lprimitive:
+	case *lcode, *lclosure, *lprimitive, *linstr:
 		return true
 	default:
 		return false
@@ -91,6 +99,37 @@ func newVM(stackSize int) *lvm {
 	var defs []lob
 	vm := lvm{stackSize, defs}
 	return &vm
+}
+
+
+type linstr struct {
+	op int
+}
+
+var APPLY = &linstr{op: 0}
+var CALLCC = &linstr{op: 1}
+
+var symInstr = newSymbol("instruction")
+
+func (*linstr) typeSymbol() lob {
+	return symInstr
+}
+
+func (s *linstr) equal(another lob) bool {
+	if a, ok := another.(*linstr); ok {
+		return s.op == a.op
+	}
+	return false
+}
+
+func (s *linstr) String() string {
+	switch s.op {
+	case 0:
+		return "<apply>"
+	case 1:
+		return "<callcc>"
+	}
+	return "<instr ?>"
 }
 
 type primitive func(argv []lob, argc int) (lob, error)
@@ -354,6 +393,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			sp++
 			argc := ops[pc+1]
 			savedPc := pc + 2
+		opcodeCallAgain:
 			switch tfun := fun.(type) {
 			case *lprimitive:
 				val, err := tfun.fun(stack[sp:sp+argc], argc)
@@ -377,6 +417,32 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				ops = tfun.code.ops
 				module = tfun.code.mod
 				pc = 0
+			case *linstr:
+				if tfun == APPLY {
+					if argc < 2 {
+						return argcError()
+					}
+					fun = stack[sp]
+					arglist := stack[sp+argc-1]
+					if !isList(arglist) {
+						return argTypeError("list", argc, arglist)
+					}
+					for i := argc-2; i > 0; i-- {
+						arglist = cons(stack[sp+i], arglist)
+					}
+					sp += argc
+					argc = length(arglist)
+					i := 0
+					sp -= argc
+					for arglist != NIL {
+						stack[sp+i] = car(arglist)
+						i++
+						arglist = cdr(arglist)
+					}
+					goto opcodeCallAgain
+				} else {
+					return nil, newError("unsupported instruction", tfun)
+				}
 			default:
 				return nil, newError("Not a function: ", tfun)
 			}
@@ -390,6 +456,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			fun := stack[sp]
 			sp++
 			argc := ops[pc+1]
+		opcodeTailCallAgain:
 			switch tfun := fun.(type) {
 			case *lprimitive:
 				val, err := tfun.fun(stack[sp:sp+argc], argc)
@@ -426,6 +493,32 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				module = tfun.code.mod
 				pc = 0
 				env = f
+			case *linstr:
+				if tfun == APPLY {
+					if argc < 2 {
+						return argcError()
+					}
+					fun = stack[sp]
+					arglist := stack[sp+argc-1]
+					if !isList(arglist) {
+						return argTypeError("list", argc, arglist)
+					}
+					for i := argc-2; i > 0; i-- {
+						arglist = cons(stack[sp+i], arglist)
+					}
+					sp += argc
+					argc = length(arglist)
+					i := 0
+					sp -= argc
+					for arglist != NIL {
+						stack[sp+i] = car(arglist)
+						i++
+						arglist = cdr(arglist)
+					}
+					goto opcodeTailCallAgain
+				} else {
+					return nil, newError("unsupported instruction", tfun)
+				}
 			default:
 				return nil, newError("Not a function:", tfun)
 			}

@@ -5,20 +5,13 @@ import (
 	"fmt"
 )
 
-func argcError() (lob, error) {
-	return nil, newError("Wrong number of arguments")
-}
-
-func ellTypeError(expected string, num int) (lob, error) {
-	return nil, newError("Argument ", num, " is not of type ", expected)
-}
-
 // Ell defines the global functions for the top level environment
 func Ell(module module) {
 	module.define("nil", NIL)
 	module.define("null", NIL)
 	module.define("true", TRUE)
 	module.define("false", FALSE)
+	module.define("apply", APPLY)
 
 	module.defineMacro("let", ellLet)
 	module.defineMacro("letrec", ellLetrec)
@@ -346,7 +339,7 @@ func ellNumberToString(argv []lob, argc int) (lob, error) {
 		return argcError()
 	}
 	if !isNumber(argv[0]) {
-		return ellTypeError("number", 1)
+		return argTypeError("number", 1, argv[0])
 	}
 	return newString(argv[0].String()), nil
 }
@@ -356,7 +349,7 @@ func ellStringLength(argv []lob, argc int) (lob, error) {
 		return argcError()
 	}
 	if !isString(argv[0]) {
-		return ellTypeError("string", 1)
+		return argTypeError("string", 1, argv[0])
 	}
 	i := length(argv[0])
 	return newInteger(int64(i)), nil
@@ -385,7 +378,7 @@ func ellCar(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return car(lst), nil
 		}
-		return ellTypeError("pair", 1)
+		return argTypeError("pair", 1, lst)
 	}
 	return argcError()
 }
@@ -396,7 +389,7 @@ func ellCdr(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return cdr(lst), nil
 		}
-		return ellTypeError("pair", 1)
+		return argTypeError("pair", 1, lst)
 	}
 	return argcError()
 }
@@ -407,7 +400,7 @@ func ellCadr(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return cadr(lst), nil
 		}
-		return ellTypeError("pair", 1)
+		return argTypeError("pair", 1, lst)
 	}
 	return argcError()
 }
@@ -418,7 +411,7 @@ func ellCddr(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return cddr(lst), nil
 		}
-		return ellTypeError("pair", 1)
+		return argTypeError("pair", 1, lst)
 	}
 	return argcError()
 }
