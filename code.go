@@ -25,29 +25,29 @@ import (
 
 const (
 	opcodeBad       = iota
-	opcodeLiteral   = iota // 1
-	opcodeLocal     = iota
-	opcodeJumpFalse = iota
-	opcodeJump      = iota
-	opcodeTailCall  = iota // 5
-	opcodeCall      = iota
-	opcodeReturn    = iota
-	opcodeClosure   = iota
-	opcodePop       = iota
-	opcodeGlobal    = iota // 10
-	opcodeDefGlobal = iota
-	opcodeSetLocal  = iota
-	opcodeUse       = iota
-	opcodeDefMacro  = iota
-	opcodeVector    = iota // 15
-	opcodeMap       = iota
+	opcodeLiteral   // 1
+	opcodeLocal
+	opcodeJumpFalse
+	opcodeJump
+	opcodeTailCall  // 5
+	opcodeCall
+	opcodeReturn
+	opcodeClosure
+	opcodePop
+	opcodeGlobal    // 10
+	opcodeDefGlobal
+	opcodeSetLocal
+	opcodeUse
+	opcodeDefMacro
+	opcodeVector   // 15
+	opcodeMap
 
 	//extended instructions
-	opcodeNull = iota
-	opcodeCar  = iota
-	opcodeCdr  = iota
-	opcodeAdd  = iota // 20
-	opcodeMul  = iota
+	opcodeNull
+	opcodeCar 
+	opcodeCdr
+	opcodeAdd      // 20
+	opcodeMul
 )
 
 // code is an Ell code object
