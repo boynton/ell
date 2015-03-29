@@ -41,6 +41,7 @@ func Ell(module module) {
 	module.defineFunction("+", ellPlus)
 	module.defineFunction("-", ellMinus)
 	module.defineFunction("*", ellTimes)
+	module.defineFunction("/", ellDiv)
 	module.defineFunction("quotient", ellQuotient)
 	module.defineFunction("remainder", ellRemainder)
 	module.defineFunction("modulo", ellRemainder) //fix!
@@ -224,19 +225,7 @@ func ellPlus(argv []lob, argc int) (lob, error) {
 }
 
 func ellMinus(argv []lob, argc int) (lob, error) {
-	//hack
-	if argc != 2 {
-		return argcError("minus", "2", argc)
-	}
-	n1, err := integerValue(argv[0])
-	if err != nil {
-		return nil, err
-	}
-	n2, err := integerValue(argv[1])
-	if err != nil {
-		return nil, err
-	}
-	return newInteger(n1 - n2), nil
+	return minus(argv, argc)
 }
 
 func ellTimes(argv []lob, argc int) (lob, error) {
@@ -244,6 +233,10 @@ func ellTimes(argv []lob, argc int) (lob, error) {
 		return mul(argv[0], argv[1])
 	}
 	return product(argv, argc)
+}
+
+func ellDiv(argv []lob, argc int) (lob, error) {
+	return div(argv, argc)
 }
 
 func ellMakeVector(argv []lob, argc int) (lob, error) {

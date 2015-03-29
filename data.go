@@ -520,7 +520,11 @@ func sum(nums []lob, argc int) (lob, error) {
 	for _, num := range nums {
 		switch n := num.(type) {
 		case linteger:
-			isum += int64(n)
+			if integral {
+				isum += int64(n)
+			} else {
+				fsum += float64(n)
+			}
 		case lreal:
 			if integral {
 				fsum = float64(isum)
@@ -529,6 +533,67 @@ func sum(nums []lob, argc int) (lob, error) {
 			fsum += float64(n)
 		default:
 			return nil, typeError(symNumber, num)
+		}
+	}
+	if integral {
+		return linteger(isum), nil
+	}
+	return lreal(fsum), nil
+}
+
+func sub(num1 lob, num2 lob) (lob, error) {
+	n1, err := realValue(num1)
+	if err != nil {
+		return nil, err
+	}
+	n2, err := realValue(num2)
+	if err != nil {
+		return nil, err
+	}
+	return newReal(n1 - n2), nil
+}
+
+func minus(nums []lob, argc int) (lob, error) {
+	if argc < 1 {
+		return argcError("-", "1+", argc)
+	}
+	var isum int64
+	var fsum float64
+	integral := true
+	num := nums[0]
+	switch n := num.(type) {
+	case linteger:
+		isum = int64(n)
+	case lreal:
+		integral = false
+		fsum = float64(n)
+	default:
+		return nil, typeError(symNumber, num)
+	}
+	if argc == 1 {
+		if integral {
+			isum = -isum
+		} else {
+			fsum = -fsum
+		}
+	} else {
+		for _, num := range nums[1:] {
+			switch n := num.(type) {
+			case linteger:
+				if integral {
+					isum -= int64(n)
+				} else {
+					fsum -= float64(n)
+				}
+			case lreal:
+				if integral {
+					fsum = float64(isum)
+					integral = false
+				}
+				fsum -= float64(n)
+		default:
+				return nil, typeError(symNumber, num)
+			}
 		}
 	}
 	if integral {
@@ -572,6 +637,31 @@ func product(argv []lob, argc int) (lob, error) {
 		return linteger(iprod), nil
 	}
 	return lreal(fprod), nil
+}
+
+func div(argv []lob, argc int) (lob, error) {
+	if argc < 1 {
+		return argcError("/", "1+", argc)
+	} else if argc == 1 {
+		n1, err := realValue(argv[0])
+		if err != nil {
+			return nil, err
+		}
+		return lreal(1.0 / n1), nil
+	} else {
+		quo, err := realValue(argv[0])
+		if err != nil {
+			return nil, err
+		}
+		for i := 1; i<argc; i++ {
+			n, err := realValue(argv[i])
+			if err != nil {
+				return nil, err
+			}
+			quo /= n
+		}
+		return lreal(quo), nil
+	}
 }
 
 //
