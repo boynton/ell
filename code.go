@@ -24,29 +24,29 @@ import (
 )
 
 const (
-	opcodeBad       = iota
-	opcodeLiteral   // 1
+	opcodeBad     = iota
+	opcodeLiteral // 1
 	opcodeLocal
 	opcodeJumpFalse
 	opcodeJump
-	opcodeTailCall  // 5
+	opcodeTailCall // 5
 	opcodeCall
 	opcodeReturn
 	opcodeClosure
 	opcodePop
-	opcodeGlobal    // 10
+	opcodeGlobal // 10
 	opcodeDefGlobal
 	opcodeSetLocal
 	opcodeUse
 	opcodeDefMacro
-	opcodeVector   // 15
+	opcodeVector // 15
 	opcodeMap
 
 	//extended instructions
 	opcodeNull
-	opcodeCar 
+	opcodeCar
 	opcodeCdr
-	opcodeAdd      // 20
+	opcodeAdd // 20
 	opcodeMul
 )
 
@@ -84,6 +84,7 @@ type code interface {
 
 type lcode struct {
 	mod          *lmodule
+	name         string
 	ops          []int
 	argc         int
 	defaults     []lob
@@ -110,11 +111,12 @@ type lcode struct {
 	symMul       lob
 }
 
-func newCode(mod module, argc int, defaults []lob, keys []lob) code {
+func newCode(mod module, argc int, defaults []lob, keys []lob, name string) code {
 	var ops []int
 	lmod := mod.(*lmodule)
 	code := lcode{
 		lmod,
+		name,
 		ops,
 		argc,
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
@@ -285,6 +287,7 @@ func (code *lcode) module() module {
 }
 
 func (code *lcode) loadOps(lst lob) error {
+	name := ""
 	for lst != NIL {
 		instr := car(lst)
 		op := car(instr)
@@ -327,7 +330,7 @@ func (code *lcode) loadOps(lst lob) error {
 			} else {
 				return newError("Bad lap format: ", funcParams)
 			}
-			fun := newCode(code.mod, argc, defaults, keys)
+			fun := newCode(code.mod, argc, defaults, keys, name)
 			fun.loadOps(cdr(lstFunc))
 			code.emitClosure(fun)
 		case code.symLiteral:

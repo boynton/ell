@@ -17,8 +17,8 @@ limitations under the License.
 package main
 
 func compile(module module, expr lob) (code, error) {
-	code := newCode(module, 0, nil, nil)
-	err := compileExpr(code, NIL, expr, false, false)
+	code := newCode(module, 0, nil, nil, "")
+	err := compileExpr(code, NIL, expr, false, false, "")
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func calculateLocation(sym lob, env lob) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) error {
+func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool, context string) error {
 	//Println("COMPILE: ", expr, " isTail: ", isTail, ", ignoreResult: ", ignoreResult)
 	if isSymbol(expr) {
 		if i, j, ok := calculateLocation(expr, env); ok {
@@ -80,12 +80,12 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 			return nil
 		case intern("begin"):
 			// (begin <expr> ...)
-			return compileSequence(code, env, cdr(lst), isTail, ignoreResult)
+			return compileSequence(code, env, cdr(lst), isTail, ignoreResult, context)
 		case intern("if"):
 			// (if <pred> <consequent>)
 			// (if <pred> <consequent> <antecedent>)
 			if lstlen == 3 || lstlen == 4 {
-				return compileIfElse(code, env, cadr(expr), caddr(expr), cdddr(expr), isTail, ignoreResult)
+				return compileIfElse(code, env, cadr(expr), caddr(expr), cdddr(expr), isTail, ignoreResult, context)
 			}
 			return syntaxError(expr)
 		case intern("define"):
@@ -99,12 +99,13 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 				if isPair(sym) && length(sym) >= 1 {
 					args := cdr(sym)
 					sym = car(sym)
+					//we could give the symbolic name to the function
 					val = list(intern("lambda"), args, val)
 				} else {
 					return syntaxError(expr)
 				}
 			}
-			err := compileExpr(code, env, val, false, false)
+			err := compileExpr(code, env, val, false, false, sym.String())
 			if err == nil {
 				code.emitDefGlobal(sym)
 				if ignoreResult {
@@ -123,7 +124,7 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 			if !isSymbol(sym) {
 				return syntaxError(expr)
 			}
-			err := compileExpr(code, env, caddr(lst), false, false)
+			err := compileExpr(code, env, caddr(lst), false, false, sym.String())
 			if err == nil {
 				code.emitDefMacro(sym)
 				if ignoreResult {
@@ -143,7 +144,7 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 			}
 			body := cddr(lst)
 			args := cadr(lst)
-			return compileLambda(code, env, args, body, isTail, ignoreResult)
+			return compileLambda(code, env, args, body, isTail, ignoreResult, context)
 		case intern("set!"):
 			// (set! <sym> <val>)
 			if lstlen != 3 {
@@ -153,7 +154,7 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 			if !isSymbol(sym) {
 				return syntaxError(expr)
 			}
-			err := compileExpr(code, env, caddr(lst), false, false)
+			err := compileExpr(code, env, caddr(lst), false, false, context)
 			if err != nil {
 				return err
 			}
@@ -177,14 +178,14 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 		default: // a funcall
 			// (<fn>)
 			// (<fn> <arg> ...)
-			return compileFuncall(code, env, fn, cdr(lst), isTail, ignoreResult)
+			return compileFuncall(code, env, fn, cdr(lst), isTail, ignoreResult, context)
 		}
 	} else if vec, ok := expr.(*lvector); ok {
 		//vector literal: the elements are evaluated
 		vlen := len(vec.elements)
 		for i := vlen - 1; i >= 0; i-- {
 			obj := vec.elements[i]
-			err := compileExpr(code, env, obj, false, false)
+			err := compileExpr(code, env, obj, false, false, context)
 			if err != nil {
 				return err
 			}
@@ -202,7 +203,7 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 		}
 		for i := vlen - 1; i >= 0; i-- {
 			obj := vals[i]
-			err := compileExpr(code, env, obj, false, false)
+			err := compileExpr(code, env, obj, false, false, context)
 			if err != nil {
 				return err
 			}
@@ -220,7 +221,7 @@ func compileExpr(code code, env lob, expr lob, isTail bool, ignoreResult bool) e
 	}
 }
 
-func compileLambda(code code, env lob, args lob, body lob, isTail bool, ignoreResult bool) error {
+func compileLambda(code code, env lob, args lob, body lob, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
 	syms := []lob{}
 	var defaults []lob
@@ -291,8 +292,8 @@ func compileLambda(code code, env lob, args lob, body lob, isTail bool, ignoreRe
 	args = toList(syms) //why not just use the array format in general?
 	newEnv := cons(args, env)
 	mod := (code.(*lcode)).module()
-	lambdaCode := newCode(mod, argc, defaults, keys)
-	err := compileSequence(lambdaCode, newEnv, body, true, false)
+	lambdaCode := newCode(mod, argc, defaults, keys, context)
+	err := compileSequence(lambdaCode, newEnv, body, true, false, context)
 	if err == nil {
 		if !ignoreResult {
 			code.emitClosure(lambdaCode)
@@ -304,26 +305,26 @@ func compileLambda(code code, env lob, args lob, body lob, isTail bool, ignoreRe
 	return err
 }
 
-func compileSequence(code code, env lob, exprs lob, isTail bool, ignoreResult bool) error {
+func compileSequence(code code, env lob, exprs lob, isTail bool, ignoreResult bool, context string) error {
 	if exprs != NIL {
 		for cdr(exprs) != NIL {
-			err := compileExpr(code, env, car(exprs), false, true)
+			err := compileExpr(code, env, car(exprs), false, true, context)
 			if err != nil {
 				return err
 			}
 			exprs = cdr(exprs)
 		}
-		return compileExpr(code, env, car(exprs), isTail, ignoreResult)
+		return compileExpr(code, env, car(exprs), isTail, ignoreResult, context)
 	}
 	return syntaxError(cons(intern("begin"), exprs))
 }
 
-func compileFuncall(code code, env lob, fn lob, args lob, isTail bool, ignoreResult bool) error {
+func compileFuncall(code code, env lob, fn lob, args lob, isTail bool, ignoreResult bool, context string) error {
 	argc := length(args)
 	if argc < 0 {
 		return syntaxError(cons(fn, args))
 	}
-	err := compileArgs(code, env, args)
+	err := compileArgs(code, env, args, context)
 	if err != nil {
 		return err
 	}
@@ -336,7 +337,7 @@ func compileFuncall(code code, env lob, fn lob, args lob, isTail bool, ignoreRes
 			return nil
 		}
 	}
-	err = compileExpr(code, env, fn, false, false)
+	err = compileExpr(code, env, fn, false, false, context)
 	if err != nil {
 		return err
 	}
@@ -351,13 +352,13 @@ func compileFuncall(code code, env lob, fn lob, args lob, isTail bool, ignoreRes
 	return nil
 }
 
-func compileArgs(code code, env lob, args lob) error {
+func compileArgs(code code, env lob, args lob, context string) error {
 	if args != NIL {
-		err := compileArgs(code, env, cdr(args))
+		err := compileArgs(code, env, cdr(args), context)
 		if err != nil {
 			return err
 		}
-		return compileExpr(code, env, car(args), false, false)
+		return compileExpr(code, env, car(args), false, false, context)
 	}
 	return nil
 }
@@ -400,17 +401,17 @@ func compilePrimopCall(code code, fn lob, argc int, isTail bool, ignoreResult bo
 	return true, nil
 }
 
-func compileIfElse(code code, env lob, predicate lob, consequent lob, antecedentOptional lob, isTail bool, ignoreResult bool) error {
+func compileIfElse(code code, env lob, predicate lob, consequent lob, antecedentOptional lob, isTail bool, ignoreResult bool, context string) error {
 	var antecedent lob = NIL
 	if antecedentOptional != NIL {
 		antecedent = car(antecedentOptional)
 	}
-	err := compileExpr(code, env, predicate, false, false)
+	err := compileExpr(code, env, predicate, false, false, context)
 	if err != nil {
 		return err
 	}
 	loc1 := code.emitJumpFalse(0) //returns the location just *after* the jump. setJumpLocation knows this.
-	err = compileExpr(code, env, consequent, isTail, ignoreResult)
+	err = compileExpr(code, env, consequent, isTail, ignoreResult, context)
 	if err != nil {
 		return err
 	}
@@ -419,7 +420,7 @@ func compileIfElse(code code, env lob, predicate lob, consequent lob, antecedent
 		loc2 = code.emitJump(0)
 	}
 	code.setJumpLocation(loc1)
-	err = compileExpr(code, env, antecedent, isTail, ignoreResult)
+	err = compileExpr(code, env, antecedent, isTail, ignoreResult, context)
 	if err == nil {
 		if !isTail {
 			code.setJumpLocation(loc2)

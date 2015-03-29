@@ -43,8 +43,8 @@ func println(args ...any) {
 	fmt.Println(args[max])
 }
 
-func argcError() (lob, error) {
-	return nil, newError("Wrong number of arguments")
+func argcError(name string, expected string, got int) (lob, error) {
+	return nil, newError("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
 }
 
 func argTypeError(expected string, num int, arg lob) (lob, error) {
@@ -101,7 +101,6 @@ func newVM(stackSize int) *lvm {
 	return &vm
 }
 
-
 type linstr struct {
 	op int
 }
@@ -109,10 +108,8 @@ type linstr struct {
 var APPLY = &linstr{op: 0}
 var CALLCC = &linstr{op: 1}
 
-var symInstr = newSymbol("instruction")
-
 func (*linstr) typeSymbol() lob {
-	return symInstr
+	return symFunction
 }
 
 func (s *linstr) equal(another lob) bool {
@@ -125,9 +122,9 @@ func (s *linstr) equal(another lob) bool {
 func (s *linstr) String() string {
 	switch s.op {
 	case 0:
-		return "<apply>"
+		return "<function apply>"
 	case 1:
-		return "<callcc>"
+		return "<function callcc>"
 	}
 	return "<instr ?>"
 }
@@ -139,10 +136,10 @@ type lprimitive struct {
 	fun  primitive
 }
 
-var symPrimitive = newSymbol("primitive")
+var symFunction = newSymbol("function")
 
 func (prim *lprimitive) typeSymbol() lob {
-	return symPrimitive
+	return symFunction
 }
 
 func (prim *lprimitive) equal(another lob) bool {
@@ -153,7 +150,7 @@ func (prim *lprimitive) equal(another lob) bool {
 }
 
 func (prim *lprimitive) String() string {
-	return "<primitive " + prim.name + ">"
+	return "<function " + prim.name + ">"
 }
 
 type lframe struct {
@@ -184,7 +181,7 @@ type lclosure struct {
 }
 
 func (lclosure) typeSymbol() lob {
-	return intern("closure")
+	return symFunction
 }
 
 func (closure *lclosure) equal(another lob) bool {
@@ -195,14 +192,11 @@ func (closure *lclosure) equal(another lob) bool {
 }
 
 func (closure lclosure) String() string {
-	//	return "<closure: " + closure.code.String() + ">"
-	if closure.code.defaults != nil {
-		return fmt.Sprintf("<function of %d or more arguments>", closure.code.argc)
-	} else if closure.code.argc == 1 {
-		return fmt.Sprintf("<function of 1 argument>")
-	} else {
-		return fmt.Sprintf("<function of %d arguments>", closure.code.argc)
+	n := closure.code.name
+	if n == "" {
+		return "<function>"
 	}
+	return "<function " + n + ">"
 }
 
 func showEnv(f *lframe) string {
@@ -243,7 +237,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	defaults := fun.code.defaults
 	if defaults == nil {
 		if argc != expectedArgc {
-			return nil, newError("Wrong number of args (", argc, ") to ", fun)
+			return nil, newError("Wrong number of args to ", fun, "(expected ", expectedArgc, ", got ", argc, ")")
 		}
 		el := make([]lob, argc)
 		copy(el, stack[sp:sp+argc])
@@ -258,7 +252,8 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 		extra = 1
 	}
 	if argc < expectedArgc {
-		return nil, newError("Wrong number of args (", argc, ") to ", fun)
+		return nil, newError("Wrong number of args to ", fun, "(expected ", expectedArgc, ", got ", argc, ")")
+		//return nil, newError("Wrong number of args (", argc, ") to ", fun)
 	}
 	totalArgc := expectedArgc + extra
 	el := make([]lob, totalArgc)
@@ -420,14 +415,14 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			case *linstr:
 				if tfun == APPLY {
 					if argc < 2 {
-						return argcError()
+						return argcError("apply", "2+", argc)
 					}
 					fun = stack[sp]
 					arglist := stack[sp+argc-1]
 					if !isList(arglist) {
 						return argTypeError("list", argc, arglist)
 					}
-					for i := argc-2; i > 0; i-- {
+					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
 					sp += argc
@@ -496,14 +491,14 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			case *linstr:
 				if tfun == APPLY {
 					if argc < 2 {
-						return argcError()
+						return argcError("apply", "2+", argc)
 					}
 					fun = stack[sp]
 					arglist := stack[sp+argc-1]
 					if !isList(arglist) {
 						return argTypeError("list", argc, arglist)
 					}
-					for i := argc-2; i > 0; i-- {
+					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
 					sp += argc

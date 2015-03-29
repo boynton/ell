@@ -25,6 +25,7 @@ import (
 
 type module interface {
 	typeSymbol() lob
+	Name() string
 	String() string
 
 	keywords() []lob
@@ -50,7 +51,7 @@ type module interface {
 }
 
 type lmodule struct {
-	Name         string
+	name         string
 	constantsMap map[lob]int
 	constants    []lob
 	globalMap    []*binding
@@ -120,6 +121,10 @@ func (mod *lmodule) defineMacro(name string, fun primitive) {
 
 func (mod *lmodule) typeSymbol() lob {
 	return intern("module")
+}
+
+func (mod *lmodule) Name() string {
+	return mod.name
 }
 
 func (mod *lmodule) String() string {

@@ -839,7 +839,6 @@ var symVector = newSymbol("vector")
 func isVector(obj lob) bool {
 	_, ok := obj.(*lvector)
 	return ok
-	//	return obj.Type() == symVector
 }
 
 func (*lvector) typeSymbol() lob {
@@ -875,6 +874,7 @@ func (vec *lvector) String() string {
 	buf.WriteString("]")
 	return buf.String()
 }
+
 func (vec *lvector) length() int {
 	return len(vec.elements)
 }
@@ -928,6 +928,11 @@ func toMap(pairwiseBindings []lob, count int) (lob, error) {
 
 func newMap(pairwiseBindings ...lob) (lob, error) {
 	return toMap(pairwiseBindings, len(pairwiseBindings))
+}
+
+func isMap(obj lob) bool {
+	_, ok := obj.(*lmap)
+	return ok
 }
 
 var symMap = newSymbol("map")
