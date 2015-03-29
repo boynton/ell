@@ -16,6 +16,7 @@ func Ell(module module) {
 	module.defineMacro("let", ellLet)
 	module.defineMacro("letrec", ellLetrec)
 	module.defineMacro("do", ellDo)
+	module.defineMacro("cond", ellCond)
 
 	module.defineFunction("type", ellType)
 	module.defineFunction("equal?", ellEq)
@@ -485,6 +486,13 @@ func ellDo(argv []lob, argc int) (lob, error) {
 		return argcError("do", "1", argc)
 	}
 	return expandDo(argv[0])
+}
+
+func ellCond(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("cond", "1", argc)
+	}
+	return expandCond(argv[0])
 }
 
 func ellMapP(argv []lob, argc int) (lob, error) {

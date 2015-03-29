@@ -105,7 +105,10 @@ type linstr struct {
 	op int
 }
 
+// APPLY is a primitive instruction to apply a function to a list of arguments
 var APPLY = &linstr{op: 0}
+
+// CALLCC is a primitive instruction to executable (restore) a continuation
 var CALLCC = &linstr{op: 1}
 
 func (*linstr) typeSymbol() lob {

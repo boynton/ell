@@ -591,7 +591,7 @@ func minus(nums []lob, argc int) (lob, error) {
 					integral = false
 				}
 				fsum -= float64(n)
-		default:
+			default:
 				return nil, typeError(symNumber, num)
 			}
 		}
@@ -653,7 +653,7 @@ func div(argv []lob, argc int) (lob, error) {
 		if err != nil {
 			return nil, err
 		}
-		for i := 1; i<argc; i++ {
+		for i := 1; i < argc; i++ {
 			n, err := realValue(argv[i])
 			if err != nil {
 				return nil, err

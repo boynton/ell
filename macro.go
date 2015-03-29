@@ -410,3 +410,7 @@ func expandDo(expr lob) (lob, error) {
 	tmp = list(intern("letrec"), tmp, tmp2)
 	return macroexpand(currentModule, tmp)
 }
+
+func expandCond(expr lob) (lob, error) {
+	return nil, newError("NYI")
+}
