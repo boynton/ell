@@ -327,7 +327,7 @@ func (mod *lmodule) eval(expr lob) (lob, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
-	expanded, err := macroexpand(mod, expr)
+	expanded, err := macroexpandObject(mod, expr)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func (mod *lmodule) compileExpr(expr lob) (string, error) {
 	if verbose {
 		println("; compile: ", write(expr))
 	}
-	expanded, err := macroexpand(mod, expr)
+	expanded, err := macroexpandObject(mod, expr)
 	if err != nil {
 		return "", err
 	}

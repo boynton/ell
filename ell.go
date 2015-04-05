@@ -21,9 +21,10 @@ func Ell(module module) {
 	module.defineFunction("type", ellType)
 	module.defineFunction("equal?", ellEq)
 	module.defineFunction("identical?", ellIdenticalP)
+	module.defineFunction("not", ellNot)
 
 	module.defineFunction("null?", ellNullP)
-	module.defineFunction("pair?", ellPairP)
+
 	module.defineFunction("list?", ellListP)
 	module.defineFunction("cons", ellCons)
 	module.defineFunction("car", ellCar)
@@ -164,8 +165,7 @@ func ellPrintln(argv []lob, argc int) (lob, error) {
 }
 
 func ellList(argv []lob, argc int) (lob, error) {
-	var p lob
-	p = NIL
+	p := EMPTY_LIST
 	for i := argc - 1; i >= 0; i-- {
 		p = cons(argv[i], p)
 	}
@@ -386,6 +386,16 @@ func ellLength(argv []lob, argc int) (lob, error) {
 	return argcError("length", "1", argc)
 }
 
+func ellNot(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if argv[0] == FALSE {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("not", "1", argc)
+}
+
 func ellNullP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if argv[0] == NIL {
@@ -406,23 +416,13 @@ func ellListP(argv []lob, argc int) (lob, error) {
 	return argcError("list?", "1", argc)
 }
 
-func ellPairP(argv []lob, argc int) (lob, error) {
-	if argc == 1 {
-		if isPair(argv[0]) {
-			return TRUE, nil
-		}
-		return FALSE, nil
-	}
-	return argcError("pair?", "1", argc)
-}
-
 func ellCar(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return car(lst), nil
 		}
-		return argTypeError("pair", 1, lst)
+		return argTypeError("list", 1, lst)
 	}
 	return argcError("car", "1", argc)
 }
@@ -433,7 +433,7 @@ func ellCdr(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return cdr(lst), nil
 		}
-		return argTypeError("pair", 1, lst)
+		return argTypeError("list", 1, lst)
 	}
 	return argcError("cdr", "1", argc)
 }
@@ -444,7 +444,7 @@ func ellCadr(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return cadr(lst), nil
 		}
-		return argTypeError("pair", 1, lst)
+		return argTypeError("list", 1, lst)
 	}
 	return argcError("cadr", "1", argc)
 }
@@ -455,14 +455,19 @@ func ellCddr(argv []lob, argc int) (lob, error) {
 		if isList(lst) {
 			return cddr(lst), nil
 		}
-		return argTypeError("pair", 1, lst)
+		return argTypeError("list", 1, lst)
 	}
 	return argcError("cddr", "1", argc)
 }
 
 func ellCons(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		return cons(argv[0], argv[1]), nil
+		switch lst := argv[1].(type) {
+		case *llist:
+			return cons(argv[0], lst), nil
+		default:
+			return argTypeError("list", 2, lst)
+		}
 	}
 	return argcError("cons", "2", argc)
 }
@@ -471,14 +476,24 @@ func ellLetrec(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError("letrec", "1", argc)
 	}
-	return expandLetrec(argv[0])
+	switch lst := argv[0].(type) {
+	case *llist:
+		return expandLetrec(lst)
+	default:
+		return argTypeError("list", 1, lst)
+	}
 }
 
 func ellLet(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError("let", "1", argc)
 	}
-	return expandLet(argv[0])
+	switch lst := argv[0].(type) {
+	case *llist:
+		return expandLet(lst)
+	default:
+		return argTypeError("list", 1, lst)
+	}
 }
 
 func ellDo(argv []lob, argc int) (lob, error) {

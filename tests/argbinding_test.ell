@@ -1,0 +1,55 @@
+(define (test val expected msg)
+   (if (equal? val expected)
+      'ok
+      (error msg " FAILED: expected " expected ", encountered " val)))
+
+;; simple calls, 0..3 parameters
+(test ((lambda () nil)) nil "(lambda ())")
+(test ((lambda (x) x) 23) 23 "(lambda (x))")
+(test ((lambda (x y) (list x y)) 23 57) '(23 57) "(lambda (x y))")
+(test ((lambda (x y z) (list x y z)) 23 57 100) '(23 57 100) "(lambda (x y z))")
+
+;; binding the entire arglist to a single variable
+(define lambda_arglist (lambda x x))
+;same as (define lambda_arglist (lambda (& x) x))
+;same as (define (lambda_arglist & x) x)
+(test (lambda_arglist) '() "(lambda_arglist)")
+(test (lambda_arglist 1) '(1) "(lambda_arglist 1)")
+(test (lambda_arglist 1 2) '(1 2) "(lambda_arglist 1 2)")
+
+;; binding tail of arglist to a single variable
+;; note that if there aren't enough arguments, you get empty list, not nil
+(define (fun_arglist x & y) (list x y))
+(test (fun_arglist 1) '(1 ()) "(fun_arglist 1)")
+(test (fun_arglist 1 2) '(1 (2)) "(fun_arglist 1 2)")
+
+
+(define (fun_optonly [x]) (list x))
+(test (fun_optonly) '(nil) "(fun_optonly)")
+(test (fun_optonly 23) '(23) "(fun_optonly 23)")
+;BUG: should produce an error: (test (fun_optonly 23 57) '(23) "(fun_optonly 23 57)")
+
+(define (fun_opt x [y z])    (list x y z))
+(test (fun_opt 1) '(1 nil nil) "(fun_opt 1)")
+(test (fun_opt 1 2) '(1 2 nil) "(fun_opt 1 2)")
+(test (fun_opt 1 2 3) '(1 2 3) "(fun_opt 1 2 3)")
+;BUG should error, too many args (test (fun_opt 1 2 3 4) '(1 2 3) "(fun_opt 1 2 3 4)")
+
+(define (fun_opt_default x [(y 23) (z 57)]) (list x y z))
+(test (fun_opt_default 1) '(1 23 57) "(fun_opt_default 1)")
+(test (fun_opt_default 1 2) '(1 2 57) "(fun_opt_default 1 2)")
+(test (fun_opt_default 1 2 3) '(1 2 3) "(fun_opt_default 1 2 3)")
+
+(define (fun_keyargs x {y: 23, z 57}) (list x y z)) ; note that colons are optional, so are commas
+(test (fun_keyargs 1) '(1 23 57) "(fun_keyargs 1)")
+(test (fun_keyargs 1 y: 2) '(1 2 57) "(fun_keyargs 1 y: 2)")
+(test (fun_keyargs 1 z: 3) '(1 23 3) "(fun_keyargs 1 z: 3)")
+(test (fun_keyargs 1 y: 2 z: 3) '(1 2 3) "(fun_keyargs 1 y: 2 z: 3)")
+(test (fun_keyargs 1 z: 3 y: 2) '(1 2 3) "(fun_keyargs 1 z: 3 y: 2)")
+
+(define (fun_keyonly {y: 23}) (list y))
+(test (fun_keyonly) '(23) "(fun_keyonly)")
+(test (fun_keyonly y: 100) '(100) "(fun_keyonly y: 100)")
+
+(println "[all tests passed]")
+

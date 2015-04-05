@@ -240,7 +240,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	defaults := fun.code.defaults
 	if defaults == nil {
 		if argc != expectedArgc {
-			return nil, newError("Wrong number of args to ", fun, "(expected ", expectedArgc, ", got ", argc, ")")
+			return nil, newError("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
 		el := make([]lob, argc)
 		copy(el, stack[sp:sp+argc])
@@ -255,8 +255,11 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 		extra = 1
 	}
 	if argc < expectedArgc {
-		return nil, newError("Wrong number of args to ", fun, "(expected ", expectedArgc, ", got ", argc, ")")
-		//return nil, newError("Wrong number of args (", argc, ") to ", fun)
+		if extra > 0 {
+			return nil, newError("Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
+		} else {
+			return nil, newError("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+		}
 	}
 	totalArgc := expectedArgc + extra
 	el := make([]lob, totalArgc)
@@ -272,24 +275,29 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 		}
 		copy(el, stack[sp:sp+expectedArgc]) //the required ones
 		for i := expectedArgc; i < totalArgc; i++ {
-			el[i+expectedArgc-1] = defaults[i-1]
+			el[i] = defaults[i-expectedArgc]
 		}
 		for i := expectedArgc; i < argc; i += 2 {
 			key := stack[sp+i]
 			if !isSymbol(key) {
-				return nil, newError("Bad keyword for argument: ", key)
+				return nil, newError("Bad keyword argument: ", key)
 			}
+			gotit := false
 			for j := 0; j < extra; j++ {
 				if keys[j] == key {
 					el[expectedArgc+j] = stack[sp+i+1]
+					gotit = true
 					break
 				}
+			}
+			if !gotit {
+				return nil, newError("Undefined keyword argument: ", key)
 			}
 		}
 	} else {
 		copy(el, stack[sp:sp+argc])
 		for i := argc; i < totalArgc; i++ {
-			el[i+expectedArgc-1] = defaults[i-1]
+			el[i] = defaults[i-expectedArgc]
 		}
 	}
 	f.elements = el
@@ -421,10 +429,11 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 						return argcError("apply", "2+", argc)
 					}
 					fun = stack[sp]
-					arglist := stack[sp+argc-1]
-					if !isList(arglist) {
-						return argTypeError("list", argc, arglist)
+					args := stack[sp+argc-1]
+					if !isList(args) {
+						return argTypeError("list", argc, args)
 					}
+					arglist := args.(*llist)
 					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
@@ -432,10 +441,10 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					argc = length(arglist)
 					i := 0
 					sp -= argc
-					for arglist != NIL {
-						stack[sp+i] = car(arglist)
+					for arglist != EMPTY_LIST {
+						stack[sp+i] = arglist.cdr
 						i++
-						arglist = cdr(arglist)
+						arglist = arglist.cdr
 					}
 					goto opcodeCallAgain
 				} else {
@@ -497,10 +506,11 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 						return argcError("apply", "2+", argc)
 					}
 					fun = stack[sp]
-					arglist := stack[sp+argc-1]
-					if !isList(arglist) {
-						return argTypeError("list", argc, arglist)
+					args := stack[sp+argc-1]
+					if !isList(args) {
+						return argTypeError("list", argc, args)
 					}
+					arglist := args.(*llist)
 					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
@@ -508,10 +518,10 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					argc = length(arglist)
 					i := 0
 					sp -= argc
-					for arglist != NIL {
-						stack[sp+i] = car(arglist)
+					for arglist != EMPTY_LIST {
+						stack[sp+i] = arglist.car
 						i++
-						arglist = cdr(arglist)
+						arglist = arglist.cdr
 					}
 					goto opcodeTailCallAgain
 				} else {

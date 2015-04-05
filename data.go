@@ -53,7 +53,7 @@ func (lnil) equal(another lob) bool {
 	return another == NIL
 }
 
-func (lnil) String() string {
+func (v lnil) String() string {
 	return "nil"
 }
 
@@ -161,7 +161,7 @@ var symtab = map[string]lob{
 	"symbol":  symSymbol,
 	"string":  symString,
 	"number":  symNumber,
-	"pair":    symPair,
+	"list":    symList,
 	"vector":  symVector,
 	"map":     symMap,
 	"eof":     symEOF,
@@ -665,115 +665,128 @@ func div(argv []lob, argc int) (lob, error) {
 }
 
 //
-// ------------------- list, pair
+// ------------------- list
 //
-type lpair struct {
+type llist struct {
 	car lob
-	cdr lob
+	cdr *llist
 }
 
-var symPair = newSymbol("pair")
+var symList = newSymbol("list")
+var EMPTY_LIST = initEmpty()
 
-func isPair(obj lob) bool {
-	_, ok := obj.(*lpair)
+func initEmpty() *llist {
+	lst := &llist{NIL, nil}
+	lst.cdr = lst
+	return lst
+}
+
+func isList(obj lob) bool {
+	_, ok := obj.(*llist)
 	return ok
 }
 
-//this is the union list?, not the scheme-compatible one, which is IsProperList
-func isList(obj lob) bool {
-	return obj == NIL || isPair(obj)
+func (*llist) typeSymbol() lob {
+	return symList
 }
 
-//this is like Scheme's list? It protects against circularity
-func isProperList(obj lob) bool {
-	if obj == NIL {
-		return true
-	}
-	first := obj
-	for isPair(obj) {
-		obj := cdr(obj)
-		if obj == first {
-			//circular list
+func (lst *llist) equal(another lob) bool {
+	if a, ok := another.(*llist); ok {
+		for lst != EMPTY_LIST {
+			if a == EMPTY_LIST {
+				return false
+			}
+			if !equal(lst.car, a.car) {
+				return false
+			}
+			lst = lst.cdr
+			a = a.cdr
+		}
+		if lst == a {
 			return true
 		}
-	}
-	return obj == NIL
-}
-
-func (*lpair) typeSymbol() lob {
-	return symPair
-}
-
-func (lst *lpair) equal(another lob) bool {
-	if a, ok := another.(*lpair); ok {
-		return equal(lst.car, a.car) && equal(lst.cdr, a.cdr)
 	}
 	return false
 }
 
-func (lst *lpair) String() string {
+func (lst *llist) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
-	buf.WriteString(lst.car.String())
-	tail := lst.cdr
-	b := true
-	for b {
-		if tail == NIL {
-			b = false
-		} else if isPair(tail) {
-			lst = tail.(*lpair)
-			tail = lst.cdr
-			buf.WriteString(" ")
-			buf.WriteString(lst.car.String())
-		} else {
-			buf.WriteString(" . ")
-			buf.WriteString(tail.String())
-			b = false
-		}
+	delim := ""
+	if lst == lst.cdr {
+		return "()"
+	}
+	for lst != EMPTY_LIST {
+		buf.WriteString(delim)
+		delim = " "
+		buf.WriteString(lst.car.String())
+		lst = lst.cdr
 	}
 	buf.WriteString(")")
 	return buf.String()
 }
 
-func (lst *lpair) length() int {
+func (lst *llist) length() int {
+	if lst == EMPTY_LIST {
+		return 0
+	}
 	count := 1
 	o := lst.cdr
-	for o != NIL {
-		if p, ok := o.(*lpair); ok {
-			count++
-			o = p.cdr
-		} else {
-			return -1 //not a proper list
-		}
+	for o != EMPTY_LIST {
+		count++
+		o = o.cdr
 	}
 	return count
 }
 
-func newList(count int, val lob) lob {
-	var result lob = NIL
+func newList(count int, val lob) *llist {
+	result := EMPTY_LIST
 	for i := 0; i < count; i++ {
 		result = cons(val, result)
 	}
 	return result
 }
 
-func cons(car lob, cdr lob) lob {
-	lst := lpair{car, cdr}
-	return &lst
+func cons(car lob, cdr *llist) *llist {
+	return &llist{car, cdr}
 }
 
 func car(lst lob) lob {
 	switch p := lst.(type) {
-	case *lpair:
+	case *llist:
 		return p.car
-	} // unlike scheme, nil is returned, rather than an error, when applied to a non-pair
+	}
 	return NIL
 }
 
 func setCar(lst lob, obj lob) {
 	switch p := lst.(type) {
-	case *lpair:
+	case *llist:
 		p.car = obj
+	}
+}
+
+func cdr(lst lob) *llist {
+	if lst != EMPTY_LIST {
+		switch p := lst.(type) {
+		case *llist:
+			return p.cdr
+		}
+	}
+	return EMPTY_LIST
+}
+
+func setCdr(lst lob, obj lob) {
+	switch p := lst.(type) {
+	case *llist:
+		switch n := obj.(type) {
+		case *llist:
+			p.cdr = n
+		default:
+			println("IGNORED: Setting cdr to non-list: ", obj)
+		}
+	default:
+		println("IGNORED: Setting cdr of non-list: ", lst)
 	}
 }
 
@@ -783,40 +796,24 @@ func caar(lst lob) lob {
 func cadr(lst lob) lob {
 	return car(cdr(lst))
 }
-func cddr(lst lob) lob {
+func cddr(lst lob) *llist {
 	return cdr(cdr(lst))
 }
 func caddr(lst lob) lob {
 	return car(cdr(cdr(lst)))
 }
-func cdddr(lst lob) lob {
+func cdddr(lst lob) *llist {
 	return cdr(cdr(cdr(lst)))
 }
 func cadddr(lst lob) lob {
 	return car(cdr(cdr(cdr(lst))))
 }
-func cddddr(lst lob) lob {
+func cddddr(lst lob) *llist {
 	return cdr(cdr(cdr(cdr(lst))))
 }
 
-func cdr(lst lob) lob {
-	switch p := lst.(type) {
-	case *lpair:
-		return p.cdr
-	} // unlike scheme, nil is returned, rather than an error, when applied to a non-pair
-	return NIL
-}
-
-func setCdr(lst lob, obj lob) {
-	switch p := lst.(type) {
-	case *lpair:
-		p.cdr = obj
-	}
-}
-
-func toList(vec []lob) lob {
-	var p lob
-	p = NIL
+func toList(vec []lob) *llist {
+	p := EMPTY_LIST
 	for i := len(vec) - 1; i >= 0; i-- {
 		v := vec[i]
 		p = cons(v, p)
@@ -824,17 +821,7 @@ func toList(vec []lob) lob {
 	return p
 }
 
-func toImproperList(vec []lob, rest lob) lob {
-	var p lob
-	p = rest
-	for i := len(vec) - 1; i >= 0; i-- {
-		v := vec[i]
-		p = cons(v, p)
-	}
-	return p
-}
-
-func list(vec ...lob) lob {
+func list(vec ...lob) *llist {
 	return toList(vec)
 }
 
@@ -855,7 +842,7 @@ func length(seq lob) int {
 		return len(v)
 	case *lvector:
 		return len(v.elements)
-	case *lpair:
+	case *llist:
 		return v.length()
 	case *lmap:
 		return len(v.bindings)
@@ -864,35 +851,37 @@ func length(seq lob) int {
 	}
 }
 
-func reverse(lst lob) (lob, error) {
-	var rev lob
-	rev = NIL
-	for lst != NIL {
-		switch v := lst.(type) {
-		case *lpair:
-			rev = cons(v.car, rev)
-			lst = v.cdr
-		default:
-			return nil, newError("Not a proper list: ", lst)
+func reverse(lst *llist) (*llist, error) {
+//	switch v := lst.(type) {
+//	case *llist:
+		rev := EMPTY_LIST
+		for lst != EMPTY_LIST {
+			rev = cons(lst.car, rev)
+			lst = lst.cdr
 		}
-	}
-	return rev, nil
+		return rev, nil
+//	}
+//	return nil, newError("Not a list: ", lst)
 }
 
-func concat(seq1 lob, seq2 lob) (lob, error) {
+func concat(seq1 *llist, seq2 *llist) (*llist, error) {
 	rev, err := reverse(seq1)
 	if err != nil {
 		return nil, err
 	}
-	for rev != NIL {
-		switch v := rev.(type) {
-		case *lpair:
-			seq2 = cons(v.car, seq2)
-			rev = v.cdr
+//	switch lst := seq2.(type) {
+//	case *llist:
+		if rev == EMPTY_LIST {
+			return seq2, nil
 		}
-	}
-	return seq2, nil
-
+	lst := seq2
+		for rev != EMPTY_LIST {
+			lst = cons(rev.car, lst)
+			rev = rev.cdr
+		}
+		return lst, nil
+//	}
+//	return nil, newError("Not a list: ", seq2)
 }
 
 //

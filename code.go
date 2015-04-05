@@ -313,7 +313,7 @@ func (code *lcode) loadOps(lst lob) error {
 					argc = -argc - 1
 					defaults = make([]lob, 0)
 				}
-			} else if isPair(funcParams) && length(funcParams) == 3 {
+			} else if isList(funcParams) && length(funcParams) == 3 {
 				a := car(funcParams)
 				argc, err = intValue(a)
 				if err != nil {

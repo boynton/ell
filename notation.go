@@ -234,18 +234,15 @@ func (dr *dataReader) decodeString() (lob, error) {
 }
 
 func (dr *dataReader) decodeList() (lob, error) {
-	items, tail, err := dr.decodeSequence(')', '.')
+	items, err := dr.decodeSequence(')')
 	if err != nil {
 		return nil, err
-	}
-	if tail != nil {
-		return toImproperList(items, tail), nil
 	}
 	return toList(items), nil
 }
 
 func (dr *dataReader) decodeVector() (lob, error) {
-	items, _, err := dr.decodeSequence(']', 0)
+	items, err := dr.decodeSequence(']')
 	if err != nil {
 		return nil, err
 	}
@@ -253,17 +250,16 @@ func (dr *dataReader) decodeVector() (lob, error) {
 }
 
 func (dr *dataReader) decodeMap() (lob, error) {
-	items, _, err := dr.decodeSequence('}', 0)
+	items, err := dr.decodeSequence('}')
 	if err != nil {
 		return nil, err
 	}
 	return toMap(items, len(items))
 }
 
-func (dr *dataReader) decodeSequence(endChar byte, tailTag byte) ([]lob, lob, error) {
+func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
 	c, err := dr.getChar()
 	items := []lob{}
-	var tail lob
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -277,27 +273,17 @@ func (dr *dataReader) decodeSequence(endChar byte, tailTag byte) ([]lob, lob, er
 			continue
 		}
 		if c == endChar {
-			return items, tail, nil
+			return items, nil
 		}
-		if tail != nil {
-			return nil, nil, newError("Syntax error: object beyond tail of dotted pair")
+		dr.ungetChar()
+		element, err := dr.readData()
+		if err != nil {
+			return nil, err
 		}
-		if c == tailTag {
-			tail, err = dr.readData()
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			dr.ungetChar()
-			element, err := dr.readData()
-			if err != nil {
-				return nil, nil, err
-			}
-			items = append(items, element)
-		}
+		items = append(items, element)
 		c, err = dr.getChar()
 	}
-	return nil, nil, err
+	return nil, err
 }
 
 func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
@@ -325,6 +311,14 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 		return nil, e
 	}
 	s := string(buf)
+	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
+	if s == "nil" || s == "null" { //EllDN is upwards compatible with JSON, so we need to handle null
+		return NIL, nil
+	} else if s == "true" {
+		return TRUE, nil
+	} else if s == "false" {
+		return FALSE, nil
+	}
 	if strings.HasSuffix(s, ":") {
 		//macro for quoted symbol (rather than introduce keywords as types)
 		s := s[:len(s)-1]
@@ -424,13 +418,9 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 		return FALSE, nil
 	case 't':
 		return TRUE, nil
-	case '(': //scheme vector
-		items, _, err := dr.decodeSequence(')', 0)
-		if err != nil {
-			return nil, err
-		}
-		return toVector(items, len(items)), nil
-	case '!':
+	case 'n':
+		return NIL, nil
+	case '!': //to handle shell scripts, handle #! as a comment
 		err := dr.decodeComment()
 		return NIL, err
 	default:
@@ -447,6 +437,9 @@ func isDelimiter(b byte) bool {
 }
 
 func write(obj lob) string {
+	if obj == nil {
+		panic("null pointer")
+	}
 	elldn, _ := writeData(obj, false)
 	return elldn
 }
@@ -463,9 +456,9 @@ func writeData(obj lob, json bool) (string, error) {
 		}
 	}
 	switch o := obj.(type) {
-	case *lpair:
+	case *llist:
 		if json {
-			return "", newError("pair cannot be described in JSON: ", obj)
+			return "", newError("list cannot be described in JSON: ", obj)
 		}
 		return writeList(o), nil
 	case *lsymbol:
@@ -517,38 +510,31 @@ func writeData(obj lob, json bool) (string, error) {
 		if json {
 			return "", newError("data cannot be described in JSON: ", obj)
 		}
+		if o == nil {
+			panic("whoops: nil not allowed here!")
+		}
 		return o.String(), nil
 	}
 }
 
-func writeList(lst *lpair) string {
+func writeList(lst *llist) string {
+	if lst == EMPTY_LIST {
+		return "()"
+	}
 	if lst.car == intern("quote") {
-		if tmp, ok := lst.cdr.(*lpair); ok {
-			return "'" + tmp.car.String()
+		if lst.cdr != EMPTY_LIST {
+			return "'" + lst.cdr.String()
 		}
 	}
 	var buf bytes.Buffer
 	buf.WriteString("(")
-	buf.WriteString(write(lst.car))
-	tail := lst.cdr
-	b := true
-	for b {
-		if tail == NIL {
-			b = false
-		} else {
-			p, isPair := tail.(*lpair)
-			if isPair {
-				tail = p.cdr
-				buf.WriteString(" ")
-				s, _ := writeData(p.car, false)
-				buf.WriteString(s)
-			} else {
-				buf.WriteString(" . ")
-				s, _ := writeData(tail, false)
-				buf.WriteString(s)
-				b = false
-			}
-		}
+	buf.WriteString(write(car(lst)))
+	lst = lst.cdr
+	for lst != EMPTY_LIST {
+		buf.WriteString(" ")
+		s, _ := writeData(lst.car, false)
+		buf.WriteString(s)
+		lst = lst.cdr
 	}
 	buf.WriteString(")")
 	return buf.String()

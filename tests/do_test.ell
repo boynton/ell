@@ -1,0 +1,6 @@
+(define (loop n)
+  (do ((j 1 (+ 1 j)))
+      ((> j n))
+    (println j)))
+
+(loop 10)
