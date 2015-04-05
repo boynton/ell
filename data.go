@@ -87,7 +87,7 @@ func (leof) String() string {
 //TRUE is Ell's true constant
 const TRUE lboolean = lboolean(true)
 
-//FALSE is Ell's flse constant
+//FALSE is Ell's false constant
 const FALSE lboolean = lboolean(false)
 
 type lboolean bool
@@ -125,8 +125,7 @@ type lsymbol struct {
 
 var symtag int
 
-//func newSymbol(name string) *lsymbol {
-func newSymbol(name string) lob {
+func newSymbol(name string) *lsymbol {
 	sym := lsymbol{name, symtag}
 	symtag++
 	return &sym
@@ -193,7 +192,7 @@ type lstring string
 
 var symString = newSymbol("string")
 
-func newString(val string) lob {
+func newString(val string) lstring {
 	s := lstring(val)
 	return s
 }
@@ -237,8 +236,8 @@ func encodeString(s string) string {
 		case '\r':
 			buf = append(buf, '\\')
 			buf = append(buf, 'r')
-			//to do: handle non-byte unicode by encoding as "\uhhhh"
 		default:
+			//to do: handle UTF8 correctly
 			buf = append(buf, byte(c))
 		}
 	}
@@ -251,7 +250,6 @@ func (s lstring) encodedString() string {
 }
 
 func (s lstring) String() string {
-	//return encodeString(string(s))
 	return string(s)
 }
 
@@ -269,7 +267,7 @@ func isCharacter(obj lob) bool {
 	return ok
 }
 
-func newCharacter(c rune) lob {
+func newCharacter(c rune) lchar {
 	v := lchar(c)
 	return v
 }
@@ -307,12 +305,12 @@ func isNumber(obj lob) bool {
 	return ok
 }
 
-func newInteger(n int64) lob {
+func newInteger(n int64) linteger {
 	v := linteger(n)
 	return v
 }
 
-func newReal(n float64) lob {
+func newReal(n float64) lreal {
 	v := lreal(n)
 	return v
 }
@@ -414,7 +412,6 @@ func less(n1 lob, n2 lob) (lob, error) {
 }
 
 func equal(o1 lob, o2 lob) bool {
-	//value based
 	if o1 == o2 {
 		return true
 	}
@@ -422,7 +419,6 @@ func equal(o1 lob, o2 lob) bool {
 }
 
 func numericallyEqual(o1 lob, o2 lob) (bool, error) {
-	//for scheme, only accepts numbers, else error
 	switch n1 := o1.(type) {
 	case linteger:
 		switch n2 := o2.(type) {
@@ -852,16 +848,12 @@ func length(seq lob) int {
 }
 
 func reverse(lst *llist) (*llist, error) {
-//	switch v := lst.(type) {
-//	case *llist:
-		rev := EMPTY_LIST
-		for lst != EMPTY_LIST {
-			rev = cons(lst.car, rev)
-			lst = lst.cdr
-		}
-		return rev, nil
-//	}
-//	return nil, newError("Not a list: ", lst)
+	rev := EMPTY_LIST
+	for lst != EMPTY_LIST {
+		rev = cons(lst.car, rev)
+		lst = lst.cdr
+	}
+	return rev, nil
 }
 
 func concat(seq1 *llist, seq2 *llist) (*llist, error) {
@@ -869,19 +861,15 @@ func concat(seq1 *llist, seq2 *llist) (*llist, error) {
 	if err != nil {
 		return nil, err
 	}
-//	switch lst := seq2.(type) {
-//	case *llist:
-		if rev == EMPTY_LIST {
-			return seq2, nil
-		}
+	if rev == EMPTY_LIST {
+		return seq2, nil
+	}
 	lst := seq2
-		for rev != EMPTY_LIST {
-			lst = cons(rev.car, lst)
-			rev = rev.cdr
-		}
-		return lst, nil
-//	}
-//	return nil, newError("Not a list: ", seq2)
+	for rev != EMPTY_LIST {
+		lst = cons(rev.car, lst)
+		rev = rev.cdr
+	}
+	return lst, nil
 }
 
 //
@@ -892,7 +880,7 @@ type lvector struct {
 	elements []lob
 }
 
-func newVector(size int, init lob) lob {
+func newVector(size int, init lob) *lvector {
 	elements := make([]lob, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
@@ -993,7 +981,7 @@ type lmap struct {
 	bindings map[lob]lob
 }
 
-func toMap(pairwiseBindings []lob, count int) (lob, error) {
+func toMap(pairwiseBindings []lob, count int) (*lmap, error) {
 	if count%2 != 0 {
 		return nil, newError("Initializing a map requires an even number of elements")
 	}
@@ -1005,7 +993,7 @@ func toMap(pairwiseBindings []lob, count int) (lob, error) {
 	return &m, nil
 }
 
-func newMap(pairwiseBindings ...lob) (lob, error) {
+func newMap(pairwiseBindings ...lob) (*lmap, error) {
 	return toMap(pairwiseBindings, len(pairwiseBindings))
 }
 
@@ -1102,7 +1090,6 @@ func put(obj lob, key lob, value lob) (lob, error) {
 //
 // ------------------- error
 //
-
 func newError(arg1 any, args ...any) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("%v", arg1))

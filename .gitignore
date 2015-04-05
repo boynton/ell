@@ -3,4 +3,5 @@ pkg/
 _*/
 *~
 .#*
+\#*
 src/github.com/boynton/repl/

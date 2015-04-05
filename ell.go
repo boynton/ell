@@ -118,7 +118,7 @@ func ellNumeq(argv []lob, argc int) (lob, error) {
 
 func ellDisplay(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
-		//todo: add the optional port argument like schema
+		//todo: add the optional port argument like scheme
 		return argcError("display", "1", argc)
 	}
 	fmt.Printf("%v", argv[0])
@@ -127,7 +127,7 @@ func ellDisplay(argv []lob, argc int) (lob, error) {
 
 func ellWrite(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
-		//todo: add the optional port argument like schema
+		//todo: add the optional port argument like scheme
 		return argcError("write", "1", argc)
 	}
 	fmt.Printf("%v", write(argv[0]))
@@ -136,7 +136,7 @@ func ellWrite(argv []lob, argc int) (lob, error) {
 
 func ellNewline(argv []lob, argc int) (lob, error) {
 	if argc != 0 {
-		//todo: add the optional port argument like schema
+		//todo: add the optional port argument like scheme
 		return argcError("newline", "0", argc)
 	}
 	fmt.Printf("\n")
@@ -208,7 +208,7 @@ func ellRemainder(argv []lob, argc int) (lob, error) {
 		}
 		n2, err := integerValue(argv[1])
 		if n2 == 0 {
-			return nil, newError("Remainder: divide by zero")
+			return nil, newError("remainder: divide by zero")
 		}
 		if err != nil {
 			return nil, err
