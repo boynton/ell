@@ -171,7 +171,7 @@ func expandDefine(module module, expr *llist) (*llist, error) {
 		}
 		body, ok := caddr(expr).(*llist)
 		if !ok {
-			return nil, syntaxError(expr)
+			return expr, nil
 		}
 		val, err := macroexpand(module, body)
 		if err != nil {
