@@ -399,6 +399,7 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 			if e != io.EOF && e != nil {
 				return nil, e
 			}
+			dr.ungetChar()
 			r, e := namedChar(string(name))
 			if e != nil {
 				return nil, e
