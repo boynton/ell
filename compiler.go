@@ -48,7 +48,15 @@ func calculateLocation(sym lob, env *llist) (int, int, bool) {
 }
 
 func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool, context string) error {
-	if isSymbol(expr) {
+	if isKeyword(expr) {
+		if !ignoreResult {
+			code.emitLiteral(expr)
+			if isTail {
+				code.emitReturn()
+			}
+		}
+		return nil
+	} else if isSymbol(expr) {
 		if i, j, ok := calculateLocation(expr, env); ok {
 			code.emitLocal(i, j)
 		} else {
@@ -293,6 +301,8 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 				for sym, defValue := range mp.bindings {
 					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EMPTY_LIST {
 						sym = cadr(sym)
+					} else {
+						sym = unkeyword(sym) //returns sym itself if nto a keyword, otherwise strips the colon
 					}
 					if !isSymbol(sym) {
 						return syntaxError(tmp)

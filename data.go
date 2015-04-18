@@ -138,6 +138,27 @@ func isSymbol(obj lob) bool {
 	return ok
 }
 
+func isKeyword(obj lob) bool {
+	sym, ok := obj.(*lsymbol)
+	if ok {
+		return (sym.Name[len(sym.Name)-1] == ':' || sym.Name[0] == ':')
+	}
+	return false
+}
+
+func unkeyword(obj lob) lob {
+	sym, ok := obj.(*lsymbol)
+	if ok {
+		last := len(sym.Name) - 1
+		if sym.Name[last] == ':' {
+			return intern(sym.Name[0:last])
+		} else if sym.Name[0] == ':' {
+			return intern(sym.Name[1:])
+		}
+	}
+	return obj
+}
+
 func (*lsymbol) typeSymbol() lob {
 	return symSymbol
 }
@@ -176,6 +197,9 @@ func symbols() []lob {
 
 func intern(name string) lob {
 	//to do: validate the symbol name, based on EllDN spec
+	if len(name) == 0 {
+		panic("empty symbol!")
+	}
 	v, ok := symtab[name]
 	if !ok {
 		v = newSymbol(name)

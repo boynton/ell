@@ -278,7 +278,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 			el[i] = defaults[i-expectedArgc]
 		}
 		for i := expectedArgc; i < argc; i += 2 {
-			key := stack[sp+i]
+			key := unkeyword(stack[sp+i])
 			if !isSymbol(key) {
 				return nil, newError("Bad keyword argument: ", key)
 			}
@@ -449,13 +449,27 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					i := 0
 					sp -= argc
 					for arglist != EMPTY_LIST {
-						stack[sp+i] = arglist.cdr
+						stack[sp+i] = arglist.car
 						i++
 						arglist = arglist.cdr
 					}
 					goto opcodeCallAgain
 				} else {
 					return nil, newError("unsupported instruction", tfun)
+				}
+			case *lsymbol:
+				if isKeyword(tfun) {
+					if argc != 1 {
+						return argcError(tfun.Name, "1", argc)
+					}
+					v, err := get(stack[sp], fun)
+					if err != nil {
+						return nil, err
+					}
+					stack[sp] = v
+					pc = savedPc
+				} else {
+					return nil, newError("Not a function: ", tfun)
 				}
 			default:
 				return nil, newError("Not a function: ", tfun)
@@ -533,6 +547,30 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					goto opcodeTailCallAgain
 				} else {
 					return nil, newError("unsupported instruction", tfun)
+				}
+			case *lsymbol:
+				if isKeyword(tfun) {
+					if argc != 1 {
+						return argcError(tfun.Name, "1", argc)
+					}
+					v, err := get(stack[sp], fun)
+					if err != nil {
+						return nil, err
+					}
+					stack[sp] = v
+					pc = env.pc
+					ops = env.ops
+					module = env.module
+					env = env.previous
+					if env == nil {
+						if trace {
+							println("------------------ END EXECUTION of ", module)
+							println(" -> sp:", sp)
+						}
+						return stack[sp], nil
+					}
+				} else {
+					return nil, newError("Not a function: ", tfun)
 				}
 			default:
 				return nil, newError("Not a function:", tfun)

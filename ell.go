@@ -24,6 +24,8 @@ func Ell(module module) {
 	module.defineFunction("not", ellNot)
 
 	module.defineFunction("null?", ellNullP)
+	module.defineFunction("symbol?", ellSymbolP)
+	module.defineFunction("keyword?", ellKeywordP)
 
 	module.defineFunction("list?", ellListP)
 	module.defineFunction("cons", ellCons)
@@ -404,6 +406,26 @@ func ellNullP(argv []lob, argc int) (lob, error) {
 		return FALSE, nil
 	}
 	return argcError("null?", "1", argc)
+}
+
+func ellSymbolP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isSymbol(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("symbol?", "1", argc)
+}
+
+func ellKeywordP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isKeyword(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("keyword?", "1", argc)
 }
 
 func ellListP(argv []lob, argc int) (lob, error) {

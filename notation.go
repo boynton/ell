@@ -289,10 +289,6 @@ func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
 func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 	buf := []byte{}
 	if firstChar != 0 {
-		if firstChar == ':' {
-			//leading colon is treated as a delimiter, letting us read JSON/EllDn directly
-			return dr.readData()
-		}
 		buf = append(buf, firstChar)
 	}
 	c, e := dr.getChar()
@@ -311,6 +307,12 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 		return nil, e
 	}
 	s := string(buf)
+	if len(s) == 0 {
+		return dr.readData()
+	}
+	if s == ":" {
+		return nil, newError("Bad token: :")
+	}
 	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
 	if s == "nil" || s == "null" { //EllDN is upwards compatible with JSON, so we need to handle null
 		return NIL, nil
@@ -318,14 +320,6 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 		return TRUE, nil
 	} else if s == "false" {
 		return FALSE, nil
-	}
-	if strings.HasSuffix(s, ":") {
-		//macro for quoted symbol (rather than introduce keywords as types)
-		s := s[:len(s)-1]
-		if s == "" {
-			return dr.readData()
-		}
-		return list(intern("quote"), intern(s)), nil
 	}
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err == nil {
