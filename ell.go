@@ -23,9 +23,14 @@ func Ell(module module) {
 	module.defineFunction("identical?", ellIdenticalP)
 	module.defineFunction("not", ellNot)
 
+	module.defineFunction("boolean?", ellBooleanP)
 	module.defineFunction("null?", ellNullP)
 	module.defineFunction("symbol?", ellSymbolP)
 	module.defineFunction("keyword?", ellKeywordP)
+	module.defineFunction("string?", ellStringP)
+	module.defineFunction("character?", ellCharacterP)
+	module.defineFunction("function?", ellFunctionP)
+	module.defineFunction("eof?", ellFunctionP)
 
 	module.defineFunction("list?", ellListP)
 	module.defineFunction("cons", ellCons)
@@ -41,7 +46,8 @@ func Ell(module module) {
 	module.defineFunction("print", ellPrint)
 	module.defineFunction("println", ellPrintln)
 
-	module.defineFunction("number?", ellNumberP)
+	module.defineFunction("number?", ellNumberP)   // either real or integer
+	module.defineFunction("integer?", ellIntegerP) //integer only
 	module.defineFunction("+", ellPlus)
 	module.defineFunction("-", ellMinus)
 	module.defineFunction("*", ellTimes)
@@ -182,6 +188,16 @@ func ellNumberP(argv []lob, argc int) (lob, error) {
 		return FALSE, nil
 	}
 	return argcError("number?", "1", argc)
+}
+
+func ellIntegerP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isInteger(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("integer?", "1", argc)
 }
 
 func ellQuotient(argv []lob, argc int) (lob, error) {
@@ -408,6 +424,16 @@ func ellNullP(argv []lob, argc int) (lob, error) {
 	return argcError("null?", "1", argc)
 }
 
+func ellBooleanP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isBoolean(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("boolean?", "1", argc)
+}
+
 func ellSymbolP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isSymbol(argv[0]) {
@@ -426,6 +452,36 @@ func ellKeywordP(argv []lob, argc int) (lob, error) {
 		return FALSE, nil
 	}
 	return argcError("keyword?", "1", argc)
+}
+
+func ellStringP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isString(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("string?", "1", argc)
+}
+
+func ellCharacterP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isCharacter(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("character?", "1", argc)
+}
+
+func ellFunctionP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isFunction(argv[0]) || isKeyword(argv[0]) {
+			return TRUE, nil
+		}
+		return FALSE, nil
+	}
+	return argcError("function?", "1", argc)
 }
 
 func ellListP(argv []lob, argc int) (lob, error) {

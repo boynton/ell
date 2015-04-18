@@ -115,7 +115,7 @@ func (b lboolean) String() string {
 }
 
 //
-// ------------------- symbol
+// ------------------- symbol, keyword
 //
 
 type lsymbol struct {
@@ -320,13 +320,20 @@ func (i lchar) String() string {
 
 var symNumber = newSymbol("number")
 
-func isNumber(obj lob) bool {
+func isInteger(obj lob) bool {
 	_, ok := obj.(linteger)
-	if ok {
-		return true
-	}
-	_, ok = obj.(lreal)
 	return ok
+}
+
+func isNumber(obj lob) bool {
+	switch obj.(type) {
+	case linteger:
+		return true
+	case lreal:
+		return true
+	default:
+		return false
+	}
 }
 
 func newInteger(n int64) linteger {
