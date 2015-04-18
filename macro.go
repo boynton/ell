@@ -77,7 +77,7 @@ func macroexpand(module module, expr *llist) (*llist, error) {
 	}
 	tail, err := expandSequence(module, cdr(expr))
 	if err != nil {
-			println("cannot macroexpand sequence")
+		println("cannot macroexpand sequence")
 		return nil, err
 	}
 	return cons(head, tail), nil
@@ -159,6 +159,13 @@ func expandIf(module module, expr lob) (*llist, error) {
 	}
 }
 
+func expandUndefine(module module, expr *llist) (*llist, error) {
+	if length(expr) != 2 || !isSymbol(cadr(expr)) {
+		return nil, syntaxError(expr)
+	}
+	return expr, nil
+}
+
 func expandDefine(module module, expr *llist) (*llist, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
@@ -231,6 +238,8 @@ func expandPrimitive(module module, fn lob, expr *llist) (*llist, error) {
 		return expandIf(module, expr)
 	case intern("define"):
 		return expandDefine(module, expr)
+	case intern("undefine"):
+		return expandUndefine(module, expr)
 	case intern("define-macro"):
 		return expandDefine(module, expr)
 		//return expandDefineMacro(module, expr)
@@ -419,7 +428,7 @@ func expandDo(expr lob) (lob, error) {
 	if length(expr) < 3 {
 		return nil, syntaxError(expr)
 	}
-	
+
 	bindings, ok := cadr(expr).(*llist)
 	if !ok {
 		return nil, syntaxError(expr)

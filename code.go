@@ -48,6 +48,8 @@ const (
 	opcodeCdr
 	opcodeAdd // 20
 	opcodeMul
+
+	opcodeUndefGlobal
 )
 
 // code is an Ell code object
@@ -67,6 +69,7 @@ type code interface {
 	emitLocal(i int, j int)
 	emitSetLocal(i int, j int)
 	emitDefGlobal(sym lob)
+	emitUndefGlobal(sym lob)
 	emitDefMacro(sym lob)
 	emitClosure(code code)
 	emitJumpFalse(offset int) int
@@ -83,32 +86,33 @@ type code interface {
 }
 
 type lcode struct {
-	mod          *lmodule
-	name         string
-	ops          []int
-	argc         int
-	defaults     []lob
-	keys         []lob
-	symClosure   lob
-	symFunction  lob
-	symLiteral   lob
-	symLocal     lob
-	symSetLocal  lob
-	symGlobal    lob
-	symJump      lob
-	symJumpFalse lob
-	symCall      lob
-	symTailCall  lob
-	symReturn    lob
-	symPop       lob
-	symDefGlobal lob
-	symDefMacro  lob
-	symUse       lob
-	symCar       lob
-	symCdr       lob
-	symNull      lob
-	symAdd       lob
-	symMul       lob
+	mod            *lmodule
+	name           string
+	ops            []int
+	argc           int
+	defaults       []lob
+	keys           []lob
+	symClosure     lob
+	symFunction    lob
+	symLiteral     lob
+	symLocal       lob
+	symSetLocal    lob
+	symGlobal      lob
+	symJump        lob
+	symJumpFalse   lob
+	symCall        lob
+	symTailCall    lob
+	symReturn      lob
+	symPop         lob
+	symDefGlobal   lob
+	symUndefGlobal lob
+	symDefMacro    lob
+	symUse         lob
+	symCar         lob
+	symCdr         lob
+	symNull        lob
+	symAdd         lob
+	symMul         lob
 }
 
 func newCode(mod module, argc int, defaults []lob, keys []lob, name string) code {
@@ -134,6 +138,7 @@ func newCode(mod module, argc int, defaults []lob, keys []lob, name string) code
 		intern("return"),
 		intern("pop"),
 		intern("defglobal"),
+		intern("undefglobal"),
 		intern("defmacro"),
 		intern("use"),
 		intern("car"),
@@ -233,8 +238,12 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			buf.WriteString(begin + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeGlobal:
-			//fmt.Printf("%sL%03d:\t(defglobal%6d ; %v)\n", indent, offset, code.ops[offset+1], code.mod.constants[code.ops[offset+1]])
+			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, code.mod.constants[code.ops[offset+1]])
 			buf.WriteString(begin + "(global " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			offset += 2
+		case opcodeUndefGlobal:
+			//fmt.Printf("%sL%03d:\t(unglobal %v)\n", indent, offset, code.mod.constants[code.ops[offset+1]])
+			buf.WriteString(begin + "(undefglobal " + write(code.mod.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefMacro:
 			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], code.mod.constants[code.ops[offset+1]])
@@ -357,6 +366,8 @@ func (code *lcode) loadOps(lst lob) error {
 			code.emitSetLocal(i, j)
 		case code.symGlobal:
 			code.emitGlobal(cadr(instr))
+		case code.symUndefGlobal:
+			code.emitUndefGlobal(cadr(instr))
 		case code.symJump:
 			loc, err := intValue(cadr(instr))
 			if err != nil {
@@ -444,6 +455,10 @@ func (code *lcode) emitSetLocal(i int, j int) {
 }
 func (code *lcode) emitDefGlobal(sym lob) {
 	code.ops = append(code.ops, opcodeDefGlobal)
+	code.ops = append(code.ops, code.mod.putConstant(sym))
+}
+func (code *lcode) emitUndefGlobal(sym lob) {
+	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
 func (code *lcode) emitDefMacro(sym lob) {

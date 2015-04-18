@@ -126,6 +126,23 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 				}
 			}
 			return err
+		case intern("undefine"):
+			if lstlen != 2 {
+				return syntaxError(expr)
+			}
+			sym := cadr(lst)
+			if !isSymbol(sym) {
+				return syntaxError(expr)
+			}
+			code.emitUndefGlobal(sym)
+			if ignoreResult {
+			} else {
+				code.emitLiteral(sym)
+				if isTail {
+					code.emitReturn()
+				}
+			}
+			return nil
 		case intern("define-macro"):
 			// (defmacro <name> (lambda (expr) '(the expanded value)))
 			if lstlen != 3 {

@@ -353,6 +353,13 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				vm.defs = append(vm.defs, sym)
 			}
 			pc += 2
+		case opcodeUndefGlobal:
+			if trace {
+				println(pc, "\tunglob\t", module.constants[ops[pc+1]])
+			}
+			sym := module.constants[ops[pc+1]]
+			module.undefGlobal(sym)
+			pc += 2
 		case opcodeDefMacro:
 			if trace {
 				println(pc, "\tdefmacro\t", module.constants[ops[pc+1]])

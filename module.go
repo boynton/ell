@@ -32,6 +32,7 @@ type module interface {
 	globals() []lob
 	global(sym lob) lob
 	defGlobal(sym lob, val lob)
+	undefGlobal(sym lob)
 	setGlobal(sym lob, val lob) error
 	macros() []lob
 	macro(sym lob) lob
@@ -183,6 +184,13 @@ func (mod *lmodule) defGlobal(sym lob, val lob) {
 	}
 	b := binding{sym, val}
 	mod.globalMap[s.tag] = &b
+}
+
+func (mod *lmodule) undefGlobal(sym lob) {
+	s := sym.(*lsymbol)
+	if s.tag < len(mod.globalMap) {
+		mod.globalMap[s.tag] = nil
+	}
 }
 
 func (mod *lmodule) setGlobal(sym lob, val lob) error {
