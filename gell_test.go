@@ -40,23 +40,23 @@ func testNotIdentical(t *testing.T, o1 lob, o2 lob) {
 }
 
 func TestNil(t *testing.T) {
-	n1 := NIL
-	testIdentical(t, n1, NIL)
-	testNotIdentical(t, NIL, nil)
-	testType(t, "null", NIL.typeSymbol())
-	if n1 != NIL {
+	n1 := Nil
+	testIdentical(t, n1, Nil)
+	testNotIdentical(t, Nil, nil)
+	testType(t, "null", Nil.typeSymbol())
+	if n1 != Nil {
 		t.Error("nil isn't")
 	}
 }
 
 func TestBooleans(t *testing.T) {
-	b1 := TRUE
-	b2 := FALSE
-	testType(t, "boolean", TRUE.typeSymbol())
-	testType(t, "boolean", FALSE.typeSymbol())
-	testIdentical(t, TRUE.typeSymbol(), FALSE.typeSymbol())
-	testIdentical(t, b1, TRUE)
-	testIdentical(t, b2, FALSE)
+	b1 := True
+	b2 := False
+	testType(t, "boolean", True.typeSymbol())
+	testType(t, "boolean", False.typeSymbol())
+	testIdentical(t, True.typeSymbol(), False.typeSymbol())
+	testIdentical(t, b1, True)
+	testIdentical(t, b2, False)
 	testNotIdentical(t, b1, b2)
 	if !isBoolean(b1) {
 		t.Error("boolean value isn't:", b1)
