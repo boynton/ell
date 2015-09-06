@@ -20,6 +20,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"path/filepath"
 )
 
 var verbose bool
@@ -27,11 +28,22 @@ var extendedInstructions = false
 
 // Version - this version of gell
 const Version = "gell v0.1"
+
+// EllPath is the path where the library *.ell files can be found
+var EllPath string
+
 func main() {
+	EllPath = os.Getenv("ELL_PATH")
+	ellini := filepath.Join(os.Getenv("HOME"), ".ell")
+	if EllPath == "" {
+		filename, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+		EllPath = ".:" + filepath.Join(filepath.Dir(filename), "src/github.com/boynton/gell/lib")
+	}
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
 	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
 	pExtended := flag.Bool("e", false, "enable extended VM instructions for common primitive operations")
+	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
 	flag.Parse()
 	args := flag.Args()
 	if *pVerbose {
@@ -48,6 +60,16 @@ func main() {
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
 		environment := newEnvironment("main", Ell, interrupts)
+		if !*pNoInit {
+			_, err := os.Stat(ellini)
+			if err == nil {
+				err := environment.loadModule(ellini)
+				if err != nil {
+					println("*** ", err)
+					os.Exit(1)
+				}
+			}
+		}
 		readEvalPrintLoop(environment)
 	} else {
 		/*

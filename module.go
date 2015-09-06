@@ -266,13 +266,7 @@ func (mod *lmodule) exports() []lob {
 }
 
 func (mod *lmodule) findModuleByName(moduleName string) (string, error) {
-	var path []string
-	spath := os.Getenv("ELL_PATH")
-	if spath != "" {
-		path = strings.Split(spath, ":")
-	} else {
-		path = []string{".", "tests/"}
-	}
+	path := strings.Split(EllPath, ":")
 	name := moduleName
 	lname := moduleName
 	if !strings.HasSuffix(name, ".ell") {
