@@ -53,7 +53,7 @@ func macroexpandObject(mod module, expr lob) (lob, error) {
 	return expr, nil
 }
 
-func macroexpand(module module, expr *llist) (*llist, error) {
+func macroexpand(module module, expr *llist) (lob, error) {
 	lst := expr
 	fn := car(lst)
 	head := lob(fn)
@@ -85,7 +85,7 @@ func macroexpand(module module, expr *llist) (*llist, error) {
 
 var currentModule module
 
-func (mac *lmacro) expand(module module, expr *llist) (*llist, error) {
+func (mac *lmacro) expand(module module, expr *llist) (lob, error) {
 	expander := mac.expander
 	switch fun := expander.(type) {
 	case *lclosure:
@@ -103,10 +103,7 @@ func (mac *lmacro) expand(module module, expr *llist) (*llist, error) {
 		currentModule = module //not ideal
 		expanded, err := fun.fun(args, 1)
 		if err == nil {
-			if result, ok := expanded.(*llist); ok {
-				return result, nil
-			}
-			err = newError("macro error in '", mac.name, "': ", err)
+			return expanded, nil
 		}
 		return nil, err
 	}
@@ -228,7 +225,7 @@ func expandSet(module module, expr *llist) (*llist, error) {
 	return list(car(expr), cadr(expr), val), nil
 }
 
-func expandPrimitive(module module, fn lob, expr *llist) (*llist, error) {
+func expandPrimitive(module module, fn lob, expr *llist) (lob, error) {
 	switch fn {
 	case intern("quote"):
 		return expr, nil
@@ -289,7 +286,7 @@ func crackLetrecBindings(bindings *llist, tail *llist) (*llist, *llist, bool) {
 	return toList(names), tail, true
 }
 
-func expandLetrec(expr *llist) (lob, error) {
+func expandLetrec(expr lob) (lob, error) {
 	module := currentModule
 	// (letrec () expr ...) -> (begin expr ...)
 	// (letrec ((x 1) (y 2)) expr ...) -> ((lambda (x y) (set! x 1) (set! y 2) expr ...) nil nil)
@@ -339,7 +336,7 @@ func crackLetBindings(module module, bindings *llist) (*llist, *llist, bool) {
 	return toList(names), toList(values), true
 }
 
-func expandLet(expr *llist) (*llist, error) {
+func expandLet(expr lob) (lob, error) {
 	module := currentModule
 	// (let () expr ...) -> (begin expr ...)
 	// (let ((x 1) (y 2)) expr ...) -> ((lambda (x y) expr ...) 1 2)
@@ -367,7 +364,7 @@ func expandLet(expr *llist) (*llist, error) {
 	return cons(code, values), nil
 }
 
-func expandNamedLet(expr *llist) (*llist, error) {
+func expandNamedLet(expr lob) (lob, error) {
 	module := currentModule
 	name := cadr(expr)
 	bindings, ok := caddr(expr).(*llist)
@@ -409,14 +406,16 @@ func crackDoBindings(module module, bindings *llist) (*llist, *llist, *llist, bo
 		bindings = cdr(bindings)
 	}
 	var err error
-	inits, err = macroexpand(module, inits)
+	inits2, err := macroexpand(module, inits)
 	if err != nil {
 		return nil, nil, nil, false
 	}
-	steps, err = macroexpand(module, steps)
+	inits, _ = inits2.(*llist)
+	steps2, err := macroexpand(module, steps)
 	if err != nil {
 		return nil, nil, nil, false
 	}
+	steps, _ = steps2.(*llist)
 	return names, inits, steps, true
 }
 
@@ -472,3 +471,50 @@ func expandDo(expr lob) (lob, error) {
 func expandCond(expr lob) (lob, error) {
 	return nil, newError("expandCond NYI")
 }
+
+func expandAnd(expr lob) (lob, error) {
+	module := currentModule
+	//(and x y) -> (if
+	i := length(expr)
+	if i == 1 {
+		//(and) -> true
+		return True, nil
+	} else if i == 2 {
+		//(and x) -> x
+		tmp, err := macroexpandObject(module, cadr(expr))
+		if err == nil {
+			return tmp, nil
+		}
+		return nil, err
+	} else if i == 3 {
+		//(and x y) -> (if x y false)
+		tmp, err := macroexpandObject(module, cadr(expr))
+		if err == nil {
+			tmp2, err := macroexpandObject(module, caddr(expr))
+			if err == nil {
+				return list(intern("if"), tmp, tmp2, False), nil
+			}
+		}
+		return nil, err
+	} else {
+		//(and x y ...) -> (if x (if y ...) false)
+		clause := cdr(expr)
+		tmp := EmptyList
+		for i > 3 {
+			i = i - 1
+			tmp2, err := macroexpandObject(module, car(clause))
+			if err != nil {
+				return nil, err
+			}
+			tmp = cons(tmp2, tmp)
+			clause = cdr(clause);
+		}
+		result := list(intern("if"), car(clause), cadr(clause), False)
+		for tmp != EmptyList {
+			result = list(intern("if"), car(tmp), result, False)
+			tmp = cdr(tmp)
+		}
+		return macroexpand(module, result)
+	}
+}
+

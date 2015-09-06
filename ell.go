@@ -34,6 +34,7 @@ func Ell(module module) {
 	module.defineMacro("letrec", ellLetrec)
 	module.defineMacro("do", ellDo)
 	module.defineMacro("cond", ellCond)
+	module.defineMacro("and", ellAnd)
 
 	module.defineFunction("type", ellType)
 	module.defineFunction("equal?", ellEq)
@@ -97,6 +98,32 @@ func Ell(module module) {
 	module.defineFunction("length", ellLength)
 	module.defineFunction("json", ellJSON)
 }
+
+//
+//expanders - these only gets called from the macro expander itself, so we know the single arg is an *llist
+//
+
+func ellLetrec(argv []lob, argc int) (lob, error) {
+	return expandLetrec(argv[0])
+}
+
+func ellLet(argv []lob, argc int) (lob, error) {
+	return expandLet(argv[0])
+}
+
+func ellDo(argv []lob, argc int) (lob, error) {
+	return expandDo(argv[0])
+}
+
+func ellCond(argv []lob, argc int) (lob, error) {
+	return expandCond(argv[0])
+}
+
+func ellAnd(argv []lob, argc int) (lob, error) {
+	return expandAnd(argv[0])
+}
+
+// functions
 
 func ellVersion(argv []lob, argc int) (lob, error) {
 	return newString(Version), nil
@@ -578,44 +605,6 @@ func ellCons(argv []lob, argc int) (lob, error) {
 		}
 	}
 	return argcError("cons", "2", argc)
-}
-
-func ellLetrec(argv []lob, argc int) (lob, error) {
-	if argc != 1 {
-		return argcError("letrec", "1", argc)
-	}
-	switch lst := argv[0].(type) {
-	case *llist:
-		return expandLetrec(lst)
-	default:
-		return argTypeError("list", 1, lst)
-	}
-}
-
-func ellLet(argv []lob, argc int) (lob, error) {
-	if argc != 1 {
-		return argcError("let", "1", argc)
-	}
-	switch lst := argv[0].(type) {
-	case *llist:
-		return expandLet(lst)
-	default:
-		return argTypeError("list", 1, lst)
-	}
-}
-
-func ellDo(argv []lob, argc int) (lob, error) {
-	if argc != 1 {
-		return argcError("do", "1", argc)
-	}
-	return expandDo(argv[0])
-}
-
-func ellCond(argv []lob, argc int) (lob, error) {
-	if argc != 1 {
-		return argcError("cond", "1", argc)
-	}
-	return expandCond(argv[0])
 }
 
 func ellMapP(argv []lob, argc int) (lob, error) {
