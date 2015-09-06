@@ -46,7 +46,7 @@ func (mac *lmacro) String() string {
 
 func macroexpandObject(mod module, expr lob) (lob, error) {
 	if lst, ok := expr.(*llist); ok {
-		if lst != EMPTY_LIST {
+		if lst != EmptyList {
 			return macroexpand(mod, lst)
 		}
 	}
@@ -56,7 +56,7 @@ func macroexpandObject(mod module, expr lob) (lob, error) {
 func macroexpand(module module, expr *llist) (*llist, error) {
 	lst := expr
 	fn := car(lst)
-	var head lob = fn
+	head := lob(fn)
 	if isSymbol(fn) {
 		result, err := expandPrimitive(module, fn, lst)
 		if err != nil {
@@ -118,7 +118,7 @@ func expandSequence(module module, seq *llist) (*llist, error) {
 	if seq == nil {
 		panic("Whoops: should be (), not nil!")
 	}
-	for seq != EMPTY_LIST {
+	for seq != EmptyList {
 		switch item := car(seq).(type) {
 		case *llist:
 			expanded, err := macroexpand(module, item)
@@ -132,8 +132,8 @@ func expandSequence(module module, seq *llist) (*llist, error) {
 		seq = cdr(seq)
 	}
 	lst := toList(result)
-	if seq != EMPTY_LIST {
-		tmp := cons(seq, EMPTY_LIST)
+	if seq != EmptyList {
+		tmp := cons(seq, EmptyList)
 		return concat(lst, tmp)
 	}
 	return lst, nil
@@ -148,7 +148,7 @@ func expandIf(module module, expr lob) (*llist, error) {
 		}
 		return cons(car(expr), tmp), nil
 	} else if i == 3 {
-		tmp := list(cadr(expr), caddr(expr), NIL)
+		tmp := list(cadr(expr), caddr(expr), Nil)
 		tmp, err := expandSequence(module, tmp)
 		if err != nil {
 			return nil, err
@@ -262,7 +262,7 @@ func expandPrimitive(module module, fn lob, expr *llist) (*llist, error) {
 
 func crackLetrecBindings(bindings *llist, tail *llist) (*llist, *llist, bool) {
 	var names []lob
-	for bindings != EMPTY_LIST {
+	for bindings != EmptyList {
 		if isList(bindings) {
 			tmp := car(bindings)
 			if isList(tmp) {
@@ -294,7 +294,7 @@ func expandLetrec(expr *llist) (lob, error) {
 	// (letrec () expr ...) -> (begin expr ...)
 	// (letrec ((x 1) (y 2)) expr ...) -> ((lambda (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := cddr(expr)
-	if body == EMPTY_LIST {
+	if body == EmptyList {
 		return nil, syntaxError(expr)
 	}
 	bindings := cadr(expr)
@@ -310,21 +310,21 @@ func expandLetrec(expr *llist) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	values := newList(length(names), NIL)
+	values := newList(length(names), Nil)
 	return cons(code, values), nil
 }
 
 func crackLetBindings(module module, bindings *llist) (*llist, *llist, bool) {
 	var names []lob
 	var values []lob
-	for bindings != EMPTY_LIST {
+	for bindings != EmptyList {
 		tmp := car(bindings)
 		if isList(tmp) {
 			name := car(tmp)
 			if isSymbol(name) {
 				names = append(names, name)
 				tmp2 := cdr(tmp)
-				if tmp2 != EMPTY_LIST {
+				if tmp2 != EmptyList {
 					val, err := macroexpandObject(module, car(tmp2))
 					if err == nil {
 						values = append(values, val)
@@ -357,7 +357,7 @@ func expandLet(expr *llist) (*llist, error) {
 		return nil, syntaxError(expr)
 	}
 	body := cddr(expr)
-	if body == EMPTY_LIST {
+	if body == EmptyList {
 		return nil, syntaxError(expr)
 	}
 	code, err := macroexpand(module, cons(intern("lambda"), cons(names, body)))
@@ -385,10 +385,10 @@ func expandNamedLet(expr *llist) (*llist, error) {
 }
 
 func crackDoBindings(module module, bindings *llist) (*llist, *llist, *llist, bool) {
-	names := EMPTY_LIST
-	inits := EMPTY_LIST
-	steps := EMPTY_LIST
-	for bindings != EMPTY_LIST {
+	names := EmptyList
+	inits := EmptyList
+	steps := EmptyList
+	for bindings != EmptyList {
 		tmp := car(bindings)
 		if !isList(tmp) {
 			return nil, nil, nil, false
@@ -401,7 +401,7 @@ func crackDoBindings(module module, bindings *llist) (*llist, *llist, *llist, bo
 		}
 		names = cons(car(tmp), names)
 		inits = cons(cadr(tmp), inits)
-		if cddr(tmp) != EMPTY_LIST {
+		if cddr(tmp) != EmptyList {
 			steps = cons(caddr(tmp), steps)
 		} else {
 			steps = cons(car(tmp), steps)
@@ -443,14 +443,14 @@ func expandDo(expr lob) (lob, error) {
 	}
 	tmpl = tmp.(*llist)
 	exitPred := car(tmpl)
-	var exitExprs lob = NIL
-	if cddr(tmpl) != EMPTY_LIST {
+	var exitExprs lob = Nil
+	if cddr(tmpl) != EmptyList {
 		exitExprs = cons(intern("begin"), cdr(tmpl))
 	} else {
 		exitExprs = cadr(tmpl)
 	}
 	loopSym := intern("system_loop")
-	if cdddr(expr) != EMPTY_LIST {
+	if cdddr(expr) != EmptyList {
 		tmpl = cdddr(expr)
 		tmpl = cons(intern("begin"), tmpl)
 		tmpl2 = cons(loopSym, steps)

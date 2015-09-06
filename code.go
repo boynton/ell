@@ -297,7 +297,7 @@ func (code *lcode) module() module {
 
 func (code *lcode) loadOps(lst lob) error {
 	name := ""
-	for lst != NIL {
+	for lst != Nil {
 		instr := car(lst)
 		op := car(instr)
 		switch op {

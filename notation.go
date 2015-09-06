@@ -141,7 +141,7 @@ func (dr *dataReader) readData() (lob, error) {
 			if err != nil {
 				return nil, err
 			}
-			if o == EOF || o == NIL {
+			if o == EOF || o == Nil {
 				return o, nil
 			}
 			return list(intern("quote"), o), nil
@@ -200,22 +200,22 @@ func (dr *dataReader) decodeString() (lob, error) {
 			case 'u', 'U':
 				c, e = dr.getChar()
 				if e != nil {
-					return NIL, e
+					return Nil, e
 				}
 				buf = append(buf, c)
 				c, e = dr.getChar()
 				if e != nil {
-					return NIL, e
+					return Nil, e
 				}
 				buf = append(buf, c)
 				c, e = dr.getChar()
 				if e != nil {
-					return NIL, e
+					return Nil, e
 				}
 				buf = append(buf, c)
 				c, e = dr.getChar()
 				if e != nil {
-					return NIL, e
+					return Nil, e
 				}
 				buf = append(buf, c)
 			}
@@ -315,11 +315,11 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 	}
 	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
 	if s == "nil" || s == "null" { //EllDN is upwards compatible with JSON, so we need to handle null
-		return NIL, nil
+		return Nil, nil
 	} else if s == "true" {
-		return TRUE, nil
+		return True, nil
 	} else if s == "false" {
-		return FALSE, nil
+		return False, nil
 	}
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err == nil {
@@ -410,14 +410,14 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 		}
 		return newCharacter(rune(c)), nil
 	case 'f':
-		return FALSE, nil
+		return False, nil
 	case 't':
-		return TRUE, nil
+		return True, nil
 	case 'n':
-		return NIL, nil
+		return Nil, nil
 	case '!': //to handle shell scripts, handle #! as a comment
 		err := dr.decodeComment()
-		return NIL, err
+		return Nil, err
 	default:
 		return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
 	}
@@ -442,11 +442,11 @@ func write(obj lob) string {
 func writeData(obj lob, json bool) (string, error) {
 	//an error is never returned for non-json
 	if json {
-		if obj == TRUE {
+		if obj == True {
 			return "true", nil
-		} else if obj == FALSE {
+		} else if obj == False {
 			return "false", nil
-		} else if obj == NIL {
+		} else if obj == Nil {
 			return "null", nil
 		}
 	}
@@ -513,11 +513,11 @@ func writeData(obj lob, json bool) (string, error) {
 }
 
 func writeList(lst *llist) string {
-	if lst == EMPTY_LIST {
+	if lst == EmptyList {
 		return "()"
 	}
 	if lst.car == intern("quote") {
-		if lst.cdr != EMPTY_LIST {
+		if lst.cdr != EmptyList {
 			return "'" + lst.cdr.String()
 		}
 	}
@@ -525,7 +525,7 @@ func writeList(lst *llist) string {
 	buf.WriteString("(")
 	buf.WriteString(write(car(lst)))
 	lst = lst.cdr
-	for lst != EMPTY_LIST {
+	for lst != EmptyList {
 		buf.WriteString(" ")
 		s, _ := writeData(lst.car, false)
 		buf.WriteString(s)

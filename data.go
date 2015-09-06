@@ -38,8 +38,8 @@ type lob interface {
 // ------------------- nil
 //
 
-// NIL is Ell's version of nil, not Go's
-const NIL = lnil(0)
+// Nil is Ell's version of nil, not Go's
+const Nil = lnil(0)
 
 type lnil int
 
@@ -50,7 +50,7 @@ func (lnil) typeSymbol() lob {
 }
 
 func (lnil) equal(another lob) bool {
-	return another == NIL
+	return another == Nil
 }
 
 func (v lnil) String() string {
@@ -85,10 +85,10 @@ func (leof) String() string {
 //
 
 //TRUE is Ell's true constant
-const TRUE lboolean = lboolean(true)
+const True lboolean = lboolean(true)
 
 //FALSE is Ell's false constant
-const FALSE lboolean = lboolean(false)
+const False lboolean = lboolean(false)
 
 type lboolean bool
 
@@ -176,7 +176,7 @@ func (sym *lsymbol) String() string {
 
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]lob{
-	"null":    symNull, //the type of NIL
+	"null":    symNull, //the type of Nil
 	"boolean": symBoolean,
 	"symbol":  symSymbol,
 	"string":  symString,
@@ -388,9 +388,9 @@ func greaterOrEqual(n1 lob, n2 lob) (lob, error) {
 		f2, err := realValue(n2)
 		if err == nil {
 			if f1 >= f2 {
-				return TRUE, nil
+				return True, nil
 			}
-			return FALSE, nil
+			return False, nil
 		}
 		return nil, err
 	}
@@ -403,9 +403,9 @@ func lessOrEqual(n1 lob, n2 lob) (lob, error) {
 		f2, err := realValue(n2)
 		if err == nil {
 			if f1 <= f2 {
-				return TRUE, nil
+				return True, nil
 			}
-			return FALSE, nil
+			return False, nil
 		}
 		return nil, err
 	}
@@ -418,9 +418,9 @@ func greater(n1 lob, n2 lob) (lob, error) {
 		f2, err := realValue(n2)
 		if err == nil {
 			if f1 > f2 {
-				return TRUE, nil
+				return True, nil
 			}
-			return FALSE, nil
+			return False, nil
 		}
 		return nil, err
 	}
@@ -433,9 +433,9 @@ func less(n1 lob, n2 lob) (lob, error) {
 		f2, err := realValue(n2)
 		if err == nil {
 			if f1 < f2 {
-				return TRUE, nil
+				return True, nil
 			}
-			return FALSE, nil
+			return False, nil
 		}
 		return nil, err
 	}
@@ -700,10 +700,12 @@ type llist struct {
 }
 
 var symList = newSymbol("list")
-var EMPTY_LIST = initEmpty()
+
+// EmptyList - the value of (), terminates linked lists
+var EmptyList = initEmpty()
 
 func initEmpty() *llist {
-	lst := &llist{NIL, nil}
+	lst := &llist{Nil, nil}
 	lst.cdr = lst
 	return lst
 }
@@ -719,8 +721,8 @@ func (*llist) typeSymbol() lob {
 
 func (lst *llist) equal(another lob) bool {
 	if a, ok := another.(*llist); ok {
-		for lst != EMPTY_LIST {
-			if a == EMPTY_LIST {
+		for lst != EmptyList {
+			if a == EmptyList {
 				return false
 			}
 			if !equal(lst.car, a.car) {
@@ -743,7 +745,7 @@ func (lst *llist) String() string {
 	if lst == lst.cdr {
 		return "()"
 	}
-	for lst != EMPTY_LIST {
+	for lst != EmptyList {
 		buf.WriteString(delim)
 		delim = " "
 		buf.WriteString(lst.car.String())
@@ -754,12 +756,12 @@ func (lst *llist) String() string {
 }
 
 func (lst *llist) length() int {
-	if lst == EMPTY_LIST {
+	if lst == EmptyList {
 		return 0
 	}
 	count := 1
 	o := lst.cdr
-	for o != EMPTY_LIST {
+	for o != EmptyList {
 		count++
 		o = o.cdr
 	}
@@ -767,7 +769,7 @@ func (lst *llist) length() int {
 }
 
 func newList(count int, val lob) *llist {
-	result := EMPTY_LIST
+	result := EmptyList
 	for i := 0; i < count; i++ {
 		result = cons(val, result)
 	}
@@ -783,7 +785,7 @@ func car(lst lob) lob {
 	case *llist:
 		return p.car
 	}
-	return NIL
+	return Nil
 }
 
 func setCar(lst lob, obj lob) {
@@ -794,13 +796,13 @@ func setCar(lst lob, obj lob) {
 }
 
 func cdr(lst lob) *llist {
-	if lst != EMPTY_LIST {
+	if lst != EmptyList {
 		switch p := lst.(type) {
 		case *llist:
 			return p.cdr
 		}
 	}
-	return EMPTY_LIST
+	return EmptyList
 }
 
 func setCdr(lst lob, obj lob) {
@@ -840,7 +842,7 @@ func cddddr(lst lob) *llist {
 }
 
 func toList(vec []lob) *llist {
-	p := EMPTY_LIST
+	p := EmptyList
 	for i := len(vec) - 1; i >= 0; i-- {
 		v := vec[i]
 		p = cons(v, p)
@@ -861,7 +863,7 @@ func vectorToList(vec lob) (lob, error) {
 }
 
 func length(seq lob) int {
-	if seq == NIL {
+	if seq == Nil {
 		return 0
 	}
 	switch v := seq.(type) {
@@ -879,8 +881,8 @@ func length(seq lob) int {
 }
 
 func reverse(lst *llist) (*llist, error) {
-	rev := EMPTY_LIST
-	for lst != EMPTY_LIST {
+	rev := EmptyList
+	for lst != EmptyList {
 		rev = cons(lst.car, rev)
 		lst = lst.cdr
 	}
@@ -892,11 +894,11 @@ func concat(seq1 *llist, seq2 *llist) (*llist, error) {
 	if err != nil {
 		return nil, err
 	}
-	if rev == EMPTY_LIST {
+	if rev == EmptyList {
 		return seq2, nil
 	}
 	lst := seq2
-	for rev != EMPTY_LIST {
+	for rev != EmptyList {
 		lst = cons(rev.car, lst)
 		rev = rev.cdr
 	}
@@ -1089,7 +1091,7 @@ func (m *lmap) get(key lob) lob {
 	if val, ok := m.bindings[key]; ok {
 		return val
 	}
-	return NIL
+	return Nil
 }
 
 func (m *lmap) has(key lob) bool {

@@ -18,7 +18,7 @@ package main
 
 func compile(module module, expr lob) (code, error) {
 	code := newCode(module, 0, nil, nil, "")
-	err := compileExpr(code, EMPTY_LIST, expr, false, false, "")
+	err := compileExpr(code, EmptyList, expr, false, false, "")
 	if err != nil {
 		return nil, err
 	}
@@ -28,12 +28,12 @@ func compile(module module, expr lob) (code, error) {
 
 func calculateLocation(sym lob, env *llist) (int, int, bool) {
 	i := 0
-	for env != EMPTY_LIST {
+	for env != EmptyList {
 		j := 0
 		e := car(env)
 		switch ee := e.(type) {
 		case *llist:
-			for ee != EMPTY_LIST {
+			for ee != EmptyList {
 				if car(ee) == sym {
 					return i, j, true
 				}
@@ -69,7 +69,7 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 		}
 		return nil
 	} else if isList(expr) {
-		if expr == EMPTY_LIST {
+		if expr == EmptyList {
 			if !ignoreResult {
 				code.emitLiteral(expr)
 				if isTail {
@@ -115,7 +115,7 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 			sym := cadr(lst)
 			val := caddr(lst)
 			if !isSymbol(sym) {
-				if isList(sym) && sym != EMPTY_LIST {
+				if isList(sym) && sym != EmptyList {
 					args := cdr(sym)
 					sym = car(sym)
 					//we could give the symbolic name to the function
@@ -250,15 +250,14 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 		}
 		code.emitMap(vlen)
 		return nil
-	} else {
-		if !ignoreResult {
-			code.emitLiteral(expr)
-			if isTail {
-				code.emitReturn()
-			}
-		}
-		return nil
 	}
+	if !ignoreResult {
+		code.emitLiteral(expr)
+		if isTail {
+			code.emitReturn()
+		}
+	}
+	return nil
 }
 
 func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ignoreResult bool, context string) error {
@@ -266,19 +265,19 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 	syms := []lob{}
 	var defaults []lob
 	var keys []lob
-	var tmp lob = args
+	tmp := args
 	rest := false
 	if !isSymbol(args) {
-		for tmp != EMPTY_LIST {
+		for tmp != EmptyList {
 			a := car(tmp)
 			if vec, ok := a.(*lvector); ok {
 				//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
-				if cdr(tmp) != EMPTY_LIST {
+				if cdr(tmp) != EmptyList {
 					return syntaxError(tmp)
 				}
 				defaults = make([]lob, 0, len(vec.elements))
 				for _, sym := range vec.elements {
-					var def lob = NIL
+					def := lob(Nil)
 					if isList(sym) {
 						def = cadr(sym)
 						sym = car(sym)
@@ -289,17 +288,17 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 					syms = append(syms, sym)
 					defaults = append(defaults, def)
 				}
-				tmp = EMPTY_LIST
+				tmp = EmptyList
 				break
 			} else if mp, ok := a.(*lmap); ok {
 				//i.e. (x {y: 23, z: 57}]) is for optional y and z, keyword args, with defaults
-				if cdr(tmp) != EMPTY_LIST {
+				if cdr(tmp) != EmptyList {
 					return syntaxError(tmp)
 				}
 				defaults = make([]lob, 0, len(mp.bindings))
 				keys = make([]lob, 0, len(mp.bindings))
 				for sym, defValue := range mp.bindings {
-					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EMPTY_LIST {
+					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {
 						sym = unkeyword(sym) //returns sym itself if nto a keyword, otherwise strips the colon
@@ -311,7 +310,7 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 					keys = append(keys, sym)
 					defaults = append(defaults, defValue)
 				}
-				tmp = EMPTY_LIST
+				tmp = EmptyList
 				break
 			} else if !isSymbol(a) {
 				return syntaxError(tmp)
@@ -323,7 +322,7 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 				if rest {
 					syms = append(syms, a) //note: added, but argv not incremented
 					defaults = make([]lob, 0)
-					tmp = EMPTY_LIST
+					tmp = EmptyList
 					break
 				}
 				argc++
@@ -332,7 +331,7 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 			tmp = cdr(tmp)
 		}
 	}
-	if tmp != EMPTY_LIST { //entire arglist bound to a single variable
+	if tmp != EmptyList { //entire arglist bound to a single variable
 		if isSymbol(tmp) {
 			syms = append(syms, tmp) //note: added, but argv not incremented
 			defaults = make([]lob, 0)
@@ -357,8 +356,8 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 }
 
 func compileSequence(code code, env *llist, exprs *llist, isTail bool, ignoreResult bool, context string) error {
-	if exprs != EMPTY_LIST {
-		for cdr(exprs) != EMPTY_LIST {
+	if exprs != EmptyList {
+		for cdr(exprs) != EmptyList {
 			err := compileExpr(code, env, car(exprs), false, true, context)
 			if err != nil {
 				return err
@@ -404,7 +403,7 @@ func compileFuncall(code code, env *llist, fn lob, args *llist, isTail bool, ign
 }
 
 func compileArgs(code code, env *llist, args *llist, context string) error {
-	if args != EMPTY_LIST {
+	if args != EmptyList {
 		err := compileArgs(code, env, cdr(args), context)
 		if err != nil {
 			return err
@@ -453,8 +452,8 @@ func compilePrimopCall(code code, fn lob, argc int, isTail bool, ignoreResult bo
 }
 
 func compileIfElse(code code, env *llist, predicate lob, consequent lob, antecedentOptional lob, isTail bool, ignoreResult bool, context string) error {
-	var antecedent lob = NIL
-	if antecedentOptional != NIL {
+	var antecedent lob = Nil
+	if antecedentOptional != Nil {
 		antecedent = car(antecedentOptional)
 	}
 	err := compileExpr(code, env, predicate, false, false, context)

@@ -257,9 +257,8 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	if argc < expectedArgc {
 		if extra > 0 {
 			return nil, newError("Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
-		} else {
-			return nil, newError("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
+		return nil, newError("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
 	el := make([]lob, totalArgc)
@@ -448,7 +447,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					argc = length(arglist)
 					i := 0
 					sp -= argc
-					for arglist != EMPTY_LIST {
+					for arglist != EmptyList {
 						stack[sp+i] = arglist.car
 						i++
 						arglist = arglist.cdr
@@ -539,7 +538,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					argc = length(arglist)
 					i := 0
 					sp -= argc
-					for arglist != EMPTY_LIST {
+					for arglist != EmptyList {
 						stack[sp+i] = arglist.car
 						i++
 						arglist = arglist.cdr
@@ -600,7 +599,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			}
 			b := stack[sp]
 			sp++
-			if b == FALSE {
+			if b == False {
 				pc += ops[pc+1]
 			} else {
 				pc += 2
@@ -669,10 +668,10 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			if trace {
 				println(pc, "\tnull")
 			}
-			if stack[sp] == NIL {
-				stack[sp] = TRUE
+			if stack[sp] == Nil {
+				stack[sp] = True
 			} else {
-				stack[sp] = FALSE
+				stack[sp] = False
 			}
 			pc++
 		case opcodeAdd:

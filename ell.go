@@ -22,10 +22,10 @@ import (
 
 // Ell defines the global functions for the top level environment
 func Ell(module module) {
-	module.define("nil", NIL)
-	module.define("null", NIL)
-	module.define("true", TRUE)
-	module.define("false", FALSE)
+	module.define("nil", Nil)
+	module.define("null", Nil)
+	module.define("true", True)
+	module.define("false", False)
 	module.define("apply", APPLY)
 
 	module.defineMacro("let", ellLet)
@@ -107,9 +107,9 @@ func ellIdenticalP(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
 		b := identical(argv[0], argv[1])
 		if b {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("identical?", "2", argc)
 }
@@ -121,10 +121,10 @@ func ellEq(argv []lob, argc int) (lob, error) {
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
 		if !equal(obj, argv[1]) {
-			return FALSE, nil
+			return False, nil
 		}
 	}
-	return TRUE, nil
+	return True, nil
 }
 
 func ellNumeq(argv []lob, argc int) (lob, error) {
@@ -134,10 +134,10 @@ func ellNumeq(argv []lob, argc int) (lob, error) {
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
 		if b, err := numericallyEqual(obj, argv[1]); err != nil || !b {
-			return FALSE, err
+			return False, err
 		}
 	}
-	return TRUE, nil
+	return True, nil
 }
 
 func ellDisplay(argv []lob, argc int) (lob, error) {
@@ -189,7 +189,7 @@ func ellPrintln(argv []lob, argc int) (lob, error) {
 }
 
 func ellList(argv []lob, argc int) (lob, error) {
-	p := EMPTY_LIST
+	p := EmptyList
 	for i := argc - 1; i >= 0; i-- {
 		p = cons(argv[i], p)
 	}
@@ -199,9 +199,9 @@ func ellList(argv []lob, argc int) (lob, error) {
 func ellNumberP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isNumber(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("number?", "1", argc)
 }
@@ -209,9 +209,9 @@ func ellNumberP(argv []lob, argc int) (lob, error) {
 func ellIntegerP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isInteger(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("integer?", "1", argc)
 }
@@ -276,7 +276,7 @@ func ellDiv(argv []lob, argc int) (lob, error) {
 
 func ellMakeVector(argv []lob, argc int) (lob, error) {
 	if argc > 0 {
-		var initVal lob = NIL
+		var initVal lob = Nil
 		vlen, err := integerValue(argv[0])
 		if err != nil {
 			return nil, err
@@ -295,9 +295,9 @@ func ellMakeVector(argv []lob, argc int) (lob, error) {
 func ellVectorP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isVector(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("list?", "1", argc)
 }
@@ -385,9 +385,9 @@ func ellZeroP(argv []lob, argc int) (lob, error) {
 			return nil, err
 		}
 		if f == 0 {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("zero?", "1", argc)
 }
@@ -422,20 +422,20 @@ func ellLength(argv []lob, argc int) (lob, error) {
 
 func ellNot(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if argv[0] == FALSE {
-			return TRUE, nil
+		if argv[0] == False {
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("not", "1", argc)
 }
 
 func ellNullP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if argv[0] == NIL {
-			return TRUE, nil
+		if argv[0] == Nil {
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("null?", "1", argc)
 }
@@ -443,9 +443,9 @@ func ellNullP(argv []lob, argc int) (lob, error) {
 func ellBooleanP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isBoolean(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("boolean?", "1", argc)
 }
@@ -453,9 +453,9 @@ func ellBooleanP(argv []lob, argc int) (lob, error) {
 func ellSymbolP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isSymbol(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("symbol?", "1", argc)
 }
@@ -463,9 +463,9 @@ func ellSymbolP(argv []lob, argc int) (lob, error) {
 func ellKeywordP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isKeyword(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("keyword?", "1", argc)
 }
@@ -473,9 +473,9 @@ func ellKeywordP(argv []lob, argc int) (lob, error) {
 func ellStringP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isString(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("string?", "1", argc)
 }
@@ -483,9 +483,9 @@ func ellStringP(argv []lob, argc int) (lob, error) {
 func ellCharacterP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isCharacter(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("character?", "1", argc)
 }
@@ -493,9 +493,9 @@ func ellCharacterP(argv []lob, argc int) (lob, error) {
 func ellFunctionP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isFunction(argv[0]) || isKeyword(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("function?", "1", argc)
 }
@@ -503,9 +503,9 @@ func ellFunctionP(argv []lob, argc int) (lob, error) {
 func ellListP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isList(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("list?", "1", argc)
 }
@@ -615,9 +615,9 @@ func ellCond(argv []lob, argc int) (lob, error) {
 func ellMapP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		if isMap(argv[0]) {
-			return TRUE, nil
+			return True, nil
 		}
-		return FALSE, nil
+		return False, nil
 	}
 	return argcError("list?", "1", argc)
 }
@@ -638,9 +638,9 @@ func ellHasP(argv []lob, argc int) (lob, error) {
 		return nil, err
 	}
 	if b {
-		return TRUE, nil
+		return True, nil
 	}
-	return FALSE, nil
+	return False, nil
 }
 
 func ellPutBang(argv []lob, argc int) (lob, error) {
