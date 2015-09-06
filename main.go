@@ -25,6 +25,8 @@ import (
 var verbose bool
 var extendedInstructions = false
 
+// Version - this version of gell
+const Version = "gell v0.1"
 func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")

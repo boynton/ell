@@ -22,6 +22,8 @@ import (
 
 // Ell defines the global functions for the top level environment
 func Ell(module module) {
+	module.defineFunction("version", ellVersion)
+
 	module.define("nil", Nil)
 	module.define("null", Nil)
 	module.define("true", True)
@@ -94,6 +96,10 @@ func Ell(module module) {
 	module.defineFunction("error", ellFatal)
 	module.defineFunction("length", ellLength)
 	module.defineFunction("json", ellJSON)
+}
+
+func ellVersion(argv []lob, argc int) (lob, error) {
+	return newString(Version), nil
 }
 
 func ellType(argv []lob, argc int) (lob, error) {
