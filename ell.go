@@ -55,6 +55,7 @@ func Ell(module module) {
 	module.defineFunction("cddr", ellCddr)
 	module.defineFunction("list", ellList)
 
+	module.defineFunction("string", ellString)
 	module.defineFunction("display", ellDisplay)
 	module.defineFunction("write", ellWrite)
 	module.defineFunction("newline", ellNewline)
@@ -507,6 +508,14 @@ func ellListP(argv []lob, argc int) (lob, error) {
 		return FALSE, nil
 	}
 	return argcError("list?", "1", argc)
+}
+
+func ellString(argv []lob, argc int) (lob, error) {
+	s := ""
+	for i := 0; i < argc; i++ {
+		s += argv[i].String()
+	}
+	return newString(s), nil
 }
 
 func ellCar(argv []lob, argc int) (lob, error) {
