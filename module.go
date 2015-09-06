@@ -307,6 +307,8 @@ func (mod *lmodule) loadModule(name string) error {
 func (mod *lmodule) loadFile(file string) error {
 	if verbose {
 		println("; loadFile: " + file)
+	} else {
+		println("[loading " + file + "]")
 	}
 	port, err := openInputFile(file)
 	if err != nil {
