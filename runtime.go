@@ -504,13 +504,6 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					return stack[sp], nil
 				}
 			case *lclosure:
-				if env.previous == nil {
-					if trace {
-						println("------------------ END EXECUTION of ", module)
-						println(" -> sp:", sp)
-					}
-					return stack[sp], nil
-				}
 				f, err := buildFrame(env.previous, env.pc, env.ops, env.module, tfun, argc, stack, sp)
 				if err != nil {
 					return nil, err
