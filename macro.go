@@ -44,23 +44,26 @@ func (mac *lmacro) String() string {
 	return fmt.Sprintf("(macro %v %v)", mac.name, mac.expander)
 }
 
+func macroexpand(expr lob) (lob, error) {
+	return macroexpandObject(currentModule, expr)
+}
+
 func macroexpandObject(mod module, expr lob) (lob, error) {
 	if lst, ok := expr.(*llist); ok {
 		if lst != EmptyList {
-			return macroexpand(mod, lst)
+			return macroexpandList(mod, lst)
 		}
 	}
 	return expr, nil
 }
 
-func macroexpand(module module, expr *llist) (lob, error) {
+func macroexpandList(module module, expr *llist) (lob, error) {
 	lst := expr
 	fn := car(lst)
 	head := lob(fn)
 	if isSymbol(fn) {
 		result, err := expandPrimitive(module, fn, lst)
 		if err != nil {
-			println("cannot expand primitive: ", fn)
 			return nil, err
 		}
 		if result != nil {
@@ -68,16 +71,14 @@ func macroexpand(module module, expr *llist) (lob, error) {
 		}
 		head = fn
 	} else if isList(fn) {
-		expanded, err := macroexpand(module, fn.(*llist))
+		expanded, err := macroexpandList(module, fn.(*llist))
 		if err != nil {
-			println("cannot macroexpand list")
 			return nil, err
 		}
 		head = expanded
 	}
 	tail, err := expandSequence(module, cdr(expr))
 	if err != nil {
-		println("cannot macroexpand sequence")
 		return nil, err
 	}
 	return cons(head, tail), nil
@@ -93,7 +94,7 @@ func (mac *lmacro) expand(module module, expr *llist) (lob, error) {
 			expanded, err := exec(fun.code, expr)
 			if err == nil {
 				if result, ok := expanded.(*llist); ok {
-					return result, nil
+					return macroexpandObject(module, result)
 				}
 			}
 			return nil, newError("macro error in '", mac.name, "': ", err)
@@ -103,7 +104,7 @@ func (mac *lmacro) expand(module module, expr *llist) (lob, error) {
 		currentModule = module //not ideal
 		expanded, err := fun.fun(args, 1)
 		if err == nil {
-			return expanded, nil
+			return macroexpandObject(module, expanded)
 		}
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func expandSequence(module module, seq *llist) (*llist, error) {
 	for seq != EmptyList {
 		switch item := car(seq).(type) {
 		case *llist:
-			expanded, err := macroexpand(module, item)
+			expanded, err := macroexpandList(module, item)
 			if err != nil {
 				return nil, err
 			}
@@ -177,7 +178,7 @@ func expandDefine(module module, expr *llist) (*llist, error) {
 		if !ok {
 			return expr, nil
 		}
-		val, err := macroexpand(module, body)
+		val, err := macroexpandList(module, body)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +217,7 @@ func expandSet(module module, expr *llist) (*llist, error) {
 	var val = caddr(expr)
 	switch vv := val.(type) {
 	case *llist:
-		v, err := macroexpand(module, vv)
+		v, err := macroexpandList(module, vv)
 		if err != nil {
 			return nil, err
 		}
@@ -251,7 +252,8 @@ func expandPrimitive(module module, fn lob, expr *llist) (lob, error) {
 	default:
 		macro := module.macro(fn)
 		if macro != nil {
-			return (macro.(*lmacro)).expand(module, expr)
+			tmp, err := (macro.(*lmacro)).expand(module, expr)
+			return tmp, err
 		}
 		return nil, nil
 	}
@@ -303,7 +305,7 @@ func expandLetrec(expr lob) (lob, error) {
 	if !ok {
 		return nil, syntaxError(expr)
 	}
-	code, err := macroexpand(module, cons(intern("lambda"), cons(names, body)))
+	code, err := macroexpandList(module, cons(intern("lambda"), cons(names, body)))
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +359,7 @@ func expandLet(expr lob) (lob, error) {
 	if body == EmptyList {
 		return nil, syntaxError(expr)
 	}
-	code, err := macroexpand(module, cons(intern("lambda"), cons(names, body)))
+	code, err := macroexpandList(module, cons(intern("lambda"), cons(names, body)))
 	if err != nil {
 		return nil, err
 	}
@@ -373,12 +375,11 @@ func expandNamedLet(expr lob) (lob, error) {
 	}
 	names, values, ok := crackLetBindings(module, bindings)
 	if !ok {
-		println("cannot expandNamedLet")
 		return nil, syntaxError(expr)
 	}
 	body := cdddr(expr)
 	tmp := list(intern("letrec"), list(list(name, cons(intern("lambda"), cons(names, body)))), cons(name, values))
-	return macroexpand(module, tmp)
+	return macroexpandList(module, tmp)
 }
 
 func crackDoBindings(module module, bindings *llist) (*llist, *llist, *llist, bool) {
@@ -406,12 +407,12 @@ func crackDoBindings(module module, bindings *llist) (*llist, *llist, *llist, bo
 		bindings = cdr(bindings)
 	}
 	var err error
-	inits2, err := macroexpand(module, inits)
+	inits2, err := macroexpandList(module, inits)
 	if err != nil {
 		return nil, nil, nil, false
 	}
 	inits, _ = inits2.(*llist)
-	steps2, err := macroexpand(module, steps)
+	steps2, err := macroexpandList(module, steps)
 	if err != nil {
 		return nil, nil, nil, false
 	}
@@ -465,7 +466,7 @@ func expandDo(expr lob) (lob, error) {
 	tmpl = list(tmpl)
 	tmpl2 = cons(loopSym, inits)
 	tmpl = list(intern("letrec"), tmpl, tmpl2)
-	return macroexpand(currentModule, tmpl)
+	return macroexpandList(currentModule, tmpl)
 }
 
 func expandCond(expr lob) (lob, error) {
@@ -514,7 +515,7 @@ func expandAnd(expr lob) (lob, error) {
 			result = list(intern("if"), car(tmp), result, False)
 			tmp = cdr(tmp)
 		}
-		return macroexpand(module, result)
+		return macroexpandList(module, result)
 	}
 }
 

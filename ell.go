@@ -36,6 +36,7 @@ func Ell(module module) {
 	module.defineMacro("cond", ellCond)
 	module.defineMacro("and", ellAnd)
 
+	module.defineFunction("macroexpand", ellMacroexpand)
 	module.defineFunction("type", ellType)
 	module.defineFunction("equal?", ellEq)
 	module.defineFunction("identical?", ellIdenticalP)
@@ -127,6 +128,13 @@ func ellAnd(argv []lob, argc int) (lob, error) {
 
 func ellVersion(argv []lob, argc int) (lob, error) {
 	return newString(Version), nil
+}
+
+func ellMacroexpand(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("macroexpand", "1", argc)
+	}
+	return macroexpand(argv[0])
 }
 
 func ellType(argv []lob, argc int) (lob, error) {
