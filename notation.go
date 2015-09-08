@@ -518,7 +518,7 @@ func writeList(lst *llist) string {
 	}
 	if lst.car == intern("quote") {
 		if lst.cdr != EmptyList {
-			return "'" + lst.cdr.String()
+			return "'" + cadr(lst).String()
 		}
 	}
 	var buf bytes.Buffer
