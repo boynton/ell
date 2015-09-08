@@ -287,8 +287,8 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 }
 
 func (code *lcode) String() string {
-	//return code.Decompile()
-	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
+	return code.decompile(true)
+//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
 func (code *lcode) module() module {
