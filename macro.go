@@ -96,6 +96,7 @@ func (mac *lmacro) expand(module module, expr *llist) (lob, error) {
 				if result, ok := expanded.(*llist); ok {
 					return macroexpandObject(module, result)
 				}
+				return expanded, err
 			}
 			return nil, newError("macro error in '", mac.name, "': ", err)
 		}
@@ -497,25 +498,23 @@ func expandAnd(expr lob) (lob, error) {
 			}
 		}
 		return nil, err
-	} else {
-		//(and x y ...) -> (if x (if y ...) false)
-		clause := cdr(expr)
-		tmp := EmptyList
-		for i > 3 {
-			i = i - 1
-			tmp2, err := macroexpandObject(module, car(clause))
-			if err != nil {
-				return nil, err
-			}
-			tmp = cons(tmp2, tmp)
-			clause = cdr(clause);
-		}
-		result := list(intern("if"), car(clause), cadr(clause), False)
-		for tmp != EmptyList {
-			result = list(intern("if"), car(tmp), result, False)
-			tmp = cdr(tmp)
-		}
-		return macroexpandList(module, result)
 	}
+	//(and x y ...) -> (if x (if y ...) false)
+	clause := cdr(expr)
+	tmp := EmptyList
+	for i > 3 {
+		i = i - 1
+		tmp2, err := macroexpandObject(module, car(clause))
+		if err != nil {
+			return nil, err
+		}
+		tmp = cons(tmp2, tmp)
+		clause = cdr(clause)
+	}
+	result := list(intern("if"), car(clause), cadr(clause), False)
+	for tmp != EmptyList {
+		result = list(intern("if"), car(tmp), result, False)
+		tmp = cdr(tmp)
+	}
+	return macroexpandList(module, result)
 }
-
