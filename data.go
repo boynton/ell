@@ -777,6 +777,12 @@ func newList(count int, val lob) *llist {
 }
 
 func cons(car lob, cdr *llist) *llist {
+	if car == nil {
+		panic("Assertion failure: don't call cons with nil as car")
+	}
+	if cdr == nil {
+		panic("Assertion failure: don't call cons with nil as cdr")
+	}
 	return &llist{car, cdr}
 }
 
