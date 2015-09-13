@@ -35,6 +35,7 @@ func print(args ...any) {
 	}
 	fmt.Print(args[max])
 }
+
 func println(args ...any) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
@@ -311,6 +312,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 	env.elements = make([]lob, len(args))
 	copy(env.elements, args)
 	module := code.mod
+	currentModule = module
 	ops := code.ops
 	pc := 0
 	if len(ops) == 0 {
