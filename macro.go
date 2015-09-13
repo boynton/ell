@@ -281,7 +281,7 @@ func expandPrimitive(module module, fn lob, expr *llist) (lob, error) {
 			tmp, err := (macro.(*lmacro)).expand(module, expr)
 			return tmp, err
 		}
-		return nil, nil
+		return expr, nil
 	}
 }
 
