@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -35,30 +36,55 @@ func fileReadable(path string) bool {
 	return false
 }
 
-type port interface {
-	isBinary() bool
-	isInput() bool
-	isOutput() bool
-	read() (lob, error)
-	write(obj lob) error
-	close() error
-}
-
 type linport struct {
 	file   *os.File
 	reader *dataReader
+	name   string
 }
 
-func (in linport) isBinary() bool {
+func isInputPort(obj lob) bool {
+	_, ok := obj.(*linport)
+	return ok
+}
+
+func (*linport) typeSymbol() lob {
+	return intern("input-port")
+}
+
+func (in *linport) String() string {
+	if in.reader == nil {
+		return fmt.Sprintf("<input-port: CLOSED %s>", in.name)
+	}
+	return fmt.Sprintf("<input-port: %s>", in.name)
+}
+
+func (in *linport) equal(another lob) bool {
+	if a, ok := another.(*linport); ok {
+		return in == a
+	}
 	return false
 }
-func (in linport) isInput() bool {
-	return true
+
+func readInputPort(inport lob) (lob, error) {
+	switch in := inport.(type) {
+	case *linport:
+		return in.read()
+	default:
+		return nil, typeError(intern("input-port"), inport)
+	}
 }
-func (in linport) isOutput() bool {
-	return false
+func closeInputPort(inport lob) error {
+	switch in := inport.(type) {
+	case *linport:
+		return in.close()
+	default:
+		return typeError(intern("input-port"), inport)
+	}
 }
-func (in linport) read() (lob, error) {
+func (in *linport) read() (lob, error) {
+	if in.reader == nil {
+		return nil, newError("Input port is closed: ", in)
+	}
 	obj, err := in.reader.readData()
 	if err != nil {
 		if err == io.EOF {
@@ -68,33 +94,41 @@ func (in linport) read() (lob, error) {
 	}
 	return obj, nil
 }
-func (in linport) write(obj lob) error {
-	return newError("Cannot write an input port")
-}
-func (in linport) close() error {
+func (in *linport) close() error {
+	var err error
 	if in.file != nil {
-		return in.file.Close()
+		err = in.file.Close()
+		in.file = nil
 	}
-	return nil
+	in.reader = nil
+	return err
+}
+
+func fileContents(path string) (string, error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 //todo: implement LOutputPort
 
-func openInputFile(path string) (port, error) {
+func openInputFile(path string) (*linport, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	r := bufio.NewReader(fi)
 	dr := newDataReader(r)
-	port := linport{fi, dr}
+	port := linport{fi, dr, path}
 	return &port, nil
 }
 
-func openInputString(input string) port {
+func openInputString(input string) *linport {
 	r := strings.NewReader(input)
 	dr := newDataReader(r)
-	port := linport{nil, dr}
+	port := linport{nil, dr, input}
 	return &port
 }
 
@@ -141,10 +175,32 @@ func (dr *dataReader) readData() (lob, error) {
 			if err != nil {
 				return nil, err
 			}
-			if o == EOF || o == Nil {
+			if o == EOF {
 				return o, nil
 			}
-			return list(intern("quote"), o), nil
+			return list(symQuote, o), nil
+		case '`':
+			o, err := dr.readData()
+			if err != nil {
+				return nil, err
+			}
+			return list(symQuasiquote, o), nil
+		case '~':
+			c, e := dr.getChar()
+			if e != nil {
+				return nil, e
+			}
+			sym := symUnquote
+			if c != '@' {
+				dr.ungetChar()
+			} else {
+				sym = symUnquoteSplicing
+			}
+			o, err := dr.readData()
+			if err != nil {
+				return nil, err
+			}
+			return list(sym, o), nil
 		case '#':
 			o, e := dr.decodeReaderMacro()
 			if e != nil || o != nil {
@@ -200,22 +256,22 @@ func (dr *dataReader) decodeString() (lob, error) {
 			case 'u', 'U':
 				c, e = dr.getChar()
 				if e != nil {
-					return Nil, e
+					return nil, e
 				}
 				buf = append(buf, c)
 				c, e = dr.getChar()
 				if e != nil {
-					return Nil, e
+					return nil, e
 				}
 				buf = append(buf, c)
 				c, e = dr.getChar()
 				if e != nil {
-					return Nil, e
+					return nil, e
 				}
 				buf = append(buf, c)
 				c, e = dr.getChar()
 				if e != nil {
-					return Nil, e
+					return nil, e
 				}
 				buf = append(buf, c)
 			}
@@ -314,8 +370,8 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 		return nil, newError("Bad token: :")
 	}
 	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
-	if s == "nil" || s == "null" { //EllDN is upwards compatible with JSON, so we need to handle null
-		return Nil, nil
+	if s == "null" { //EllDN is upwards compatible with JSON, so we use null instead of nil
+		return Null, nil
 	} else if s == "true" {
 		return True, nil
 	} else if s == "false" {
@@ -414,10 +470,10 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 	case 't':
 		return True, nil
 	case 'n':
-		return Nil, nil
+		return Null, nil
 	case '!': //to handle shell scripts, handle #! as a comment
 		err := dr.decodeComment()
-		return Nil, err
+		return Null, err
 	default:
 		return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
 	}
@@ -446,7 +502,7 @@ func writeData(obj lob, json bool) (string, error) {
 			return "true", nil
 		} else if obj == False {
 			return "false", nil
-		} else if obj == Nil {
+		} else if obj == Null {
 			return "null", nil
 		}
 	}
@@ -516,9 +572,15 @@ func writeList(lst *llist) string {
 	if lst == EmptyList {
 		return "()"
 	}
-	if lst.car == intern("quote") {
-		if lst.cdr != EmptyList {
+	if lst.cdr != EmptyList {
+		if lst.car == symQuote {
 			return "'" + cadr(lst).String()
+		} else if lst.car == symQuasiquote {
+			return "`" + cadr(lst).String()
+		} else if lst.car == symUnquote {
+			return "~" + cadr(lst).String()
+		} else if lst.car == symUnquoteSplicing {
+			return "~@" + cadr(lst).String()
 		}
 	}
 	var buf bytes.Buffer

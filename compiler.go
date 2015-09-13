@@ -283,7 +283,7 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 				}
 				defaults = make([]lob, 0, len(vec.elements))
 				for _, sym := range vec.elements {
-					def := lob(Nil)
+					def := lob(Null)
 					if isList(sym) {
 						def = cadr(sym)
 						sym = car(sym)
@@ -458,8 +458,8 @@ func compilePrimopCall(code code, fn lob, argc int, isTail bool, ignoreResult bo
 }
 
 func compileIfElse(code code, env *llist, predicate lob, consequent lob, antecedentOptional lob, isTail bool, ignoreResult bool, context string) error {
-	var antecedent lob = Nil
-	if antecedentOptional != Nil {
+	var antecedent lob = Null
+	if antecedentOptional != EmptyList {
 		antecedent = car(antecedentOptional)
 	}
 	err := compileExpr(code, env, predicate, false, false, context)

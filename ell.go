@@ -22,19 +22,27 @@ import (
 
 // Ell defines the global functions for the top level environment
 func Ell(module module) {
-	module.defineFunction("version", ellVersion)
-
-	module.define("nil", Nil)
-	module.define("null", Nil)
-	module.define("true", True)
-	module.define("false", False)
-	module.define("apply", APPLY)
 
 	module.defineMacro("let", ellLet)
 	module.defineMacro("letrec", ellLetrec)
-	module.defineMacro("do", ellDo)
+	module.defineMacro("do", ellDo) //scheme's do. I don't like it.
 	module.defineMacro("cond", ellCond)
-	module.defineMacro("and", ellAnd)
+//	module.defineMacro("and", ellAnd)
+	module.defineMacro("quasiquote", ellQuasiquote)
+
+	module.define("null", Null)
+	module.define("true", True)
+	module.define("false", False)
+
+	module.define("apply", APPLY)
+
+	module.defineFunction("version", ellVersion)
+
+	module.defineFunction("file-contents", ellFileContents)
+	module.defineFunction("open-input-string", ellOpenInputString)
+	module.defineFunction("open-input-file", ellOpenInputFile)
+	module.defineFunction("read", ellRead)
+	module.defineFunction("close-input-port", ellCloseInputPort)
 
 	module.defineFunction("macroexpand", ellMacroexpand)
 	module.defineFunction("type", ellType)
@@ -55,9 +63,27 @@ func Ell(module module) {
 	module.defineFunction("cons", ellCons)
 	module.defineFunction("car", ellCar)
 	module.defineFunction("cdr", ellCdr)
+	module.defineFunction("caar", ellCaar)
 	module.defineFunction("cadr", ellCadr)
 	module.defineFunction("cddr", ellCddr)
+	module.defineFunction("cadar", ellCadar)
+	module.defineFunction("caddr", ellCaddr)
+	module.defineFunction("cdddr", ellCdddr)
 	module.defineFunction("list", ellList)
+	module.defineFunction("concat", ellConcat)
+
+	module.defineFunction("vector?", ellVectorP)
+	module.defineFunction("vector", ellVector)
+	module.defineFunction("make-vector", ellMakeVector)
+	module.defineFunction("vector-set!", ellVectorSetBang)
+	module.defineFunction("vector-ref", ellVectorRef)
+
+	module.defineFunction("map?", ellMapP)
+	module.defineFunction("has?", ellHasP)
+	module.defineFunction("get", ellGet)
+	module.defineFunction("put!", ellPutBang)
+
+	module.defineFunction("empty?", ellEmptyP)
 
 	module.defineFunction("string", ellString)
 	module.defineFunction("display", ellDisplay)
@@ -76,11 +102,6 @@ func Ell(module module) {
 	module.defineFunction("remainder", ellRemainder)
 	module.defineFunction("modulo", ellRemainder) //fix!
 
-	module.defineFunction("vector?", ellVectorP)
-	module.defineFunction("make-vector", ellMakeVector)
-	module.defineFunction("vector-set!", ellVectorSetBang)
-	module.defineFunction("vector-ref", ellVectorRef)
-
 	module.defineFunction("=", ellNumeq)
 	module.defineFunction("<=", ellLe)
 	module.defineFunction(">=", ellGe)
@@ -89,11 +110,6 @@ func Ell(module module) {
 	module.defineFunction("zero?", ellZeroP)
 	module.defineFunction("number->string", ellNumberToString)
 	module.defineFunction("string-length", ellStringLength)
-
-	module.defineFunction("map?", ellMapP)
-	module.defineFunction("has?", ellHasP)
-	module.defineFunction("get", ellGet)
-	module.defineFunction("put!", ellPutBang)
 
 	module.defineFunction("error", ellFatal)
 	module.defineFunction("length", ellLength)
@@ -120,14 +136,79 @@ func ellCond(argv []lob, argc int) (lob, error) {
 	return expandCond(argv[0])
 }
 
+/*
 func ellAnd(argv []lob, argc int) (lob, error) {
 	return expandAnd(argv[0])
+}
+*/
+
+func ellQuasiquote(argv []lob, argc int) (lob, error) {
+	return expandQuasiquote(argv[0])
 }
 
 // functions
 
 func ellVersion(argv []lob, argc int) (lob, error) {
 	return newString(Version), nil
+}
+
+func ellFileContents(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("file-contents", "1", argc)
+	}
+	if !isString(argv[0]) {
+		return nil, typeError(symString, argv[0])
+	}
+	fname, err := stringValue(argv[0])
+	if err != nil {
+		return nil, err
+	}
+	s, err := fileContents(fname)
+	if err != nil {
+		return nil, err
+	}
+	return newString(s), nil
+}
+
+func ellOpenInputString(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("open-input-string", "1", argc)
+	}
+	if !isString(argv[0]) {
+		return nil, typeError(symString, argv[0])
+	}
+	s, err := stringValue(argv[0])
+	if err != nil {
+		return nil, err
+	}
+	return openInputString(s), nil
+}
+
+func ellOpenInputFile(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("open-input-file", "1", argc)
+	}
+	if !isString(argv[0]) {
+		return nil, typeError(symString, argv[0])
+	}
+	s, err := stringValue(argv[0])
+	if err != nil {
+		return nil, err
+	}
+	return openInputFile(s)
+}
+
+func ellRead(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("read", "1", argc)
+	}
+	return readInputPort(argv[0])
+}
+func ellCloseInputPort(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("read", "1", argc)
+	}
+	return nil, closeInputPort(argv[0])
 }
 
 func ellMacroexpand(argv []lob, argc int) (lob, error) {
@@ -187,7 +268,7 @@ func ellDisplay(argv []lob, argc int) (lob, error) {
 		return argcError("display", "1", argc)
 	}
 	fmt.Printf("%v", argv[0])
-	return nil, nil
+	return Null, nil
 }
 
 func ellWrite(argv []lob, argc int) (lob, error) {
@@ -196,7 +277,7 @@ func ellWrite(argv []lob, argc int) (lob, error) {
 		return argcError("write", "1", argc)
 	}
 	fmt.Printf("%v", write(argv[0]))
-	return nil, nil
+	return Null, nil
 }
 
 func ellNewline(argv []lob, argc int) (lob, error) {
@@ -205,7 +286,7 @@ func ellNewline(argv []lob, argc int) (lob, error) {
 		return argcError("newline", "0", argc)
 	}
 	fmt.Printf("\n")
-	return nil, nil
+	return Null, nil
 }
 
 func ellFatal(argv []lob, argc int) (lob, error) {
@@ -220,13 +301,38 @@ func ellPrint(argv []lob, argc int) (lob, error) {
 	for _, o := range argv {
 		fmt.Printf("%v", o)
 	}
-	return nil, nil
+	return Null, nil
 }
 
 func ellPrintln(argv []lob, argc int) (lob, error) {
 	ellPrint(argv, argc)
 	fmt.Println("")
-	return nil, nil
+	return Null, nil
+}
+
+func ellConcat(argv []lob, argc int) (lob, error) {
+	result := EmptyList
+	tail := result
+	for i := 0; i < argc; i++ {
+		o := argv[i]
+		switch lst := o.(type) {
+		case *llist:
+			c := lst
+			for c != EmptyList {
+				if tail == EmptyList {
+					result = list(lst.car)
+					tail = result
+				} else {
+					tail.cdr = list(c.car)
+					tail = tail.cdr
+				}
+				c = c.cdr
+			}
+		default:
+			return nil, typeError(symList, lst)
+		}
+	}
+	return result, nil
 }
 
 func ellList(argv []lob, argc int) (lob, error) {
@@ -297,7 +403,9 @@ func ellPlus(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
 		return add(argv[0], argv[1])
 	}
-	return sum(argv, argc)
+	result, err := sum(argv, argc)
+	println("sum returns ", result, err)
+	return result, err
 }
 
 func ellMinus(argv []lob, argc int) (lob, error) {
@@ -315,9 +423,13 @@ func ellDiv(argv []lob, argc int) (lob, error) {
 	return div(argv, argc)
 }
 
+func ellVector(argv []lob, argc int) (lob, error) {
+	return vector(argv...), nil
+}
+
 func ellMakeVector(argv []lob, argc int) (lob, error) {
 	if argc > 0 {
-		var initVal lob = Nil
+		initVal := lob(Null)
 		vlen, err := integerValue(argv[0])
 		if err != nil {
 			return nil, err
@@ -473,12 +585,12 @@ func ellNot(argv []lob, argc int) (lob, error) {
 
 func ellNullP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if argv[0] == Nil {
+		if argv[0] == Null {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("null?", "1", argc)
+	return argcError("nil?", "1", argc)
 }
 
 func ellBooleanP(argv []lob, argc int) (lob, error) {
@@ -551,6 +663,17 @@ func ellListP(argv []lob, argc int) (lob, error) {
 	return argcError("list?", "1", argc)
 }
 
+func ellEmptyP(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("empty?", "1", argc)
+	}
+	if isEmpty(argv[0]) {
+		return True, nil
+	} else {
+		return False, nil
+	}
+}
+			
 func ellString(argv []lob, argc int) (lob, error) {
 	s := ""
 	for i := 0; i < argc; i++ {
@@ -581,6 +704,17 @@ func ellCdr(argv []lob, argc int) (lob, error) {
 	return argcError("cdr", "1", argc)
 }
 
+func ellCaar(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if isList(lst) {
+			return caar(lst), nil
+		}
+		return argTypeError("list", 1, lst)
+	}
+	return argcError("caar", "1", argc)
+}
+
 func ellCadr(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
 		lst := argv[0]
@@ -601,6 +735,38 @@ func ellCddr(argv []lob, argc int) (lob, error) {
 		return argTypeError("list", 1, lst)
 	}
 	return argcError("cddr", "1", argc)
+}
+
+func ellCadar(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if isList(lst) {
+			return car(cdr(car(lst))), nil
+		}
+		return argTypeError("list", 1, lst)
+	}
+	return argcError("cadar", "1", argc)
+}
+
+func ellCaddr(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if isList(lst) {
+			return caddr(lst), nil
+		}
+		return argTypeError("list", 1, lst)
+	}
+	return argcError("caddr", "1", argc)
+}
+func ellCdddr(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		lst := argv[0]
+		if isList(lst) {
+			return cdddr(lst), nil
+		}
+		return argTypeError("list", 1, lst)
+	}
+	return argcError("cdddr", "1", argc)
 }
 
 func ellCons(argv []lob, argc int) (lob, error) {

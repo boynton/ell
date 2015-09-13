@@ -1,0 +1,29 @@
+;
+; macros and non-core definitions to the Ell language
+;
+
+(define-macro (defmacro expr)
+   `(define-macro ~(cadr expr) (lambda (expr) (apply (lambda ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
+
+(defmacro def (name value)
+   `(define ~name ~value))
+
+(defmacro defn (name args & body)
+   `(define ~name (lambda ~args ~@body)))
+
+(defmacro or ops
+  (if (empty? ops)
+      false
+      (let loop ((c (car ops)) (r (cdr ops)))
+        (if (empty? r)
+            c
+            `(let ((tmp ~c)) (if tmp tmp ~(loop (car r) (cdr r))))))))
+
+(defmacro and ops
+  (if (empty? ops)
+      true
+      (let loop ((c (car ops)) (r (cdr ops)))
+        (if (empty? r)
+            c
+            `(let ((tmp ~c)) (if (not tmp) false ~(loop (car r) (cdr r))))))))
+

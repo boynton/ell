@@ -35,27 +35,29 @@ type lob interface {
 }
 
 //
-// ------------------- nil
+// ------------------- null
 //
 
-// Nil is Ell's version of nil, not Go's
-const Nil = lnil(0)
 
-type lnil int
+type lnull int
 
 var symNull = newSymbol("null")
 
-func (lnil) typeSymbol() lob {
+func (lnull) typeSymbol() lob {
 	return symNull
 }
 
-func (lnil) equal(another lob) bool {
-	return another == Nil
+func (lnull) equal(another lob) bool {
+	return another == Null
 }
 
-func (v lnil) String() string {
-	return "nil"
+func (v lnull) String() string {
+	return "null"
 }
+
+// Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList
+const Null = lnull(0)
+
 
 //
 // ------------------- EOF marker
@@ -176,7 +178,7 @@ func (sym *lsymbol) String() string {
 
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]lob{
-	"null":    symNull, //the type of Nil
+	"null":    symNull,
 	"boolean": symBoolean,
 	"symbol":  symSymbol,
 	"string":  symString,
@@ -185,6 +187,10 @@ var symtab = map[string]lob{
 	"vector":  symVector,
 	"map":     symMap,
 	"eof":     symEOF,
+	"quote":     symQuote,
+	"quasiquote":     symQuasiquote,
+	"unquote":     symUnquote,
+	"unquote-splicing":     symUnquoteSplicing,
 }
 
 func symbols() []lob {
@@ -224,6 +230,15 @@ func newString(val string) lstring {
 func isString(obj lob) bool {
 	_, ok := obj.(lstring)
 	return ok
+}
+
+func stringValue(obj lob) (string, error) {
+	switch s := obj.(type) {
+	case lstring:
+		return string(s), nil
+	default:
+		return "", typeError(symNumber, obj)
+	}
 }
 
 func (lstring) typeSymbol() lob {
@@ -700,14 +715,34 @@ type llist struct {
 }
 
 var symList = newSymbol("list")
+var symQuote = newSymbol("quote")
+var symQuasiquote = newSymbol("quasiquote")
+var symUnquote = newSymbol("unquote")
+var symUnquoteSplicing = newSymbol("unquote-splicing")
 
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
 
 func initEmpty() *llist {
-	lst := &llist{Nil, nil}
-	lst.cdr = lst
-	return lst
+	var lst llist
+	return &lst
+}
+
+func isEmpty(col lob) bool {
+	switch v := col.(type) {
+	case lnull: //Do I really want this?
+		return true
+	case lstring:
+		return len(v) == 0
+	case *lvector:
+		return len(v.elements) == 0
+	case *llist:
+		return v == EmptyList
+	case *lmap:
+		return len(v.bindings) == 0
+	default:
+		return false
+	}
 }
 
 func isList(obj lob) bool {
@@ -740,11 +775,27 @@ func (lst *llist) equal(another lob) bool {
 
 func (lst *llist) String() string {
 	var buf bytes.Buffer
+	if lst != EmptyList && lst.cdr != EmptyList && cddr(lst) == EmptyList {
+		if lst.car == symQuote {
+			buf.WriteString("'")
+			buf.WriteString(cadr(lst).String())
+			return buf.String()
+		} else if lst.car == symQuasiquote {
+			buf.WriteString("`")
+			buf.WriteString(cadr(lst).String())
+			return buf.String()
+		} else if lst.car == symUnquote {
+			buf.WriteString("~")
+			buf.WriteString(cadr(lst).String())
+			return buf.String()
+		} else if lst.car == symUnquoteSplicing {
+			buf.WriteString("~")
+			buf.WriteString(cadr(lst).String())
+			return buf.String()
+		}
+	}
 	buf.WriteString("(")
 	delim := ""
-	if lst == lst.cdr {
-		return "()"
-	}
 	for lst != EmptyList {
 		buf.WriteString(delim)
 		delim = " "
@@ -789,15 +840,19 @@ func cons(car lob, cdr *llist) *llist {
 func car(lst lob) lob {
 	switch p := lst.(type) {
 	case *llist:
-		return p.car
+		if p != EmptyList {
+			return p.car
+		}
 	}
-	return Nil
+	return Null
 }
 
 func setCar(lst lob, obj lob) {
 	switch p := lst.(type) {
 	case *llist:
-		p.car = obj
+		if p != EmptyList {
+			p.car = obj
+		}
 	}
 }
 
@@ -869,9 +924,6 @@ func vectorToList(vec lob) (lob, error) {
 }
 
 func length(seq lob) int {
-	if seq == Nil {
-		return 0
-	}
 	switch v := seq.(type) {
 	case lstring:
 		return len(v)
@@ -929,7 +981,12 @@ func newVector(size int, init lob) *lvector {
 }
 
 func vector(elements ...lob) lob {
-	vec := lvector{elements}
+	size := len(elements)
+	el := make([]lob, size)
+	for i := 0; i < size; i++ {
+		el[i] = elements[i]
+	}
+	vec := lvector{el}
 	return &vec
 }
 
@@ -1097,7 +1154,7 @@ func (m *lmap) get(key lob) lob {
 	if val, ok := m.bindings[key]; ok {
 		return val
 	}
-	return Nil
+	return Null
 }
 
 func (m *lmap) has(key lob) bool {

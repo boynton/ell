@@ -663,7 +663,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			if trace {
 				println(pc, "\tnull")
 			}
-			if stack[sp] == Nil {
+			if stack[sp] == Null {
 				stack[sp] = True
 			} else {
 				stack[sp] = False

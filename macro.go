@@ -150,7 +150,7 @@ func expandIf(module module, expr lob) (*llist, error) {
 		}
 		return cons(car(expr), tmp), nil
 	} else if i == 3 {
-		tmp := list(cadr(expr), caddr(expr), Nil)
+		tmp := list(cadr(expr), caddr(expr), Null)
 		tmp, err := expandSequence(module, tmp)
 		if err != nil {
 			return nil, err
@@ -281,7 +281,7 @@ func expandPrimitive(module module, fn lob, expr *llist) (lob, error) {
 			tmp, err := (macro.(*lmacro)).expand(module, expr)
 			return tmp, err
 		}
-		return expr, nil
+		return nil, nil
 	}
 }
 
@@ -342,7 +342,7 @@ func expandLetrec(expr lob) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	values := newList(length(names), Nil)
+	values := newList(length(names), Null)
 	return cons(code, values), nil
 }
 
@@ -476,7 +476,7 @@ func expandDo(expr lob) (lob, error) {
 	}
 	tmpl = tmp.(*llist)
 	exitPred := car(tmpl)
-	var exitExprs lob = Nil
+	exitExprs := lob(Null)
 	if cddr(tmpl) != EmptyList {
 		exitExprs = cons(intern("begin"), cdr(tmpl))
 	} else {
@@ -502,10 +502,166 @@ func expandDo(expr lob) (lob, error) {
 	return macroexpandList(currentModule, tmpl)
 }
 
-func expandCond(expr lob) (lob, error) {
-	return nil, newError("expandCond NYI")
+func nextCondClause(expr lob, clauses lob, count int) (lob, error) {
+	var result lob
+	var err error
+	tmpsym := intern("__tmp__")
+	ifsym := intern("if")
+	elsesym := intern("else")
+	letsym := intern("let")
+	begsym := intern("begin")
+
+	clause0 := car(clauses)
+	next := cdr(clauses)
+	clause1 := car(next)
+
+	if count == 2 {
+		if !isList(clause1) {
+			return nil, syntaxError(expr)
+		}
+		if elsesym == car(clause1) {
+			if cadr(clause0) == intern("=>") {
+				if length(clause0) != 3 {
+					return nil, syntaxError(expr)
+				}
+				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), cons(begsym, cdr(clause1))))
+			} else {
+				result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), cons(begsym, cdr(clause1)));
+			}
+		} else {				
+			if cadr(clause1) == intern("=>") {
+				if length(clause1) != 3 {
+					return nil, syntaxError(expr)
+				}
+				result = list(letsym, list(list(tmpsym, car(clause1))), list(ifsym, tmpsym, list(caddr(clause1), tmpsym), clause1))
+			} else {
+				result = list(ifsym, car(clause1), cons(begsym, cdr(clause1)))
+			}
+			if cadr(clause0) == intern("=>") {
+				if length(clause0) != 3 {
+					return nil, syntaxError(expr)
+				}
+				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
+			} else {
+				result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), result)
+			}
+		}
+	} else {
+		result, err = nextCondClause(expr, next, count - 1)
+		if err != nil {
+			return nil, err
+		}
+		if cadr(clause0) == intern("=>") {
+			if length(clause0) != 3 {
+				return nil, syntaxError(expr)
+			}
+			result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
+		} else {
+			result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), result)
+		}
+	}
+	return macroexpand(result)
 }
 
+func expandCond(expr lob) (lob, error) {
+	i := length(expr)
+	if i < 2 {
+		return nil, syntaxError(expr)
+	} else if i == 2 {
+		tmp := cadr(expr)
+		if car(tmp) == intern("else") {
+			tmp = cons(intern("begin"), cdr(tmp))
+		} else {
+			expr = cons(intern("begin"), cdr(tmp))
+			tmp = list(intern("if"), car(tmp), expr)
+		}
+		return macroexpand(tmp)
+	} else {
+		return nextCondClause(expr, cdr(expr), i-1)
+	}
+}
+
+func expandQuasiquote(expr lob) (lob, error) {
+	if length(expr) != 2 {
+		return nil, syntaxError(expr)
+	}
+	return expandQQ(cadr(expr))
+}
+
+func expandQQ(expr lob) (lob, error) {
+	switch v := expr.(type) {
+	case *llist:
+		if v == EmptyList {
+			return v, nil
+		}
+		if v.cdr != EmptyList {
+			if v.car == symUnquote {
+				if v.cdr.cdr != EmptyList {
+					return nil, syntaxError(v)
+				}
+				return macroexpand(v.cdr.car)
+			} else if v.car == symUnquoteSplicing {
+				return nil, newError("unquote-splicing can only occur in the context of a list ")
+			}
+		}
+		tmp, err := expandQQList(v)
+		if err != nil {
+			return nil, err
+		}
+		return macroexpand(tmp)
+	case *lsymbol:
+		if isKeyword(v) {
+			return expr, nil
+		}
+		return list(intern("quote"), expr), nil
+	default: //all other objects evaluate to themselves
+		return expr, nil
+	}
+}
+
+func expandQQList(lst *llist) (lob, error) {
+	var tmp lob
+	var err error
+	result := list(intern("concat"))
+	tail := result
+	for lst != EmptyList {
+		item := car(lst)
+		if isList(item) && item != EmptyList {
+			if car(item) == symUnquote && length(item) == 2 {
+				tmp, err = macroexpand(cadr(item))
+				tmp = list(intern("list"), tmp)
+				if err != nil {
+					return nil, err
+				}
+				tail.cdr = list(tmp)
+				tail = tail.cdr
+			} else if car(item) == symUnquoteSplicing && length(item) == 2 {
+				tmp, err = macroexpand(cadr(item))
+				if err != nil {
+					return nil, err
+				}
+				tail.cdr = list(tmp)
+				tail = tail.cdr
+			} else if car(item) == symQuasiquote {
+				return nil, newError("nested quasiquote not supported")
+			} else {
+				tmp, err = expandQQList(item.(*llist))
+				if err != nil {
+					return nil, err
+				}
+				tail.cdr = list(list(intern("list"), tmp))
+				tail = tail.cdr
+			}
+		} else {
+			tail.cdr = list(list(intern("quote"), list(item)))
+			tail = tail.cdr
+		}
+		lst = cdr(lst)
+	}
+	return result, nil
+}
+
+/*
 func expandAnd(expr lob) (lob, error) {
 	module := currentModule
 	//(and x y) -> (if
@@ -550,3 +706,4 @@ func expandAnd(expr lob) (lob, error) {
 	}
 	return macroexpandList(module, result)
 }
+*/
