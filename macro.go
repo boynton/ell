@@ -168,7 +168,7 @@ func expandUndefine(module module, expr *llist) (*llist, error) {
 	return expr, nil
 }
 
-func expandDefine(module module, expr *llist) (*llist, error) {
+func expandDefine(module module, expr *llist) (lob, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
 		return nil, syntaxError(expr)
@@ -194,7 +194,11 @@ func expandDefine(module module, expr *llist) (*llist, error) {
 		if err != nil {
 			return nil, err
 		}
-		return list(car(expr), name, cons(intern("lambda"), cons(args, body))), nil
+		tmp, err := expandLambda(module, cons(intern("lambda"), cons(args, body)))
+		if err != nil {
+			return nil, err
+		}
+		return list(car(expr), name, tmp), nil
 	} else {
 		return nil, syntaxError(expr)
 	}
