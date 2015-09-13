@@ -209,7 +209,25 @@ func expandLambda(module module, expr *llist) (*llist, error) {
 	if exprLen < 3 {
 		return nil, syntaxError(expr)
 	}
-	body, err := expandSequence(module, cddr(expr))
+	tmp := cddr(expr)
+	if exprLen > 3 {
+		if isList(tmp) && caar(tmp) == intern("define") {
+			bindings := EmptyList
+			for caar(tmp) == intern("define") {
+				def, err := expandDefine(module, car(tmp).(*llist))
+				if err != nil {
+					return nil, err
+				}
+				bindings = cons(cdr(def), bindings)
+				tmp = cdr(tmp)
+			}
+			bindings, err := reverse(bindings)
+			tmp = cons(intern("letrec"), cons(bindings, tmp))
+			tmp2, err := macroexpandList(module, tmp)
+			return list(car(expr), cadr(expr), tmp2), err
+		}
+	}
+	body, err := expandSequence(module, tmp)
 	if err != nil {
 		return nil, err
 	}
