@@ -39,9 +39,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 			val, err := ell.env.eval(lexpr)
 			if err == nil {
 				result := ""
-				if val != nil {
-					result = "= " + write(val)
-				}
+				result = "= " + write(val)
 				return result, false, nil
 			}
 			return "", false, err
@@ -218,4 +216,8 @@ func readEvalPrintLoop(environment module) {
 	if err != nil {
 		println("REPL error: ", err)
 	}
+}
+
+func exit(code int) {
+	repl.Exit(code)
 }
