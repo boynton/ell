@@ -261,6 +261,9 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
 			buf.WriteString(begin + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
+		case opcodeVector:
+			buf.WriteString(begin + "(vector " + strconv.Itoa(code.ops[offset+1]) + ")")
+			offset += 2			
 		case opcodeUse:
 			buf.WriteString(begin + "(use " + code.mod.constants[code.ops[offset+1]].String() + ")")
 			offset += 2
