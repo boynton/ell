@@ -32,6 +32,13 @@ const Version = "gell v0.1"
 // EllPath is the path where the library *.ell files can be found
 var EllPath string
 
+func fatal(args ...any) {
+	println(args...)
+	exit(1)
+}
+
+var interrupts chan os.Signal
+
 func main() {
 	EllPath = os.Getenv("ELL_PATH")
 	ellini := filepath.Join(os.Getenv("HOME"), ".ell")
@@ -56,7 +63,7 @@ func main() {
 		extendedInstructions = *pExtended
 	}
 	if len(args) < 1 {
-		interrupts := make(chan os.Signal, 1)
+		interrupts = make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
 		environment := newEnvironment("main", Ell, interrupts)
