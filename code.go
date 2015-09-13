@@ -200,7 +200,7 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			offset += 2
 		case opcodeDefGlobal:
 			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, code.mod.constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(global " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(begin + "(defglobal " + write(code.mod.constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeCall:
 			//fmt.Printf("%sL%03d:\t(call %d)\n", indent, offset, code.ops[offset+1])
