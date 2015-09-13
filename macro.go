@@ -287,6 +287,7 @@ func expandPrimitive(module module, fn lob, expr *llist) (lob, error) {
 
 func crackLetrecBindings(bindings *llist, tail *llist) (*llist, *llist, bool) {
 	var names []lob
+	inits := EmptyList
 	for bindings != EmptyList {
 		if isList(bindings) {
 			tmp := car(bindings)
@@ -298,7 +299,7 @@ func crackLetrecBindings(bindings *llist, tail *llist) (*llist, *llist, bool) {
 					return nil, nil, false
 				}
 				if isList(cdr(tmp)) {
-					tail = cons(cons(intern("set!"), tmp.(*llist)), tail)
+					inits = cons(cons(intern("set!"), tmp.(*llist)), inits)
 				} else {
 					return nil, nil, false
 				}
@@ -311,7 +312,13 @@ func crackLetrecBindings(bindings *llist, tail *llist) (*llist, *llist, bool) {
 		}
 		bindings = cdr(bindings)
 	}
-	return toList(names), tail, true
+	inits, _ = reverse(inits)
+	head := inits
+	for inits.cdr != EmptyList {
+		inits = inits.cdr
+	}
+	inits.cdr = tail
+	return toList(names), head, true
 }
 
 func expandLetrec(expr lob) (lob, error) {
