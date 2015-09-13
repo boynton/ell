@@ -231,6 +231,9 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 			}
 		}
 		code.emitVector(vlen)
+		if isTail {
+			code.emitReturn()
+		}
 		return nil
 	} else if amap, ok := expr.(*lmap); ok {
 		//vector literal: the elements are evaluated
@@ -249,6 +252,9 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 			}
 		}
 		code.emitMap(vlen)
+		if isTail {
+			code.emitReturn()
+		}
 		return nil
 	}
 	if !ignoreResult {
