@@ -58,6 +58,9 @@ func macroexpandObject(mod module, expr lob) (lob, error) {
 }
 
 func macroexpandList(module module, expr *llist) (lob, error) {
+	if expr == EmptyList {
+		return expr, nil
+	}
 	lst := expr
 	fn := car(lst)
 	head := lob(fn)
