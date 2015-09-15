@@ -264,6 +264,9 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 		case opcodeArray:
 			buf.WriteString(begin + "(array " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
+		case opcodeStruct:
+			buf.WriteString(begin + "(struct " + strconv.Itoa(code.ops[offset+1]) + ")")
+			offset += 2
 		case opcodeUse:
 			buf.WriteString(begin + "(use " + code.mod.constants[code.ops[offset+1]].String() + ")")
 			offset += 2
