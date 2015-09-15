@@ -238,8 +238,9 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 	} else if aStruct, ok := expr.(*lstruct); ok {
 		//struct literal: the elements are evaluated
 		slen := len(aStruct.bindings)
-		vlen := slen * 2
+		vlen := slen * 2 + 1
 		vals := make([]lob, 0, vlen)
+		vals = append(vals, list(symQuote, aStruct.typesym))
 		for k, v := range aStruct.bindings {
 			vals = append(vals, k)
 			vals = append(vals, v)

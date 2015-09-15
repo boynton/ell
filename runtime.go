@@ -643,7 +643,8 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				println(pc, "\tstruct\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v, _ := toStruct(stack[sp:], vlen)
+			typesym := stack[sp].(*lsymbol)
+			v, _ := newInstance(typesym, stack[sp+1:sp+vlen]) //To do: extend to other types
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
