@@ -27,3 +27,18 @@
             c
             `(let ((tmp ~c)) (if (not tmp) false ~(loop (car r) (cdr r))))))))
 
+
+(defmacro defstruct (sym & fields)
+  (defn extract-keys (args)
+    (let loop ((keys '()) (remaining args))
+      (if (empty? remaining)
+          keys
+          (let ((sym (car remaining)))
+            (if (keyword? sym)
+                (loop (cons sym keys) (cddr remaining))
+                (loop keys (cdr remaining)))))))
+  (let ((keys (extract-keys fields)))
+    `(begin
+       (defn ~sym args (apply instance (concat '(~sym ~@fields) (normalize-keyword-args args ~@keys))))
+       (defn ~(symbol sym "?") (o) (equal? (type o) (quote ~sym)))
+       (quote ~sym))))

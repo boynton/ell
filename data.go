@@ -138,10 +138,21 @@ func isSymbol(obj lob) bool {
 	return ok
 }
 
+func isSymbolKeyword(sym *lsymbol) bool {
+	return (sym.Name[len(sym.Name)-1] == ':' || sym.Name[0] == ':')
+}
+
+func unKeywordString(sym *lsymbol) string {
+	if isSymbolKeyword(sym) {
+		return sym.Name[:len(sym.Name)-1]
+	}
+	return sym.Name
+}
+
 func isKeyword(obj lob) bool {
 	sym, ok := obj.(*lsymbol)
 	if ok {
-		return (sym.Name[len(sym.Name)-1] == ':' || sym.Name[0] == ':')
+		return isSymbolKeyword(sym)
 	}
 	return false
 }
@@ -197,6 +208,28 @@ func symbols() []lob {
 		syms = append(syms, sym)
 	}
 	return syms
+}
+
+func symbol(names []lob) (lob, error) {
+	size := len(names)
+	if size < 1 {
+		return argcError("symbol", "1+", size)
+	}
+	name := ""
+	for i := 0; i < size; i++ {
+		o := names[i]
+		s := ""
+		switch t := o.(type) {
+		case lstring:
+			s = string(t)
+		case *lsymbol:
+			s = t.Name
+		default:
+			return nil, newError("symbol name component invalid: ", o)
+		}
+		name += s
+	}
+	return intern(name), nil
 }
 
 func intern(name string) lob {
@@ -833,6 +866,9 @@ func cons(car lob, cdr *llist) *llist {
 	if cdr == nil {
 		panic("Assertion failure: don't call cons with nil as cdr")
 	}
+	if inExec {
+		conses += 1
+	}
 	return &llist{car, cdr}
 }
 
@@ -912,6 +948,15 @@ func toList(values []lob) *llist {
 
 func list(values ...lob) *llist {
 	return toList(values)
+}
+
+func listToArray(lst *llist) *larray {
+	elems := make([]lob, 0)
+	for lst != EmptyList {
+		elems = append(elems, lst.car)
+		lst = lst.cdr
+	}
+	return &larray{elems}
 }
 
 func arrayToList(ary lob) (lob, error) {
@@ -1067,26 +1112,105 @@ func arrayRef(ary lob, idx int) (lob, error) {
 }
 
 //
-// ------------------- map
+// ------------------- struct
 //
 type lstruct struct {
+	typesym *lsymbol
 	bindings map[lob]lob
 }
 
-func toStruct(pairwiseBindings []lob, count int) (*lstruct, error) {
-	if count%2 != 0 {
-		return nil, newError("Initializing a struct requires an even number of elements")
+var symStruct = newSymbol("struct")
+
+func (s *lstruct) typeSymbol() lob {
+	return s.typesym
+}
+
+func sliceContains(slice []lob, obj lob) bool {
+	for _, o := range slice {
+		if o == obj {
+			return true
+		}
 	}
+	return false
+}
+
+func normalizeKeywordArgs(args *llist, keys []lob) (*llist, error) {
+	count := length(args)
 	bindings := make(map[lob]lob, count/2)
-	for i := 0; i < count; i += 2 {
-		bindings[pairwiseBindings[i]] = pairwiseBindings[i+1]
+	for args != EmptyList {
+		key := car(args)
+		switch t := key.(type) {
+		case *lsymbol:
+			if !isKeyword(key) {
+				key = intern(t.String() + ":")
+			}
+			if !sliceContains(keys, key) {
+				return nil, newError("Bad keyword parameter: ", key)
+			}
+			args = args.cdr
+			if args == EmptyList {
+				return nil, newError("Mismatched keyword/value pair in parameter: ", key)
+			}
+			bindings[key] = car(args)
+		case *lstruct:
+			for k, v := range t.bindings {
+				if sliceContains(keys, k) {
+					bindings[k] = v
+				}
+			}
+		}
+		args = args.cdr
 	}
-	m := lstruct{bindings}
-	return &m, nil
+	count = len(bindings)
+	if count == 0 {
+		return EmptyList, nil
+	}
+	lst := make([]lob, 0, count*2)
+	for k, v := range bindings {
+		lst = append(lst, k)
+		lst = append(lst, v)
+	}
+	return toList(lst), nil
+}
+
+func newInstance(typesym *lsymbol, fieldvals []lob) (*lstruct, error) {
+	count := len(fieldvals)
+	i := 0
+	bindings := make(map[lob]lob, count/2) //optimal if all key/value pairs
+	for i < count {
+		o := fieldvals[i]
+		i++
+		switch t := o.(type) {
+		case lnull:
+			//ignore
+		case lstring:
+			if i == count {
+				return nil, newError("mismatched keyword/value in arglist: ", o)
+			}
+			bindings[o] = fieldvals[i]
+			i++
+		case *lsymbol:
+			if i == count {
+				return nil, newError("mismatched keyword/value in arglist: ", o)
+			}
+			if !isSymbolKeyword(t) {
+				o = intern(t.String() + ":")
+			}
+			bindings[o] = fieldvals[i]
+			i++
+		case *lstruct:
+			for k, v := range t.bindings {
+				bindings[k] = v
+			}
+		default:
+			return nil, newError("bad parameter to instance: ", o)
+		}
+	}
+	return &lstruct{typesym, bindings}, nil
 }
 
 func newStruct(pairwiseBindings ...lob) (*lstruct, error) {
-	return toStruct(pairwiseBindings, len(pairwiseBindings))
+	return newInstance(symStruct, pairwiseBindings)
 }
 
 func isStruct(obj lob) bool {
@@ -1094,40 +1218,54 @@ func isStruct(obj lob) bool {
 	return ok
 }
 
-var symStruct = newSymbol("struct")
-
-func (*lstruct) typeSymbol() lob {
-	return symStruct
+func asStruct(o lob) (*lstruct, error) {
+	if o == Null {
+		return newStruct()
+	}
+	switch t := o.(type) {
+	case *lstruct:
+		if t.typesym == symStruct {
+			return t, nil
+		}
+		return &lstruct{symStruct, t.bindings}, nil
+	}
+	return nil, newError("Cannot convert to struct: ", o)
 }
 
-func (m *lstruct) equal(another lob) bool {
+func (s *lstruct) equal(another lob) bool {
 	if a, ok := another.(*lstruct); ok {
-		mlen := len(m.bindings)
-		if mlen == len(a.bindings) {
-			for k, v := range m.bindings {
-				if v2, ok := a.bindings[k]; ok {
-					if !equal(v, v2) {
+		if s.typesym == a.typesym {
+			slen := len(s.bindings)
+			if slen == len(a.bindings) {
+				for k, v := range s.bindings {
+					if v2, ok := a.bindings[k]; ok {
+						if !equal(v, v2) {
+							return false
+						}
+					} else {
 						return false
 					}
-				} else {
-					return false
 				}
+				return true
 			}
-			return true
 		}
 	}
 	return false
 }
 
-func (m *lstruct) length() int {
-	return len(m.bindings)
+func (s *lstruct) length() int {
+	return len(s.bindings)
 }
 
-func (m *lstruct) String() string {
+func (s *lstruct) String() string {
 	var buf bytes.Buffer
+	if s.typesym != symStruct {
+		buf.WriteString("#")
+		buf.WriteString(s.typesym.String())
+	}
 	buf.WriteString("{")
 	first := true
-	for k, v := range m.bindings {
+	for k, v := range s.bindings {
 		if first {
 			first = false
 		} else {
@@ -1141,20 +1279,20 @@ func (m *lstruct) String() string {
 	return buf.String()
 }
 
-func (m *lstruct) put(key lob, value lob) lob {
-	m.bindings[key] = value
-	return m
+func (s *lstruct) put(key lob, value lob) lob {
+	s.bindings[key] = value
+	return s
 }
 
-func (m *lstruct) get(key lob) lob {
-	if val, ok := m.bindings[key]; ok {
+func (s *lstruct) get(key lob) lob {
+	if val, ok := s.bindings[key]; ok {
 		return val
 	}
 	return Null
 }
 
-func (m *lstruct) has(key lob) bool {
-	_, ok := m.bindings[key]
+func (s *lstruct) has(key lob) bool {
+	_, ok := s.bindings[key]
 	return ok
 }
 
@@ -1180,6 +1318,7 @@ func put(obj lob, key lob, value lob) (lob, error) {
 	}
 	return nil, typeError(symStruct, obj)
 }
+
 
 //
 // ------------------- error

@@ -63,9 +63,14 @@ func isFunction(obj lob) bool {
 
 const defaultStackSize = 1000
 
+var inExec = false
+var conses = 0
+
 func exec(thunk code, args ...lob) (lob, error) {
 	if verbose {
 		println("; begin execution")
+		inExec = true
+		conses = 0
 	}
 	code := thunk.(*lcode)
 	vm := newVM(defaultStackSize)
@@ -74,7 +79,9 @@ func exec(thunk code, args ...lob) (lob, error) {
 	}
 	result, err := vm.exec(code, args)
 	if verbose {
+		inExec = false
 		println("; end execution")
+		println("; total cons cells allocated: ", conses)
 	}
 	if err != nil {
 		return nil, err
@@ -501,7 +508,6 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				if env == nil {
 					if trace {
 						println("------------------ END EXECUTION of ", module)
-						println(" -> sp:", sp)
 					}
 					return stack[sp], nil
 				}
@@ -559,7 +565,6 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					if env == nil {
 						if trace {
 							println("------------------ END EXECUTION of ", module)
-							println(" -> sp:", sp)
 						}
 						return stack[sp], nil
 					}
@@ -579,8 +584,6 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			if env.previous == nil {
 				if trace {
 					println("------------------ END EXECUTION of ", module)
-					println(" -> sp:", sp)
-					println(" = ", stack[sp])
 				}
 				return stack[sp], nil
 			}

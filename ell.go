@@ -25,11 +25,11 @@ func Ell(module module) {
 
 	module.defineMacro("let", ellLet)
 	module.defineMacro("letrec", ellLetrec)
-	module.defineMacro("do", ellDo) //scheme's do. I don't like it.
+	module.defineMacro("do", ellDo) //scheme's do. I don't like it, will replace with... "for", more like clojure's
+	//note clojure uses "do" instead of "begin". I rather like that.
 	module.defineMacro("cond", ellCond)
-	//	module.defineMacro("and", ellAnd)
 	module.defineMacro("quasiquote", ellQuasiquote)
-
+ 
 	module.define("null", Null)
 	module.define("true", True)
 	module.define("false", False)
@@ -46,6 +46,10 @@ func Ell(module module) {
 
 	module.defineFunction("macroexpand", ellMacroexpand)
 	module.defineFunction("type", ellType)
+	module.defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs)
+
+	module.defineFunction("struct", ellStruct)
+	module.defineFunction("instance", ellInstance)
 	module.defineFunction("equal?", ellEq)
 	module.defineFunction("identical?", ellIdenticalP)
 	module.defineFunction("not", ellNot)
@@ -53,6 +57,8 @@ func Ell(module module) {
 	module.defineFunction("boolean?", ellBooleanP)
 	module.defineFunction("null?", ellNullP)
 	module.defineFunction("symbol?", ellSymbolP)
+	module.defineFunction("symbol", ellSymbol)
+
 	module.defineFunction("keyword?", ellKeywordP)
 	module.defineFunction("string?", ellStringP)
 	module.defineFunction("character?", ellCharacterP)
@@ -138,12 +144,6 @@ func ellCond(argv []lob, argc int) (lob, error) {
 	return expandCond(argv[0])
 }
 
-/*
-func ellAnd(argv []lob, argc int) (lob, error) {
-	return expandAnd(argv[0])
-}
-*/
-
 func ellQuasiquote(argv []lob, argc int) (lob, error) {
 	return expandQuasiquote(argv[0])
 }
@@ -225,6 +225,34 @@ func ellType(argv []lob, argc int) (lob, error) {
 		return argcError("type", "1", argc)
 	}
 	return argv[0].typeSymbol(), nil
+}
+
+func ellNormalizeKeywordArgs(argv []lob, argc int) (lob, error) {
+	//(normalize-keyword-args '(x: 23) '(x: y:) -> (x:)
+	//(normalize-keyword-args '(x: 23 z: 100) '(x: y:) -> error("bad keyword z: in argument list")
+	if argc < 1 {
+		return argcError("normalizeKeywordArgs", "1+", argc)
+	}
+	if args, ok := argv[0].(*llist); ok {
+		return normalizeKeywordArgs(args, argv[1:argc])
+	}
+	return nil, typeError(symList, argv[0])
+}
+
+func ellStruct(argv []lob, argc int) (lob, error) {
+	return newInstance(symStruct, argv[:argc])
+}
+
+func ellInstance(argv []lob, argc int) (lob, error) {
+	if argc < 1 {
+		return argcError("instance", "1+", argc)
+	}
+	switch s := argv[0].(type) {
+	case *lsymbol:
+		return newInstance(s, argv[1:argc])
+	default:
+		return nil, typeError(symSymbol, argv[0])
+	}
 }
 
 func ellIdenticalP(argv []lob, argc int) (lob, error) {
@@ -405,9 +433,7 @@ func ellPlus(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
 		return add(argv[0], argv[1])
 	}
-	result, err := sum(argv, argc)
-	println("sum returns ", result, err)
-	return result, err
+	return sum(argv, argc)
 }
 
 func ellMinus(argv []lob, argc int) (lob, error) {
@@ -613,6 +639,13 @@ func ellSymbolP(argv []lob, argc int) (lob, error) {
 		return False, nil
 	}
 	return argcError("symbol?", "1", argc)
+}
+
+func ellSymbol(argv []lob, argc int) (lob, error) {
+	if argc < 1 {
+		return argcError("symbol", "1+", argc)
+	}
+	return symbol(argv[:argc])
 }
 
 func ellKeywordP(argv []lob, argc int) (lob, error) {

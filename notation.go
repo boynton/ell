@@ -202,10 +202,7 @@ func (dr *dataReader) readData() (lob, error) {
 			}
 			return list(sym, o), nil
 		case '#':
-			o, e := dr.decodeReaderMacro()
-			if e != nil || o != nil {
-				return o, e
-			}
+			return dr.decodeReaderMacro()
 		case '(':
 			return dr.decodeList()
 		case '[':
@@ -306,11 +303,15 @@ func (dr *dataReader) decodeArray() (lob, error) {
 }
 
 func (dr *dataReader) decodeStruct() (lob, error) {
+	return dr.decodeInstance(symStruct)
+}
+
+func (dr *dataReader) decodeInstance(typesym *lsymbol) (lob, error) {
 	items, err := dr.decodeSequence('}')
 	if err != nil {
 		return nil, err
 	}
-	return toStruct(items, len(items))
+	return newInstance(typesym, items)
 }
 
 func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
@@ -475,7 +476,23 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 		err := dr.decodeComment()
 		return Null, err
 	default:
-		return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
+		atom, err := dr.decodeAtom(c)
+		if err != nil {
+			return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
+		}
+		if sym, ok := atom.(*lsymbol); ok {
+			c, err := dr.getChar()
+			if err != nil {
+				return nil, err
+			}
+			if c == '{' {
+				inst, err := dr.decodeInstance(sym)
+				if err == nil {
+					return inst, nil
+				}
+			}
+		}
+		return nil, newError("Bad reader macro: #", atom, " ...")
 	}
 }
 
@@ -497,34 +514,22 @@ func write(obj lob) string {
 
 func writeData(obj lob, json bool) (string, error) {
 	//an error is never returned for non-json
-	if json {
-		if obj == True {
-			return "true", nil
-		} else if obj == False {
-			return "false", nil
-		} else if obj == Null {
-			return "null", nil
-		}
-	}
 	switch o := obj.(type) {
+	case lboolean, lnull:
+		return o.String(), nil
 	case *llist:
 		if json {
-			return "", newError("list cannot be described in JSON: ", obj)
+			return writeArray(listToArray(o), json)
 		}
 		return writeList(o), nil
 	case *lsymbol:
 		if json {
-			return "", newError("symbol cannot be described in JSON: ", obj)
+			return encodeString(unKeywordString(o)), nil
 		}
 		return o.String(), nil
 	case lstring:
 		s := encodeString(string(o))
 		return s, nil
-	case *lcode:
-		if json {
-			return "", newError("code cannot be described in JSON: ", obj)
-		}
-		return o.String(), nil
 	case *larray:
 		return writeArray(o, json)
 	case *lstruct:
@@ -626,6 +631,10 @@ func writeArray(ary *larray, json bool) (string, error) {
 
 func writeStruct(m *lstruct, json bool) (string, error) {
 	var buf bytes.Buffer
+	if !json && m.typesym != symStruct {
+		buf.WriteString("#")
+		buf.WriteString(m.typesym.String())
+	}
 	buf.WriteString("{")
 	first := true
 	delim := ", "
