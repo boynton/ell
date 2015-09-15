@@ -526,9 +526,9 @@ func nextCondClause(expr lob, clauses lob, count int) (lob, error) {
 				}
 				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), cons(begsym, cdr(clause1))))
 			} else {
-				result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), cons(begsym, cdr(clause1)));
+				result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), cons(begsym, cdr(clause1)))
 			}
-		} else {				
+		} else {
 			if cadr(clause1) == intern("=>") {
 				if length(clause1) != 3 {
 					return nil, syntaxError(expr)
@@ -547,7 +547,7 @@ func nextCondClause(expr lob, clauses lob, count int) (lob, error) {
 			}
 		}
 	} else {
-		result, err = nextCondClause(expr, next, count - 1)
+		result, err = nextCondClause(expr, next, count-1)
 		if err != nil {
 			return nil, err
 		}

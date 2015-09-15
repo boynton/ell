@@ -27,7 +27,7 @@ func Ell(module module) {
 	module.defineMacro("letrec", ellLetrec)
 	module.defineMacro("do", ellDo) //scheme's do. I don't like it.
 	module.defineMacro("cond", ellCond)
-//	module.defineMacro("and", ellAnd)
+	//	module.defineMacro("and", ellAnd)
 	module.defineMacro("quasiquote", ellQuasiquote)
 
 	module.define("null", Null)
@@ -71,14 +71,16 @@ func Ell(module module) {
 	module.defineFunction("cdddr", ellCdddr)
 	module.defineFunction("list", ellList)
 	module.defineFunction("concat", ellConcat)
+	module.defineFunction("set-car!", ellSetCarBang)
+	module.defineFunction("set-cdr!", ellSetCdrBang)
 
-	module.defineFunction("vector?", ellVectorP)
-	module.defineFunction("vector", ellVector)
-	module.defineFunction("make-vector", ellMakeVector)
-	module.defineFunction("vector-set!", ellVectorSetBang)
-	module.defineFunction("vector-ref", ellVectorRef)
+	module.defineFunction("array?", ellArrayP)
+	module.defineFunction("array", ellArray)
+	module.defineFunction("make-array", ellMakeArray)
+	module.defineFunction("array-set!", ellArraySetBang)
+	module.defineFunction("array-ref", ellArrayRef)
 
-	module.defineFunction("map?", ellMapP)
+	module.defineFunction("struct?", ellStructP)
 	module.defineFunction("has?", ellHasP)
 	module.defineFunction("get", ellGet)
 	module.defineFunction("put!", ellPutBang)
@@ -423,11 +425,11 @@ func ellDiv(argv []lob, argc int) (lob, error) {
 	return div(argv, argc)
 }
 
-func ellVector(argv []lob, argc int) (lob, error) {
-	return vector(argv...), nil
+func ellArray(argv []lob, argc int) (lob, error) {
+	return array(argv...), nil
 }
 
-func ellMakeVector(argv []lob, argc int) (lob, error) {
+func ellMakeArray(argv []lob, argc int) (lob, error) {
 	if argc > 0 {
 		initVal := lob(Null)
 		vlen, err := integerValue(argv[0])
@@ -436,55 +438,55 @@ func ellMakeVector(argv []lob, argc int) (lob, error) {
 		}
 		if argc > 1 {
 			if argc != 2 {
-				return argcError("make-vector", "1-2", argc)
+				return argcError("make-array", "1-2", argc)
 			}
 			initVal = argv[1]
 		}
-		return newVector(int(vlen), initVal), nil
+		return newArray(int(vlen), initVal), nil
 	}
-	return argcError("make-vector", "1-2", argc)
+	return argcError("make-array", "1-2", argc)
 }
 
-func ellVectorP(argv []lob, argc int) (lob, error) {
+func ellArrayP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if isVector(argv[0]) {
+		if isArray(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("list?", "1", argc)
+	return argcError("array?", "1", argc)
 }
 
-func ellVectorSetBang(argv []lob, argc int) (lob, error) {
+func ellArraySetBang(argv []lob, argc int) (lob, error) {
 	if argc == 3 {
-		v := argv[0]
+		a := argv[0]
 		idx, err := integerValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
-		err = vectorSet(v, int(idx), argv[2])
+		err = arraySet(a, int(idx), argv[2])
 		if err != nil {
 			return nil, err
 		}
-		return v, nil
+		return a, nil
 	}
-	return argcError("vector-set!", "3", argc)
+	return argcError("array-set!", "3", argc)
 }
 
-func ellVectorRef(argv []lob, argc int) (lob, error) {
+func ellArrayRef(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		v := argv[0]
+		a := argv[0]
 		idx, err := integerValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
-		val, err := vectorRef(v, int(idx))
+		val, err := arrayRef(a, int(idx))
 		if err != nil {
 			return nil, err
 		}
 		return val, nil
 	}
-	return argcError("vector-ref", "2", argc)
+	return argcError("array-ref", "2", argc)
 }
 
 func ellGe(argv []lob, argc int) (lob, error) {
@@ -669,11 +671,10 @@ func ellEmptyP(argv []lob, argc int) (lob, error) {
 	}
 	if isEmpty(argv[0]) {
 		return True, nil
-	} else {
-		return False, nil
 	}
+	return False, nil
 }
-			
+
 func ellString(argv []lob, argc int) (lob, error) {
 	s := ""
 	for i := 0; i < argc; i++ {
@@ -702,6 +703,33 @@ func ellCdr(argv []lob, argc int) (lob, error) {
 		return argTypeError("list", 1, lst)
 	}
 	return argcError("cdr", "1", argc)
+}
+
+func ellSetCarBang(argv []lob, argc int) (lob, error) {
+	if argc == 2 {
+		lst := argv[0]
+		if isList(lst) {
+			setCar(lst, argv[1])
+			return Null, nil
+		}
+		return argTypeError("list", 1, lst)
+	}
+	return argcError("set-car!", "2", argc)
+}
+
+func ellSetCdrBang(argv []lob, argc int) (lob, error) {
+	if argc == 2 {
+		lst := argv[0]
+		if isList(lst) {
+			if !isList(argv[1]) {
+				return argTypeError("list", 2, lst)
+			}
+			setCdr(lst, argv[1])
+			return Null, nil
+		}
+		return argTypeError("list", 1, lst)
+	}
+	return argcError("set-cdr!", "2", argc)
 }
 
 func ellCaar(argv []lob, argc int) (lob, error) {
@@ -781,14 +809,14 @@ func ellCons(argv []lob, argc int) (lob, error) {
 	return argcError("cons", "2", argc)
 }
 
-func ellMapP(argv []lob, argc int) (lob, error) {
+func ellStructP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if isMap(argv[0]) {
+		if isStruct(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("list?", "1", argc)
+	return argcError("struct?", "1", argc)
 }
 
 func ellGet(argv []lob, argc int) (lob, error) {

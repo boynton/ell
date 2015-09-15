@@ -39,8 +39,8 @@ const (
 	opcodeSetLocal
 	opcodeUse
 	opcodeDefMacro
-	opcodeVector // 15
-	opcodeMap
+	opcodeArray // 15
+	opcodeStruct
 
 	//extended instructions
 	opcodeNull
@@ -75,8 +75,8 @@ type code interface {
 	emitJumpFalse(offset int) int
 	emitJump(offset int) int
 	setJumpLocation(loc int)
-	emitVector(length int)
-	emitMap(length int)
+	emitArray(length int)
+	emitStruct(length int)
 	emitUse(sym lob)
 	emitCar()
 	emitCdr()
@@ -261,9 +261,9 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
 			buf.WriteString(begin + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
-		case opcodeVector:
-			buf.WriteString(begin + "(vector " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2			
+		case opcodeArray:
+			buf.WriteString(begin + "(array " + strconv.Itoa(code.ops[offset+1]) + ")")
+			offset += 2
 		case opcodeUse:
 			buf.WriteString(begin + "(use " + code.mod.constants[code.ops[offset+1]].String() + ")")
 			offset += 2
@@ -332,12 +332,12 @@ func (code *lcode) loadOps(lst lob) error {
 					return newError("Bad lap format: ", funcParams)
 				}
 				b := cadr(funcParams)
-				if vec, ok := b.(*lvector); ok {
-					defaults = vec.elements
+				if ary, ok := b.(*larray); ok {
+					defaults = ary.elements
 				}
 				c := caddr(funcParams)
-				if vec, ok := c.(*lvector); ok {
-					keys = vec.elements
+				if ary, ok := c.(*larray); ok {
+					keys = ary.elements
 				}
 			} else {
 				return newError("Bad lap format: ", funcParams)
@@ -487,13 +487,13 @@ func (code *lcode) emitJump(offset int) int {
 func (code *lcode) setJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
 }
-func (code *lcode) emitVector(vlen int) {
-	code.ops = append(code.ops, opcodeVector)
-	code.ops = append(code.ops, vlen)
+func (code *lcode) emitArray(alen int) {
+	code.ops = append(code.ops, opcodeArray)
+	code.ops = append(code.ops, alen)
 }
-func (code *lcode) emitMap(vlen int) {
-	code.ops = append(code.ops, opcodeMap)
-	code.ops = append(code.ops, vlen)
+func (code *lcode) emitStruct(slen int) {
+	code.ops = append(code.ops, opcodeStruct)
+	code.ops = append(code.ops, slen)
 }
 func (code *lcode) emitUse(sym lob) {
 	code.ops = append(code.ops, opcodeUse)

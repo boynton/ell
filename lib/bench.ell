@@ -1,0 +1,15 @@
+(use sort)
+(use pi)
+
+(define (make-foo n) (do ((i 0 (+ i 1)) (l '() (cons i l))) ((>= i n) l)))
+(define (benchmark)
+  (let ((foo (make-foo 100000)))
+    (sort foo <)
+    (sort foo >)
+    (pi 1000 5)))
+
+(let loop ((i 5))
+  (if (> i 0)
+      (begin
+        (benchmark)
+        (loop (- i 1)))))

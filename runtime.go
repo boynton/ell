@@ -629,21 +629,21 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			sp--
 			stack[sp] = sym
 			pc += 2
-		case opcodeVector:
+		case opcodeArray:
 			if trace {
-				println(pc, "\tvec\t", ops[pc+1])
+				println(pc, "\tarray\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v := toVector(stack[sp:], vlen)
+			v := toArray(stack[sp:], vlen)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
-		case opcodeMap:
+		case opcodeStruct:
 			if trace {
-				println(pc, "\tmap\t", ops[pc+1])
+				println(pc, "\tstruct\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v, _ := toMap(stack[sp:], vlen)
+			v, _ := toStruct(stack[sp:], vlen)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2

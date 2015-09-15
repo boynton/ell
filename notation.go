@@ -209,9 +209,9 @@ func (dr *dataReader) readData() (lob, error) {
 		case '(':
 			return dr.decodeList()
 		case '[':
-			return dr.decodeVector()
+			return dr.decodeArray()
 		case '{':
-			return dr.decodeMap()
+			return dr.decodeStruct()
 		case '"':
 			return dr.decodeString()
 		case ')', ']', '}':
@@ -297,20 +297,20 @@ func (dr *dataReader) decodeList() (lob, error) {
 	return toList(items), nil
 }
 
-func (dr *dataReader) decodeVector() (lob, error) {
+func (dr *dataReader) decodeArray() (lob, error) {
 	items, err := dr.decodeSequence(']')
 	if err != nil {
 		return nil, err
 	}
-	return toVector(items, len(items)), nil
+	return toArray(items, len(items)), nil
 }
 
-func (dr *dataReader) decodeMap() (lob, error) {
+func (dr *dataReader) decodeStruct() (lob, error) {
 	items, err := dr.decodeSequence('}')
 	if err != nil {
 		return nil, err
 	}
-	return toMap(items, len(items))
+	return toStruct(items, len(items))
 }
 
 func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
@@ -525,10 +525,10 @@ func writeData(obj lob, json bool) (string, error) {
 			return "", newError("code cannot be described in JSON: ", obj)
 		}
 		return o.String(), nil
-	case *lvector:
-		return writeVector(o, json)
-	case *lmap:
-		return writeMap(o, json)
+	case *larray:
+		return writeArray(o, json)
+	case *lstruct:
+		return writeStruct(o, json)
 	case linteger, lreal:
 		return o.String(), nil
 	case lchar:
@@ -597,12 +597,12 @@ func writeList(lst *llist) string {
 	return buf.String()
 }
 
-func writeVector(vec *lvector, json bool) (string, error) {
+func writeArray(ary *larray, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
-	vlen := len(vec.elements)
+	vlen := len(ary.elements)
 	if vlen > 0 {
-		s, err := writeData(vec.elements[0], json)
+		s, err := writeData(ary.elements[0], json)
 		if err != nil {
 			return "", err
 		}
@@ -612,7 +612,7 @@ func writeVector(vec *lvector, json bool) (string, error) {
 			delim = ", "
 		}
 		for i := 1; i < vlen; i++ {
-			s, err := writeData(vec.elements[i], json)
+			s, err := writeData(ary.elements[i], json)
 			if err != nil {
 				return "", err
 			}
@@ -624,7 +624,7 @@ func writeVector(vec *lvector, json bool) (string, error) {
 	return buf.String(), nil
 }
 
-func writeMap(m *lmap, json bool) (string, error) {
+func writeStruct(m *lstruct, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true

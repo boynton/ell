@@ -174,7 +174,7 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 			// (lambda ()  <expr> ...)
 			// (lambda (sym ...)  <expr> ...) ;; binds arguments to successive syms
 			// (lambda (sym ... & rsym)  <expr> ...) ;; all args after the & are collected and bound to rsym
-			// (lambda (sym ... [sym sym])  <expr> ...) ;; all args up to the vector are required, the rest are optional
+			// (lambda (sym ... [sym sym])  <expr> ...) ;; all args up to the array are required, the rest are optional
 			// (lambda (sym ... [(sym val) sym])  <expr> ...) ;; default values can be provided to optional args
 			// (lambda (sym ... {sym: def sym: def})  <expr> ...) ;; required args, then keyword args
 			// (lambda (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
@@ -220,27 +220,27 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 			// (<fn> <arg> ...)
 			return compileFuncall(code, env, fn, cdr(lst), isTail, ignoreResult, context)
 		}
-	} else if vec, ok := expr.(*lvector); ok {
-		//vector literal: the elements are evaluated
-		vlen := len(vec.elements)
-		for i := vlen - 1; i >= 0; i-- {
-			obj := vec.elements[i]
+	} else if ary, ok := expr.(*larray); ok {
+		//array literal: the elements are evaluated
+		alen := len(ary.elements)
+		for i := alen - 1; i >= 0; i-- {
+			obj := ary.elements[i]
 			err := compileExpr(code, env, obj, false, false, context)
 			if err != nil {
 				return err
 			}
 		}
-		code.emitVector(vlen)
+		code.emitArray(alen)
 		if isTail {
 			code.emitReturn()
 		}
 		return nil
-	} else if amap, ok := expr.(*lmap); ok {
-		//vector literal: the elements are evaluated
-		mlen := len(amap.bindings)
-		vlen := mlen * 2
+	} else if aStruct, ok := expr.(*lstruct); ok {
+		//struct literal: the elements are evaluated
+		slen := len(aStruct.bindings)
+		vlen := slen * 2
 		vals := make([]lob, 0, vlen)
-		for k, v := range amap.bindings {
+		for k, v := range aStruct.bindings {
 			vals = append(vals, k)
 			vals = append(vals, v)
 		}
@@ -251,7 +251,7 @@ func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool
 				return err
 			}
 		}
-		code.emitMap(vlen)
+		code.emitStruct(vlen)
 		if isTail {
 			code.emitReturn()
 		}
@@ -276,13 +276,13 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 	if !isSymbol(args) {
 		for tmp != EmptyList {
 			a := car(tmp)
-			if vec, ok := a.(*lvector); ok {
+			if ary, ok := a.(*larray); ok {
 				//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
 				if cdr(tmp) != EmptyList {
 					return syntaxError(tmp)
 				}
-				defaults = make([]lob, 0, len(vec.elements))
-				for _, sym := range vec.elements {
+				defaults = make([]lob, 0, len(ary.elements))
+				for _, sym := range ary.elements {
 					def := lob(Null)
 					if isList(sym) {
 						def = cadr(sym)
@@ -296,14 +296,14 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 				}
 				tmp = EmptyList
 				break
-			} else if mp, ok := a.(*lmap); ok {
+			} else if sp, ok := a.(*lstruct); ok {
 				//i.e. (x {y: 23, z: 57}]) is for optional y and z, keyword args, with defaults
 				if cdr(tmp) != EmptyList {
 					return syntaxError(tmp)
 				}
-				defaults = make([]lob, 0, len(mp.bindings))
-				keys = make([]lob, 0, len(mp.bindings))
-				for sym, defValue := range mp.bindings {
+				defaults = make([]lob, 0, len(sp.bindings))
+				keys = make([]lob, 0, len(sp.bindings))
+				for sym, defValue := range sp.bindings {
 					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {
@@ -322,7 +322,7 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 				return syntaxError(tmp)
 			}
 			if a == intern("&") { //the rest of the arglist is bound to a single variable
-				//note that the & annotation is optional if  what follows is a map or vector
+				//note that the & annotation is optional if  what follows is a struct or array
 				rest = true
 			} else {
 				if rest {

@@ -38,7 +38,6 @@ type lob interface {
 // ------------------- null
 //
 
-
 type lnull int
 
 var symNull = newSymbol("null")
@@ -57,7 +56,6 @@ func (v lnull) String() string {
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList
 const Null = lnull(0)
-
 
 //
 // ------------------- EOF marker
@@ -178,19 +176,19 @@ func (sym *lsymbol) String() string {
 
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]lob{
-	"null":    symNull,
-	"boolean": symBoolean,
-	"symbol":  symSymbol,
-	"string":  symString,
-	"number":  symNumber,
-	"list":    symList,
-	"vector":  symVector,
-	"map":     symMap,
-	"eof":     symEOF,
-	"quote":     symQuote,
-	"quasiquote":     symQuasiquote,
-	"unquote":     symUnquote,
-	"unquote-splicing":     symUnquoteSplicing,
+	"null":             symNull,
+	"boolean":          symBoolean,
+	"symbol":           symSymbol,
+	"string":           symString,
+	"number":           symNumber,
+	"list":             symList,
+	"array":            symArray,
+	"struct":           symStruct,
+	"eof":              symEOF,
+	"quote":            symQuote,
+	"quasiquote":       symQuasiquote,
+	"unquote":          symUnquote,
+	"unquote-splicing": symUnquoteSplicing,
 }
 
 func symbols() []lob {
@@ -368,6 +366,7 @@ func realValue(obj lob) (float64, error) {
 	case lreal:
 		return float64(n), nil
 	}
+	println("not a real value: ", obj)
 	return 0, typeError(symNumber, obj)
 }
 
@@ -734,11 +733,11 @@ func isEmpty(col lob) bool {
 		return true
 	case lstring:
 		return len(v) == 0
-	case *lvector:
+	case *larray:
 		return len(v.elements) == 0
 	case *llist:
 		return v == EmptyList
-	case *lmap:
+	case *lstruct:
 		return len(v.bindings) == 0
 	default:
 		return false
@@ -902,23 +901,23 @@ func cddddr(lst lob) *llist {
 	return cdr(cdr(cdr(cdr(lst))))
 }
 
-func toList(vec []lob) *llist {
+func toList(values []lob) *llist {
 	p := EmptyList
-	for i := len(vec) - 1; i >= 0; i-- {
-		v := vec[i]
+	for i := len(values) - 1; i >= 0; i-- {
+		v := values[i]
 		p = cons(v, p)
 	}
 	return p
 }
 
-func list(vec ...lob) *llist {
-	return toList(vec)
+func list(values ...lob) *llist {
+	return toList(values)
 }
 
-func vectorToList(vec lob) (lob, error) {
-	v, ok := vec.(*lvector)
+func arrayToList(ary lob) (lob, error) {
+	v, ok := ary.(*larray)
 	if !ok {
-		return nil, typeError(symVector, vec)
+		return nil, typeError(symArray, ary)
 	}
 	return toList(v.elements), nil
 }
@@ -927,11 +926,11 @@ func length(seq lob) int {
 	switch v := seq.(type) {
 	case lstring:
 		return len(v)
-	case *lvector:
+	case *larray:
 		return len(v.elements)
 	case *llist:
 		return v.length()
-	case *lmap:
+	case *lstruct:
 		return len(v.bindings)
 	default:
 		return -1
@@ -964,56 +963,53 @@ func concat(seq1 *llist, seq2 *llist) (*llist, error) {
 }
 
 //
-// ------------------- vector
+// ------------------- array
 //
 
-type lvector struct {
+type larray struct {
 	elements []lob
 }
 
-func newVector(size int, init lob) *lvector {
+func newArray(size int, init lob) *larray {
 	elements := make([]lob, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	vec := lvector{elements}
-	return &vec
+	return &larray{elements}
 }
 
-func vector(elements ...lob) lob {
+func array(elements ...lob) lob {
 	size := len(elements)
 	el := make([]lob, size)
 	for i := 0; i < size; i++ {
 		el[i] = elements[i]
 	}
-	vec := lvector{el}
-	return &vec
+	return &larray{el}
 }
 
-func toVector(elements []lob, count int) lob {
+func toArray(elements []lob, count int) lob {
 	el := make([]lob, count)
 	copy(el, elements[0:count])
-	vec := lvector{el}
-	return &vec
+	return &larray{el}
 }
 
-var symVector = newSymbol("vector")
+var symArray = newSymbol("array")
 
-func isVector(obj lob) bool {
-	_, ok := obj.(*lvector)
+func isArray(obj lob) bool {
+	_, ok := obj.(*larray)
 	return ok
 }
 
-func (*lvector) typeSymbol() lob {
-	return symVector
+func (*larray) typeSymbol() lob {
+	return symArray
 }
 
-func (vec *lvector) equal(another lob) bool {
-	if a, ok := another.(*lvector); ok {
-		vlen := len(vec.elements)
-		if vlen == len(a.elements) {
-			for i := 0; i < vlen; i++ {
-				if !equal(vec.elements[i], a.elements[i]) {
+func (ary *larray) equal(another lob) bool {
+	if a, ok := another.(*larray); ok {
+		alen := len(ary.elements)
+		if alen == len(a.elements) {
+			for i := 0; i < alen; i++ {
+				if !equal(ary.elements[i], a.elements[i]) {
 					return false
 				}
 			}
@@ -1023,89 +1019,89 @@ func (vec *lvector) equal(another lob) bool {
 	return false
 }
 
-func (vec *lvector) String() string {
+func (ary *larray) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
-	count := len(vec.elements)
+	count := len(ary.elements)
 	if count > 0 {
-		buf.WriteString(vec.elements[0].String())
+		buf.WriteString(ary.elements[0].String())
 		for i := 1; i < count; i++ {
 			buf.WriteString(" ")
-			buf.WriteString(vec.elements[i].String())
+			buf.WriteString(ary.elements[i].String())
 		}
 	}
 	buf.WriteString("]")
 	return buf.String()
 }
 
-func (vec *lvector) length() int {
-	return len(vec.elements)
+func (ary *larray) length() int {
+	return len(ary.elements)
 }
 
-func vectorLength(vec lob) (int, error) {
-	if v, ok := vec.(*lvector); ok {
-		return len(v.elements), nil
+func arrayLength(ary lob) (int, error) {
+	if a, ok := ary.(*larray); ok {
+		return len(a.elements), nil
 	}
-	return 1, typeError(symVector, vec)
+	return 1, typeError(symArray, ary)
 }
 
-func vectorSet(vec lob, idx int, obj lob) error {
-	if v, ok := vec.(*lvector); ok {
-		if idx < 0 || idx >= len(v.elements) {
-			return newError("Vector index out of range")
+func arraySet(ary lob, idx int, obj lob) error {
+	if a, ok := ary.(*larray); ok {
+		if idx < 0 || idx >= len(a.elements) {
+			return newError("Array index out of range")
 		}
-		v.elements[idx] = obj
+		a.elements[idx] = obj
 		return nil
 	}
-	return typeError(symVector, vec)
+	return typeError(symArray, ary)
 }
 
-func vectorRef(vec lob, idx int) (lob, error) {
-	if v, ok := vec.(*lvector); ok {
-		if idx < 0 || idx >= len(v.elements) {
-			return nil, newError("Vector index out of range")
+func arrayRef(ary lob, idx int) (lob, error) {
+	if a, ok := ary.(*larray); ok {
+		if idx < 0 || idx >= len(a.elements) {
+			return nil, newError("Array index out of range")
 		}
-		return v.elements[idx], nil
+		return a.elements[idx], nil
 	}
-	return nil, typeError(symVector, vec)
+	return nil, typeError(symArray, ary)
 }
 
 //
 // ------------------- map
 //
-type lmap struct {
+type lstruct struct {
 	bindings map[lob]lob
 }
 
-func toMap(pairwiseBindings []lob, count int) (*lmap, error) {
+func toStruct(pairwiseBindings []lob, count int) (*lstruct, error) {
 	if count%2 != 0 {
-		return nil, newError("Initializing a map requires an even number of elements")
+		return nil, newError("Initializing a struct requires an even number of elements")
 	}
 	bindings := make(map[lob]lob, count/2)
 	for i := 0; i < count; i += 2 {
 		bindings[pairwiseBindings[i]] = pairwiseBindings[i+1]
 	}
-	m := lmap{bindings}
+	m := lstruct{bindings}
 	return &m, nil
 }
 
-func newMap(pairwiseBindings ...lob) (*lmap, error) {
-	return toMap(pairwiseBindings, len(pairwiseBindings))
+func newStruct(pairwiseBindings ...lob) (*lstruct, error) {
+	return toStruct(pairwiseBindings, len(pairwiseBindings))
 }
 
-func isMap(obj lob) bool {
-	_, ok := obj.(*lmap)
+func isStruct(obj lob) bool {
+	_, ok := obj.(*lstruct)
 	return ok
 }
 
-var symMap = newSymbol("map")
+var symStruct = newSymbol("struct")
 
-func (*lmap) typeSymbol() lob {
-	return symMap
+func (*lstruct) typeSymbol() lob {
+	return symStruct
 }
 
-func (m *lmap) equal(another lob) bool {
-	if a, ok := another.(*lmap); ok {
+func (m *lstruct) equal(another lob) bool {
+	if a, ok := another.(*lstruct); ok {
 		mlen := len(m.bindings)
 		if mlen == len(a.bindings) {
 			for k, v := range m.bindings {
@@ -1123,11 +1119,11 @@ func (m *lmap) equal(another lob) bool {
 	return false
 }
 
-func (m *lmap) length() int {
+func (m *lstruct) length() int {
 	return len(m.bindings)
 }
 
-func (m *lmap) String() string {
+func (m *lstruct) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
@@ -1145,42 +1141,44 @@ func (m *lmap) String() string {
 	return buf.String()
 }
 
-func (m *lmap) put(key lob, value lob) lob {
+func (m *lstruct) put(key lob, value lob) lob {
 	m.bindings[key] = value
 	return m
 }
 
-func (m *lmap) get(key lob) lob {
+func (m *lstruct) get(key lob) lob {
 	if val, ok := m.bindings[key]; ok {
 		return val
 	}
 	return Null
 }
 
-func (m *lmap) has(key lob) bool {
+func (m *lstruct) has(key lob) bool {
 	_, ok := m.bindings[key]
 	return ok
 }
 
 func has(obj lob, key lob) (bool, error) {
-	if aMap, ok := obj.(*lmap); ok {
-		return aMap.has(key), nil
+	if aStruct, ok := obj.(*lstruct); ok {
+		return aStruct.has(key), nil
 	}
-	return false, typeError(symMap, obj)
+	return false, typeError(symStruct, obj)
 }
 
 func get(obj lob, key lob) (lob, error) {
-	if aMap, ok := obj.(*lmap); ok {
-		return aMap.get(key), nil
+	if aStruct, ok := obj.(*lstruct); ok {
+		return aStruct.get(key), nil
 	}
-	return nil, typeError(symMap, obj)
+	return nil, typeError(symStruct, obj)
 }
 
 func put(obj lob, key lob, value lob) (lob, error) {
-	if aMap, ok := obj.(*lmap); ok {
-		return aMap.put(key, value), nil
+	//not clear if I want to export this. Would prefer immutable values
+	//i.e. (merge s {x: 23}) or (struct s x: 23)
+	if aStruct, ok := obj.(*lstruct); ok {
+		return aStruct.put(key, value), nil
 	}
-	return nil, typeError(symMap, obj)
+	return nil, typeError(symStruct, obj)
 }
 
 //
