@@ -308,7 +308,7 @@ func compileLambda(code code, env *llist, args lob, body *llist, isTail bool, ig
 					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {
-						sym = unkeyword(sym) //returns sym itself if nto a keyword, otherwise strips the colon
+						sym, _ = unkeyword(sym) //returns sym itself if not a keyword, otherwise strips the colon
 					}
 					if !isSymbol(sym) {
 						return syntaxError(tmp)

@@ -285,9 +285,9 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 			el[i] = defaults[i-expectedArgc]
 		}
 		for i := expectedArgc; i < argc; i += 2 {
-			key := unkeyword(stack[sp+i])
-			if !isSymbol(key) {
-				return nil, newError("Bad keyword argument: ", key)
+			key, err := unkeyword(stack[sp+i])
+			if err != nil {
+				return nil, newError("Bad keyword argument: ", stack[sp+1])
 			}
 			gotit := false
 			for j := 0; j < extra; j++ {

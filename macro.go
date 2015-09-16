@@ -221,7 +221,7 @@ func expandLambda(module module, expr *llist) (*llist, error) {
 				bindings = cons(cdr(def), bindings)
 				tmp = cdr(tmp)
 			}
-			bindings, err := reverse(bindings)
+			bindings = reverse(bindings)
 			tmp = cons(intern("letrec"), cons(bindings, tmp))
 			tmp2, err := macroexpandList(module, tmp)
 			return list(car(expr), cadr(expr), tmp2), err
@@ -312,7 +312,7 @@ func crackLetrecBindings(bindings *llist, tail *llist) (*llist, *llist, bool) {
 		}
 		bindings = cdr(bindings)
 	}
-	inits, _ = reverse(inits)
+	inits = reverse(inits)
 	head := inits
 	for inits.cdr != EmptyList {
 		inits = inits.cdr

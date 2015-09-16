@@ -157,17 +157,54 @@ func isKeyword(obj lob) bool {
 	return false
 }
 
-func unkeyword(obj lob) lob {
-	sym, ok := obj.(*lsymbol)
-	if ok {
-		last := len(sym.Name) - 1
-		if sym.Name[last] == ':' {
-			return intern(sym.Name[0:last])
-		} else if sym.Name[0] == ':' {
-			return intern(sym.Name[1:])
+func keyword(obj lob) (lob, error) {
+	switch t := obj.(type) {
+	case lnull:
+		return obj, nil
+	case *lsymbol:
+		last := len(t.Name) - 1 //can never be less than 0, symbols always have len > 0
+		if t.Name[last] == ':' {
+			return obj, nil
 		}
+		return intern(t.Name + ":"), nil
+	case lstring:
+		s := string(t)
+		last := len(s) - 1
+		if last < 0 {
+			return obj, nil
+		}
+		if s[last] != ':' {
+			s += ":"
+		}
+		return intern(s), nil
+	default:
+		return nil, newError("Type error: expected symbol or string, got ", obj)
 	}
-	return obj
+}
+
+func unkeyword(obj lob) (lob, error) {
+	switch t := obj.(type) {
+	case lnull:
+		return obj, nil
+	case *lsymbol:
+		last := len(t.Name) - 1 //can never be less than 0, symbols always have len > 0
+		if t.Name[last] != ':' {
+			return obj, nil
+		}
+		return intern(t.Name[:last]), nil
+	case lstring:
+		s := string(t)
+		last := len(s) - 1
+		if last < 0 {
+			return obj, nil
+		}
+		if s[last] == ':' {
+			s = s[:last]
+		}
+		return intern(s), nil
+	default:
+		return nil, newError("Type error: expected symbol or string, got ", obj)
+	}
 }
 
 func (*lsymbol) typeSymbol() lob {
@@ -982,20 +1019,17 @@ func length(seq lob) int {
 	}
 }
 
-func reverse(lst *llist) (*llist, error) {
+func reverse(lst *llist) *llist {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = cons(lst.car, rev)
 		lst = lst.cdr
 	}
-	return rev, nil
+	return rev
 }
 
 func concat(seq1 *llist, seq2 *llist) (*llist, error) {
-	rev, err := reverse(seq1)
-	if err != nil {
-		return nil, err
-	}
+	rev := reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil
 	}
@@ -1145,11 +1179,11 @@ func normalizeKeywordArgs(args *llist, keys []lob) (*llist, error) {
 				key = intern(t.String() + ":")
 			}
 			if !sliceContains(keys, key) {
-				return nil, newError("Bad keyword parameter: ", key)
+				return nil, newError(key, " bad keyword parameter")
 			}
 			args = args.cdr
 			if args == EmptyList {
-				return nil, newError("Mismatched keyword/value pair in parameter: ", key)
+				return nil, newError(key, " mismatched keyword/value pair in parameter")
 			}
 			bindings[key] = car(args)
 		case *lstruct:

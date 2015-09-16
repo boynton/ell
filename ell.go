@@ -60,6 +60,8 @@ func Ell(module module) {
 	module.defineFunction("symbol", ellSymbol)
 
 	module.defineFunction("keyword?", ellKeywordP)
+	module.defineFunction("keyword", ellKeyword)
+	module.defineFunction("unkeyword", ellUnkeyword)
 	module.defineFunction("string?", ellStringP)
 	module.defineFunction("character?", ellCharacterP)
 	module.defineFunction("function?", ellFunctionP)
@@ -77,6 +79,7 @@ func Ell(module module) {
 	module.defineFunction("cdddr", ellCdddr)
 	module.defineFunction("list", ellList)
 	module.defineFunction("concat", ellConcat)
+	module.defineFunction("reverse", ellReverse)
 	module.defineFunction("set-car!", ellSetCarBang)
 	module.defineFunction("set-cdr!", ellSetCdrBang)
 
@@ -363,6 +366,19 @@ func ellConcat(argv []lob, argc int) (lob, error) {
 		}
 	}
 	return result, nil
+}
+
+func ellReverse(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("reverse", "1", argc)
+	}
+	o := argv[0]
+	switch lst := o.(type) {
+	case *llist:
+		return reverse(lst), nil
+	default:
+		return nil, typeError(symList, o)
+	}
 }
 
 func ellList(argv []lob, argc int) (lob, error) {
@@ -656,6 +672,20 @@ func ellKeywordP(argv []lob, argc int) (lob, error) {
 		return False, nil
 	}
 	return argcError("keyword?", "1", argc)
+}
+
+func ellKeyword(argv []lob, argc int) (lob, error) {
+	if argc < 1 {
+		return argcError("symbol", "1+", argc)
+	}
+	return keyword(argv[0])
+}
+
+func ellUnkeyword(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("unkeyword", "1", argc)
+	}
+	return unkeyword(argv[0])
 }
 
 func ellStringP(argv []lob, argc int) (lob, error) {
