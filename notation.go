@@ -380,11 +380,11 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 	}
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err == nil {
-		return linteger(i), nil
+		return lint(i), nil
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err == nil {
-		return lreal(f), nil
+		return lfloat(f), nil
 	}
 	sym := intern(s)
 	return sym, nil
@@ -534,7 +534,7 @@ func writeData(obj lob, json bool) (string, error) {
 		return writeArray(o, json)
 	case *lstruct:
 		return writeStruct(o, json)
-	case linteger, lreal:
+	case lint, lfloat:
 		return o.String(), nil
 	case lchar:
 		switch o {

@@ -2,6 +2,38 @@
 ; macros and non-core definitions to the Ell language
 ;
 
+;;
+;; shortcuts for accessing lists
+;;
+(define (caar p) (car (car p)))
+(define (cadr p) (car (cdr p)))
+(define (cdar p) (cdr (car p)))
+(define (cddr p) (cdr (cdr p)))
+(define (caaar p) (car (car (car p))))
+(define (caadr p) (car (car (cdr p))))
+(define (cadar p) (car (cdr (car p))))
+(define (caddr p) (car (cdr (cdr p))))
+(define (cdaar p) (cdr (car (car p))))
+(define (cdadr p) (cdr (car (cdr p))))
+(define (cddar p) (cdr (cdr (car p))))
+(define (cdddr p) (cdr (cdr (cdr p))))
+(define (caaaar p) (car (car (car (car p)))))
+(define (caaadr p) (car (car (car (cdr p)))))
+(define (caadar p) (car (car (cdr (car p)))))
+(define (caaddr p) (car (car (cdr (cdr p)))))
+(define (cadaar p) (car (cdr (car (car p)))))
+(define (cadadr p) (car (cdr (car (cdr p)))))
+(define (caddar p) (car (cdr (cdr (car p)))))
+(define (cadddr p) (car (cdr (cdr (cdr p)))))
+(define (cdaaar p) (cdr (car (car (car p)))))
+(define (cdaadr p) (cdr (car (car (cdr p)))))
+(define (cdadar p) (cdr (car (cdr (car p)))))
+(define (cdaddr p) (cdr (car (cdr (cdr p)))))
+(define (cddaar p) (cdr (cdr (car (car p)))))
+(define (cddadr p) (cdr (cdr (car (cdr p)))))
+(define (cdddar p) (cdr (cdr (cdr (car p)))))
+(define (cddddr p) (cdr (cdr (cdr (cdr p)))))
+
 ;; defmacro is a more convenient form. This should get pushed down as a primitive
 (define-macro (defmacro expr)
    `(define-macro ~(cadr expr) (lambda (expr) (apply (lambda ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
@@ -31,7 +63,6 @@
         (if (empty? r)
             c
             `(let ((tmp ~c)) (if (not tmp) false ~(loop (car r) (cdr r))))))))
-
 
 ;; validate-struct checks a struct against a set of fields
 (defn validate-struct (val name fields)

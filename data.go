@@ -370,7 +370,6 @@ func isCharacter(obj lob) bool {
 	if ok {
 		return true
 	}
-	_, ok = obj.(lreal)
 	return ok
 }
 
@@ -403,48 +402,53 @@ func (i lchar) String() string {
 
 var symNumber = newSymbol("number")
 
-func isInteger(obj lob) bool {
-	_, ok := obj.(linteger)
+func isInt(obj lob) bool {
+	_, ok := obj.(lint)
+	return ok
+}
+
+func isFloat(obj lob) bool {
+	_, ok := obj.(lfloat)
 	return ok
 }
 
 func isNumber(obj lob) bool {
 	switch obj.(type) {
-	case linteger:
+	case lint:
 		return true
-	case lreal:
+	case lfloat:
 		return true
 	default:
 		return false
 	}
 }
 
-func newInteger(n int64) linteger {
-	v := linteger(n)
+func newInt(n int64) lint {
+	v := lint(n)
 	return v
 }
 
-func newReal(n float64) lreal {
-	v := lreal(n)
+func newFloat(n float64) lfloat {
+	v := lfloat(n)
 	return v
 }
 
-func realValue(obj lob) (float64, error) {
+func floatValue(obj lob) (float64, error) {
 	switch n := obj.(type) {
-	case linteger:
+	case lint:
 		return float64(n), nil
-	case lreal:
+	case lfloat:
 		return float64(n), nil
 	}
-	println("not a real value: ", obj)
+	println("not a float value: ", obj)
 	return 0, typeError(symNumber, obj)
 }
 
-func integerValue(obj lob) (int64, error) {
+func int64Value(obj lob) (int64, error) {
 	switch n := obj.(type) {
-	case linteger:
+	case lint:
 		return int64(n), nil
-	case lreal:
+	case lfloat:
 		return int64(n), nil
 	case lchar:
 		return int64(n), nil
@@ -455,9 +459,9 @@ func integerValue(obj lob) (int64, error) {
 
 func intValue(obj lob) (int, error) {
 	switch n := obj.(type) {
-	case linteger:
+	case lint:
 		return int(n), nil
-	case lreal:
+	case lfloat:
 		return int(n), nil
 	case lchar:
 		return int(n), nil
@@ -467,9 +471,9 @@ func intValue(obj lob) (int, error) {
 }
 
 func greaterOrEqual(n1 lob, n2 lob) (lob, error) {
-	f1, err := realValue(n1)
+	f1, err := floatValue(n1)
 	if err == nil {
-		f2, err := realValue(n2)
+		f2, err := floatValue(n2)
 		if err == nil {
 			if f1 >= f2 {
 				return True, nil
@@ -482,9 +486,9 @@ func greaterOrEqual(n1 lob, n2 lob) (lob, error) {
 }
 
 func lessOrEqual(n1 lob, n2 lob) (lob, error) {
-	f1, err := realValue(n1)
+	f1, err := floatValue(n1)
 	if err == nil {
-		f2, err := realValue(n2)
+		f2, err := floatValue(n2)
 		if err == nil {
 			if f1 <= f2 {
 				return True, nil
@@ -497,9 +501,9 @@ func lessOrEqual(n1 lob, n2 lob) (lob, error) {
 }
 
 func greater(n1 lob, n2 lob) (lob, error) {
-	f1, err := realValue(n1)
+	f1, err := floatValue(n1)
 	if err == nil {
-		f2, err := realValue(n2)
+		f2, err := floatValue(n2)
 		if err == nil {
 			if f1 > f2 {
 				return True, nil
@@ -512,9 +516,9 @@ func greater(n1 lob, n2 lob) (lob, error) {
 }
 
 func less(n1 lob, n2 lob) (lob, error) {
-	f1, err := realValue(n1)
+	f1, err := floatValue(n1)
 	if err == nil {
-		f2, err := realValue(n2)
+		f2, err := floatValue(n2)
 		if err == nil {
 			if f1 < f2 {
 				return True, nil
@@ -535,20 +539,20 @@ func equal(o1 lob, o2 lob) bool {
 
 func numericallyEqual(o1 lob, o2 lob) (bool, error) {
 	switch n1 := o1.(type) {
-	case linteger:
+	case lint:
 		switch n2 := o2.(type) {
-		case linteger:
+		case lint:
 			return n1 == n2, nil
-		case lreal:
+		case lfloat:
 			return float64(n1) == float64(n2), nil
 		default:
 			return false, typeError(symNumber, o2)
 		}
-	case lreal:
+	case lfloat:
 		switch n2 := o2.(type) {
-		case linteger:
+		case lint:
 			return float64(n2) == float64(n1), nil
-		case lreal:
+		case lfloat:
 			return n1 == n2, nil
 		default:
 			return false, typeError(symNumber, o2)
@@ -562,65 +566,65 @@ func identical(n1 lob, n2 lob) bool {
 	return n1 == n2
 }
 
-type linteger int64
+type lint int64
 
-func (linteger) typeSymbol() lob {
+func (lint) typeSymbol() lob {
 	return symNumber
 }
 
-func (i linteger) equal(another lob) bool {
-	if a, err := integerValue(another); err == nil {
+func (i lint) equal(another lob) bool {
+	if a, err := int64Value(another); err == nil {
 		return int64(i) == a
 	}
 	return false
 }
 
-func (i linteger) String() string {
+func (i lint) String() string {
 	return strconv.FormatInt(int64(i), 10)
 }
 
-func (i linteger) integerValue() int64 {
+func (i lint) intValue() int64 {
 	return int64(i)
 }
-func (i linteger) realValue() float64 {
+func (i lint) floatValue() float64 {
 	return float64(i)
 }
 
-type lreal float64
+type lfloat float64
 
-func (lreal) typeSymbol() lob {
+func (lfloat) typeSymbol() lob {
 	return symNumber
 }
 
-func (f lreal) equal(another lob) bool {
-	if a, err := realValue(another); err == nil {
+func (f lfloat) equal(another lob) bool {
+	if a, err := floatValue(another); err == nil {
 		return float64(f) == a
 	}
 	return false
 }
 
-func (f lreal) String() string {
+func (f lfloat) String() string {
 	return strconv.FormatFloat(float64(f), 'f', -1, 64)
 }
 
-func (f lreal) integerValue() int64 {
+func (f lfloat) intValue() int64 {
 	return int64(f)
 }
 
-func (f lreal) realValue() float64 {
+func (f lfloat) floatValue() float64 {
 	return float64(f)
 }
 
 func add(num1 lob, num2 lob) (lob, error) {
-	n1, err := realValue(num1)
+	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
 	}
-	n2, err := realValue(num2)
+	n2, err := floatValue(num2)
 	if err != nil {
 		return nil, err
 	}
-	return newReal(n1 + n2), nil
+	return newFloat(n1 + n2), nil
 }
 
 func sum(nums []lob, argc int) (lob, error) {
@@ -630,13 +634,13 @@ func sum(nums []lob, argc int) (lob, error) {
 	isum = 0
 	for _, num := range nums {
 		switch n := num.(type) {
-		case linteger:
+		case lint:
 			if integral {
 				isum += int64(n)
 			} else {
 				fsum += float64(n)
 			}
-		case lreal:
+		case lfloat:
 			if integral {
 				fsum = float64(isum)
 				integral = false
@@ -647,21 +651,21 @@ func sum(nums []lob, argc int) (lob, error) {
 		}
 	}
 	if integral {
-		return linteger(isum), nil
+		return lint(isum), nil
 	}
-	return lreal(fsum), nil
+	return lfloat(fsum), nil
 }
 
 func sub(num1 lob, num2 lob) (lob, error) {
-	n1, err := realValue(num1)
+	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
 	}
-	n2, err := realValue(num2)
+	n2, err := floatValue(num2)
 	if err != nil {
 		return nil, err
 	}
-	return newReal(n1 - n2), nil
+	return newFloat(n1 - n2), nil
 }
 
 func minus(nums []lob, argc int) (lob, error) {
@@ -673,9 +677,9 @@ func minus(nums []lob, argc int) (lob, error) {
 	integral := true
 	num := nums[0]
 	switch n := num.(type) {
-	case linteger:
+	case lint:
 		isum = int64(n)
-	case lreal:
+	case lfloat:
 		integral = false
 		fsum = float64(n)
 	default:
@@ -690,13 +694,13 @@ func minus(nums []lob, argc int) (lob, error) {
 	} else {
 		for _, num := range nums[1:] {
 			switch n := num.(type) {
-			case linteger:
+			case lint:
 				if integral {
 					isum -= int64(n)
 				} else {
 					fsum -= float64(n)
 				}
-			case lreal:
+			case lfloat:
 				if integral {
 					fsum = float64(isum)
 					integral = false
@@ -708,21 +712,21 @@ func minus(nums []lob, argc int) (lob, error) {
 		}
 	}
 	if integral {
-		return linteger(isum), nil
+		return lint(isum), nil
 	}
-	return lreal(fsum), nil
+	return lfloat(fsum), nil
 }
 
 func mul(num1 lob, num2 lob) (lob, error) {
-	n1, err := realValue(num1)
+	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
 	}
-	n2, err := realValue(num2)
+	n2, err := floatValue(num2)
 	if err != nil {
 		return nil, err
 	}
-	return newReal(n1 * n2), nil
+	return newFloat(n1 * n2), nil
 }
 
 func product(argv []lob, argc int) (lob, error) {
@@ -732,9 +736,9 @@ func product(argv []lob, argc int) (lob, error) {
 	iprod = 1
 	for _, num := range argv {
 		switch n := num.(type) {
-		case linteger:
+		case lint:
 			iprod = iprod * int64(n)
-		case lreal:
+		case lfloat:
 			if integral {
 				fprod = float64(iprod)
 				integral = false
@@ -745,33 +749,33 @@ func product(argv []lob, argc int) (lob, error) {
 		}
 	}
 	if integral {
-		return linteger(iprod), nil
+		return lint(iprod), nil
 	}
-	return lreal(fprod), nil
+	return lfloat(fprod), nil
 }
 
 func div(argv []lob, argc int) (lob, error) {
 	if argc < 1 {
 		return argcError("/", "1+", argc)
 	} else if argc == 1 {
-		n1, err := realValue(argv[0])
+		n1, err := floatValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
-		return lreal(1.0 / n1), nil
+		return lfloat(1.0 / n1), nil
 	} else {
-		quo, err := realValue(argv[0])
+		quo, err := floatValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
 		for i := 1; i < argc; i++ {
-			n, err := realValue(argv[i])
+			n, err := floatValue(argv[i])
 			if err != nil {
 				return nil, err
 			}
 			quo /= n
 		}
-		return lreal(quo), nil
+		return lfloat(quo), nil
 	}
 }
 

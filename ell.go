@@ -25,8 +25,8 @@ func Ell(module module) {
 
 	module.defineMacro("let", ellLet)
 	module.defineMacro("letrec", ellLetrec)
-	module.defineMacro("do", ellDo) //scheme's do. I don't like it, will replace with... "for", more like clojure's
-	//note clojure uses "do" instead of "begin". I rather like that.
+	module.defineMacro("do", ellDo) //scheme's do. I don't like it, will replace with... "for" of some sort
+	//note clojure uses "do" instead of "begin". I rather prefer that.
 	module.defineMacro("cond", ellCond)
 	module.defineMacro("quasiquote", ellQuasiquote)
  
@@ -71,12 +71,6 @@ func Ell(module module) {
 	module.defineFunction("cons", ellCons)
 	module.defineFunction("car", ellCar)
 	module.defineFunction("cdr", ellCdr)
-	module.defineFunction("caar", ellCaar)
-	module.defineFunction("cadr", ellCadr)
-	module.defineFunction("cddr", ellCddr)
-	module.defineFunction("cadar", ellCadar)
-	module.defineFunction("caddr", ellCaddr)
-	module.defineFunction("cdddr", ellCdddr)
 	module.defineFunction("list", ellList)
 	module.defineFunction("concat", ellConcat)
 	module.defineFunction("reverse", ellReverse)
@@ -103,8 +97,9 @@ func Ell(module module) {
 	module.defineFunction("print", ellPrint)
 	module.defineFunction("println", ellPrintln)
 
-	module.defineFunction("number?", ellNumberP)   // either real or integer
-	module.defineFunction("integer?", ellIntegerP) //integer only
+	module.defineFunction("number?", ellNumberP)   // either float or int
+	module.defineFunction("int?", ellIntP) //int only
+	module.defineFunction("float?", ellFloatP) //float only
 	module.defineFunction("+", ellPlus)
 	module.defineFunction("-", ellMinus)
 	module.defineFunction("*", ellTimes)
@@ -399,48 +394,58 @@ func ellNumberP(argv []lob, argc int) (lob, error) {
 	return argcError("number?", "1", argc)
 }
 
-func ellIntegerP(argv []lob, argc int) (lob, error) {
+func ellIntP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if isInteger(argv[0]) {
+		if isInt(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("integer?", "1", argc)
+	return argcError("int?", "1", argc)
+}
+
+func ellFloatP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isFloat(argv[0]) {
+			return True, nil
+		}
+		return False, nil
+	}
+	return argcError("float?", "1", argc)
 }
 
 func ellQuotient(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		n1, err := integerValue(argv[0])
+		n1, err := int64Value(argv[0])
 		if err != nil {
 			return nil, err
 		}
-		n2, err := integerValue(argv[1])
+		n2, err := int64Value(argv[1])
 		if err != nil {
 			return nil, err
 		}
 		if n2 == 0 {
 			return nil, newError("Quotient: divide by zero")
 		}
-		return newInteger(n1 / n2), nil
+		return newInt(n1 / n2), nil
 	}
 	return argcError("quotient", "2", argc)
 }
 
 func ellRemainder(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
-		n1, err := integerValue(argv[0])
+		n1, err := int64Value(argv[0])
 		if err != nil {
 			return nil, err
 		}
-		n2, err := integerValue(argv[1])
+		n2, err := int64Value(argv[1])
 		if n2 == 0 {
 			return nil, newError("remainder: divide by zero")
 		}
 		if err != nil {
 			return nil, err
 		}
-		return newInteger(n1 % n2), nil
+		return newInt(n1 % n2), nil
 	}
 	return argcError("remainder", "2", argc)
 }
@@ -474,7 +479,7 @@ func ellArray(argv []lob, argc int) (lob, error) {
 func ellMakeArray(argv []lob, argc int) (lob, error) {
 	if argc > 0 {
 		initVal := lob(Null)
-		vlen, err := integerValue(argv[0])
+		vlen, err := intValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
@@ -502,7 +507,7 @@ func ellArrayP(argv []lob, argc int) (lob, error) {
 func ellArraySetBang(argv []lob, argc int) (lob, error) {
 	if argc == 3 {
 		a := argv[0]
-		idx, err := integerValue(argv[1])
+		idx, err := intValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -518,7 +523,7 @@ func ellArraySetBang(argv []lob, argc int) (lob, error) {
 func ellArrayRef(argv []lob, argc int) (lob, error) {
 	if argc == 2 {
 		a := argv[0]
-		idx, err := integerValue(argv[1])
+		idx, err := intValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
@@ -577,7 +582,7 @@ func ellLt(argv []lob, argc int) (lob, error) {
 
 func ellZeroP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		f, err := realValue(argv[0])
+		f, err := floatValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
@@ -607,12 +612,12 @@ func ellStringLength(argv []lob, argc int) (lob, error) {
 		return argTypeError("string", 1, argv[0])
 	}
 	i := length(argv[0])
-	return newInteger(int64(i)), nil
+	return newInt(int64(i)), nil
 }
 
 func ellLength(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		return newInteger(int64(length(argv[0]))), nil
+		return newInt(int64(length(argv[0]))), nil
 	}
 	return argcError("length", "1", argc)
 }
