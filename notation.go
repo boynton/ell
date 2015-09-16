@@ -282,7 +282,7 @@ func (dr *dataReader) decodeString() (lob, error) {
 		}
 		c, e = dr.getChar()
 	}
-	s := newString(string(buf))
+	s := lstring(string(buf))
 	return s, e
 }
 
@@ -378,13 +378,9 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 	} else if s == "false" {
 		return False, nil
 	}
-	i, err := strconv.ParseInt(s, 10, 64)
-	if err == nil {
-		return lint(i), nil
-	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err == nil {
-		return lfloat(f), nil
+		return lnumber(f), nil
 	}
 	sym := intern(s)
 	return sym, nil
@@ -534,7 +530,7 @@ func writeData(obj lob, json bool) (string, error) {
 		return writeArray(o, json)
 	case *lstruct:
 		return writeStruct(o, json)
-	case lint, lfloat:
+	case lnumber:
 		return o.String(), nil
 	case lchar:
 		switch o {

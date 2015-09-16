@@ -29,7 +29,7 @@ func Ell(module module) {
 	//note clojure uses "do" instead of "begin". I rather prefer that.
 	module.defineMacro("cond", ellCond)
 	module.defineMacro("quasiquote", ellQuasiquote)
- 
+
 	module.define("null", Null)
 	module.define("true", True)
 	module.define("false", False)
@@ -97,9 +97,9 @@ func Ell(module module) {
 	module.defineFunction("print", ellPrint)
 	module.defineFunction("println", ellPrintln)
 
-	module.defineFunction("number?", ellNumberP)   // either float or int
-	module.defineFunction("int?", ellIntP) //int only
-	module.defineFunction("float?", ellFloatP) //float only
+	module.defineFunction("number?", ellNumberP) // either float or int
+	module.defineFunction("int?", ellIntP)       //int only
+	module.defineFunction("float?", ellFloatP)   //float only
 	module.defineFunction("+", ellPlus)
 	module.defineFunction("-", ellMinus)
 	module.defineFunction("*", ellTimes)
@@ -149,7 +149,7 @@ func ellQuasiquote(argv []lob, argc int) (lob, error) {
 // functions
 
 func ellVersion(argv []lob, argc int) (lob, error) {
-	return newString(Version), nil
+	return lstring(Version), nil
 }
 
 func ellFileContents(argv []lob, argc int) (lob, error) {
@@ -167,7 +167,7 @@ func ellFileContents(argv []lob, argc int) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newString(s), nil
+	return lstring(s), nil
 }
 
 func ellOpenInputString(argv []lob, argc int) (lob, error) {
@@ -427,7 +427,7 @@ func ellQuotient(argv []lob, argc int) (lob, error) {
 		if n2 == 0 {
 			return nil, newError("Quotient: divide by zero")
 		}
-		return newInt(n1 / n2), nil
+		return lnumber(n1 / n2), nil
 	}
 	return argcError("quotient", "2", argc)
 }
@@ -445,7 +445,7 @@ func ellRemainder(argv []lob, argc int) (lob, error) {
 		if err != nil {
 			return nil, err
 		}
-		return newInt(n1 % n2), nil
+		return lnumber(n1 % n2), nil
 	}
 	return argcError("remainder", "2", argc)
 }
@@ -601,7 +601,7 @@ func ellNumberToString(argv []lob, argc int) (lob, error) {
 	if !isNumber(argv[0]) {
 		return argTypeError("number", 1, argv[0])
 	}
-	return newString(argv[0].String()), nil
+	return lstring(argv[0].String()), nil
 }
 
 func ellStringLength(argv []lob, argc int) (lob, error) {
@@ -612,12 +612,12 @@ func ellStringLength(argv []lob, argc int) (lob, error) {
 		return argTypeError("string", 1, argv[0])
 	}
 	i := length(argv[0])
-	return newInt(int64(i)), nil
+	return lnumber(int64(i)), nil
 }
 
 func ellLength(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		return newInt(int64(length(argv[0]))), nil
+		return lnumber(int64(length(argv[0]))), nil
 	}
 	return argcError("length", "1", argc)
 }
@@ -748,7 +748,7 @@ func ellString(argv []lob, argc int) (lob, error) {
 	for i := 0; i < argc; i++ {
 		s += argv[i].String()
 	}
-	return newString(s), nil
+	return lstring(s), nil
 }
 
 func ellCar(argv []lob, argc int) (lob, error) {
@@ -923,5 +923,5 @@ func ellJSON(argv []lob, argc int) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newString(s), nil
+	return lstring(s), nil
 }

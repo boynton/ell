@@ -405,7 +405,7 @@ func (mod *lmodule) compileFile(name string) (lob, error) {
 	var lap string
 	for err == nil {
 		if expr == EOF {
-			return newString(result), nil
+			return lstring(result), nil
 		}
 		lap, err = mod.compileExpr(expr)
 		if err != nil {

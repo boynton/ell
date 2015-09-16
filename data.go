@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"strconv"
 )
 
@@ -290,11 +291,6 @@ type lstring string
 
 var symString = newSymbol("string")
 
-func newString(val string) lstring {
-	s := lstring(val)
-	return s
-}
-
 func isString(obj lob) bool {
 	_, ok := obj.(lstring)
 	return ok
@@ -402,53 +398,53 @@ func (i lchar) String() string {
 
 var symNumber = newSymbol("number")
 
+type lnumber float64
+
+func (lnumber) typeSymbol() lob {
+	return symNumber
+}
+
+func (f lnumber) String() string {
+	return strconv.FormatFloat(float64(f), 'f', -1, 64)
+}
+
+func theNumber(obj lob) (lnumber, error) {
+	if n, ok := obj.(lnumber); ok {
+		return n, nil
+	}
+	return 0, typeError(symNumber, obj)
+}
+
 func isInt(obj lob) bool {
-	_, ok := obj.(lint)
-	return ok
+	if n, ok := obj.(lnumber); ok {
+		f := float64(n)
+		if math.Trunc(f) == f {
+			return true
+		}
+	}
+	return false
 }
 
 func isFloat(obj lob) bool {
-	_, ok := obj.(lfloat)
-	return ok
+	return !isInt(obj)
 }
 
 func isNumber(obj lob) bool {
-	switch obj.(type) {
-	case lint:
-		return true
-	case lfloat:
-		return true
-	default:
-		return false
-	}
-}
-
-func newInt(n int64) lint {
-	v := lint(n)
-	return v
-}
-
-func newFloat(n float64) lfloat {
-	v := lfloat(n)
-	return v
+	_, ok := obj.(lnumber)
+	return ok
 }
 
 func floatValue(obj lob) (float64, error) {
 	switch n := obj.(type) {
-	case lint:
-		return float64(n), nil
-	case lfloat:
+	case lnumber:
 		return float64(n), nil
 	}
-	println("not a float value: ", obj)
 	return 0, typeError(symNumber, obj)
 }
 
 func int64Value(obj lob) (int64, error) {
 	switch n := obj.(type) {
-	case lint:
-		return int64(n), nil
-	case lfloat:
+	case lnumber:
 		return int64(n), nil
 	case lchar:
 		return int64(n), nil
@@ -459,9 +455,7 @@ func int64Value(obj lob) (int64, error) {
 
 func intValue(obj lob) (int, error) {
 	switch n := obj.(type) {
-	case lint:
-		return int(n), nil
-	case lfloat:
+	case lnumber:
 		return int(n), nil
 	case lchar:
 		return int(n), nil
@@ -539,26 +533,15 @@ func equal(o1 lob, o2 lob) bool {
 
 func numericallyEqual(o1 lob, o2 lob) (bool, error) {
 	switch n1 := o1.(type) {
-	case lint:
+	case lnumber:
 		switch n2 := o2.(type) {
-		case lint:
-			return n1 == n2, nil
-		case lfloat:
-			return float64(n1) == float64(n2), nil
-		default:
-			return false, typeError(symNumber, o2)
-		}
-	case lfloat:
-		switch n2 := o2.(type) {
-		case lint:
-			return float64(n2) == float64(n1), nil
-		case lfloat:
+		case lnumber:
 			return n1 == n2, nil
 		default:
 			return false, typeError(symNumber, o2)
 		}
 	default:
-		return false, typeError(symNumber, o2)
+		return false, typeError(symNumber, o1)
 	}
 }
 
@@ -566,53 +549,11 @@ func identical(n1 lob, n2 lob) bool {
 	return n1 == n2
 }
 
-type lint int64
-
-func (lint) typeSymbol() lob {
-	return symNumber
-}
-
-func (i lint) equal(another lob) bool {
-	if a, err := int64Value(another); err == nil {
-		return int64(i) == a
-	}
-	return false
-}
-
-func (i lint) String() string {
-	return strconv.FormatInt(int64(i), 10)
-}
-
-func (i lint) intValue() int64 {
-	return int64(i)
-}
-func (i lint) floatValue() float64 {
-	return float64(i)
-}
-
-type lfloat float64
-
-func (lfloat) typeSymbol() lob {
-	return symNumber
-}
-
-func (f lfloat) equal(another lob) bool {
+func (f lnumber) equal(another lob) bool {
 	if a, err := floatValue(another); err == nil {
 		return float64(f) == a
 	}
 	return false
-}
-
-func (f lfloat) String() string {
-	return strconv.FormatFloat(float64(f), 'f', -1, 64)
-}
-
-func (f lfloat) intValue() int64 {
-	return int64(f)
-}
-
-func (f lfloat) floatValue() float64 {
-	return float64(f)
 }
 
 func add(num1 lob, num2 lob) (lob, error) {
@@ -624,36 +565,20 @@ func add(num1 lob, num2 lob) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newFloat(n1 + n2), nil
+	return lnumber(n1 + n2), nil
 }
 
 func sum(nums []lob, argc int) (lob, error) {
-	var isum int64
-	var fsum float64
-	integral := true
-	isum = 0
+	var sum float64
 	for _, num := range nums {
 		switch n := num.(type) {
-		case lint:
-			if integral {
-				isum += int64(n)
-			} else {
-				fsum += float64(n)
-			}
-		case lfloat:
-			if integral {
-				fsum = float64(isum)
-				integral = false
-			}
-			fsum += float64(n)
+		case lnumber:
+			sum += float64(n)
 		default:
 			return nil, typeError(symNumber, num)
 		}
 	}
-	if integral {
-		return lint(isum), nil
-	}
-	return lfloat(fsum), nil
+	return lnumber(sum), nil
 }
 
 func sub(num1 lob, num2 lob) (lob, error) {
@@ -665,56 +590,34 @@ func sub(num1 lob, num2 lob) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newFloat(n1 - n2), nil
+	return lnumber(n1 - n2), nil
 }
 
 func minus(nums []lob, argc int) (lob, error) {
 	if argc < 1 {
 		return argcError("-", "1+", argc)
 	}
-	var isum int64
 	var fsum float64
-	integral := true
 	num := nums[0]
 	switch n := num.(type) {
-	case lint:
-		isum = int64(n)
-	case lfloat:
-		integral = false
+	case lnumber:
 		fsum = float64(n)
 	default:
 		return nil, typeError(symNumber, num)
 	}
 	if argc == 1 {
-		if integral {
-			isum = -isum
-		} else {
-			fsum = -fsum
-		}
+		fsum = -fsum
 	} else {
 		for _, num := range nums[1:] {
 			switch n := num.(type) {
-			case lint:
-				if integral {
-					isum -= int64(n)
-				} else {
-					fsum -= float64(n)
-				}
-			case lfloat:
-				if integral {
-					fsum = float64(isum)
-					integral = false
-				}
+			case lnumber:
 				fsum -= float64(n)
 			default:
 				return nil, typeError(symNumber, num)
 			}
 		}
 	}
-	if integral {
-		return lint(isum), nil
-	}
-	return lfloat(fsum), nil
+	return lnumber(fsum), nil
 }
 
 func mul(num1 lob, num2 lob) (lob, error) {
@@ -726,32 +629,20 @@ func mul(num1 lob, num2 lob) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newFloat(n1 * n2), nil
+	return lnumber(n1 * n2), nil
 }
 
 func product(argv []lob, argc int) (lob, error) {
-	var iprod int64
-	var fprod float64
-	integral := true
-	iprod = 1
+	prod := 0.0
 	for _, num := range argv {
 		switch n := num.(type) {
-		case lint:
-			iprod = iprod * int64(n)
-		case lfloat:
-			if integral {
-				fprod = float64(iprod)
-				integral = false
-			}
-			fprod *= float64(n)
+		case lnumber:
+			prod *= float64(n)
 		default:
 			return nil, typeError(symNumber, num)
 		}
 	}
-	if integral {
-		return lint(iprod), nil
-	}
-	return lfloat(fprod), nil
+	return lnumber(prod), nil
 }
 
 func div(argv []lob, argc int) (lob, error) {
@@ -762,7 +653,7 @@ func div(argv []lob, argc int) (lob, error) {
 		if err != nil {
 			return nil, err
 		}
-		return lfloat(1.0 / n1), nil
+		return lnumber(1.0 / n1), nil
 	} else {
 		quo, err := floatValue(argv[0])
 		if err != nil {
@@ -775,7 +666,7 @@ func div(argv []lob, argc int) (lob, error) {
 			}
 			quo /= n
 		}
-		return lfloat(quo), nil
+		return lnumber(quo), nil
 	}
 }
 
@@ -908,7 +799,7 @@ func cons(car lob, cdr *llist) *llist {
 		panic("Assertion failure: don't call cons with nil as cdr")
 	}
 	if inExec {
-		conses += 1
+		conses++
 	}
 	return &llist{car, cdr}
 }
@@ -992,7 +883,7 @@ func list(values ...lob) *llist {
 }
 
 func listToArray(lst *llist) *larray {
-	elems := make([]lob, 0)
+	var elems []lob
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
@@ -1153,7 +1044,7 @@ func arrayRef(ary lob, idx int) (lob, error) {
 // ------------------- struct
 //
 type lstruct struct {
-	typesym *lsymbol
+	typesym  *lsymbol
 	bindings map[lob]lob
 }
 
@@ -1356,7 +1247,6 @@ func put(obj lob, key lob, value lob) (lob, error) {
 	}
 	return nil, typeError(symStruct, obj)
 }
-
 
 //
 // ------------------- error
