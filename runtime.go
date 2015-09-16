@@ -54,7 +54,7 @@ func argTypeError(expected string, num int, arg lob) (lob, error) {
 
 func isFunction(obj lob) bool {
 	switch obj.(type) {
-	case *lcode, *lclosure, *lprimitive, *linstr:
+	case *lcode, *lclosure, *lprimitive, linstr:
 		return true
 	default:
 		return false
@@ -109,29 +109,27 @@ func newVM(stackSize int) *lvm {
 	return &vm
 }
 
-type linstr struct {
-	op int
-}
+type linstr int
 
 // APPLY is a primitive instruction to apply a function to a list of arguments
-var APPLY = &linstr{op: 0}
+var APPLY = linstr(0)
 
 // CALLCC is a primitive instruction to executable (restore) a continuation
-var CALLCC = &linstr{op: 1}
+var CALLCC = linstr(1)
 
-func (*linstr) typeSymbol() lob {
+func (linstr) typeSymbol() lob {
 	return symFunction
 }
 
-func (s *linstr) equal(another lob) bool {
-	if a, ok := another.(*linstr); ok {
-		return s.op == a.op
+func (s linstr) equal(another lob) bool {
+	if a, ok := another.(linstr); ok {
+		return s == a
 	}
 	return false
 }
 
-func (s *linstr) String() string {
-	switch s.op {
+func (s linstr) String() string {
+	switch s {
 	case 0:
 		return "<function apply>"
 	case 1:
@@ -438,7 +436,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				ops = tfun.code.ops
 				module = tfun.code.mod
 				pc = 0
-			case *linstr:
+			case linstr:
 				if tfun == APPLY {
 					if argc < 2 {
 						return argcError("apply", "2+", argc)
@@ -521,7 +519,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				module = tfun.code.mod
 				pc = 0
 				env = f
-			case *linstr:
+			case linstr:
 				if tfun == APPLY {
 					if argc < 2 {
 						return argcError("apply", "2+", argc)
