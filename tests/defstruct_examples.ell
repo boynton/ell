@@ -1,0 +1,38 @@
+(use ell)
+(defstruct point x: 0 y: 0)
+
+(define s1 {x: 23 y: 57})
+
+(define p1 (point))
+(define p2 (point x: 100))
+(define p3 (point x: 100 y: 50))
+(define p4 (point s1 y: 75))
+(define p4 (point p2 y: 75))
+
+(println s1)
+(println p1)
+(println p2)
+(println p3)
+(println p4)
+
+(println "is " p1 " a point? => " (point? p1))
+(println "is " s1 " a point? => " (point? s1))
+(println "is " p1 " a struct? => " (struct? p1))
+(println "is " s1 " a struct? => " (struct? s1))
+
+(defstruct point3d x: 0 y: 0 z: 0)
+
+(define p5 (point3d x: 1 y: 2 z: 3))
+(println p5)
+
+(println "is " p5 " a point? => " (point? p5))
+(println "is (point " p5 ") a point? => " (point? (point p5)))
+(println (point p5))
+(println (struct (point p5))) ; this works, but loses the z attribute. Analogous to casting a float to an int, losing the fraction
+(println (point3d (point p5))) ; and when you convert back, z gets the default.
+
+;(defn as (t m)
+;   (instance t (struct m)))
+
+(define p6 (as-point p5))
+(println "a point3d *as* a point: ", p6)
