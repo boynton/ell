@@ -72,3 +72,26 @@
        (defn ~(symbol "as-" sym) (o)
          (instance '~sym (validate-struct o '~sym '~keys)))
        (quote ~sym))))
+
+;;
+;; Map a function over a list. Each argument is list, and for N lists, the function is called
+;; with the N elements of the lists as args, then again for the next set of args, etc.
+;;
+(defn map (fun first & rest)
+  (defn map1 (fun lst)
+    (if (empty? lst) '()
+        (cons (fun (car lst)) (map1 fun (cdr lst)))))
+  (defn any-empty? (list-of-lists)
+    (if (empty? list-of-lists)
+        false
+        (if (empty? (car list-of-lists))
+            true
+            (any-empty? (cdr list-of-lists)))))
+  (defn mapn (fun arglist)
+    (let loop ((result '()) (args arglist))
+      (if (any-empty? args)
+          (reverse result)
+          (loop (cons (apply fun (map1 car args)) result) (map1 cdr args)))))
+  (if (empty? rest)
+      (map1 fun first)
+      (mapn fun (cons first rest))))
