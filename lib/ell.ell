@@ -2,15 +2,19 @@
 ; macros and non-core definitions to the Ell language
 ;
 
+;; defmacro is a more convenient form. This should get pushed down as a primitive
 (define-macro (defmacro expr)
    `(define-macro ~(cadr expr) (lambda (expr) (apply (lambda ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
 
+;; should be a primitive
 (defmacro def (name value)
    `(define ~name ~value))
 
+;; shorthand for define function, should be a primitive
 (defmacro defn (name args & body)
    `(define ~name (lambda ~args ~@body)))
 
+;; or returns the first non-false item in the list
 (defmacro or ops
   (if (empty? ops)
       false
@@ -19,6 +23,7 @@
             c
             `(let ((tmp ~c)) (if tmp tmp ~(loop (car r) (cdr r))))))))
 
+;; and returns the first false item in the list, or the last item in the list of all are non-false
 (defmacro and ops
   (if (empty? ops)
       true
@@ -28,11 +33,33 @@
             `(let ((tmp ~c)) (if (not tmp) false ~(loop (car r) (cdr r))))))))
 
 
+;; validate-struct checks a struct against a set of fields
+(defn validate-struct (val name fields)
+  (if (empty? fields)
+      val
+      (if (null? ((car fields) val))
+          (error "cannot convert to " name ", missing field: " (car fields))
+          (validate-struct val name (cdr fields)))))
+
+;;
+;; Defines a struct type by emitting a constructor and a predicate
+;; The fields are a sequence key/value pairs, and the resulting constructor limits
+;; the arguments to those indicated, with the given default values
+;; i.e.
+;;   (defstruct point x: 0 y: 0) ; this defines a struct with an and a y field with default value of 0
+;;   (point) => #point{x: 0, y: 0}
+;;   (point? (point)) => true
+;;   (point x: 23 y: 57) => #point{x: 23, y: 57}
+;;   (point x: 23 y: 57 z: 100) => error("z: bad keyword parameter")
+;;   (point-fields) -> (x: y:)
+;;You can get the raw struct from it:
+;;   (struct #point{x: 23, y: 57}) => {x: 23, y: 57}
+;;
 (defmacro defstruct (sym & fields)
   (defn extract-keys (args)
     (let loop ((keys '()) (remaining args))
       (if (empty? remaining)
-          keys
+          (reverse keys)
           (let ((sym (car remaining)))
             (if (keyword? sym)
                 (loop (cons sym keys) (cddr remaining))
@@ -41,4 +68,7 @@
     `(begin
        (defn ~sym args (apply instance (concat '(~sym ~@fields) (normalize-keyword-args args ~@keys))))
        (defn ~(symbol sym "?") (o) (equal? (type o) (quote ~sym)))
+       (defn ~(symbol sym "-fields") () '~keys)
+       (defn ~(symbol "as-" sym) (o)
+         (instance '~sym (validate-struct o '~sym '~keys)))
        (quote ~sym))))
