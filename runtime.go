@@ -28,7 +28,7 @@ func setTrace(b bool) {
 	trace = b
 }
 
-func print(args ...any) {
+func print(args ...interface{}) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(args[i])
@@ -36,7 +36,7 @@ func print(args ...any) {
 	fmt.Print(args[max])
 }
 
-func println(args ...any) {
+func println(args ...interface{}) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(args[i])
@@ -44,18 +44,18 @@ func println(args ...any) {
 	fmt.Println(args[max])
 }
 
-func argcError(name string, expected string, got int) (lob, error) {
-	return nil, newError("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
+func ArgcError(name string, expected string, got int) (AnyType, error) {
+	return nil, Error("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
 }
 
-func argTypeError(expected string, num int, arg lob) (lob, error) {
-	return nil, newError("Argument ", num, " is not of type <", expected, ">: ", arg)
+func ArgTypeError(expected string, num int, arg AnyType) (AnyType, error) {
+	return nil, Error("Argument ", num, " is not of type <", expected, ">: ", arg)
 }
 
-func isFunction(obj lob) bool {
+func isFunction(obj AnyType) bool {
 	switch obj.(type) {
-	//	case *lcode, *lclosure, *lprimitive, linstr:
-	case *lclosure, *lprimitive, linstr:
+	//	case *Code, *Closure, *Primitive, Instruction:
+	case *Closure, *Primitive, Instruction:
 		return true
 	default:
 		return false
@@ -67,16 +67,16 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
-func exec(thunk code, args ...lob) (lob, error) {
+func exec(thunk code, args ...AnyType) (AnyType, error) {
 	if verbose {
 		println("; begin execution")
 		inExec = true
 		conses = 0
 	}
-	code := thunk.(*lcode)
+	code := thunk.(*Code)
 	vm := newVM(defaultStackSize)
 	if len(args) != code.argc {
-		return nil, newError("Wrong number of arguments")
+		return nil, Error("Wrong number of arguments")
 	}
 	result, err := vm.exec(code, args)
 	if verbose {
@@ -88,7 +88,7 @@ func exec(thunk code, args ...lob) (lob, error) {
 		return nil, err
 	}
 	exports := vm.exported()
-	module := code.module().(*lmodule)
+	module := code.module().(*Module)
 	module.exported = exports[:]
 	if verbose {
 		//Println("; end execution")
@@ -99,37 +99,39 @@ func exec(thunk code, args ...lob) (lob, error) {
 	return result, err
 }
 
-type lvm struct {
+type LVM struct {
 	stackSize int
-	defs      []lob
+	defs      []AnyType
 }
 
-func newVM(stackSize int) *lvm {
-	var defs []lob
-	vm := lvm{stackSize, defs}
+func newVM(stackSize int) *LVM {
+	var defs []AnyType
+	vm := LVM{stackSize, defs}
 	return &vm
 }
 
-type linstr int
+type Instruction int
 
 // APPLY is a primitive instruction to apply a function to a list of arguments
-var APPLY = linstr(0)
+var APPLY = Instruction(0)
 
 // CALLCC is a primitive instruction to executable (restore) a continuation
-var CALLCC = linstr(1)
+var CALLCC = Instruction(1)
 
-func (linstr) Type() lob {
+// Type returns the type of the object
+func (Instruction) Type() AnyType {
 	return typeFunction
 }
 
-func (s linstr) Equal(another lob) bool {
-	if a, ok := another.(linstr); ok {
+// Equal returns true if the object is equal to the argument
+func (s Instruction) Equal(another AnyType) bool {
+	if a, ok := another.(Instruction); ok {
 		return s == a
 	}
 	return false
 }
 
-func (s linstr) String() string {
+func (s Instruction) String() string {
 	switch s {
 	case 0:
 		return "<function apply>"
@@ -139,41 +141,43 @@ func (s linstr) String() string {
 	return "<instr ?>"
 }
 
-type primitive func(argv []lob, argc int) (lob, error)
+type primitive func(argv []AnyType, argc int) (AnyType, error)
 
-type lprimitive struct {
+type Primitive struct {
 	name string
 	fun  primitive
 }
 
-var typeFunction = newSymbol("<function>")
+var typeFunction = internSymbol("<function>")
 
-func (prim *lprimitive) Type() lob {
+// Type returns the type of the object
+func (prim *Primitive) Type() AnyType {
 	return typeFunction
 }
 
-func (prim *lprimitive) Equal(another lob) bool {
-	if a, ok := another.(*lprimitive); ok {
+// Equal returns true if the object is equal to the argument
+func (prim *Primitive) Equal(another AnyType) bool {
+	if a, ok := another.(*Primitive); ok {
 		return prim == a
 	}
 	return false
 }
 
-func (prim *lprimitive) String() string {
+func (prim *Primitive) String() string {
 	return "<function " + prim.name + ">"
 }
 
-type lframe struct {
-	previous  *lframe
+type frame struct {
+	previous  *frame
 	pc        int
 	ops       []int
-	locals    *lframe
-	elements  []lob
-	module    *lmodule
-	constants []lob
+	locals    *frame
+	elements  []AnyType
+	module    *Module
+	constants []AnyType
 }
 
-func (frame lframe) String() string {
+func (frame frame) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("<frame")
 	tmpEnv := &frame
@@ -185,23 +189,25 @@ func (frame lframe) String() string {
 	return buf.String()
 }
 
-type lclosure struct {
-	code  *lcode
-	frame *lframe
+type Closure struct {
+	code  *Code
+	frame *frame
 }
 
-func (lclosure) Type() lob {
+// Type returns the type of the object
+func (Closure) Type() AnyType {
 	return typeFunction
 }
 
-func (closure *lclosure) Equal(another lob) bool {
-	if a, ok := another.(*lclosure); ok {
+// Equal returns true if the object is equal to the argument
+func (closure *Closure) Equal(another AnyType) bool {
+	if a, ok := another.(*Closure); ok {
 		return closure == a
 	}
 	return false
 }
 
-func (closure lclosure) String() string {
+func (closure Closure) String() string {
 	n := closure.code.name
 	if n == "" {
 		return "<function>"
@@ -209,7 +215,7 @@ func (closure lclosure) String() string {
 	return "<function " + n + ">"
 }
 
-func showEnv(f *lframe) string {
+func showEnv(f *frame) string {
 	tmp := f
 	s := ""
 	for {
@@ -222,7 +228,7 @@ func showEnv(f *lframe) string {
 	return s
 }
 
-func showStack(stack []lob, sp int) string {
+func showStack(stack []AnyType, sp int) string {
 	end := len(stack)
 	s := "["
 	for sp < end {
@@ -232,12 +238,12 @@ func showStack(stack []lob, sp int) string {
 	return s + " ]"
 }
 
-func (vm *lvm) exported() []lob {
+func (vm *LVM) exported() []AnyType {
 	return vm.defs
 }
 
-func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, argc int, stack []lob, sp int) (*lframe, error) {
-	f := new(lframe)
+func buildFrame(env *frame, pc int, ops []int, module *Module, fun *Closure, argc int, stack []AnyType, sp int) (*frame, error) {
+	f := new(frame)
 	f.previous = env
 	f.pc = pc
 	f.ops = ops
@@ -247,9 +253,9 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	defaults := fun.code.defaults
 	if defaults == nil {
 		if argc != expectedArgc {
-			return nil, newError("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+			return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
-		el := make([]lob, argc)
+		el := make([]AnyType, argc)
 		copy(el, stack[sp:sp+argc])
 		f.elements = el
 		return f, nil
@@ -263,12 +269,12 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	}
 	if argc < expectedArgc {
 		if extra > 0 {
-			return nil, newError("Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
+			return nil, Error("Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
 		}
-		return nil, newError("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+		return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
-	el := make([]lob, totalArgc)
+	el := make([]AnyType, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
@@ -277,7 +283,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
-			return nil, newError("Bad keyword argument(s): ", bindings)
+			return nil, Error("Bad keyword argument(s): ", bindings)
 		}
 		copy(el, stack[sp:sp+expectedArgc]) //the required ones
 		for i := expectedArgc; i < totalArgc; i++ {
@@ -286,7 +292,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 		for i := expectedArgc; i < argc; i += 2 {
 			key, err := unkeyword(stack[sp+i])
 			if err != nil {
-				return nil, newError("Bad keyword argument: ", stack[sp+1])
+				return nil, Error("Bad keyword argument: ", stack[sp+1])
 			}
 			gotit := false
 			for j := 0; j < extra; j++ {
@@ -297,7 +303,7 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 				}
 			}
 			if !gotit {
-				return nil, newError("Undefined keyword argument: ", key)
+				return nil, Error("Undefined keyword argument: ", key)
 			}
 		}
 	} else {
@@ -310,19 +316,19 @@ func buildFrame(env *lframe, pc int, ops []int, module *lmodule, fun *lclosure, 
 	return f, nil
 }
 
-func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
+func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 	topmod := code.mod
-	stack := make([]lob, vm.stackSize)
+	stack := make([]AnyType, vm.stackSize)
 	sp := vm.stackSize
-	env := new(lframe)
-	env.elements = make([]lob, len(args))
+	env := new(frame)
+	env.elements = make([]AnyType, len(args))
 	copy(env.elements, args)
 	module := code.mod
 	currentModule = module
 	ops := code.ops
 	pc := 0
 	if len(ops) == 0 {
-		return nil, newError("No code to execute")
+		return nil, Error("No code to execute")
 	}
 	if trace {
 		println("------------------ BEGIN EXECUTION of ", code)
@@ -340,32 +346,32 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			pc += 2
 		case opcodeGlobal:
 			if trace {
-				println(pc, "\tglob\t", module.constants[ops[pc+1]])
+				println(pc, "\tgAnyType\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
 			val := module.global(sym)
 			if val == nil {
-				return nil, newError("Undefined symbol: ", sym)
+				return nil, Error("Undefined symbol: ", sym)
 			}
 			sp--
 			stack[sp] = val
 			pc += 2
 		case opcodeDefGlobal:
 			if trace {
-				println(pc, "\tdefglob\t", module.constants[ops[pc+1]])
+				println(pc, "\tdefgAnyType\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			module.defGlobal(sym, stack[sp])
+			module.defGAnyTypeal(sym, stack[sp])
 			if vm.defs != nil {
 				vm.defs = append(vm.defs, sym)
 			}
 			pc += 2
 		case opcodeUndefGlobal:
 			if trace {
-				println(pc, "\tunglob\t", module.constants[ops[pc+1]])
+				println(pc, "\tungAnyType\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			module.undefGlobal(sym)
+			module.undefGAnyTypeal(sym)
 			pc += 2
 		case opcodeDefMacro:
 			if trace {
@@ -415,7 +421,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			savedPc := pc + 2
 		opcodeCallAgain:
 			switch tfun := fun.(type) {
-			case *lprimitive:
+			case *Primitive:
 				val, err := tfun.fun(stack[sp:sp+argc], argc)
 				if err != nil {
 					//to do: fix to throw an Ell continuation-based error
@@ -424,9 +430,9 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				sp = sp + argc - 1
 				stack[sp] = val
 				pc = savedPc
-			case *lclosure:
+			case *Closure:
 				if topmod.checkInterrupt() {
-					return nil, newError("Interrupt")
+					return nil, Error("Interrupt")
 				}
 				f, err := buildFrame(env, savedPc, ops, module, tfun, argc, stack, sp)
 				if err != nil {
@@ -437,17 +443,17 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				ops = tfun.code.ops
 				module = tfun.code.mod
 				pc = 0
-			case linstr:
+			case Instruction:
 				if tfun == APPLY {
 					if argc < 2 {
-						return argcError("apply", "2+", argc)
+						return ArgcError("apply", "2+", argc)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						return argTypeError("list", argc, args)
+						return ArgTypeError("list", argc, args)
 					}
-					arglist := args.(*llist)
+					arglist := args.(*ListType)
 					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
@@ -462,12 +468,12 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					}
 					goto opcodeCallAgain
 				} else {
-					return nil, newError("unsupported instruction", tfun)
+					return nil, Error("unsupported instruction", tfun)
 				}
-			case *lsymbol:
+			case *SymbolType:
 				if isKeyword(tfun) {
 					if argc != 1 {
-						return argcError(tfun.Name, "1", argc)
+						return ArgcError(tfun.Name, "1", argc)
 					}
 					v, err := get(stack[sp], fun)
 					if err != nil {
@@ -476,14 +482,14 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					stack[sp] = v
 					pc = savedPc
 				} else {
-					return nil, newError("Not a function: ", tfun)
+					return nil, Error("Not a function: ", tfun)
 				}
 			default:
-				return nil, newError("Not a function: ", tfun)
+				return nil, Error("Not a function: ", tfun)
 			}
 		case opcodeTailCall:
 			if topmod.checkInterrupt() {
-				return nil, newError("Interrupt")
+				return nil, Error("Interrupt")
 			}
 			if trace {
 				println(pc, "\ttcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
@@ -493,7 +499,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			argc := ops[pc+1]
 		opcodeTailCallAgain:
 			switch tfun := fun.(type) {
-			case *lprimitive:
+			case *Primitive:
 				val, err := tfun.fun(stack[sp:sp+argc], argc)
 				if err != nil {
 					return nil, err
@@ -510,7 +516,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					}
 					return stack[sp], nil
 				}
-			case *lclosure:
+			case *Closure:
 				f, err := buildFrame(env.previous, env.pc, env.ops, env.module, tfun, argc, stack, sp)
 				if err != nil {
 					return nil, err
@@ -520,17 +526,17 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				module = tfun.code.mod
 				pc = 0
 				env = f
-			case linstr:
+			case Instruction:
 				if tfun == APPLY {
 					if argc < 2 {
-						return argcError("apply", "2+", argc)
+						return ArgcError("apply", "2+", argc)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						return argTypeError("list", argc, args)
+						return ArgTypeError("list", argc, args)
 					}
-					arglist := args.(*llist)
+					arglist := args.(*ListType)
 					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
@@ -545,12 +551,12 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 					}
 					goto opcodeTailCallAgain
 				} else {
-					return nil, newError("unsupported instruction", tfun)
+					return nil, Error("unsupported instruction", tfun)
 				}
-			case *lsymbol:
+			case *SymbolType:
 				if isKeyword(tfun) {
 					if argc != 1 {
-						return argcError(tfun.Name, "1", argc)
+						return ArgcError(tfun.Name, "1", argc)
 					}
 					v, err := get(stack[sp], fun)
 					if err != nil {
@@ -568,14 +574,14 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 						return stack[sp], nil
 					}
 				} else {
-					return nil, newError("Not a function: ", tfun)
+					return nil, Error("Not a function: ", tfun)
 				}
 			default:
-				return nil, newError("Not a function:", tfun)
+				return nil, Error("Not a function:", tfun)
 			}
 		case opcodeReturn:
 			if topmod.checkInterrupt() {
-				return nil, newError("Interrupt")
+				return nil, Error("Interrupt")
 			}
 			if trace {
 				println(pc, "\tret")
@@ -617,7 +623,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				println(pc, "\tclosure\t", module.constants[ops[pc+1]])
 			}
 			sp--
-			stack[sp] = &lclosure{module.constants[ops[pc+1]].(*lcode), env}
+			stack[sp] = &Closure{module.constants[ops[pc+1]].(*Code), env}
 			pc = pc + 2
 		case opcodeUse:
 			if trace {
@@ -645,7 +651,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 				println(pc, "\tstruct\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			typesym := stack[sp].(*lsymbol)
+			typesym := stack[sp].(*SymbolType)
 			v, _ := newInstance(typesym, stack[sp+1:sp+vlen]) //To do: extend to other types
 			sp = sp + vlen - 1
 			stack[sp] = v
@@ -695,7 +701,7 @@ func (vm *lvm) exec(code *lcode, args []lob) (lob, error) {
 			stack[sp] = v
 			pc++
 		default:
-			return nil, newError("Bad instruction: ", strconv.Itoa(ops[pc]))
+			return nil, Error("Bad instruction: ", strconv.Itoa(ops[pc]))
 		}
 	}
 }

@@ -54,30 +54,30 @@ const (
 
 // code is an Ell code object
 type code interface {
-	Type() lob
+	Type() AnyType
 	String() string
-	Equal(another lob) bool
+	Equal(another AnyType) bool
 	module() module
-	loadOps(ops lob) error
+	loadOps(ops AnyType) error
 	decompile(pretty bool) string
-	emitLiteral(val lob)
-	emitGlobal(sym lob)
+	emitLiteral(val AnyType)
+	emitGAnyTypeal(sym AnyType)
 	emitCall(argc int)
 	emitReturn()
 	emitTailCall(argc int)
 	emitPop()
 	emitLocal(i int, j int)
 	emitSetLocal(i int, j int)
-	emitDefGlobal(sym lob)
-	emitUndefGlobal(sym lob)
-	emitDefMacro(sym lob)
+	emitDefGAnyTypeal(sym AnyType)
+	emitUndefGAnyTypeal(sym AnyType)
+	emitDefMacro(sym AnyType)
 	emitClosure(code code)
 	emitJumpFalse(offset int) int
 	emitJump(offset int) int
 	setJumpLocation(loc int)
 	emitArray(length int)
 	emitStruct(length int)
-	emitUse(sym lob)
+	emitUse(sym AnyType)
 	emitCar()
 	emitCdr()
 	emitNull()
@@ -85,40 +85,41 @@ type code interface {
 	emitMul()
 }
 
-type lcode struct {
-	mod            *lmodule
-	name           string
-	ops            []int
-	argc           int
-	defaults       []lob
-	keys           []lob
-	symClosure     lob
-	symFunction    lob
-	symLiteral     lob
-	symLocal       lob
-	symSetLocal    lob
-	symGlobal      lob
-	symJump        lob
-	symJumpFalse   lob
-	symCall        lob
-	symTailCall    lob
-	symReturn      lob
-	symPop         lob
-	symDefGlobal   lob
-	symUndefGlobal lob
-	symDefMacro    lob
-	symUse         lob
-	symCar         lob
-	symCdr         lob
-	symNull        lob
-	symAdd         lob
-	symMul         lob
+// Code - compiled Ell bytecode
+type Code struct {
+	mod                *Module
+	name               string
+	ops                []int
+	argc               int
+	defaults           []AnyType
+	keys               []AnyType
+	symClosure         AnyType
+	symFunction        AnyType
+	symLiteral         AnyType
+	symLocal           AnyType
+	symSetLocal        AnyType
+	symGAnyTypeal      AnyType
+	symJump            AnyType
+	symJumpFalse       AnyType
+	symCall            AnyType
+	symTailCall        AnyType
+	symReturn          AnyType
+	symPop             AnyType
+	symDefGAnyTypeal   AnyType
+	symUndefGAnyTypeal AnyType
+	symDefMacro        AnyType
+	symUse             AnyType
+	symCar             AnyType
+	symCdr             AnyType
+	symNull            AnyType
+	symAdd             AnyType
+	symMul             AnyType
 }
 
-func newCode(mod module, argc int, defaults []lob, keys []lob, name string) code {
+func newCode(mod module, argc int, defaults []AnyType, keys []AnyType, name string) code {
 	var ops []int
-	lmod := mod.(*lmodule)
-	code := lcode{
+	lmod := mod.(*Module)
+	code := Code{
 		lmod,
 		name,
 		ops,
@@ -150,25 +151,29 @@ func newCode(mod module, argc int, defaults []lob, keys []lob, name string) code
 	return &code
 }
 
-func (*lcode) Type() lob {
-	return intern("code")
+var typeCode = internSymbol("<code>")
+
+// Type returns the type of the code
+func (*Code) Type() AnyType {
+	return typeCode
 }
 
-func (code *lcode) Equal(another lob) bool {
-	if c, ok := another.(*lcode); ok {
+// Equal returns true if the object is equal to the argument
+func (code *Code) Equal(another AnyType) bool {
+	if c, ok := another.(*Code); ok {
 		return code == c
 	}
 	return false
 }
 
-func (code *lcode) decompile(pretty bool) string {
+func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
 	return strings.Replace(s, "(function (0 [] [])", "(lap", 1)
 }
 
-func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
+func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	indentAmount := "   "
 	offset := 0
 	max := len(code.ops)
@@ -230,7 +235,7 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			if pretty {
 				indent2 = indent + indentAmount
 			}
-			(code.mod.constants[code.ops[offset+1]].(*lcode)).decompileInto(buf, indent2, pretty)
+			(code.mod.constants[code.ops[offset+1]].(*Code)).decompileInto(buf, indent2, pretty)
 			buf.WriteString(")")
 			offset += 2
 		case opcodeLocal:
@@ -292,16 +297,16 @@ func (code *lcode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 	buf.WriteString(")")
 }
 
-func (code *lcode) String() string {
+func (code *Code) String() string {
 	return code.decompile(true)
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *lcode) module() module {
+func (code *Code) module() module {
 	return code.mod
 }
 
-func (code *lcode) loadOps(lst lob) error {
+func (code *Code) loadOps(lst AnyType) error {
 	name := ""
 	for lst != EmptyList {
 		instr := car(lst)
@@ -310,13 +315,13 @@ func (code *lcode) loadOps(lst lob) error {
 		case code.symClosure:
 			lstFunc := cadr(instr)
 			if car(lstFunc) != code.symFunction {
-				return newError("Bad argument for a closure: ", lstFunc)
+				return Error("Bad argument for a closure: ", lstFunc)
 			}
 			lstFunc = cdr(lstFunc)
 			funcParams := car(lstFunc)
 			var argc int
-			var defaults []lob
-			var keys []lob
+			var defaults []AnyType
+			var keys []AnyType
 			var err error
 			if isSymbol(funcParams) {
 				//legacy form, just the argc
@@ -326,24 +331,24 @@ func (code *lcode) loadOps(lst lob) error {
 				}
 				if argc < 0 {
 					argc = -argc - 1
-					defaults = make([]lob, 0)
+					defaults = make([]AnyType, 0)
 				}
 			} else if isList(funcParams) && length(funcParams) == 3 {
 				a := car(funcParams)
 				argc, err = intValue(a)
 				if err != nil {
-					return newError("Bad lap format: ", funcParams)
+					return Error("Bad lap format: ", funcParams)
 				}
 				b := cadr(funcParams)
-				if ary, ok := b.(*larray); ok {
+				if ary, ok := b.(*ArrayType); ok {
 					defaults = ary.elements
 				}
 				c := caddr(funcParams)
-				if ary, ok := c.(*larray); ok {
+				if ary, ok := c.(*ArrayType); ok {
 					keys = ary.elements
 				}
 			} else {
-				return newError("Bad lap format: ", funcParams)
+				return Error("Bad lap format: ", funcParams)
 			}
 			fun := newCode(code.mod, argc, defaults, keys, name)
 			fun.loadOps(cdr(lstFunc))
@@ -370,10 +375,10 @@ func (code *lcode) loadOps(lst lob) error {
 				return err
 			}
 			code.emitSetLocal(i, j)
-		case code.symGlobal:
-			code.emitGlobal(cadr(instr))
-		case code.symUndefGlobal:
-			code.emitUndefGlobal(cadr(instr))
+		case code.symGAnyTypeal:
+			code.emitGAnyTypeal(cadr(instr))
+		case code.symUndefGAnyTypeal:
+			code.emitUndefGAnyTypeal(cadr(instr))
 		case code.symJump:
 			loc, err := intValue(cadr(instr))
 			if err != nil {
@@ -402,8 +407,8 @@ func (code *lcode) loadOps(lst lob) error {
 			code.emitReturn()
 		case code.symPop:
 			code.emitPop()
-		case code.symDefGlobal:
-			code.emitDefGlobal(cadr(instr))
+		case code.symDefGAnyTypeal:
+			code.emitDefGAnyTypeal(cadr(instr))
 		case code.symDefMacro:
 			code.emitDefMacro(cadr(instr))
 		case code.symUse:
@@ -426,94 +431,94 @@ func (code *lcode) loadOps(lst lob) error {
 	return nil
 }
 
-func (code *lcode) emitLiteral(val lob) {
+func (code *Code) emitLiteral(val AnyType) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, code.mod.putConstant(val))
 }
 
-func (code *lcode) emitGlobal(sym lob) {
+func (code *Code) emitGAnyTypeal(sym AnyType) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *lcode) emitCall(argc int) {
+func (code *Code) emitCall(argc int) {
 	code.ops = append(code.ops, opcodeCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *lcode) emitReturn() {
+func (code *Code) emitReturn() {
 	code.ops = append(code.ops, opcodeReturn)
 }
-func (code *lcode) emitTailCall(argc int) {
+func (code *Code) emitTailCall(argc int) {
 	code.ops = append(code.ops, opcodeTailCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *lcode) emitPop() {
+func (code *Code) emitPop() {
 	code.ops = append(code.ops, opcodePop)
 }
-func (code *lcode) emitLocal(i int, j int) {
+func (code *Code) emitLocal(i int, j int) {
 	code.ops = append(code.ops, opcodeLocal)
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *lcode) emitSetLocal(i int, j int) {
+func (code *Code) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, opcodeSetLocal)
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *lcode) emitDefGlobal(sym lob) {
+func (code *Code) emitDefGAnyTypeal(sym AnyType) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *lcode) emitUndefGlobal(sym lob) {
+func (code *Code) emitUndefGAnyTypeal(sym AnyType) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *lcode) emitDefMacro(sym lob) {
+func (code *Code) emitDefMacro(sym AnyType) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *lcode) emitClosure(newCode code) {
+func (code *Code) emitClosure(newCode code) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, code.mod.putConstant(newCode))
 }
-func (code *lcode) emitJumpFalse(offset int) int {
+func (code *Code) emitJumpFalse(offset int) int {
 	code.ops = append(code.ops, opcodeJumpFalse)
 	loc := len(code.ops)
 	code.ops = append(code.ops, offset)
 	return loc
 }
-func (code *lcode) emitJump(offset int) int {
+func (code *Code) emitJump(offset int) int {
 	code.ops = append(code.ops, opcodeJump)
 	loc := len(code.ops)
 	code.ops = append(code.ops, offset)
 	return loc
 }
-func (code *lcode) setJumpLocation(loc int) {
+func (code *Code) setJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
 }
-func (code *lcode) emitArray(alen int) {
+func (code *Code) emitArray(alen int) {
 	code.ops = append(code.ops, opcodeArray)
 	code.ops = append(code.ops, alen)
 }
-func (code *lcode) emitStruct(slen int) {
+func (code *Code) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *lcode) emitUse(sym lob) {
+func (code *Code) emitUse(sym AnyType) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *lcode) emitCar() {
+func (code *Code) emitCar() {
 	code.ops = append(code.ops, opcodeCar)
 }
-func (code *lcode) emitCdr() {
+func (code *Code) emitCdr() {
 	code.ops = append(code.ops, opcodeCdr)
 }
-func (code *lcode) emitNull() {
+func (code *Code) emitNull() {
 	code.ops = append(code.ops, opcodeNull)
 }
-func (code *lcode) emitAdd() {
+func (code *Code) emitAdd() {
 	code.ops = append(code.ops, opcodeAdd)
 }
-func (code *lcode) emitMul() {
+func (code *Code) emitMul() {
 	code.ops = append(code.ops, opcodeMul)
 }

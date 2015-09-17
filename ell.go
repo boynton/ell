@@ -61,22 +61,22 @@ func Ell(module module) {
 
 	module.defineFunction("boolean?", ellBooleanP)
 	module.defineFunction("null?", ellNullP)
-	module.defineFunction("symbol?", ellSymbolP)
-	module.defineFunction("symbol", ellSymbol)
+	module.defineFunction("symbol?", elSymbolTypeP)
+	module.defineFunction("symbol", elSymbolType)
 
 	module.defineFunction("keyword?", ellKeywordP)
 	module.defineFunction("keyword", ellKeyword)
 	module.defineFunction("unkeyword", ellUnkeyword)
-	module.defineFunction("string?", ellStringP)
+	module.defineFunction("string?", elStringTypeP)
 	module.defineFunction("char?", ellCharP)
 	module.defineFunction("function?", ellFunctionP)
 	module.defineFunction("eof?", ellFunctionP)
 
-	module.defineFunction("list?", ellListP)
+	module.defineFunction("list?", elListTypeP)
 	module.defineFunction("cons", ellCons)
 	module.defineFunction("car", ellCar)
 	module.defineFunction("cdr", ellCdr)
-	module.defineFunction("list", ellList)
+	module.defineFunction("list", elListType)
 	module.defineFunction("concat", ellConcat)
 	module.defineFunction("reverse", ellReverse)
 	module.defineFunction("set-car!", ellSetCarBang)
@@ -96,16 +96,16 @@ func Ell(module module) {
 
 	module.defineFunction("empty?", ellEmptyP)
 
-	module.defineFunction("string", ellString)
+	module.defineFunction("string", elStringType)
 	module.defineFunction("display", ellDisplay)
 	module.defineFunction("write", ellWrite)
 	module.defineFunction("newline", ellNewline)
 	module.defineFunction("print", ellPrint)
 	module.defineFunction("println", ellPrintln)
 
-	module.defineFunction("number?", ellNumberP) // either float or int
-	module.defineFunction("int?", ellIntP)       //int only
-	module.defineFunction("float?", ellFloatP)   //float only
+	module.defineFunction("number?", elNumberTypeP) // either float or int
+	module.defineFunction("int?", ellIntP)          //int only
+	module.defineFunction("float?", ellFloatP)      //float only
 	module.defineFunction("+", ellPlus)
 	module.defineFunction("-", ellMinus)
 	module.defineFunction("*", ellTimes)
@@ -120,8 +120,8 @@ func Ell(module module) {
 	module.defineFunction(">", ellGt)
 	module.defineFunction("<", ellLt)
 	module.defineFunction("zero?", ellZeroP)
-	module.defineFunction("number->string", ellNumberToString)
-	module.defineFunction("string-length", ellStringLength)
+	module.defineFunction("number->string", elNumberTypeToString)
+	module.defineFunction("string-length", elStringTypeLength)
 
 	module.defineFunction("error", ellFatal)
 	module.defineFunction("length", ellLength)
@@ -129,41 +129,41 @@ func Ell(module module) {
 }
 
 //
-//expanders - these only gets called from the macro expander itself, so we know the single arg is an *llist
+//expanders - these only gets called from the macro expander itself, so we know the single arg is an *ListType
 //
 
-func ellLetrec(argv []lob, argc int) (lob, error) {
+func ellLetrec(argv []AnyType, argc int) (AnyType, error) {
 	return expandLetrec(argv[0])
 }
 
-func ellLet(argv []lob, argc int) (lob, error) {
+func ellLet(argv []AnyType, argc int) (AnyType, error) {
 	return expandLet(argv[0])
 }
 
-func ellDo(argv []lob, argc int) (lob, error) {
+func ellDo(argv []AnyType, argc int) (AnyType, error) {
 	return expandDo(argv[0])
 }
 
-func ellCond(argv []lob, argc int) (lob, error) {
+func ellCond(argv []AnyType, argc int) (AnyType, error) {
 	return expandCond(argv[0])
 }
 
-func ellQuasiquote(argv []lob, argc int) (lob, error) {
+func ellQuasiquote(argv []AnyType, argc int) (AnyType, error) {
 	return expandQuasiquote(argv[0])
 }
 
 // functions
 
-func ellVersion(argv []lob, argc int) (lob, error) {
-	return lstring(Version), nil
+func ellVersion(argv []AnyType, argc int) (AnyType, error) {
+	return StringType(Version), nil
 }
 
-func ellDefinedP(argv []lob, argc int) (lob, error) {
+func ellDefinedP(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("defined?", "1", argc)
+		return ArgcError("defined?", "1", argc)
 	}
 	if !isSymbol(argv[0]) {
-		return argTypeError("symbol", 1, argv[0])
+		return ArgTypeError("symbol", 1, argv[0])
 	}
 	if currentModule != nil {
 		if currentModule.isDefined(argv[0]) {
@@ -173,12 +173,12 @@ func ellDefinedP(argv []lob, argc int) (lob, error) {
 	return False, nil
 }
 
-func ellFileContents(argv []lob, argc int) (lob, error) {
+func ellFileContents(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("file-contents", "1", argc)
+		return ArgcError("file-contents", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return argTypeError("string", 1, argv[0])
+		return ArgTypeError("string", 1, argv[0])
 	}
 	fname, err := stringValue(argv[0])
 	if err != nil {
@@ -188,15 +188,15 @@ func ellFileContents(argv []lob, argc int) (lob, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lstring(s), nil
+	return StringType(s), nil
 }
 
-func ellOpenInputString(argv []lob, argc int) (lob, error) {
+func ellOpenInputString(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("open-input-string", "1", argc)
+		return ArgcError("open-input-string", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return argTypeError("string", 1, argv[0])
+		return ArgTypeError("string", 1, argv[0])
 	}
 	s, err := stringValue(argv[0])
 	if err != nil {
@@ -205,12 +205,12 @@ func ellOpenInputString(argv []lob, argc int) (lob, error) {
 	return openInputString(s), nil
 }
 
-func ellOpenInputFile(argv []lob, argc int) (lob, error) {
+func ellOpenInputFile(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("open-input-file", "1", argc)
+		return ArgcError("open-input-file", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return argTypeError("string", 1, argv[0])
+		return ArgTypeError("string", 1, argv[0])
 	}
 	s, err := stringValue(argv[0])
 	if err != nil {
@@ -219,62 +219,62 @@ func ellOpenInputFile(argv []lob, argc int) (lob, error) {
 	return openInputFile(s)
 }
 
-func ellRead(argv []lob, argc int) (lob, error) {
+func ellRead(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("read", "1", argc)
+		return ArgcError("read", "1", argc)
 	}
 	return readInputPort(argv[0])
 }
-func ellCloseInputPort(argv []lob, argc int) (lob, error) {
+func ellCloseInputPort(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("read", "1", argc)
+		return ArgcError("read", "1", argc)
 	}
 	return nil, closeInputPort(argv[0])
 }
 
-func ellMacroexpand(argv []lob, argc int) (lob, error) {
+func ellMacroexpand(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("macroexpand", "1", argc)
+		return ArgcError("macroexpand", "1", argc)
 	}
 	return macroexpand(argv[0])
 }
 
-func ellType(argv []lob, argc int) (lob, error) {
+func ellType(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("type", "1", argc)
+		return ArgcError("type", "1", argc)
 	}
 	return argv[0].Type(), nil
 }
 
-func ellNormalizeKeywordArgs(argv []lob, argc int) (lob, error) {
+func ellNormalizeKeywordArgs(argv []AnyType, argc int) (AnyType, error) {
 	//(normalize-keyword-args '(x: 23) '(x: y:) -> (x:)
 	//(normalize-keyword-args '(x: 23 z: 100) '(x: y:) -> error("bad keyword z: in argument list")
 	if argc < 1 {
-		return argcError("normalizeKeywordArgs", "1+", argc)
+		return ArgcError("normalizeKeywordArgs", "1+", argc)
 	}
-	if args, ok := argv[0].(*llist); ok {
+	if args, ok := argv[0].(*ListType); ok {
 		return normalizeKeywordArgs(args, argv[1:argc])
 	}
-	return argTypeError("list", 1, argv[0])
+	return ArgTypeError("list", 1, argv[0])
 }
 
-func ellStruct(argv []lob, argc int) (lob, error) {
+func ellStruct(argv []AnyType, argc int) (AnyType, error) {
 	return newInstance(typeStruct, argv[:argc])
 }
 
-func ellInstance(argv []lob, argc int) (lob, error) {
+func ellInstance(argv []AnyType, argc int) (AnyType, error) {
 	if argc < 1 {
-		return argcError("instance", "1+", argc)
+		return ArgcError("instance", "1+", argc)
 	}
 	switch s := argv[0].(type) {
-	case *lsymbol:
+	case *SymbolType:
 		return newInstance(s, argv[1:argc])
 	default:
-		return argTypeError("symbol", 1, argv[0])
+		return ArgTypeError("symbol", 1, argv[0])
 	}
 }
 
-func ellIdenticalP(argv []lob, argc int) (lob, error) {
+func ellIdenticalP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		b := identical(argv[0], argv[1])
 		if b {
@@ -282,12 +282,12 @@ func ellIdenticalP(argv []lob, argc int) (lob, error) {
 		}
 		return False, nil
 	}
-	return argcError("identical?", "2", argc)
+	return ArgcError("identical?", "2", argc)
 }
 
-func ellEq(argv []lob, argc int) (lob, error) {
+func ellEq(argv []AnyType, argc int) (AnyType, error) {
 	if argc < 1 {
-		return argcError("eq?", "1+", argc)
+		return ArgcError("eq?", "1+", argc)
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
@@ -298,9 +298,9 @@ func ellEq(argv []lob, argc int) (lob, error) {
 	return True, nil
 }
 
-func ellNumeq(argv []lob, argc int) (lob, error) {
+func ellNumeq(argv []AnyType, argc int) (AnyType, error) {
 	if argc < 1 {
-		return argcError("=", "1+", argc)
+		return ArgcError("=", "1+", argc)
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
@@ -311,61 +311,61 @@ func ellNumeq(argv []lob, argc int) (lob, error) {
 	return True, nil
 }
 
-func ellDisplay(argv []lob, argc int) (lob, error) {
+func ellDisplay(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
 		//todo: add the optional port argument like scheme
-		return argcError("display", "1", argc)
+		return ArgcError("display", "1", argc)
 	}
 	fmt.Printf("%v", argv[0])
 	return Null, nil
 }
 
-func ellWrite(argv []lob, argc int) (lob, error) {
+func ellWrite(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
 		//todo: add the optional port argument like scheme
-		return argcError("write", "1", argc)
+		return ArgcError("write", "1", argc)
 	}
 	fmt.Printf("%v", write(argv[0]))
 	return Null, nil
 }
 
-func ellNewline(argv []lob, argc int) (lob, error) {
+func ellNewline(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 0 {
 		//todo: add the optional port argument like scheme
-		return argcError("newline", "0", argc)
+		return ArgcError("newline", "0", argc)
 	}
 	fmt.Printf("\n")
 	return Null, nil
 }
 
-func ellFatal(argv []lob, argc int) (lob, error) {
+func ellFatal(argv []AnyType, argc int) (AnyType, error) {
 	s := ""
 	for _, o := range argv {
 		s += fmt.Sprintf("%v", o)
 	}
-	return nil, newError(s)
+	return nil, Error(s)
 }
 
-func ellPrint(argv []lob, argc int) (lob, error) {
+func ellPrint(argv []AnyType, argc int) (AnyType, error) {
 	for _, o := range argv {
 		fmt.Printf("%v", o)
 	}
 	return Null, nil
 }
 
-func ellPrintln(argv []lob, argc int) (lob, error) {
+func ellPrintln(argv []AnyType, argc int) (AnyType, error) {
 	ellPrint(argv, argc)
 	fmt.Println("")
 	return Null, nil
 }
 
-func ellConcat(argv []lob, argc int) (lob, error) {
+func ellConcat(argv []AnyType, argc int) (AnyType, error) {
 	result := EmptyList
 	tail := result
 	for i := 0; i < argc; i++ {
 		o := argv[i]
 		switch lst := o.(type) {
-		case *llist:
+		case *ListType:
 			c := lst
 			for c != EmptyList {
 				if tail == EmptyList {
@@ -378,26 +378,26 @@ func ellConcat(argv []lob, argc int) (lob, error) {
 				c = c.cdr
 			}
 		default:
-			return argTypeError("list", i+1, o)
+			return ArgTypeError("list", i+1, o)
 		}
 	}
 	return result, nil
 }
 
-func ellReverse(argv []lob, argc int) (lob, error) {
+func ellReverse(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("reverse", "1", argc)
+		return ArgcError("reverse", "1", argc)
 	}
 	o := argv[0]
 	switch lst := o.(type) {
-	case *llist:
+	case *ListType:
 		return reverse(lst), nil
 	default:
-		return argTypeError("list", 1, o)
+		return ArgTypeError("list", 1, o)
 	}
 }
 
-func ellList(argv []lob, argc int) (lob, error) {
+func elListType(argv []AnyType, argc int) (AnyType, error) {
 	p := EmptyList
 	for i := argc - 1; i >= 0; i-- {
 		p = cons(argv[i], p)
@@ -405,37 +405,37 @@ func ellList(argv []lob, argc int) (lob, error) {
 	return p, nil
 }
 
-func ellNumberP(argv []lob, argc int) (lob, error) {
+func elNumberTypeP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isNumber(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("number?", "1", argc)
+	return ArgcError("number?", "1", argc)
 }
 
-func ellIntP(argv []lob, argc int) (lob, error) {
+func ellIntP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isInt(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("int?", "1", argc)
+	return ArgcError("int?", "1", argc)
 }
 
-func ellFloatP(argv []lob, argc int) (lob, error) {
+func ellFloatP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isFloat(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("float?", "1", argc)
+	return ArgcError("float?", "1", argc)
 }
 
-func ellQuotient(argv []lob, argc int) (lob, error) {
+func ellQuotient(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		n1, err := int64Value(argv[0])
 		if err != nil {
@@ -446,14 +446,14 @@ func ellQuotient(argv []lob, argc int) (lob, error) {
 			return nil, err
 		}
 		if n2 == 0 {
-			return nil, newError("Quotient: divide by zero")
+			return nil, Error("Quotient: divide by zero")
 		}
-		return lnumber(n1 / n2), nil
+		return NumberType(n1 / n2), nil
 	}
-	return argcError("quotient", "2", argc)
+	return ArgcError("quotient", "2", argc)
 }
 
-func ellRemainder(argv []lob, argc int) (lob, error) {
+func ellRemainder(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		n1, err := int64Value(argv[0])
 		if err != nil {
@@ -461,71 +461,71 @@ func ellRemainder(argv []lob, argc int) (lob, error) {
 		}
 		n2, err := int64Value(argv[1])
 		if n2 == 0 {
-			return nil, newError("remainder: divide by zero")
+			return nil, Error("remainder: divide by zero")
 		}
 		if err != nil {
 			return nil, err
 		}
-		return lnumber(n1 % n2), nil
+		return NumberType(n1 % n2), nil
 	}
-	return argcError("remainder", "2", argc)
+	return ArgcError("remainder", "2", argc)
 }
 
-func ellPlus(argv []lob, argc int) (lob, error) {
+func ellPlus(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		return add(argv[0], argv[1])
 	}
 	return sum(argv, argc)
 }
 
-func ellMinus(argv []lob, argc int) (lob, error) {
+func ellMinus(argv []AnyType, argc int) (AnyType, error) {
 	return minus(argv, argc)
 }
 
-func ellTimes(argv []lob, argc int) (lob, error) {
+func ellTimes(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		return mul(argv[0], argv[1])
 	}
 	return product(argv, argc)
 }
 
-func ellDiv(argv []lob, argc int) (lob, error) {
+func ellDiv(argv []AnyType, argc int) (AnyType, error) {
 	return div(argv, argc)
 }
 
-func ellArray(argv []lob, argc int) (lob, error) {
+func ellArray(argv []AnyType, argc int) (AnyType, error) {
 	return array(argv...), nil
 }
 
-func ellMakeArray(argv []lob, argc int) (lob, error) {
+func ellMakeArray(argv []AnyType, argc int) (AnyType, error) {
 	if argc > 0 {
-		initVal := lob(Null)
+		initVal := AnyType(Null)
 		vlen, err := intValue(argv[0])
 		if err != nil {
 			return nil, err
 		}
 		if argc > 1 {
 			if argc != 2 {
-				return argcError("make-array", "1-2", argc)
+				return ArgcError("make-array", "1-2", argc)
 			}
 			initVal = argv[1]
 		}
 		return newArray(int(vlen), initVal), nil
 	}
-	return argcError("make-array", "1-2", argc)
+	return ArgcError("make-array", "1-2", argc)
 }
 
-func ellArrayP(argv []lob, argc int) (lob, error) {
+func ellArrayP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isArray(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("array?", "1", argc)
+	return ArgcError("array?", "1", argc)
 }
 
-func ellArraySetBang(argv []lob, argc int) (lob, error) {
+func ellArraySetBang(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 3 {
 		a := argv[0]
 		idx, err := intValue(argv[1])
@@ -538,10 +538,10 @@ func ellArraySetBang(argv []lob, argc int) (lob, error) {
 		}
 		return a, nil
 	}
-	return argcError("array-set!", "3", argc)
+	return ArgcError("array-set!", "3", argc)
 }
 
-func ellArrayRef(argv []lob, argc int) (lob, error) {
+func ellArrayRef(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		a := argv[0]
 		idx, err := intValue(argv[1])
@@ -554,10 +554,10 @@ func ellArrayRef(argv []lob, argc int) (lob, error) {
 		}
 		return val, nil
 	}
-	return argcError("array-ref", "2", argc)
+	return ArgcError("array-ref", "2", argc)
 }
 
-func ellGe(argv []lob, argc int) (lob, error) {
+func ellGe(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		b, err := greaterOrEqual(argv[0], argv[1])
 		if err != nil {
@@ -565,10 +565,10 @@ func ellGe(argv []lob, argc int) (lob, error) {
 		}
 		return b, nil
 	}
-	return argcError(">=", "2", argc)
+	return ArgcError(">=", "2", argc)
 }
 
-func ellLe(argv []lob, argc int) (lob, error) {
+func ellLe(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		b, err := lessOrEqual(argv[0], argv[1])
 		if err != nil {
@@ -576,10 +576,10 @@ func ellLe(argv []lob, argc int) (lob, error) {
 		}
 		return b, nil
 	}
-	return argcError("<=", "2", argc)
+	return ArgcError("<=", "2", argc)
 }
 
-func ellGt(argv []lob, argc int) (lob, error) {
+func ellGt(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		b, err := greater(argv[0], argv[1])
 		if err != nil {
@@ -587,10 +587,10 @@ func ellGt(argv []lob, argc int) (lob, error) {
 		}
 		return b, nil
 	}
-	return argcError(">", "2", argc)
+	return ArgcError(">", "2", argc)
 }
 
-func ellLt(argv []lob, argc int) (lob, error) {
+func ellLt(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		b, err := less(argv[0], argv[1])
 		if err != nil {
@@ -598,10 +598,10 @@ func ellLt(argv []lob, argc int) (lob, error) {
 		}
 		return b, nil
 	}
-	return argcError("<", "2", argc)
+	return ArgcError("<", "2", argc)
 }
 
-func ellZeroP(argv []lob, argc int) (lob, error) {
+func ellZeroP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		f, err := floatValue(argv[0])
 		if err != nil {
@@ -612,171 +612,171 @@ func ellZeroP(argv []lob, argc int) (lob, error) {
 		}
 		return False, nil
 	}
-	return argcError("zero?", "1", argc)
+	return ArgcError("zero?", "1", argc)
 }
 
-func ellNumberToString(argv []lob, argc int) (lob, error) {
+func elNumberTypeToString(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("number->string", "1", argc)
+		return ArgcError("number->string", "1", argc)
 	}
 	if !isNumber(argv[0]) {
-		return argTypeError("number", 1, argv[0])
+		return ArgTypeError("number", 1, argv[0])
 	}
-	return lstring(argv[0].String()), nil
+	return StringType(argv[0].String()), nil
 }
 
-func ellStringLength(argv []lob, argc int) (lob, error) {
+func elStringTypeLength(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("string-length", "1", argc)
+		return ArgcError("string-length", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return argTypeError("string", 1, argv[0])
+		return ArgTypeError("string", 1, argv[0])
 	}
 	i := length(argv[0])
-	return lnumber(int64(i)), nil
+	return NumberType(int64(i)), nil
 }
 
-func ellLength(argv []lob, argc int) (lob, error) {
+func ellLength(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
-		return lnumber(int64(length(argv[0]))), nil
+		return NumberType(int64(length(argv[0]))), nil
 	}
-	return argcError("length", "1", argc)
+	return ArgcError("length", "1", argc)
 }
 
-func ellNot(argv []lob, argc int) (lob, error) {
+func ellNot(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if argv[0] == False {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("not", "1", argc)
+	return ArgcError("not", "1", argc)
 }
 
-func ellNullP(argv []lob, argc int) (lob, error) {
+func ellNullP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if argv[0] == Null {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("nil?", "1", argc)
+	return ArgcError("nil?", "1", argc)
 }
 
-func ellBooleanP(argv []lob, argc int) (lob, error) {
+func ellBooleanP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isBoolean(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("boolean?", "1", argc)
+	return ArgcError("boolean?", "1", argc)
 }
 
-func ellSymbolP(argv []lob, argc int) (lob, error) {
+func elSymbolTypeP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isSymbol(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("symbol?", "1", argc)
+	return ArgcError("symbol?", "1", argc)
 }
 
-func ellSymbol(argv []lob, argc int) (lob, error) {
+func elSymbolType(argv []AnyType, argc int) (AnyType, error) {
 	if argc < 1 {
-		return argcError("symbol", "1+", argc)
+		return ArgcError("symbol", "1+", argc)
 	}
 	return symbol(argv[:argc])
 }
 
-func ellKeywordP(argv []lob, argc int) (lob, error) {
+func ellKeywordP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isKeyword(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("keyword?", "1", argc)
+	return ArgcError("keyword?", "1", argc)
 }
 
-func ellTypeP(argv []lob, argc int) (lob, error) {
+func ellTypeP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isType(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("type?", "1", argc)
+	return ArgcError("type?", "1", argc)
 }
 
-func ellTypeName(argv []lob, argc int) (lob, error) {
+func ellTypeName(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isType(argv[0]) {
 			return typeName(argv[0])
 		}
 		return False, nil
 	}
-	return argcError("type-name", "1", argc)
+	return ArgcError("type-name", "1", argc)
 }
 
-func ellKeyword(argv []lob, argc int) (lob, error) {
+func ellKeyword(argv []AnyType, argc int) (AnyType, error) {
 	if argc < 1 {
-		return argcError("symbol", "1+", argc)
+		return ArgcError("symbol", "1+", argc)
 	}
 	return keyword(argv[0])
 }
 
-func ellUnkeyword(argv []lob, argc int) (lob, error) {
+func ellUnkeyword(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("unkeyword", "1", argc)
+		return ArgcError("unkeyword", "1", argc)
 	}
 	return unkeyword(argv[0])
 }
 
-func ellStringP(argv []lob, argc int) (lob, error) {
+func elStringTypeP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isString(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("string?", "1", argc)
+	return ArgcError("string?", "1", argc)
 }
 
-func ellCharP(argv []lob, argc int) (lob, error) {
+func ellCharP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isChar(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("character?", "1", argc)
+	return ArgcError("character?", "1", argc)
 }
 
-func ellFunctionP(argv []lob, argc int) (lob, error) {
+func ellFunctionP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isFunction(argv[0]) || isKeyword(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("function?", "1", argc)
+	return ArgcError("function?", "1", argc)
 }
 
-func ellListP(argv []lob, argc int) (lob, error) {
+func elListTypeP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isList(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("list?", "1", argc)
+	return ArgcError("list?", "1", argc)
 }
 
-func ellEmptyP(argv []lob, argc int) (lob, error) {
+func ellEmptyP(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("empty?", "1", argc)
+		return ArgcError("empty?", "1", argc)
 	}
 	if isEmpty(argv[0]) {
 		return True, nil
@@ -784,160 +784,160 @@ func ellEmptyP(argv []lob, argc int) (lob, error) {
 	return False, nil
 }
 
-func ellString(argv []lob, argc int) (lob, error) {
+func elStringType(argv []AnyType, argc int) (AnyType, error) {
 	s := ""
 	for i := 0; i < argc; i++ {
 		s += argv[i].String()
 	}
-	return lstring(s), nil
+	return StringType(s), nil
 }
 
-func ellCar(argv []lob, argc int) (lob, error) {
+func ellCar(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return car(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("car", "1", argc)
+	return ArgcError("car", "1", argc)
 }
 
-func ellCdr(argv []lob, argc int) (lob, error) {
+func ellCdr(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return cdr(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("cdr", "1", argc)
+	return ArgcError("cdr", "1", argc)
 }
 
-func ellSetCarBang(argv []lob, argc int) (lob, error) {
+func ellSetCarBang(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		lst := argv[0]
 		if isList(lst) {
 			setCar(lst, argv[1])
 			return Null, nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("set-car!", "2", argc)
+	return ArgcError("set-car!", "2", argc)
 }
 
-func ellSetCdrBang(argv []lob, argc int) (lob, error) {
+func ellSetCdrBang(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		lst := argv[0]
 		if isList(lst) {
 			if !isList(argv[1]) {
-				return argTypeError("list", 2, lst)
+				return ArgTypeError("list", 2, lst)
 			}
 			setCdr(lst, argv[1])
 			return Null, nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("set-cdr!", "2", argc)
+	return ArgcError("set-cdr!", "2", argc)
 }
 
-func ellCaar(argv []lob, argc int) (lob, error) {
+func ellCaar(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return caar(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("caar", "1", argc)
+	return ArgcError("caar", "1", argc)
 }
 
-func ellCadr(argv []lob, argc int) (lob, error) {
+func ellCadr(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return cadr(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("cadr", "1", argc)
+	return ArgcError("cadr", "1", argc)
 }
 
-func ellCddr(argv []lob, argc int) (lob, error) {
+func ellCddr(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return cddr(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("cddr", "1", argc)
+	return ArgcError("cddr", "1", argc)
 }
 
-func ellCadar(argv []lob, argc int) (lob, error) {
+func ellCadar(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return car(cdr(car(lst))), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("cadar", "1", argc)
+	return ArgcError("cadar", "1", argc)
 }
 
-func ellCaddr(argv []lob, argc int) (lob, error) {
+func ellCaddr(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return caddr(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("caddr", "1", argc)
+	return ArgcError("caddr", "1", argc)
 }
-func ellCdddr(argv []lob, argc int) (lob, error) {
+func ellCdddr(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
 			return cdddr(lst), nil
 		}
-		return argTypeError("list", 1, lst)
+		return ArgTypeError("list", 1, lst)
 	}
-	return argcError("cdddr", "1", argc)
+	return ArgcError("cdddr", "1", argc)
 }
 
-func ellCons(argv []lob, argc int) (lob, error) {
+func ellCons(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 2 {
 		switch lst := argv[1].(type) {
-		case *llist:
+		case *ListType:
 			return cons(argv[0], lst), nil
 		default:
-			return argTypeError("list", 2, lst)
+			return ArgTypeError("list", 2, lst)
 		}
 	}
-	return argcError("cons", "2", argc)
+	return ArgcError("cons", "2", argc)
 }
 
-func ellStructP(argv []lob, argc int) (lob, error) {
+func ellStructP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isStruct(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return argcError("struct?", "1", argc)
+	return ArgcError("struct?", "1", argc)
 }
 
-func ellGet(argv []lob, argc int) (lob, error) {
+func ellGet(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 2 {
-		return argcError("get", "2", argc)
+		return ArgcError("get", "2", argc)
 	}
 	return get(argv[0], argv[1])
 }
 
-func ellHasP(argv []lob, argc int) (lob, error) {
+func ellHasP(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 2 {
-		return argcError("has?", "2", argc)
+		return ArgcError("has?", "2", argc)
 	}
 	b, err := has(argv[0], argv[1])
 	if err != nil {
@@ -949,27 +949,27 @@ func ellHasP(argv []lob, argc int) (lob, error) {
 	return False, nil
 }
 
-func ellPutBang(argv []lob, argc int) (lob, error) {
+func ellPutBang(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 3 {
-		return argcError("put!", "3", argc)
+		return ArgcError("put!", "3", argc)
 	}
 	return put(argv[0], argv[1], argv[2])
 }
 
-func ellStructToList(argv []lob, argc int) (lob, error) {
+func ellStructToList(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("struct->list", "1", argc)
+		return ArgcError("struct->list", "1", argc)
 	}
 	return structToList(argv[0])
 }
 
-func ellJSON(argv []lob, argc int) (lob, error) {
+func ellJSON(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {
-		return argcError("json", "1", argc)
+		return ArgcError("json", "1", argc)
 	}
 	s, err := toJSON(argv[0])
 	if err != nil {
 		return nil, err
 	}
-	return lstring(s), nil
+	return StringType(s), nil
 }

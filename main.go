@@ -32,7 +32,7 @@ const Version = "gell v0.1"
 // EllPath is the path where the library *.ell files can be found
 var EllPath string
 
-func fatal(args ...any) {
+func fatal(args ...interface{}) {
 	println(args...)
 	exit(1)
 }

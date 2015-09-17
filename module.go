@@ -24,41 +24,42 @@ import (
 )
 
 type module interface {
-	typeSymbol() lob
+	typeSymbol() AnyType
 	Name() string
 	String() string
 
-	keywords() []lob
-	globals() []lob
-	global(sym lob) lob
-	isDefined(sym lob) bool
-	defGlobal(sym lob, val lob)
-	undefGlobal(sym lob)
-	setGlobal(sym lob, val lob) error
-	macros() []lob
-	macro(sym lob) *macro
-	defMacro(sym lob, val lob)
+	keywords() []AnyType
+	globals() []AnyType
+	global(sym AnyType) AnyType
+	isDefined(sym AnyType) bool
+	defGAnyTypeal(sym AnyType, val AnyType)
+	undefGAnyTypeal(sym AnyType)
+	setGAnyTypeal(sym AnyType, val AnyType) error
+	macros() []AnyType
+	macro(sym AnyType) *macro
+	defMacro(sym AnyType, val AnyType)
 
-	define(name string, val lob)
+	define(name string, val AnyType)
 	defineFunction(name string, fun primitive)
 	defineMacro(name string, fun primitive)
 
-	eval(expr lob) (lob, error)
+	eval(expr AnyType) (AnyType, error)
 
 	checkInterrupt() bool
-	compileFile(filename string) (lob, error)
+	compileFile(filename string) (AnyType, error)
 	loadFile(filename string) error
 	loadModule(filename string) error
-	exports() []lob
+	exports() []AnyType
 }
 
-type lmodule struct {
+// Module - a package of code. Every module has its own namespace that symbols, types, and kerywords are interned into
+type Module struct {
 	name         string
-	constantsMap map[lob]int
-	constants    []lob
+	constantsMap map[AnyType]int
+	constants    []AnyType
 	globalMap    []*binding
-	macroMap     map[lob]*macro
-	exported     []lob
+	macroMap     map[AnyType]*macro
+	exported     []AnyType
 	interrupts   chan os.Signal
 }
 
@@ -74,7 +75,7 @@ func newEnvironment(name string, init environmentInitializer, interrupts chan os
 	return newModule(name, interrupts)
 }
 
-func (mod *lmodule) checkInterrupt() bool {
+func (mod *Module) checkInterrupt() bool {
 	if mod.interrupts != nil {
 		select {
 		case msg := <-mod.interrupts:
@@ -87,55 +88,55 @@ func (mod *lmodule) checkInterrupt() bool {
 }
 
 func newModule(name string, interrupts chan os.Signal) module {
-	constMap := make(map[lob]int, 0)
-	var constants []lob
+	constMap := make(map[AnyType]int, 0)
+	var constants []AnyType
 	globalMap := make([]*binding, 100)
-	macroMap := make(map[lob]*macro, 0)
-	var exported []lob
-	mod := lmodule{name, constMap, constants, globalMap, macroMap, exported, interrupts}
+	macroMap := make(map[AnyType]*macro, 0)
+	var exported []AnyType
+	mod := Module{name, constMap, constants, globalMap, macroMap, exported, interrupts}
 	if initializer != nil {
 		initializer(&mod)
 	}
 	return &mod
 }
 
-func (mod *lmodule) define(name string, obj lob) {
-	mod.defGlobal(intern(name), obj)
+func (mod *Module) define(name string, obj AnyType) {
+	mod.defGAnyTypeal(intern(name), obj)
 }
 
-func (mod *lmodule) defineFunction(name string, fun primitive) {
+func (mod *Module) defineFunction(name string, fun primitive) {
 	sym := intern(name)
 	if mod.global(sym) != nil {
 		println("*** Warning: redefining ", name)
 	}
-	prim := lprimitive{name, fun}
-	mod.defGlobal(sym, &prim)
+	prim := Primitive{name, fun}
+	mod.defGAnyTypeal(sym, &prim)
 }
 
-func (mod *lmodule) defineMacro(name string, fun primitive) {
+func (mod *Module) defineMacro(name string, fun primitive) {
 	sym := intern(name)
 	if mod.macro(sym) != nil {
 		println("*** Warning: redefining macro ", name)
 	}
-	prim := lprimitive{name, fun}
+	prim := Primitive{name, fun}
 	mod.defMacro(sym, &prim)
 }
 
-func (mod *lmodule) typeSymbol() lob {
+func (mod *Module) typeSymbol() AnyType {
 	return intern("module")
 }
 
-func (mod *lmodule) Name() string {
+func (mod *Module) Name() string {
 	return mod.name
 }
 
-func (mod *lmodule) String() string {
+func (mod *Module) String() string {
 	return fmt.Sprintf("<module %v, constants:%v>", mod.Name, mod.constants)
 }
 
-func (mod *lmodule) keywords() []lob {
+func (mod *Module) keywords() []AnyType {
 	//keywords reserved for the base language that Ell compiles
-	keywords := []lob{
+	keywords := []AnyType{
 		intern("quote"),
 		intern("define"),
 		intern("lambda"),
@@ -149,8 +150,8 @@ func (mod *lmodule) keywords() []lob {
 	return keywords
 }
 
-func (mod *lmodule) globals() []lob {
-	syms := make([]lob, 0, symtag)
+func (mod *Module) globals() []AnyType {
+	syms := make([]AnyType, 0, symtag)
 	for _, b := range mod.globalMap {
 		if b != nil {
 			syms = append(syms, b.sym)
@@ -159,8 +160,8 @@ func (mod *lmodule) globals() []lob {
 	return syms
 }
 
-func (mod *lmodule) global(sym lob) lob {
-	s := sym.(*lsymbol)
+func (mod *Module) global(sym AnyType) AnyType {
+	s := sym.(*SymbolType)
 	if s.tag >= len(mod.globalMap) {
 		return nil
 	}
@@ -172,38 +173,38 @@ func (mod *lmodule) global(sym lob) lob {
 }
 
 type binding struct {
-	sym lob
-	val lob
+	sym AnyType
+	val AnyType
 }
 
-func (mod *lmodule) defGlobal(sym lob, val lob) {
-	s := sym.(*lsymbol)
+func (mod *Module) defGAnyTypeal(sym AnyType, val AnyType) {
+	s := sym.(*SymbolType)
 	if s.tag >= len(mod.globalMap) {
-		glob := make([]*binding, s.tag+100)
-		copy(glob, mod.globalMap)
-		mod.globalMap = glob
+		gAnyType := make([]*binding, s.tag+100)
+		copy(gAnyType, mod.globalMap)
+		mod.globalMap = gAnyType
 	}
 	b := binding{sym, val}
 	mod.globalMap[s.tag] = &b
 }
 
-func (mod *lmodule) isDefined(sym lob) bool {
-	s := sym.(*lsymbol)
+func (mod *Module) isDefined(sym AnyType) bool {
+	s := sym.(*SymbolType)
 	if s.tag < len(mod.globalMap) {
 		return mod.globalMap[s.tag] != nil
 	}
 	return false
 }
 
-func (mod *lmodule) undefGlobal(sym lob) {
-	s := sym.(*lsymbol)
+func (mod *Module) undefGAnyTypeal(sym AnyType) {
+	s := sym.(*SymbolType)
 	if s.tag < len(mod.globalMap) {
 		mod.globalMap[s.tag] = nil
 	}
 }
 
-func (mod *lmodule) setGlobal(sym lob, val lob) error {
-	s := sym.(*lsymbol)
+func (mod *Module) setGAnyTypeal(sym AnyType, val AnyType) error {
+	s := sym.(*SymbolType)
 	if s.tag < len(mod.globalMap) {
 		if mod.globalMap[s.tag] != nil {
 			mod.globalMap[s.tag].val = val
@@ -211,18 +212,18 @@ func (mod *lmodule) setGlobal(sym lob, val lob) error {
 		}
 
 	}
-	return newError("*** Warning: set on undefined global ", sym)
+	return Error("*** Warning: set on undefined global ", sym)
 }
 
-func (mod *lmodule) macros() []lob {
-	keys := make([]lob, 0, len(mod.macroMap))
+func (mod *Module) macros() []AnyType {
+	keys := make([]AnyType, 0, len(mod.macroMap))
 	for k := range mod.macroMap {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func (mod *lmodule) macro(sym lob) *macro {
+func (mod *Module) macro(sym AnyType) *macro {
 	mac, ok := mod.macroMap[sym]
 	if !ok {
 		return nil
@@ -230,13 +231,13 @@ func (mod *lmodule) macro(sym lob) *macro {
 	return mac
 }
 
-func (mod *lmodule) defMacro(sym lob, val lob) {
+func (mod *Module) defMacro(sym AnyType, val AnyType) {
 	mod.macroMap[sym] = newMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func (mod *lmodule) putConstant(val lob) int {
+func (mod *Module) putConstant(val AnyType) int {
 	idx, present := mod.constantsMap[val]
 	if !present {
 		idx = len(mod.constants)
@@ -246,12 +247,12 @@ func (mod *lmodule) putConstant(val lob) int {
 	return idx
 }
 
-func (mod *lmodule) use(sym lob) error {
+func (mod *Module) use(sym AnyType) error {
 	name := sym.String()
 	return mod.loadModule(name)
 }
 
-func (mod *lmodule) importCode(thunk code) (lob, error) {
+func (mod *Module) importCode(thunk code) (AnyType, error) {
 	moduleToUse := thunk.module()
 	result, err := exec(thunk)
 	if err != nil {
@@ -264,17 +265,17 @@ func (mod *lmodule) importCode(thunk code) (lob, error) {
 			mac := moduleToUse.macro(sym)
 			mod.defMacro(sym, mac.expander)
 		} else {
-			mod.defGlobal(sym, val)
+			mod.defGAnyTypeal(sym, val)
 		}
 	}
 	return result, nil
 }
 
-func (mod *lmodule) exports() []lob {
+func (mod *Module) exports() []AnyType {
 	return mod.exported
 }
 
-func (mod *lmodule) findModuleByName(moduleName string) (string, error) {
+func (mod *Module) findModuleByName(moduleName string) (string, error) {
 	path := strings.Split(EllPath, ":")
 	name := moduleName
 	lname := moduleName
@@ -292,10 +293,10 @@ func (mod *lmodule) findModuleByName(moduleName string) (string, error) {
 			return filename, nil
 		}
 	}
-	return "", newError("Module not found: ", moduleName)
+	return "", Error("Module not found: ", moduleName)
 }
 
-func (mod *lmodule) loadModule(name string) error {
+func (mod *Module) loadModule(name string) error {
 	file := name
 	if !fileReadable(name) {
 		f, err := mod.findModuleFile(name)
@@ -307,7 +308,7 @@ func (mod *lmodule) loadModule(name string) error {
 	return mod.loadFile(file)
 }
 
-func (mod *lmodule) loadFile(file string) error {
+func (mod *Module) loadFile(file string) error {
 	if verbose {
 		println("; loadFile: " + file)
 	} else {
@@ -336,7 +337,7 @@ func (mod *lmodule) loadFile(file string) error {
 	}
 }
 
-func (mod *lmodule) eval(expr lob) (lob, error) {
+func (mod *Module) eval(expr AnyType) (AnyType, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
@@ -358,7 +359,7 @@ func (mod *lmodule) eval(expr lob) (lob, error) {
 	return result, err
 }
 
-func (mod *lmodule) findModuleFile(name string) (string, error) {
+func (mod *Module) findModuleFile(name string) (string, error) {
 	i := strings.Index(name, ".")
 	if i < 0 {
 		file, err := mod.findModuleByName(name)
@@ -368,12 +369,12 @@ func (mod *lmodule) findModuleFile(name string) (string, error) {
 		return file, nil
 	}
 	if !fileReadable(name) {
-		return "", newError("Cannot read file: ", name)
+		return "", Error("Cannot read file: ", name)
 	}
 	return name, nil
 }
 
-func (mod *lmodule) compileExpr(expr lob) (string, error) {
+func (mod *Module) compileExpr(expr AnyType) (string, error) {
 	if verbose {
 		println("; compile: ", write(expr))
 	}
@@ -395,7 +396,7 @@ func (mod *lmodule) compileExpr(expr lob) (string, error) {
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func (mod *lmodule) compileFile(name string) (lob, error) {
+func (mod *Module) compileFile(name string) (AnyType, error) {
 	file, err := mod.findModuleFile(name)
 	if err != nil {
 		return nil, err
@@ -414,7 +415,7 @@ func (mod *lmodule) compileFile(name string) (lob, error) {
 	var lap string
 	for err == nil {
 		if expr == EOF {
-			return lstring(result), nil
+			return StringType(result), nil
 		}
 		lap, err = mod.compileExpr(expr)
 		if err != nil {

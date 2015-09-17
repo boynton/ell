@@ -36,54 +36,55 @@ func fileReadable(path string) bool {
 	return false
 }
 
-type linport struct {
+type InputPort struct {
 	file   *os.File
 	reader *dataReader
 	name   string
 }
 
-func isInputPort(obj lob) bool {
-	_, ok := obj.(*linport)
+func isInputPort(obj AnyType) bool {
+	_, ok := obj.(*InputPort)
 	return ok
 }
 
-func (*linport) Type() lob {
+func (*InputPort) Type() AnyType {
 	return intern("input-port")
 }
 
-func (in *linport) String() string {
+func (in *InputPort) String() string {
 	if in.reader == nil {
 		return fmt.Sprintf("<input-port: CLOSED %s>", in.name)
 	}
 	return fmt.Sprintf("<input-port: %s>", in.name)
 }
 
-func (in *linport) Equal(another lob) bool {
-	if a, ok := another.(*linport); ok {
+// Equal returns true if the object is equal to the argument
+func (in *InputPort) Equal(another AnyType) bool {
+	if a, ok := another.(*InputPort); ok {
 		return in == a
 	}
 	return false
 }
 
-func readInputPort(inport lob) (lob, error) {
+func readInputPort(inport AnyType) (AnyType, error) {
 	switch in := inport.(type) {
-	case *linport:
+	case *InputPort:
 		return in.read()
 	default:
-		return nil, typeError(intern("input-port"), inport)
+		return nil, TypeError(intern("input-port"), inport)
 	}
 }
-func closeInputPort(inport lob) error {
+func closeInputPort(inport AnyType) error {
 	switch in := inport.(type) {
-	case *linport:
+	case *InputPort:
 		return in.close()
 	default:
-		return typeError(intern("input-port"), inport)
+		return TypeError(intern("input-port"), inport)
 	}
 }
-func (in *linport) read() (lob, error) {
+func (in *InputPort) read() (AnyType, error) {
 	if in.reader == nil {
-		return nil, newError("Input port is closed: ", in)
+		return nil, Error("Input port is closed: ", in)
 	}
 	obj, err := in.reader.readData()
 	if err != nil {
@@ -94,7 +95,7 @@ func (in *linport) read() (lob, error) {
 	}
 	return obj, nil
 }
-func (in *linport) close() error {
+func (in *InputPort) close() error {
 	var err error
 	if in.file != nil {
 		err = in.file.Close()
@@ -114,25 +115,25 @@ func fileContents(path string) (string, error) {
 
 //todo: implement LOutputPort
 
-func openInputFile(path string) (*linport, error) {
+func openInputFile(path string) (*InputPort, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	r := bufio.NewReader(fi)
 	dr := newDataReader(r)
-	port := linport{fi, dr, path}
+	port := InputPort{fi, dr, path}
 	return &port, nil
 }
 
-func openInputString(input string) *linport {
+func openInputString(input string) *InputPort {
 	r := strings.NewReader(input)
 	dr := newDataReader(r)
-	port := linport{nil, dr, input}
+	port := InputPort{nil, dr, input}
 	return &port
 }
 
-func decode(in io.Reader) (lob, error) {
+func decode(in io.Reader) (AnyType, error) {
 	br := bufio.NewReader(in)
 	dr := dataReader{br}
 	return dr.readData()
@@ -155,7 +156,7 @@ func (dr *dataReader) ungetChar() error {
 	return dr.in.UnreadByte()
 }
 
-func (dr *dataReader) readData() (lob, error) {
+func (dr *dataReader) readData() (AnyType, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
@@ -213,7 +214,7 @@ func (dr *dataReader) readData() (lob, error) {
 		case '"':
 			return dr.decodeString()
 		case ')', ']', '}':
-			return nil, newError("Unexpected '", string(c), "'")
+			return nil, Error("Unexpected '", string(c), "'")
 		default:
 			atom, err := dr.decodeAtom(c)
 			return atom, err
@@ -233,7 +234,7 @@ func (dr *dataReader) decodeComment() error {
 	return e
 }
 
-func (dr *dataReader) decodeString() (lob, error) {
+func (dr *dataReader) decodeString() (AnyType, error) {
 	buf := []byte{}
 	c, e := dr.getChar()
 	escape := false
@@ -283,11 +284,11 @@ func (dr *dataReader) decodeString() (lob, error) {
 		}
 		c, e = dr.getChar()
 	}
-	s := lstring(string(buf))
+	s := StringType(string(buf))
 	return s, e
 }
 
-func (dr *dataReader) decodeList() (lob, error) {
+func (dr *dataReader) decodeList() (AnyType, error) {
 	items, err := dr.decodeSequence(')')
 	if err != nil {
 		return nil, err
@@ -295,7 +296,7 @@ func (dr *dataReader) decodeList() (lob, error) {
 	return toList(items), nil
 }
 
-func (dr *dataReader) decodeArray() (lob, error) {
+func (dr *dataReader) decodeArray() (AnyType, error) {
 	items, err := dr.decodeSequence(']')
 	if err != nil {
 		return nil, err
@@ -303,11 +304,11 @@ func (dr *dataReader) decodeArray() (lob, error) {
 	return toArray(items, len(items)), nil
 }
 
-func (dr *dataReader) decodeStruct() (lob, error) {
+func (dr *dataReader) decodeStruct() (AnyType, error) {
 	return dr.decodeInstance(typeStruct)
 }
 
-func (dr *dataReader) decodeInstance(typesym *lsymbol) (lob, error) {
+func (dr *dataReader) decodeInstance(typesym *SymbolType) (AnyType, error) {
 	items, err := dr.decodeSequence('}')
 	if err != nil {
 		return nil, err
@@ -315,9 +316,9 @@ func (dr *dataReader) decodeInstance(typesym *lsymbol) (lob, error) {
 	return newInstance(typesym, items)
 }
 
-func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
+func (dr *dataReader) decodeSequence(endChar byte) ([]AnyType, error) {
 	c, err := dr.getChar()
-	items := []lob{}
+	items := []AnyType{}
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -344,7 +345,7 @@ func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
+func (dr *dataReader) decodeAtom(firstChar byte) (AnyType, error) {
 	s, err := dr.decodeAtomString(firstChar)
 	if err != nil {
 		return nil, err
@@ -353,7 +354,7 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 		return dr.readData()
 	}
 	if s == ":" {
-		return nil, newError("Bad token: :")
+		return nil, Error("Bad token: :")
 	}
 	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
 	//but EllDn is JSON compatible, so these symbols need to be reserved
@@ -366,7 +367,7 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err == nil {
-		return lnumber(f), nil
+		return NumberType(f), nil
 	}
 	sym := intern(s)
 	return sym, nil
@@ -425,11 +426,11 @@ func namedChar(name string) (rune, error) {
 			}
 			return rune(i), nil
 		}
-		return 0, newError("bad named character: #\\", name)
+		return 0, Error("bad named character: #\\", name)
 	}
 }
 
-func (dr *dataReader) decodeReaderMacro() (lob, error) {
+func (dr *dataReader) decodeReaderMacro() (AnyType, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -478,14 +479,14 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 	default:
 		atom, err := dr.decodeAtomString(c)
 		if err != nil {
-			return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
+			return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
 		}
 		c, err := dr.getChar()
 		if err == nil {
 			if c == '{' {
 				t := intern("<" + atom + ">")
 				if err == nil {
-					inst, err := dr.decodeInstance(t.(*lsymbol))
+					inst, err := dr.decodeInstance(t.(*SymbolType))
 					if err == nil {
 						return inst, nil
 					}
@@ -504,7 +505,7 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 		case "n":
 			return Null, nil
 		default:
-			return nil, newError("Bad reader macro: #", atom, " ...")
+			return nil, Error("Bad reader macro: #", atom, " ...")
 		}
 	}
 }
@@ -517,7 +518,7 @@ func isDelimiter(b byte) bool {
 	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';'
 }
 
-func write(obj lob) string {
+func write(obj AnyType) string {
 	if obj == nil {
 		panic("null pointer")
 	}
@@ -525,31 +526,31 @@ func write(obj lob) string {
 	return elldn
 }
 
-func writeData(obj lob, json bool) (string, error) {
+func writeData(obj AnyType, json bool) (string, error) {
 	//an error is never returned for non-json
 	switch o := obj.(type) {
-	case lboolean, lnull:
+	case BooleanType, NullType:
 		return o.String(), nil
-	case *llist:
+	case *ListType:
 		if json {
 			return writeArray(listToArray(o), json)
 		}
 		return writeList(o), nil
-	case *lsymbol:
+	case *SymbolType:
 		if json {
 			return encodeString(unKeywordString(o)), nil
 		}
 		return o.String(), nil
-	case lstring:
+	case StringType:
 		s := encodeString(string(o))
 		return s, nil
-	case *larray:
+	case *ArrayType:
 		return writeArray(o, json)
-	case *lstruct:
+	case *StructType:
 		return writeStruct(o, json)
-	case lnumber:
+	case NumberType:
 		return o.String(), nil
-	case lchar:
+	case CharType:
 		switch o {
 		case 0:
 			return "#\\null", nil
@@ -577,7 +578,7 @@ func writeData(obj lob, json bool) (string, error) {
 		}
 	default:
 		if json {
-			return "", newError("data cannot be described in JSON: ", obj)
+			return "", Error("data cannot be described in JSON: ", obj)
 		}
 		if o == nil {
 			panic("whoops: nil not allowed here!")
@@ -586,7 +587,7 @@ func writeData(obj lob, json bool) (string, error) {
 	}
 }
 
-func writeList(lst *llist) string {
+func writeList(lst *ListType) string {
 	if lst == EmptyList {
 		return "()"
 	}
@@ -615,7 +616,7 @@ func writeList(lst *llist) string {
 	return buf.String()
 }
 
-func writeArray(ary *larray, json bool) (string, error) {
+func writeArray(ary *ArrayType, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(ary.elements)
@@ -642,7 +643,7 @@ func writeArray(ary *larray, json bool) (string, error) {
 	return buf.String(), nil
 }
 
-func writeStruct(m *lstruct, json bool) (string, error) {
+func writeStruct(m *StructType, json bool) (string, error) {
 	var buf bytes.Buffer
 	if !json && m.typesym != typeStruct {
 		buf.WriteString("#")
@@ -683,6 +684,6 @@ func writeStruct(m *lstruct, json bool) (string, error) {
 //return a JSON string of the object, or an error if it cannot be expressed in JSON
 //this is very close to EllDn, the standard output format. Exceptions:
 //  1. the only symbols allowed are true, false, null
-func toJSON(obj lob) (string, error) {
+func toJSON(obj AnyType) (string, error) {
 	return writeData(obj, true)
 }

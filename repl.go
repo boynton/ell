@@ -123,7 +123,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 	matches := []string{}
 	addendum := ""
 	prefix, funPosition := ell.completePrefix(expr)
-	candidates := map[lob]bool{}
+	candidates := map[AnyType]bool{}
 	if funPosition {
 		for _, sym := range ell.env.keywords() {
 			str := sym.String()
