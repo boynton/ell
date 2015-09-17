@@ -54,9 +54,9 @@ const (
 
 // code is an Ell code object
 type code interface {
+	Type() lob
 	String() string
-	typeSymbol() lob
-	equal(another lob) bool
+	Equal(another lob) bool
 	module() module
 	loadOps(ops lob) error
 	decompile(pretty bool) string
@@ -150,11 +150,11 @@ func newCode(mod module, argc int, defaults []lob, keys []lob, name string) code
 	return &code
 }
 
-func (*lcode) typeSymbol() lob {
+func (*lcode) Type() lob {
 	return intern("code")
 }
 
-func (code *lcode) equal(another lob) bool {
+func (code *lcode) Equal(another lob) bool {
 	if c, ok := another.(*lcode); ok {
 		return code == c
 	}

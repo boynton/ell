@@ -4,7 +4,7 @@
       (error msg " FAILED: expected " expected ", encountered " val)))
 
 ;; simple calls, 0..3 parameters
-(test ((lambda () nil)) nil "(lambda ())")
+(test ((lambda () null)) null "(lambda ())")
 (test ((lambda (x) x) 23) 23 "(lambda (x))")
 (test ((lambda (x y) (list x y)) 23 57) '(23 57) "(lambda (x y))")
 (test ((lambda (x y z) (list x y z)) 23 57 100) '(23 57 100) "(lambda (x y z))")
@@ -18,20 +18,20 @@
 (test (lambda_arglist 1 2) '(1 2) "(lambda_arglist 1 2)")
 
 ;; binding tail of arglist to a single variable
-;; note that if there aren't enough arguments, you get empty list, not nil
+;; note that if there aren't enough arguments, you get empty list, not null
 (define (fun_arglist x & y) (list x y))
 (test (fun_arglist 1) '(1 ()) "(fun_arglist 1)")
 (test (fun_arglist 1 2) '(1 (2)) "(fun_arglist 1 2)")
 
 
 (define (fun_optonly [x]) (list x))
-(test (fun_optonly) '(nil) "(fun_optonly)")
+(test (fun_optonly) '(null) "(fun_optonly)")
 (test (fun_optonly 23) '(23) "(fun_optonly 23)")
 ;BUG: should produce an error: (test (fun_optonly 23 57) '(23) "(fun_optonly 23 57)")
 
 (define (fun_opt x [y z])    (list x y z))
-(test (fun_opt 1) '(1 nil nil) "(fun_opt 1)")
-(test (fun_opt 1 2) '(1 2 nil) "(fun_opt 1 2)")
+(test (fun_opt 1) '(1 null null) "(fun_opt 1)")
+(test (fun_opt 1 2) '(1 2 null) "(fun_opt 1 2)")
 (test (fun_opt 1 2 3) '(1 2 3) "(fun_opt 1 2 3)")
 ;BUG should error, too many args (test (fun_opt 1 2 3 4) '(1 2 3) "(fun_opt 1 2 3 4)")
 

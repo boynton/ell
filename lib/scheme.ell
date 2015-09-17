@@ -7,3 +7,8 @@
 (define (null? x) (equal? x '()))
 (define (pair? x) (and (list? x) (not (empty? x))))
 
+(define make-vector make-array)
+(define vector array)
+(define vector? array?)
+(define vector-ref array-ref)
+(define vector-set! array-set!)

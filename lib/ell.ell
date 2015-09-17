@@ -64,13 +64,13 @@
             c
             `(let ((tmp ~c)) (if (not tmp) false ~(loop (car r) (cdr r))))))))
 
-;; validate-struct checks a struct against a set of fields
-(defn validate-struct (val name fields)
+;; validated-struct checks a struct against a set of fields
+(defn validated-struct (val name fields)
   (if (empty? fields)
       val
       (if (null? ((car fields) val))
           (error "cannot convert to " name ", missing field: " (car fields))
-          (validate-struct val name (cdr fields)))))
+          (validated-struct val name (cdr fields)))))
 
 ;;
 ;; Defines a struct type by emitting a constructor and a predicate
@@ -95,15 +95,15 @@
             (if (keyword? sym)
                 (loop (cons sym keys) (cddr remaining))
                 (loop keys (cdr remaining)))))))
-  (let ((keys (extract-keys fields)))
+  (let ((keys (extract-keys fields)) (typesym (symbol "<" sym ">")))
     `(begin
-       (defn ~sym args (apply instance (concat '(~sym ~@fields) (normalize-keyword-args args ~@keys))))
-       (defn ~(symbol sym "?") (o) (equal? (type o) (quote ~sym)))
+       (defn ~sym args (apply instance (concat '(~typesym ~@fields) (normalize-keyword-args args ~@keys))))
+       (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () '~keys)
        (defn ~(symbol "as-" sym) (o)
-         (instance '~sym (validate-struct o '~sym '~keys)))
-       (quote ~sym))))
-
+         (instance '~typesym (validated-struct o '~typesym '~keys)))
+       '~typesym)))
+  
 ;;
 ;; Map a function over a list. Each argument is list, and for N lists, the function is called
 ;; with the N elements of the lists as args, then again for the next set of args, etc.

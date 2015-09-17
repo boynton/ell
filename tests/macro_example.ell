@@ -1,5 +1,7 @@
-(define when-expander (lambda (expr) (if (< (length expr) 2) (error "Syntax error: " expr) (list 'if (cadr expr) (cons 'begin (cddr expr))))))
+(use ell)
+
+(define when-expander (lambda (expr) (if (< (length expr) 3) (error "Syntax error: " expr) (list 'if (cadr expr) (cons 'begin (cddr expr))))))
 (define-macro when when-expander)
 (when (> 2 1) (println "sanity rules") 23)
+(println "now, an error:")
 (when (> 2 1))
-(when) ;;this one should produce an error

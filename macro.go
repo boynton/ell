@@ -30,10 +30,13 @@ func newMacro(name lob, expander lob) lob {
 	return &mac
 }
 
-func (*lmacro) typeSymbol() lob {
-	return intern("macro")
+var typeMacro = newSymbol("<macro>")
+
+func (*lmacro) Type() lob {
+	return typeMacro
 }
-func (mac *lmacro) equal(another lob) bool {
+
+func (mac *lmacro) Equal(another lob) bool {
 	if a, ok := another.(*lmacro); ok {
 		return mac == a
 	}

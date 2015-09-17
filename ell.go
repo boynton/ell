@@ -48,6 +48,9 @@ func Ell(module module) {
 	module.defineFunction("type", ellType)
 	module.defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs)
 
+	module.defineFunction("type?", ellTypeP)
+	module.defineFunction("type-name", ellTypeName)
+
 	module.defineFunction("struct", ellStruct)
 	module.defineFunction("instance", ellInstance)
 	module.defineFunction("equal?", ellEq)
@@ -63,7 +66,7 @@ func Ell(module module) {
 	module.defineFunction("keyword", ellKeyword)
 	module.defineFunction("unkeyword", ellUnkeyword)
 	module.defineFunction("string?", ellStringP)
-	module.defineFunction("character?", ellCharacterP)
+	module.defineFunction("char?", ellCharP)
 	module.defineFunction("function?", ellFunctionP)
 	module.defineFunction("eof?", ellFunctionP)
 
@@ -157,7 +160,7 @@ func ellFileContents(argv []lob, argc int) (lob, error) {
 		return argcError("file-contents", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return nil, typeError(symString, argv[0])
+		return argTypeError("string", 1, argv[0])
 	}
 	fname, err := stringValue(argv[0])
 	if err != nil {
@@ -175,7 +178,7 @@ func ellOpenInputString(argv []lob, argc int) (lob, error) {
 		return argcError("open-input-string", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return nil, typeError(symString, argv[0])
+		return argTypeError("string", 1, argv[0])
 	}
 	s, err := stringValue(argv[0])
 	if err != nil {
@@ -189,7 +192,7 @@ func ellOpenInputFile(argv []lob, argc int) (lob, error) {
 		return argcError("open-input-file", "1", argc)
 	}
 	if !isString(argv[0]) {
-		return nil, typeError(symString, argv[0])
+		return argTypeError("string", 1, argv[0])
 	}
 	s, err := stringValue(argv[0])
 	if err != nil {
@@ -222,7 +225,7 @@ func ellType(argv []lob, argc int) (lob, error) {
 	if argc != 1 {
 		return argcError("type", "1", argc)
 	}
-	return argv[0].typeSymbol(), nil
+	return argv[0].Type(), nil
 }
 
 func ellNormalizeKeywordArgs(argv []lob, argc int) (lob, error) {
@@ -234,11 +237,11 @@ func ellNormalizeKeywordArgs(argv []lob, argc int) (lob, error) {
 	if args, ok := argv[0].(*llist); ok {
 		return normalizeKeywordArgs(args, argv[1:argc])
 	}
-	return nil, typeError(symList, argv[0])
+	return argTypeError("list", 1, argv[0])
 }
 
 func ellStruct(argv []lob, argc int) (lob, error) {
-	return newInstance(symStruct, argv[:argc])
+	return newInstance(typeStruct, argv[:argc])
 }
 
 func ellInstance(argv []lob, argc int) (lob, error) {
@@ -249,7 +252,7 @@ func ellInstance(argv []lob, argc int) (lob, error) {
 	case *lsymbol:
 		return newInstance(s, argv[1:argc])
 	default:
-		return nil, typeError(symSymbol, argv[0])
+		return argTypeError("symbol", 1, argv[0])
 	}
 }
 
@@ -357,7 +360,7 @@ func ellConcat(argv []lob, argc int) (lob, error) {
 				c = c.cdr
 			}
 		default:
-			return nil, typeError(symList, lst)
+			return argTypeError("list", i+1, o)
 		}
 	}
 	return result, nil
@@ -372,7 +375,7 @@ func ellReverse(argv []lob, argc int) (lob, error) {
 	case *llist:
 		return reverse(lst), nil
 	default:
-		return nil, typeError(symList, o)
+		return argTypeError("list", 1, o)
 	}
 }
 
@@ -679,6 +682,26 @@ func ellKeywordP(argv []lob, argc int) (lob, error) {
 	return argcError("keyword?", "1", argc)
 }
 
+func ellTypeP(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isType(argv[0]) {
+			return True, nil
+		}
+		return False, nil
+	}
+	return argcError("type?", "1", argc)
+}
+
+func ellTypeName(argv []lob, argc int) (lob, error) {
+	if argc == 1 {
+		if isType(argv[0]) {
+			return typeName(argv[0])
+		}
+		return False, nil
+	}
+	return argcError("type-name", "1", argc)
+}
+
 func ellKeyword(argv []lob, argc int) (lob, error) {
 	if argc < 1 {
 		return argcError("symbol", "1+", argc)
@@ -703,9 +726,9 @@ func ellStringP(argv []lob, argc int) (lob, error) {
 	return argcError("string?", "1", argc)
 }
 
-func ellCharacterP(argv []lob, argc int) (lob, error) {
+func ellCharP(argv []lob, argc int) (lob, error) {
 	if argc == 1 {
-		if isCharacter(argv[0]) {
+		if isChar(argv[0]) {
 			return True, nil
 		}
 		return False, nil

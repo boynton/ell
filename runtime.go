@@ -49,7 +49,7 @@ func argcError(name string, expected string, got int) (lob, error) {
 }
 
 func argTypeError(expected string, num int, arg lob) (lob, error) {
-	return nil, newError("Argument ", num, " is not of type ", expected, ": ", arg)
+	return nil, newError("Argument ", num, " is not of type <", expected, ">: ", arg)
 }
 
 func isFunction(obj lob) bool {
@@ -117,11 +117,11 @@ var APPLY = linstr(0)
 // CALLCC is a primitive instruction to executable (restore) a continuation
 var CALLCC = linstr(1)
 
-func (linstr) typeSymbol() lob {
-	return symFunction
+func (linstr) Type() lob {
+	return typeFunction
 }
 
-func (s linstr) equal(another lob) bool {
+func (s linstr) Equal(another lob) bool {
 	if a, ok := another.(linstr); ok {
 		return s == a
 	}
@@ -145,13 +145,13 @@ type lprimitive struct {
 	fun  primitive
 }
 
-var symFunction = newSymbol("function")
+var typeFunction = newSymbol("<function>")
 
-func (prim *lprimitive) typeSymbol() lob {
-	return symFunction
+func (prim *lprimitive) Type() lob {
+	return typeFunction
 }
 
-func (prim *lprimitive) equal(another lob) bool {
+func (prim *lprimitive) Equal(another lob) bool {
 	if a, ok := another.(*lprimitive); ok {
 		return prim == a
 	}
@@ -189,11 +189,11 @@ type lclosure struct {
 	frame *lframe
 }
 
-func (lclosure) typeSymbol() lob {
-	return symFunction
+func (lclosure) Type() lob {
+	return typeFunction
 }
 
-func (closure *lclosure) equal(another lob) bool {
+func (closure *lclosure) Equal(another lob) bool {
 	if a, ok := another.(*lclosure); ok {
 		return closure == a
 	}

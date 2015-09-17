@@ -30,8 +30,8 @@ type any interface{}
 // The generic Ell object, which can be queried for its symbolic type name at runtime
 //
 type lob interface {
-	typeSymbol() lob
-	equal(another lob) bool
+	Type() lob
+	Equal(another lob) bool
 	String() string
 }
 
@@ -41,13 +41,14 @@ type lob interface {
 
 type lnull int
 
+var typeNull = newSymbol("<null>")
 var symNull = newSymbol("null")
 
-func (lnull) typeSymbol() lob {
-	return symNull
+func (lnull) Type() lob {
+	return typeNull
 }
 
-func (lnull) equal(another lob) bool {
+func (lnull) Equal(another lob) bool {
 	return another == Null
 }
 
@@ -67,18 +68,19 @@ const EOF = leof(0)
 
 type leof int
 
+var typeEOF = newSymbol("<eof>")
 var symEOF = newSymbol("eof")
 
-func (leof) typeSymbol() lob {
-	return symEOF
+func (leof) Type() lob {
+	return typeEOF
 }
 
-func (leof) equal(another lob) bool {
+func (leof) Equal(another lob) bool {
 	return another == EOF
 }
 
 func (leof) String() string {
-	return "<EOF>"
+	return "#eof"
 }
 
 //
@@ -93,6 +95,7 @@ const False lboolean = lboolean(false)
 
 type lboolean bool
 
+var typeBoolean = newSymbol("<boolean>")
 var symBoolean = newSymbol("boolean")
 
 func isBoolean(obj lob) bool {
@@ -100,11 +103,11 @@ func isBoolean(obj lob) bool {
 	return ok
 }
 
-func (lboolean) typeSymbol() lob {
-	return symBoolean
+func (lboolean) Type() lob {
+	return typeBoolean
 }
 
-func (b lboolean) equal(another lob) bool {
+func (b lboolean) Equal(another lob) bool {
 	if a, ok := another.(lboolean); ok {
 		return b == a
 	}
@@ -116,7 +119,7 @@ func (b lboolean) String() string {
 }
 
 //
-// ------------------- symbol, keyword
+// ------------------- symbol, keyword, type
 //
 
 type lsymbol struct {
@@ -132,22 +135,54 @@ func newSymbol(name string) *lsymbol {
 	return &sym
 }
 
-var symSymbol = newSymbol("symbol")
+var typeSymbol = newSymbol("<symbol>")
+var typeKeyword = newSymbol("<keyword>")
+var typeType = newSymbol("<type>")
 
-func isSymbol(obj lob) bool {
-	_, ok := obj.(*lsymbol)
-	return ok
+func (sym *lsymbol) Type() lob {
+	if isSymbolKeyword(sym) {
+		return typeKeyword
+	} else if isSymbolType(sym) {
+		return typeType
+	}
+	return typeSymbol
+}
+
+func (sym *lsymbol) Equal(another lob) bool {
+	if a, ok := another.(*lsymbol); ok {
+		return sym == a
+	}
+	return false
+}
+
+func (sym *lsymbol) String() string {
+	return sym.Name
 }
 
 func isSymbolKeyword(sym *lsymbol) bool {
-	return (sym.Name[len(sym.Name)-1] == ':' || sym.Name[0] == ':')
+	n := len(sym.Name)
+	return sym.Name[n-1] == ':'
 }
 
-func unKeywordString(sym *lsymbol) string {
-	if isSymbolKeyword(sym) {
-		return sym.Name[:len(sym.Name)-1]
+func isSymbolType(sym *lsymbol) bool {
+	n := len(sym.Name)
+	if n > 2 && sym.Name[0] == '<' && sym.Name[n-1] == '>' {
+		return true
 	}
-	return sym.Name
+	return false
+}
+
+func isSymbol(obj lob) bool {
+	sym, ok := obj.(*lsymbol)
+	return ok && !isSymbolKeyword(sym) && !isSymbolType(sym)
+}
+
+func isType(obj lob) bool {
+	sym, ok := obj.(*lsymbol)
+	if ok {
+		return isSymbolType(sym)
+	}
+	return false
 }
 
 func isKeyword(obj lob) bool {
@@ -156,6 +191,13 @@ func isKeyword(obj lob) bool {
 		return isSymbolKeyword(sym)
 	}
 	return false
+}
+
+func unKeywordString(sym *lsymbol) string {
+	if isSymbolKeyword(sym) {
+		return sym.Name[:len(sym.Name)-1]
+	}
+	return sym.Name
 }
 
 func keyword(obj lob) (lob, error) {
@@ -178,6 +220,18 @@ func keyword(obj lob) (lob, error) {
 			s += ":"
 		}
 		return intern(s), nil
+	default:
+		return nil, newError("Type error: expected symbol or string, got ", obj)
+	}
+}
+
+func typeName(obj lob) (*lsymbol, error) {
+	switch t := obj.(type) {
+	case *lsymbol:
+		if !isSymbolType(t) {
+			return nil, typeError(typeType, obj)
+		}
+		return internSymbol(t.Name[1:len(t.Name)-1]), nil
 	default:
 		return nil, newError("Type error: expected symbol or string, got ", obj)
 	}
@@ -208,32 +262,17 @@ func unkeyword(obj lob) (lob, error) {
 	}
 }
 
-func (*lsymbol) typeSymbol() lob {
-	return symSymbol
-}
-
-func (sym *lsymbol) equal(another lob) bool {
-	if a, ok := another.(*lsymbol); ok {
-		return sym == a
-	}
-	return false
-}
-
-func (sym *lsymbol) String() string {
-	return sym.Name
-}
-
 //the global symbol table. symbols for the basic types defined in this file are precached
-var symtab = map[string]lob{
-	"null":             symNull,
-	"boolean":          symBoolean,
-	"symbol":           symSymbol,
-	"string":           symString,
-	"number":           symNumber,
-	"list":             symList,
-	"array":            symArray,
-	"struct":           symStruct,
-	"eof":              symEOF,
+var symtab = map[string]*lsymbol {
+	"<null>":           typeNull,
+	"<boolean>":          typeBoolean,
+	"<symbol>":           typeSymbol,
+	"<string>":           typeString,
+	"<number>":           typeNumber,
+	"<list>":             typeList,
+	"<array>":            typeArray,
+	"<struct>":           typeStruct,
+	"<eof>":              typeEOF,
 	"quote":            symQuote,
 	"quasiquote":       symQuasiquote,
 	"unquote":          symUnquote,
@@ -270,7 +309,7 @@ func symbol(names []lob) (lob, error) {
 	return intern(name), nil
 }
 
-func intern(name string) lob {
+func internSymbol(name string) *lsymbol {
 	//to do: validate the symbol name, based on EllDN spec
 	if len(name) == 0 {
 		panic("empty symbol!")
@@ -283,13 +322,18 @@ func intern(name string) lob {
 	return v
 }
 
+func intern(name string) lob {
+	return internSymbol(name)
+}
+
 //
 // ------------------- string
 //
 
 type lstring string
 
-var symString = newSymbol("string")
+var typeString = newSymbol("<string>")
+//var typeString = newSymbol("string")
 
 func isString(obj lob) bool {
 	_, ok := obj.(lstring)
@@ -301,15 +345,15 @@ func stringValue(obj lob) (string, error) {
 	case lstring:
 		return string(s), nil
 	default:
-		return "", typeError(symNumber, obj)
+		return "", typeError(typeString, obj)
 	}
 }
 
-func (lstring) typeSymbol() lob {
-	return symString
+func (lstring) Type() lob {
+	return typeString
 }
 
-func (s lstring) equal(another lob) bool {
+func (s lstring) Equal(another lob) bool {
 	if a, ok := another.(lstring); ok {
 		return s == a
 	}
@@ -359,9 +403,10 @@ func (s lstring) String() string {
 //
 // ------------------- character
 //
-var symCharacter = newSymbol("character")
+var symCharType = newSymbol("<char>")
+var symChar = newSymbol("char")
 
-func isCharacter(obj lob) bool {
+func isChar(obj lob) bool {
 	_, ok := obj.(lchar)
 	if ok {
 		return true
@@ -376,11 +421,11 @@ func newCharacter(c rune) lchar {
 
 type lchar rune
 
-func (lchar) typeSymbol() lob {
-	return symCharacter
+func (lchar) Type() lob {
+	return symCharType
 }
 
-func (i lchar) equal(another lob) bool {
+func (i lchar) Equal(another lob) bool {
 	if a, err := intValue(another); err == nil {
 		return int(i) == a
 	}
@@ -396,12 +441,12 @@ func (i lchar) String() string {
 // ------------------- number
 //
 
-var symNumber = newSymbol("number")
+var typeNumber = newSymbol("<number>")
 
 type lnumber float64
 
-func (lnumber) typeSymbol() lob {
-	return symNumber
+func (lnumber) Type() lob {
+	return typeNumber
 }
 
 func (f lnumber) String() string {
@@ -412,7 +457,7 @@ func theNumber(obj lob) (lnumber, error) {
 	if n, ok := obj.(lnumber); ok {
 		return n, nil
 	}
-	return 0, typeError(symNumber, obj)
+	return 0, typeError(typeNumber, obj)
 }
 
 func isInt(obj lob) bool {
@@ -439,7 +484,7 @@ func floatValue(obj lob) (float64, error) {
 	case lnumber:
 		return float64(n), nil
 	}
-	return 0, typeError(symNumber, obj)
+	return 0, typeError(typeNumber, obj)
 }
 
 func int64Value(obj lob) (int64, error) {
@@ -449,7 +494,7 @@ func int64Value(obj lob) (int64, error) {
 	case lchar:
 		return int64(n), nil
 	default:
-		return 0, typeError(symNumber, obj)
+		return 0, typeError(typeNumber, obj)
 	}
 }
 
@@ -460,7 +505,7 @@ func intValue(obj lob) (int, error) {
 	case lchar:
 		return int(n), nil
 	default:
-		return 0, typeError(symNumber, obj)
+		return 0, typeError(typeNumber, obj)
 	}
 }
 
@@ -528,7 +573,7 @@ func equal(o1 lob, o2 lob) bool {
 	if o1 == o2 {
 		return true
 	}
-	return o1.equal(o2)
+	return o1.Equal(o2)
 }
 
 func numericallyEqual(o1 lob, o2 lob) (bool, error) {
@@ -538,10 +583,10 @@ func numericallyEqual(o1 lob, o2 lob) (bool, error) {
 		case lnumber:
 			return n1 == n2, nil
 		default:
-			return false, typeError(symNumber, o2)
+			return false, typeError(typeNumber, o2)
 		}
 	default:
-		return false, typeError(symNumber, o1)
+		return false, typeError(typeNumber, o1)
 	}
 }
 
@@ -549,7 +594,7 @@ func identical(n1 lob, n2 lob) bool {
 	return n1 == n2
 }
 
-func (f lnumber) equal(another lob) bool {
+func (f lnumber) Equal(another lob) bool {
 	if a, err := floatValue(another); err == nil {
 		return float64(f) == a
 	}
@@ -575,7 +620,7 @@ func sum(nums []lob, argc int) (lob, error) {
 		case lnumber:
 			sum += float64(n)
 		default:
-			return nil, typeError(symNumber, num)
+			return nil, typeError(typeNumber, num)
 		}
 	}
 	return lnumber(sum), nil
@@ -603,7 +648,7 @@ func minus(nums []lob, argc int) (lob, error) {
 	case lnumber:
 		fsum = float64(n)
 	default:
-		return nil, typeError(symNumber, num)
+		return nil, typeError(typeNumber, num)
 	}
 	if argc == 1 {
 		fsum = -fsum
@@ -613,7 +658,7 @@ func minus(nums []lob, argc int) (lob, error) {
 			case lnumber:
 				fsum -= float64(n)
 			default:
-				return nil, typeError(symNumber, num)
+				return nil, typeError(typeNumber, num)
 			}
 		}
 	}
@@ -639,7 +684,7 @@ func product(argv []lob, argc int) (lob, error) {
 		case lnumber:
 			prod *= float64(n)
 		default:
-			return nil, typeError(symNumber, num)
+			return nil, typeError(typeNumber, num)
 		}
 	}
 	return lnumber(prod), nil
@@ -678,7 +723,8 @@ type llist struct {
 	cdr *llist
 }
 
-var symList = newSymbol("list")
+var typeList = newSymbol("<list>")
+//var symList = newSymbol("list")
 var symQuote = newSymbol("quote")
 var symQuasiquote = newSymbol("quasiquote")
 var symUnquote = newSymbol("unquote")
@@ -714,11 +760,11 @@ func isList(obj lob) bool {
 	return ok
 }
 
-func (*llist) typeSymbol() lob {
-	return symList
+func (*llist) Type() lob {
+	return typeList
 }
 
-func (lst *llist) equal(another lob) bool {
+func (lst *llist) Equal(another lob) bool {
 	if a, ok := another.(*llist); ok {
 		for lst != EmptyList {
 			if a == EmptyList {
@@ -894,7 +940,7 @@ func listToArray(lst *llist) *larray {
 func arrayToList(ary lob) (lob, error) {
 	v, ok := ary.(*larray)
 	if !ok {
-		return nil, typeError(symArray, ary)
+		return nil, typeError(typeArray, ary)
 	}
 	return toList(v.elements), nil
 }
@@ -944,41 +990,18 @@ type larray struct {
 	elements []lob
 }
 
-func newArray(size int, init lob) *larray {
-	elements := make([]lob, size)
-	for i := 0; i < size; i++ {
-		elements[i] = init
-	}
-	return &larray{elements}
-}
-
-func array(elements ...lob) lob {
-	size := len(elements)
-	el := make([]lob, size)
-	for i := 0; i < size; i++ {
-		el[i] = elements[i]
-	}
-	return &larray{el}
-}
-
-func toArray(elements []lob, count int) lob {
-	el := make([]lob, count)
-	copy(el, elements[0:count])
-	return &larray{el}
-}
-
-var symArray = newSymbol("array")
+var typeArray = newSymbol("<array>")
 
 func isArray(obj lob) bool {
 	_, ok := obj.(*larray)
 	return ok
 }
 
-func (*larray) typeSymbol() lob {
-	return symArray
+func (*larray) Type() lob {
+	return typeArray
 }
 
-func (ary *larray) equal(another lob) bool {
+func (ary *larray) Equal(another lob) bool {
 	if a, ok := another.(*larray); ok {
 		alen := len(ary.elements)
 		if alen == len(a.elements) {
@@ -1008,6 +1031,29 @@ func (ary *larray) String() string {
 	return buf.String()
 }
 
+func newArray(size int, init lob) *larray {
+	elements := make([]lob, size)
+	for i := 0; i < size; i++ {
+		elements[i] = init
+	}
+	return &larray{elements}
+}
+
+func array(elements ...lob) lob {
+	size := len(elements)
+	el := make([]lob, size)
+	for i := 0; i < size; i++ {
+		el[i] = elements[i]
+	}
+	return &larray{el}
+}
+
+func toArray(elements []lob, count int) lob {
+	el := make([]lob, count)
+	copy(el, elements[0:count])
+	return &larray{el}
+}
+
 func (ary *larray) length() int {
 	return len(ary.elements)
 }
@@ -1016,7 +1062,7 @@ func arrayLength(ary lob) (int, error) {
 	if a, ok := ary.(*larray); ok {
 		return len(a.elements), nil
 	}
-	return 1, typeError(symArray, ary)
+	return 1, typeError(typeArray, ary)
 }
 
 func arraySet(ary lob, idx int, obj lob) error {
@@ -1027,7 +1073,7 @@ func arraySet(ary lob, idx int, obj lob) error {
 		a.elements[idx] = obj
 		return nil
 	}
-	return typeError(symArray, ary)
+	return typeError(typeArray, ary)
 }
 
 func arrayRef(ary lob, idx int) (lob, error) {
@@ -1037,7 +1083,7 @@ func arrayRef(ary lob, idx int) (lob, error) {
 		}
 		return a.elements[idx], nil
 	}
-	return nil, typeError(symArray, ary)
+	return nil, typeError(typeArray, ary)
 }
 
 //
@@ -1048,9 +1094,9 @@ type lstruct struct {
 	bindings map[lob]lob
 }
 
-var symStruct = newSymbol("struct")
+var typeStruct = newSymbol("<struct>")
 
-func (s *lstruct) typeSymbol() lob {
+func (s *lstruct) Type() lob {
 	return s.typesym
 }
 
@@ -1103,6 +1149,11 @@ func normalizeKeywordArgs(args *llist, keys []lob) (*llist, error) {
 }
 
 func newInstance(typesym *lsymbol, fieldvals []lob) (*lstruct, error) {
+//	typename, err := typeName(typesym)
+//	if err != nil {
+	if !isType(typesym) {
+		return nil, typeError(typeType, typesym)
+	}
 	count := len(fieldvals)
 	i := 0
 	bindings := make(map[lob]lob, count/2) //optimal if all key/value pairs
@@ -1139,7 +1190,7 @@ func newInstance(typesym *lsymbol, fieldvals []lob) (*lstruct, error) {
 }
 
 func newStruct(pairwiseBindings ...lob) (*lstruct, error) {
-	return newInstance(symStruct, pairwiseBindings)
+	return newInstance(typeStruct, pairwiseBindings)
 }
 
 func isStruct(obj lob) bool {
@@ -1153,15 +1204,15 @@ func asStruct(o lob) (*lstruct, error) {
 	}
 	switch t := o.(type) {
 	case *lstruct:
-		if t.typesym == symStruct {
+		if t.typesym == typeStruct {
 			return t, nil
 		}
-		return &lstruct{symStruct, t.bindings}, nil
+		return &lstruct{typeStruct, t.bindings}, nil
 	}
 	return nil, newError("Cannot convert to struct: ", o)
 }
 
-func (s *lstruct) equal(another lob) bool {
+func (s *lstruct) Equal(another lob) bool {
 	if a, ok := another.(*lstruct); ok {
 		if s.typesym == a.typesym {
 			slen := len(s.bindings)
@@ -1188,9 +1239,10 @@ func (s *lstruct) length() int {
 
 func (s *lstruct) String() string {
 	var buf bytes.Buffer
-	if s.typesym != symStruct {
+	if s.typesym != typeStruct {
 		buf.WriteString("#")
-		buf.WriteString(s.typesym.String())
+		n, _ := typeName(s.typesym)
+		buf.WriteString(n.String())
 	}
 	buf.WriteString("{")
 	first := true
@@ -1229,14 +1281,14 @@ func has(obj lob, key lob) (bool, error) {
 	if aStruct, ok := obj.(*lstruct); ok {
 		return aStruct.has(key), nil
 	}
-	return false, typeError(symStruct, obj)
+	return false, typeError(typeStruct, obj)
 }
 
 func get(obj lob, key lob) (lob, error) {
 	if aStruct, ok := obj.(*lstruct); ok {
 		return aStruct.get(key), nil
 	}
-	return nil, typeError(symStruct, obj)
+	return nil, typeError(typeStruct, obj)
 }
 
 func put(obj lob, key lob, value lob) (lob, error) {
@@ -1245,7 +1297,7 @@ func put(obj lob, key lob, value lob) (lob, error) {
 	if aStruct, ok := obj.(*lstruct); ok {
 		return aStruct.put(key, value), nil
 	}
-	return nil, typeError(symStruct, obj)
+	return nil, typeError(typeStruct, obj)
 }
 
 //

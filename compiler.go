@@ -48,7 +48,7 @@ func calculateLocation(sym lob, env *llist) (int, int, bool) {
 }
 
 func compileExpr(code code, env *llist, expr lob, isTail bool, ignoreResult bool, context string) error {
-	if isKeyword(expr) {
+	if isKeyword(expr) || isType(expr) {
 		if !ignoreResult {
 			code.emitLiteral(expr)
 			if isTail {

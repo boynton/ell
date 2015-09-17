@@ -1,3 +1,4 @@
+(use scheme)
 (define (pi n d)
   (set! n (+ (quotient n d) 1))
   (let ((m (quotient (* n (* d 3322)) 1000)))

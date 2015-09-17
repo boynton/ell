@@ -15,6 +15,7 @@
 (println p3)
 (println p4)
 
+(println "type of " p1 " => " (type p1))
 (println "is " p1 " a point? => " (point? p1))
 (println "is " s1 " a point? => " (point? s1))
 (println "is " p1 " a struct? => " (struct? p1))

@@ -47,7 +47,7 @@ func isInputPort(obj lob) bool {
 	return ok
 }
 
-func (*linport) typeSymbol() lob {
+func (*linport) Type() lob {
 	return intern("input-port")
 }
 
@@ -58,7 +58,7 @@ func (in *linport) String() string {
 	return fmt.Sprintf("<input-port: %s>", in.name)
 }
 
-func (in *linport) equal(another lob) bool {
+func (in *linport) Equal(another lob) bool {
 	if a, ok := another.(*linport); ok {
 		return in == a
 	}
@@ -303,7 +303,7 @@ func (dr *dataReader) decodeArray() (lob, error) {
 }
 
 func (dr *dataReader) decodeStruct() (lob, error) {
-	return dr.decodeInstance(symStruct)
+	return dr.decodeInstance(typeStruct)
 }
 
 func (dr *dataReader) decodeInstance(typesym *lsymbol) (lob, error) {
@@ -344,6 +344,34 @@ func (dr *dataReader) decodeSequence(endChar byte) ([]lob, error) {
 }
 
 func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
+	s, err := dr.decodeAtomString(firstChar)
+	if err != nil {
+		return nil, err
+	}
+	if len(s) == 0 { //?
+		return dr.readData()
+	}
+	if s == ":" {
+		return nil, newError("Bad token: :")
+	}
+	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
+	//but EllDn is JSON compatible, so these symbols need to be reserved
+	if s == "null" {
+		return Null, nil
+	} else if s == "true" {
+		return True, nil
+	} else if s == "false" {
+		return False, nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err == nil {
+		return lnumber(f), nil
+	}
+	sym := intern(s)
+	return sym, nil
+}
+
+func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 	buf := []byte{}
 	if firstChar != 0 {
 		buf = append(buf, firstChar)
@@ -361,29 +389,10 @@ func (dr *dataReader) decodeAtom(firstChar byte) (lob, error) {
 		c, e = dr.getChar()
 	}
 	if e != nil && e != io.EOF {
-		return nil, e
+		return "", e
 	}
 	s := string(buf)
-	if len(s) == 0 {
-		return dr.readData()
-	}
-	if s == ":" {
-		return nil, newError("Bad token: :")
-	}
-	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
-	if s == "null" { //EllDN is upwards compatible with JSON, so we use null instead of nil
-		return Null, nil
-	} else if s == "true" {
-		return True, nil
-	} else if s == "false" {
-		return False, nil
-	}
-	f, err := strconv.ParseFloat(s, 64)
-	if err == nil {
-		return lnumber(f), nil
-	}
-	sym := intern(s)
-	return sym, nil
+	return s, nil
 }
 
 func namedChar(name string) (rune, error) {
@@ -462,33 +471,41 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 			dr.ungetChar()
 		}
 		return newCharacter(rune(c)), nil
-	case 'f':
-		return False, nil
-	case 't':
-		return True, nil
-	case 'n':
-		return Null, nil
 	case '!': //to handle shell scripts, handle #! as a comment
 		err := dr.decodeComment()
 		return Null, err
 	default:
-		atom, err := dr.decodeAtom(c)
+		atom, err := dr.decodeAtomString(c)
 		if err != nil {
 			return nil, newError("Bad reader macro: #", string([]byte{c}), " ...")
 		}
-		if sym, ok := atom.(*lsymbol); ok {
-			c, err := dr.getChar()
-			if err != nil {
-				return nil, err
-			}
+		c, err := dr.getChar()
+		if err == nil {
 			if c == '{' {
-				inst, err := dr.decodeInstance(sym)
+				t := intern("<" + atom + ">")
 				if err == nil {
-					return inst, nil
+					inst, err := dr.decodeInstance(t.(*lsymbol))
+					if err == nil {
+						return inst, nil
+					}
 				}
+				return nil, err
+			} else {
+				dr.ungetChar()
 			}
 		}
-		return nil, newError("Bad reader macro: #", atom, " ...")
+		switch atom {
+		case "eof": //bogus
+			return EOF, nil
+		case "f":
+			return False, nil
+		case "t":
+			return True, nil
+		case "n":
+			return Null, nil
+		default:
+			return nil, newError("Bad reader macro: #", atom, " ...")
+		}
 	}
 }
 
@@ -627,9 +644,10 @@ func writeArray(ary *larray, json bool) (string, error) {
 
 func writeStruct(m *lstruct, json bool) (string, error) {
 	var buf bytes.Buffer
-	if !json && m.typesym != symStruct {
+	if !json && m.typesym != typeStruct {
 		buf.WriteString("#")
-		buf.WriteString(m.typesym.String())
+		n, _ := typeName(m.typesym)
+		buf.WriteString(n.String())
 	}
 	buf.WriteString("{")
 	first := true
