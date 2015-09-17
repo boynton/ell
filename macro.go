@@ -20,30 +20,16 @@ import (
 	"fmt"
 )
 
-type lmacro struct {
+type macro struct {
 	name     lob
 	expander lob //a function of one argument
 }
 
-func newMacro(name lob, expander lob) lob {
-	mac := lmacro{name, expander}
-	return &mac
+func newMacro(name lob, expander lob) *macro {
+	return &macro{name, expander}
 }
 
-var typeMacro = newSymbol("<macro>")
-
-func (*lmacro) Type() lob {
-	return typeMacro
-}
-
-func (mac *lmacro) Equal(another lob) bool {
-	if a, ok := another.(*lmacro); ok {
-		return mac == a
-	}
-	return false
-}
-
-func (mac *lmacro) String() string {
+func (mac *macro) String() string {
 	return fmt.Sprintf("(macro %v %v)", mac.name, mac.expander)
 }
 
@@ -92,7 +78,7 @@ func macroexpandList(module module, expr *llist) (lob, error) {
 
 var currentModule module
 
-func (mac *lmacro) expand(module module, expr *llist) (lob, error) {
+func (mac *macro) expand(module module, expr *llist) (lob, error) {
 	expander := mac.expander
 	switch fun := expander.(type) {
 	case *lclosure:
@@ -281,7 +267,7 @@ func expandPrimitive(module module, fn lob, expr *llist) (lob, error) {
 	default:
 		macro := module.macro(fn)
 		if macro != nil {
-			tmp, err := (macro.(*lmacro)).expand(module, expr)
+			tmp, err := macro.expand(module, expr)
 			return tmp, err
 		}
 		return nil, nil

@@ -36,7 +36,7 @@ type module interface {
 	undefGlobal(sym lob)
 	setGlobal(sym lob, val lob) error
 	macros() []lob
-	macro(sym lob) lob
+	macro(sym lob) *macro
 	defMacro(sym lob, val lob)
 
 	define(name string, val lob)
@@ -57,7 +57,7 @@ type lmodule struct {
 	constantsMap map[lob]int
 	constants    []lob
 	globalMap    []*binding
-	macroMap     map[lob]lob
+	macroMap     map[lob]*macro
 	exported     []lob
 	interrupts   chan os.Signal
 }
@@ -90,7 +90,7 @@ func newModule(name string, interrupts chan os.Signal) module {
 	constMap := make(map[lob]int, 0)
 	var constants []lob
 	globalMap := make([]*binding, 100)
-	macroMap := make(map[lob]lob, 0)
+	macroMap := make(map[lob]*macro, 0)
 	var exported []lob
 	mod := lmodule{name, constMap, constants, globalMap, macroMap, exported, interrupts}
 	if initializer != nil {
@@ -222,7 +222,7 @@ func (mod *lmodule) macros() []lob {
 	return keys
 }
 
-func (mod *lmodule) macro(sym lob) lob {
+func (mod *lmodule) macro(sym lob) *macro {
 	mac, ok := mod.macroMap[sym]
 	if !ok {
 		return nil
@@ -260,9 +260,9 @@ func (mod *lmodule) importCode(thunk code) (lob, error) {
 	exported := moduleToUse.exports()
 	for _, sym := range exported {
 		val := moduleToUse.global(sym)
-		if val == nil {
-			val = moduleToUse.macro(sym)
-			mod.defMacro(sym, (val.(*lmacro)).expander)
+		if val == nil { //shouldn't syntax take priority over global defs?
+			mac := moduleToUse.macro(sym)
+			mod.defMacro(sym, mac.expander)
 		} else {
 			mod.defGlobal(sym, val)
 		}
