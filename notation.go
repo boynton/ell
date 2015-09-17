@@ -160,12 +160,13 @@ func (dr *dataReader) readData() (lob, error) {
 	c, e := dr.getChar()
 	for e == nil {
 		if isWhitespace(c) {
-			c, e = dr.in.ReadByte()
+			c, e = dr.getChar()
 			continue
 		}
 		switch c {
 		case ';':
-			if dr.decodeComment() != nil {
+			e = dr.decodeComment()
+			if e != nil {
 				break
 			} else {
 				c, e = dr.getChar()
@@ -490,9 +491,8 @@ func (dr *dataReader) decodeReaderMacro() (lob, error) {
 					}
 				}
 				return nil, err
-			} else {
-				dr.ungetChar()
 			}
+			dr.ungetChar()
 		}
 		switch atom {
 		case "eof": //bogus
