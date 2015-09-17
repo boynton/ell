@@ -231,7 +231,7 @@ func typeName(obj lob) (*lsymbol, error) {
 		if !isSymbolType(t) {
 			return nil, typeError(typeType, obj)
 		}
-		return internSymbol(t.Name[1:len(t.Name)-1]), nil
+		return internSymbol(t.Name[1 : len(t.Name)-1]), nil
 	default:
 		return nil, newError("Type error: expected symbol or string, got ", obj)
 	}
@@ -263,16 +263,16 @@ func unkeyword(obj lob) (lob, error) {
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
-var symtab = map[string]*lsymbol {
+var symtab = map[string]*lsymbol{
 	"<null>":           typeNull,
-	"<boolean>":          typeBoolean,
-	"<symbol>":           typeSymbol,
-	"<string>":           typeString,
-	"<number>":           typeNumber,
-	"<list>":             typeList,
-	"<array>":            typeArray,
-	"<struct>":           typeStruct,
-	"<eof>":              typeEOF,
+	"<boolean>":        typeBoolean,
+	"<symbol>":         typeSymbol,
+	"<string>":         typeString,
+	"<number>":         typeNumber,
+	"<list>":           typeList,
+	"<array>":          typeArray,
+	"<struct>":         typeStruct,
+	"<eof>":            typeEOF,
 	"quote":            symQuote,
 	"quasiquote":       symQuasiquote,
 	"unquote":          symUnquote,
@@ -333,6 +333,7 @@ func intern(name string) lob {
 type lstring string
 
 var typeString = newSymbol("<string>")
+
 //var typeString = newSymbol("string")
 
 func isString(obj lob) bool {
@@ -678,7 +679,7 @@ func mul(num1 lob, num2 lob) (lob, error) {
 }
 
 func product(argv []lob, argc int) (lob, error) {
-	prod := 0.0
+	prod := 1.0
 	for _, num := range argv {
 		switch n := num.(type) {
 		case lnumber:
@@ -724,6 +725,7 @@ type llist struct {
 }
 
 var typeList = newSymbol("<list>")
+
 //var symList = newSymbol("list")
 var symQuote = newSymbol("quote")
 var symQuasiquote = newSymbol("quasiquote")
@@ -1149,8 +1151,6 @@ func normalizeKeywordArgs(args *llist, keys []lob) (*llist, error) {
 }
 
 func newInstance(typesym *lsymbol, fieldvals []lob) (*lstruct, error) {
-//	typename, err := typeName(typesym)
-//	if err != nil {
 	if !isType(typesym) {
 		return nil, typeError(typeType, typesym)
 	}
@@ -1296,6 +1296,25 @@ func put(obj lob, key lob, value lob) (lob, error) {
 	//i.e. (merge s {x: 23}) or (struct s x: 23)
 	if aStruct, ok := obj.(*lstruct); ok {
 		return aStruct.put(key, value), nil
+	}
+	return nil, typeError(typeStruct, obj)
+}
+
+func structToList(obj lob) (lob, error) {
+	if aStruct, ok := obj.(*lstruct); ok {
+		result := EmptyList
+		tail := EmptyList
+		for k, v := range aStruct.bindings {
+			tmp := list(k, v)
+			if result == EmptyList {
+				result = list(tmp)
+				tail = result
+			} else {
+				tail.cdr = list(tmp)
+				tail = tail.cdr
+			}
+		}
+		return result, nil
 	}
 	return nil, typeError(typeStruct, obj)
 }

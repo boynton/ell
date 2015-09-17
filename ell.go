@@ -38,6 +38,8 @@ func Ell(module module) {
 
 	module.defineFunction("version", ellVersion)
 
+	module.defineFunction("defined?", ellDefinedP)
+
 	module.defineFunction("file-contents", ellFileContents)
 	module.defineFunction("open-input-string", ellOpenInputString)
 	module.defineFunction("open-input-file", ellOpenInputFile)
@@ -90,6 +92,7 @@ func Ell(module module) {
 	module.defineFunction("has?", ellHasP)
 	module.defineFunction("get", ellGet)
 	module.defineFunction("put!", ellPutBang)
+	module.defineFunction("struct->list", ellStructToList)
 
 	module.defineFunction("empty?", ellEmptyP)
 
@@ -153,6 +156,21 @@ func ellQuasiquote(argv []lob, argc int) (lob, error) {
 
 func ellVersion(argv []lob, argc int) (lob, error) {
 	return lstring(Version), nil
+}
+
+func ellDefinedP(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("defined?", "1", argc)
+	}
+	if !isSymbol(argv[0]) {
+		return argTypeError("symbol", 1, argv[0])
+	}
+	if currentModule != nil {
+		if currentModule.isDefined(argv[0]) {
+			return True, nil
+		}
+	}
+	return False, nil
 }
 
 func ellFileContents(argv []lob, argc int) (lob, error) {
@@ -936,6 +954,13 @@ func ellPutBang(argv []lob, argc int) (lob, error) {
 		return argcError("put!", "3", argc)
 	}
 	return put(argv[0], argv[1], argv[2])
+}
+
+func ellStructToList(argv []lob, argc int) (lob, error) {
+	if argc != 1 {
+		return argcError("struct->list", "1", argc)
+	}
+	return structToList(argv[0])
 }
 
 func ellJSON(argv []lob, argc int) (lob, error) {

@@ -31,6 +31,7 @@ type module interface {
 	keywords() []lob
 	globals() []lob
 	global(sym lob) lob
+	isDefined(sym lob) bool
 	defGlobal(sym lob, val lob)
 	undefGlobal(sym lob)
 	setGlobal(sym lob, val lob) error
@@ -184,6 +185,14 @@ func (mod *lmodule) defGlobal(sym lob, val lob) {
 	}
 	b := binding{sym, val}
 	mod.globalMap[s.tag] = &b
+}
+
+func (mod *lmodule) isDefined(sym lob) bool {
+	s := sym.(*lsymbol)
+	if s.tag < len(mod.globalMap) {
+		return mod.globalMap[s.tag] != nil
+	}
+	return false
 }
 
 func (mod *lmodule) undefGlobal(sym lob) {
