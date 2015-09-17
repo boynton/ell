@@ -54,7 +54,8 @@ func argTypeError(expected string, num int, arg lob) (lob, error) {
 
 func isFunction(obj lob) bool {
 	switch obj.(type) {
-	case *lcode, *lclosure, *lprimitive, linstr:
+	//	case *lcode, *lclosure, *lprimitive, linstr:
+	case *lclosure, *lprimitive, linstr:
 		return true
 	default:
 		return false
