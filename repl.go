@@ -11,13 +11,12 @@ import (
 )
 
 type ellHandler struct {
-	env *Module
 	buf string
 }
 
 func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 	//return result, needMore, error
-	for ell.env.checkInterrupt() {
+	for checkInterrupt() {
 	} //to clear out any that happened while sitting in getc
 	whole := strings.Trim(ell.buf+expr, " ")
 	opens := len(strings.Split(whole, "("))
@@ -36,7 +35,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		lexpr, err := openInputString(whole).read()
 		ell.buf = ""
 		if err == nil {
-			val, err := ell.env.eval(lexpr)
+			val, err := eval(lexpr)
 			if err == nil {
 				result := ""
 				result = "= " + write(val)
@@ -125,13 +124,13 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 	prefix, funPosition := ell.completePrefix(expr)
 	candidates := map[AnyType]bool{}
 	if funPosition {
-		for _, sym := range ell.env.keywords() {
+		for _, sym := range getKeywords() {
 			str := sym.String()
 			if strings.HasPrefix(str, prefix) {
 				candidates[sym] = true
 			}
 		}
-		for _, sym := range ell.env.macros() {
+		for _, sym := range macros() {
 			_, ok := candidates[sym]
 			if !ok {
 				str := sym.String()
@@ -141,7 +140,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 			}
 		}
 	}
-	for _, sym := range ell.env.globals() {
+	for _, sym := range getGlobals() {
 		_, ok := candidates[sym]
 		if !ok {
 			_, ok := candidates[sym]
@@ -149,7 +148,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 				str := sym.String()
 				if strings.HasPrefix(str, prefix) {
 					if funPosition {
-						val := ell.env.global(sym)
+						val := global(sym)
 						if isFunction(val) {
 							candidates[sym] = true
 						}
@@ -173,7 +172,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 }
 
 func (ell *ellHandler) Prompt() string {
-	prompt := ell.env.global(intern("*prompt*"))
+	prompt := global(intern("*prompt*"))
 	if prompt != nil {
 		return prompt.String()
 	}
@@ -210,8 +209,8 @@ func (ell *ellHandler) Stop(history []string) {
 	}
 }
 
-func readEvalPrintLoop(environment *Module) {
-	handler := ellHandler{environment, ""}
+func readEvalPrintLoop() {
+	handler := ellHandler{""}
 	err := repl.REPL(&handler)
 	if err != nil {
 		println("REPL error: ", err)

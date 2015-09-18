@@ -17,39 +17,19 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
 
-// Module - a package of code. Every module has its own namespace that symbols, types, and kerywords are interned into
-type Module struct {
-	name         string
-	constantsMap map[AnyType]int
-	constants    []AnyType
-	globalMap    []*binding
-	macroMap     map[AnyType]*macro
-	exported     []AnyType
-	interrupts   chan os.Signal
-}
+var constantsMap map[AnyType]int = make(map[AnyType]int, 0)
+var constants    []AnyType = make([]AnyType, 0, 1000)
+var globals    []*binding = make([]*binding, 0, 1000)
+var macroMap     map[AnyType]*macro = make(map[AnyType]*macro, 0)
 
-type environmentInitializer func(mod *Module)
-
-var initializer environmentInitializer
-
-func newEnvironment(name string, init environmentInitializer, interrupts chan os.Signal) *Module {
-	if initializer != nil {
-		panic("Cannot define an environment twice.")
-	}
-	initializer = init
-	return newModule(name, interrupts)
-}
-
-func (mod *Module) checkInterrupt() bool {
-	if mod.interrupts != nil {
+func checkInterrupt() bool {
+	if interrupts != nil {
 		select {
-		case msg := <-mod.interrupts:
+		case msg := <-interrupts:
 			return msg != nil
 		default:
 			return false
@@ -58,55 +38,33 @@ func (mod *Module) checkInterrupt() bool {
 	return false
 }
 
-func newModule(name string, interrupts chan os.Signal) *Module {
-	constMap := make(map[AnyType]int, 0)
-	var constants []AnyType
-	globalMap := make([]*binding, 100)
-	macroMap := make(map[AnyType]*macro, 0)
-	var exported []AnyType
-	mod := Module{name, constMap, constants, globalMap, macroMap, exported, interrupts}
-	if initializer != nil {
-		initializer(&mod)
-	}
-	return &mod
-}
-
-func (mod *Module) define(name string, obj AnyType) {
+func define(name string, obj AnyType) {
 	sym := intern(name)
 	if sym == nil {
 		panic("Cannot define a value for this symbol: " + name)
 	}
-	mod.defGlobal(sym, obj)
+	defGlobal(sym, obj)
 }
 
-func (mod *Module) defineFunction(name string, fun primitive) {
+func defineFunction(name string, fun primitive) {
 	sym := intern(name)
-	if mod.global(sym) != nil {
+	if global(sym) != nil {
 		println("*** Warning: redefining ", name)
 	}
 	prim := Primitive{name, fun}
-	mod.defGlobal(sym, &prim)
+	defGlobal(sym, &prim)
 }
 
-func (mod *Module) defineMacro(name string, fun primitive) {
+func defineMacro(name string, fun primitive) {
 	sym := intern(name)
-	if mod.macro(sym) != nil {
-		println("*** Warning: redefining macro ", name, " -> ", mod.macro(sym))
+	if getMacro(sym) != nil {
+		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
 	prim := Primitive{name, fun}
-	mod.defMacro(sym, &prim)
+	defMacro(sym, &prim)
 }
 
-// Name - the name fo the module
-func (mod *Module) Name() string {
-	return mod.name
-}
-
-func (mod *Module) String() string {
-	return fmt.Sprintf("<module %v, constants:%v>", mod.Name, mod.constants)
-}
-
-func (mod *Module) keywords() []AnyType {
+func getKeywords() []AnyType {
 	//keywords reserved for the base language that Ell compiles
 	keywords := []AnyType{
 		intern("quote"),
@@ -122,9 +80,9 @@ func (mod *Module) keywords() []AnyType {
 	return keywords
 }
 
-func (mod *Module) globals() []AnyType {
+func getGlobals() []AnyType {
 	syms := make([]AnyType, 0, symtag)
-	for _, b := range mod.globalMap {
+	for _, b := range globals {
 		if b != nil {
 			syms = append(syms, b.sym)
 		}
@@ -132,12 +90,12 @@ func (mod *Module) globals() []AnyType {
 	return syms
 }
 
-func (mod *Module) global(sym AnyType) AnyType {
+func global(sym AnyType) AnyType {
 	s := sym.(*SymbolType)
-	if s.tag >= len(mod.globalMap) {
+	if s.tag >= len(globals) {
 		return nil
 	}
-	tmp := mod.globalMap[s.tag]
+	tmp := globals[s.tag]
 	if tmp == nil {
 		return nil
 	}
@@ -149,37 +107,37 @@ type binding struct {
 	val AnyType
 }
 
-func (mod *Module) defGlobal(sym AnyType, val AnyType) {
+func defGlobal(sym AnyType, val AnyType) {
 	s := sym.(*SymbolType)
-	if s.tag >= len(mod.globalMap) {
+	if s.tag >= len(globals) {
 		gAnyType := make([]*binding, s.tag+100)
-		copy(gAnyType, mod.globalMap)
-		mod.globalMap = gAnyType
+		copy(gAnyType, globals)
+		globals = gAnyType
 	}
 	b := binding{sym, val}
-	mod.globalMap[s.tag] = &b
+	globals[s.tag] = &b
 }
 
-func (mod *Module) isDefined(sym AnyType) bool {
+func isDefined(sym AnyType) bool {
 	s := sym.(*SymbolType)
-	if s.tag < len(mod.globalMap) {
-		return mod.globalMap[s.tag] != nil
+	if s.tag < len(globals) {
+		return globals[s.tag] != nil
 	}
 	return false
 }
 
-func (mod *Module) undefGlobal(sym AnyType) {
+func undefGlobal(sym AnyType) {
 	s := sym.(*SymbolType)
-	if s.tag < len(mod.globalMap) {
-		mod.globalMap[s.tag] = nil
+	if s.tag < len(globals) {
+		globals[s.tag] = nil
 	}
 }
 
-func (mod *Module) setGlobal(sym AnyType, val AnyType) error {
+func setGlobal(sym AnyType, val AnyType) error {
 	s := sym.(*SymbolType)
-	if s.tag < len(mod.globalMap) {
-		if mod.globalMap[s.tag] != nil {
-			mod.globalMap[s.tag].val = val
+	if s.tag < len(globals) {
+		if globals[s.tag] != nil {
+			globals[s.tag].val = val
 			return nil
 		}
 
@@ -187,67 +145,52 @@ func (mod *Module) setGlobal(sym AnyType, val AnyType) error {
 	return Error("*** Warning: set on undefined global ", sym)
 }
 
-func (mod *Module) macros() []AnyType {
-	keys := make([]AnyType, 0, len(mod.macroMap))
-	for k := range mod.macroMap {
+func macros() []AnyType {
+	keys := make([]AnyType, 0, len(macroMap))
+	for k := range macroMap {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func (mod *Module) macro(sym AnyType) *macro {
-	mac, ok := mod.macroMap[sym]
+func getMacro(sym AnyType) *macro {
+	mac, ok := macroMap[sym]
 	if !ok {
 		return nil
 	}
 	return mac
 }
 
-func (mod *Module) defMacro(sym AnyType, val AnyType) {
-	mod.macroMap[sym] = newMacro(sym, val)
+func defMacro(sym AnyType, val AnyType) {
+	macroMap[sym] = newMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func (mod *Module) putConstant(val AnyType) int {
-	idx, present := mod.constantsMap[val]
+func putConstant(val AnyType) int {
+	idx, present := constantsMap[val]
 	if !present {
-		idx = len(mod.constants)
-		mod.constants = append(mod.constants, val)
-		mod.constantsMap[val] = idx
+		idx = len(constants)
+		constants = append(constants, val)
+		constantsMap[val] = idx
 	}
 	return idx
 }
 
-func (mod *Module) use(sym AnyType) error {
+func use(sym AnyType) error {
 	name := sym.String()
-	return mod.loadModule(name)
+	return loadModule(name)
 }
 
-func (mod *Module) importCode(thunk *Code) (AnyType, error) {
-	moduleToUse := thunk.module()
+func importCode(thunk *Code) (AnyType, error) {
 	result, err := exec(thunk)
 	if err != nil {
 		return nil, err
 	}
-	exported := moduleToUse.exports()
-	for _, sym := range exported {
-		val := moduleToUse.global(sym)
-		if val == nil { //shouldn't syntax take priority over global defs?
-			mac := moduleToUse.macro(sym)
-			mod.defMacro(sym, mac.expander)
-		} else {
-			mod.defGlobal(sym, val)
-		}
-	}
 	return result, nil
 }
 
-func (mod *Module) exports() []AnyType {
-	return mod.exported
-}
-
-func (mod *Module) findModuleByName(moduleName string) (string, error) {
+func findModuleByName(moduleName string) (string, error) {
 	path := strings.Split(EllPath, ":")
 	name := moduleName
 	lname := moduleName
@@ -268,19 +211,19 @@ func (mod *Module) findModuleByName(moduleName string) (string, error) {
 	return "", Error("Module not found: ", moduleName)
 }
 
-func (mod *Module) loadModule(name string) error {
+func loadModule(name string) error {
 	file := name
 	if !fileReadable(name) {
-		f, err := mod.findModuleFile(name)
+		f, err := findModuleFile(name)
 		if err != nil {
 			return err
 		}
 		file = f
 	}
-	return mod.loadFile(file)
+	return loadFile(file)
 }
 
-func (mod *Module) loadFile(file string) error {
+func loadFile(file string) error {
 	if verbose {
 		println("; loadFile: " + file)
 	} else {
@@ -301,7 +244,7 @@ func (mod *Module) loadFile(file string) error {
 		if expr == EOF {
 			return nil
 		}
-		_, err = mod.eval(expr)
+		_, err = eval(expr)
 		if err != nil {
 			return err
 		}
@@ -309,32 +252,32 @@ func (mod *Module) loadFile(file string) error {
 	}
 }
 
-func (mod *Module) eval(expr AnyType) (AnyType, error) {
+func eval(expr AnyType) (AnyType, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
-	expanded, err := macroexpandObject(mod, expr)
+	expanded, err := macroexpandObject(expr)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
 		println("; expanded to: ", write(expanded))
 	}
-	code, err := compile(mod, expanded)
+	code, err := compile(expanded)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
 		println("; compiled to: ", write(code))
 	}
-	result, err := mod.importCode(code)
+	result, err := importCode(code)
 	return result, err
 }
 
-func (mod *Module) findModuleFile(name string) (string, error) {
+func findModuleFile(name string) (string, error) {
 	i := strings.Index(name, ".")
 	if i < 0 {
-		file, err := mod.findModuleByName(name)
+		file, err := findModuleByName(name)
 		if err != nil {
 			return "", err
 		}
@@ -346,18 +289,18 @@ func (mod *Module) findModuleFile(name string) (string, error) {
 	return name, nil
 }
 
-func (mod *Module) compileExpr(expr AnyType) (string, error) {
+func compileObject(expr AnyType) (string, error) {
 	if verbose {
 		println("; compile: ", write(expr))
 	}
-	expanded, err := macroexpandObject(mod, expr)
+	expanded, err := macroexpandObject(expr)
 	if err != nil {
 		return "", err
 	}
 	if verbose {
 		println("; expanded to: ", write(expanded))
 	}
-	code, err := compile(mod, expanded)
+	code, err := compile(expanded)
 	if err != nil {
 		return "", err
 	}
@@ -368,8 +311,8 @@ func (mod *Module) compileExpr(expr AnyType) (string, error) {
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func (mod *Module) compileFile(name string) (AnyType, error) {
-	file, err := mod.findModuleFile(name)
+func compileFile(name string) (AnyType, error) {
+	file, err := findModuleFile(name)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +332,7 @@ func (mod *Module) compileFile(name string) (AnyType, error) {
 		if expr == EOF {
 			return StringType(result), nil
 		}
-		lap, err = mod.compileExpr(expr)
+		lap, err = compileObject(expr)
 		if err != nil {
 			return nil, err
 		}

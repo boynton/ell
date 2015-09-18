@@ -20,114 +20,119 @@ import (
 	"fmt"
 )
 
-// Ell defines the global functions for the top level environment
-func Ell(module *Module) {
+// defines the global functions/variables/macros for the top level environment
+func initEnvironment() {
 
-	module.defineMacro("let", ellLet)
-	module.defineMacro("letrec", ellLetrec)
-	module.defineMacro("do", ellDo) //scheme's do. I don't like it, will replace with... "for" of some sort
+	defineMacro("let", ellLet)
+	defineMacro("letrec", ellLetrec)
+	defineMacro("do", ellDo) //scheme's do. I don't like it, will replace with... "for" of some sort
 	//note clojure uses "do" instead of "begin". I rather prefer that.
-	module.defineMacro("cond", ellCond)
-	module.defineMacro("quasiquote", ellQuasiquote)
+	defineMacro("cond", ellCond)
+	defineMacro("quasiquote", ellQuasiquote)
 
-	module.define("null", Null)
-	module.define("true", True)
-	module.define("false", False)
+	define("null", Null)
+	define("true", True)
+	define("false", False)
 
-	module.define("apply", Apply)
+	define("apply", Apply)
 
-	module.defineFunction("version", ellVersion)
+	defineFunction("version", ellVersion)
 
-	module.defineFunction("defined?", ellDefinedP)
+	defineFunction("defined?", ellDefinedP)
 
-	module.defineFunction("file-contents", ellFileContents)
-	module.defineFunction("open-input-string", ellOpenInputString)
-	module.defineFunction("open-input-file", ellOpenInputFile)
-	module.defineFunction("read", ellRead)
-	module.defineFunction("close-input-port", ellCloseInputPort)
+	defineFunction("file-contents", ellFileContents)
+	defineFunction("open-input-string", ellOpenInputString)
+	defineFunction("open-input-file", ellOpenInputFile)
+	defineFunction("read", ellRead)
+	defineFunction("close-input-port", ellCloseInputPort)
 
-	module.defineFunction("macroexpand", ellMacroexpand)
-	module.defineFunction("type", ellType)
-	module.defineFunction("value", ellValue)
-	module.defineFunction("instance", ellInstance)
-	module.defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs)
+	defineFunction("macroexpand", ellMacroexpand)
+	defineFunction("type", ellType)
+	defineFunction("value", ellValue)
+	defineFunction("instance", ellInstance)
+	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs)
 
-	module.defineFunction("type?", ellTypeP)
-	module.defineFunction("type-name", ellTypeName)
+	defineFunction("type?", ellTypeP)
+	defineFunction("type-name", ellTypeName)
 
-	module.defineFunction("struct", ellStruct)
-	module.defineFunction("equal?", ellEq)
-	module.defineFunction("identical?", ellIdenticalP)
-	module.defineFunction("not", ellNot)
+	defineFunction("struct", ellStruct)
+	defineFunction("equal?", ellEq)
+	defineFunction("identical?", ellIdenticalP)
+	defineFunction("not", ellNot)
 
-	module.defineFunction("boolean?", ellBooleanP)
-	module.defineFunction("null?", ellNullP)
-	module.defineFunction("symbol?", elSymbolTypeP)
-	module.defineFunction("symbol", elSymbolType)
+	defineFunction("boolean?", ellBooleanP)
+	defineFunction("null?", ellNullP)
+	defineFunction("symbol?", elSymbolTypeP)
+	defineFunction("symbol", elSymbolType)
 
-	module.defineFunction("keyword?", ellKeywordP)
-	module.defineFunction("string?", elStringTypeP)
-	module.defineFunction("char?", ellCharP)
-	module.defineFunction("function?", ellFunctionP)
-	module.defineFunction("eof?", ellFunctionP)
+	defineFunction("keyword?", ellKeywordP)
+	defineFunction("string?", elStringTypeP)
+	defineFunction("char?", ellCharP)
+	defineFunction("function?", ellFunctionP)
+	defineFunction("eof?", ellFunctionP)
 
-	module.defineFunction("list?", elListTypeP)
-	module.defineFunction("cons", ellCons)
-	module.defineFunction("car", ellCar)
-	module.defineFunction("cdr", ellCdr)
-	module.defineFunction("list", elListType)
-	module.defineFunction("concat", ellConcat)
-	module.defineFunction("reverse", ellReverse)
-	module.defineFunction("set-car!", ellSetCarBang) //mutate!
-	module.defineFunction("set-cdr!", ellSetCdrBang) //mutate!
+	defineFunction("list?", elListTypeP)
+	defineFunction("cons", ellCons)
+	defineFunction("car", ellCar)
+	defineFunction("cdr", ellCdr)
+	defineFunction("list", elListType)
+	defineFunction("concat", ellConcat)
+	defineFunction("reverse", ellReverse)
+	defineFunction("set-car!", ellSetCarBang) //mutate!
+	defineFunction("set-cdr!", ellSetCdrBang) //mutate!
 
-	module.defineFunction("array?", ellArrayP)
-	module.defineFunction("array", ellArray)
-	module.defineFunction("make-array", ellMakeArray)
-	module.defineFunction("array-set!", ellArraySetBang) //mutate!
-	module.defineFunction("array-ref", ellArrayRef)
+	defineFunction("array?", ellArrayP)
+	defineFunction("array", ellArray)
+	defineFunction("make-array", ellMakeArray)
+	defineFunction("array-set!", ellArraySetBang) //mutate!
+	defineFunction("array-ref", ellArrayRef)
 
-	module.defineFunction("struct?", ellStructP)
-	module.defineFunction("has?", ellHasP)
-	module.defineFunction("get", ellGet)
-	module.defineFunction("assoc", ellAssoc)
-	module.defineFunction("dissoc", ellDissoc)
-	module.defineFunction("put!", ellPutBang) //mutate!
-	module.defineFunction("struct->list", ellStructToList)
+	defineFunction("struct?", ellStructP)
+	defineFunction("has?", ellHasP)
+	defineFunction("get", ellGet)
+	defineFunction("assoc", ellAssoc)
+	defineFunction("dissoc", ellDissoc)
+	defineFunction("put!", ellPutBang) //mutate!
+	defineFunction("struct->list", ellStructToList)
 
-	module.defineFunction("empty?", ellEmptyP)
+	defineFunction("empty?", ellEmptyP)
 
-	module.defineFunction("string", elStringType)
-	module.defineFunction("display", ellDisplay)
-	module.defineFunction("write", ellWrite)
-	module.defineFunction("newline", ellNewline)
-	module.defineFunction("print", ellPrint)
-	module.defineFunction("println", ellPrintln)
-	module.defineFunction("write-to-string", ellWriteToString)
+	defineFunction("string", elStringType)
+	defineFunction("display", ellDisplay)
+	defineFunction("write", ellWrite)
+	defineFunction("newline", ellNewline)
+	defineFunction("print", ellPrint)
+	defineFunction("println", ellPrintln)
+	defineFunction("write-to-string", ellWriteToString)
 
-	module.defineFunction("number?", elNumberTypeP) // either float or int
-	module.defineFunction("int?", ellIntP)          //int only
-	module.defineFunction("float?", ellFloatP)      //float only
-	module.defineFunction("+", ellPlus)
-	module.defineFunction("-", ellMinus)
-	module.defineFunction("*", ellTimes)
-	module.defineFunction("/", ellDiv)
-	module.defineFunction("quotient", ellQuotient)
-	module.defineFunction("remainder", ellRemainder)
-	module.defineFunction("modulo", ellRemainder) //fix!
+	defineFunction("number?", elNumberTypeP) // either float or int
+	defineFunction("int?", ellIntP)          //int only
+	defineFunction("float?", ellFloatP)      //float only
+	defineFunction("+", ellPlus)
+	defineFunction("-", ellMinus)
+	defineFunction("*", ellTimes)
+	defineFunction("/", ellDiv)
+	defineFunction("quotient", ellQuotient)
+	defineFunction("remainder", ellRemainder)
+	defineFunction("modulo", ellRemainder) //fix!
 
-	module.defineFunction("=", ellNumeq)
-	module.defineFunction("<=", ellLe)
-	module.defineFunction(">=", ellGe)
-	module.defineFunction(">", ellGt)
-	module.defineFunction("<", ellLt)
-	module.defineFunction("zero?", ellZeroP)
-	module.defineFunction("number->string", elNumberTypeToString)
-	module.defineFunction("string-length", elStringTypeLength)
+	defineFunction("=", ellNumeq)
+	defineFunction("<=", ellLe)
+	defineFunction(">=", ellGe)
+	defineFunction(">", ellGt)
+	defineFunction("<", ellLt)
+	defineFunction("zero?", ellZeroP)
+	defineFunction("number->string", elNumberTypeToString)
+	defineFunction("string-length", elStringTypeLength)
 
-	module.defineFunction("error", ellFatal)
-	module.defineFunction("length", ellLength)
-	module.defineFunction("json", ellJSON)
+	defineFunction("error", ellFatal)
+	defineFunction("length", ellLength)
+	defineFunction("json", ellJSON)
+
+	err := loadModule("ell")
+	if err != nil {
+		fatal("*** ", err)
+	}
 }
 
 //
@@ -167,10 +172,8 @@ func ellDefinedP(argv []AnyType, argc int) (AnyType, error) {
 	if !isSymbol(argv[0]) {
 		return ArgTypeError("symbol", 1, argv[0])
 	}
-	if currentModule != nil {
-		if currentModule.isDefined(argv[0]) {
-			return True, nil
-		}
+	if isDefined(argv[0]) {
+		return True, nil
 	}
 	return False, nil
 }

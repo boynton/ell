@@ -88,9 +88,6 @@ func exec(code *Code, args ...AnyType) (AnyType, error) {
 	if err != nil {
 		return nil, err
 	}
-	exports := vm.exported()
-	module := code.module()
-	module.exported = exports[:]
 	if verbose {
 		//Println("; end execution")
 		if err == nil && result != nil {
@@ -103,13 +100,10 @@ func exec(code *Code, args ...AnyType) (AnyType, error) {
 // LVM - the Ell VM
 type LVM struct {
 	stackSize int
-	defs      []AnyType
 }
 
 func newVM(stackSize int) *LVM {
-	var defs []AnyType
-	vm := LVM{stackSize, defs}
-	return &vm
+	return &LVM{stackSize}
 }
 
 // Instruction - a primitive instruction for the LVM
@@ -187,7 +181,6 @@ type frame struct {
 	ops       []int
 	locals    *frame
 	elements  []AnyType
-	module    *Module
 	constants []AnyType
 }
 
@@ -258,16 +251,11 @@ func showStack(stack []AnyType, sp int) string {
 	return s + " ]"
 }
 
-func (vm *LVM) exported() []AnyType {
-	return vm.defs
-}
-
-func buildFrame(env *frame, pc int, ops []int, module *Module, fun *Closure, argc int, stack []AnyType, sp int) (*frame, error) {
+func buildFrame(env *frame, pc int, ops []int, fun *Closure, argc int, stack []AnyType, sp int) (*frame, error) {
 	f := new(frame)
 	f.previous = env
 	f.pc = pc
 	f.ops = ops
-	f.module = module
 	f.locals = fun.frame
 	expectedArgc := fun.code.argc
 	defaults := fun.code.defaults
@@ -337,14 +325,11 @@ func buildFrame(env *frame, pc int, ops []int, module *Module, fun *Closure, arg
 }
 
 func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
-	topmod := code.mod
 	stack := make([]AnyType, vm.stackSize)
 	sp := vm.stackSize
 	env := new(frame)
 	env.elements = make([]AnyType, len(args))
 	copy(env.elements, args)
-	module := code.mod
-	currentModule = module
 	ops := code.ops
 	pc := 0
 	if len(ops) == 0 {
@@ -353,23 +338,22 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 	if trace {
 		println("------------------ BEGIN EXECUTION of ", code)
 		println("    stack: ", showStack(stack, sp))
-		println("    module: ", module)
 	}
 	for {
 		switch ops[pc] {
 		case opcodeLiteral:
 			if trace {
-				println(pc, "\tconst\t", module.constants[ops[pc+1]])
+				println(pc, "\tconst\t", constants[ops[pc+1]])
 			}
 			sp--
-			stack[sp] = module.constants[ops[pc+1]]
+			stack[sp] = constants[ops[pc+1]]
 			pc += 2
 		case opcodeGlobal:
 			if trace {
-				println(pc, "\tgAnyType\t", module.constants[ops[pc+1]])
+				println(pc, "\tgAnyType\t", constants[ops[pc+1]])
 			}
-			sym := module.constants[ops[pc+1]]
-			val := module.global(sym)
+			sym := constants[ops[pc+1]]
+			val := global(sym)
 			if val == nil {
 				return nil, Error("Undefined symbol: ", sym)
 			}
@@ -378,30 +362,24 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 			pc += 2
 		case opcodeDefGlobal:
 			if trace {
-				println(pc, "\tdefgAnyType\t", module.constants[ops[pc+1]])
+				println(pc, "\tdefgAnyType\t", constants[ops[pc+1]])
 			}
-			sym := module.constants[ops[pc+1]]
-			module.defGlobal(sym, stack[sp])
-			if vm.defs != nil {
-				vm.defs = append(vm.defs, sym)
-			}
+			sym := constants[ops[pc+1]]
+			defGlobal(sym, stack[sp])
 			pc += 2
 		case opcodeUndefGlobal:
 			if trace {
-				println(pc, "\tungAnyType\t", module.constants[ops[pc+1]])
+				println(pc, "\tungAnyType\t", constants[ops[pc+1]])
 			}
-			sym := module.constants[ops[pc+1]]
-			module.undefGlobal(sym)
+			sym := constants[ops[pc+1]]
+			undefGlobal(sym)
 			pc += 2
 		case opcodeDefMacro:
 			if trace {
-				println(pc, "\tdefmacro\t", module.constants[ops[pc+1]])
+				println(pc, "\tdefmacro\t", constants[ops[pc+1]])
 			}
-			sym := module.constants[ops[pc+1]]
-			module.defMacro(sym, stack[sp])
-			if vm.defs != nil {
-				vm.defs = append(vm.defs, sym)
-			}
+			sym := constants[ops[pc+1]]
+			defMacro(sym, stack[sp])
 			pc += 2
 		case opcodeLocal:
 			if trace {
@@ -451,17 +429,16 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				stack[sp] = val
 				pc = savedPc
 			case *Closure:
-				if topmod.checkInterrupt() {
+				if checkInterrupt() {
 					return nil, Error("Interrupt")
 				}
-				f, err := buildFrame(env, savedPc, ops, module, tfun, argc, stack, sp)
+				f, err := buildFrame(env, savedPc, ops, tfun, argc, stack, sp)
 				if err != nil {
 					return nil, err
 				}
 				sp += argc
 				env = f
 				ops = tfun.code.ops
-				module = tfun.code.mod
 				pc = 0
 			case Instruction:
 				if tfun == Apply {
@@ -508,7 +485,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				return nil, Error("Not a function: ", tfun)
 			}
 		case opcodeTailCall:
-			if topmod.checkInterrupt() {
+			if checkInterrupt() {
 				return nil, Error("Interrupt")
 			}
 			if trace {
@@ -528,22 +505,20 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				stack[sp] = val
 				pc = env.pc
 				ops = env.ops
-				module = env.module
 				env = env.previous
 				if env == nil {
 					if trace {
-						println("------------------ END EXECUTION of ", module)
+						println("------------------ END EXECUTION")
 					}
 					return stack[sp], nil
 				}
 			case *Closure:
-				f, err := buildFrame(env.previous, env.pc, env.ops, env.module, tfun, argc, stack, sp)
+				f, err := buildFrame(env.previous, env.pc, env.ops, tfun, argc, stack, sp)
 				if err != nil {
 					return nil, err
 				}
 				sp += argc
 				ops = tfun.code.ops
-				module = tfun.code.mod
 				pc = 0
 				env = f
 			case Instruction:
@@ -585,11 +560,10 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 					stack[sp] = v
 					pc = env.pc
 					ops = env.ops
-					module = env.module
 					env = env.previous
 					if env == nil {
 						if trace {
-							println("------------------ END EXECUTION of ", module)
+							println("------------------ END EXECUTION")
 						}
 						return stack[sp], nil
 					}
@@ -600,7 +574,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				return nil, Error("Not a function:", tfun)
 			}
 		case opcodeReturn:
-			if topmod.checkInterrupt() {
+			if checkInterrupt() {
 				return nil, Error("Interrupt")
 			}
 			if trace {
@@ -608,13 +582,12 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 			}
 			if env.previous == nil {
 				if trace {
-					println("------------------ END EXECUTION of ", module)
+					println("------------------ END EXECUTION")
 				}
 				return stack[sp], nil
 			}
 			ops = env.ops
 			pc = env.pc
-			module = env.module
 			env = env.previous
 		case opcodeJumpFalse:
 			if trace {
@@ -640,17 +613,17 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 			pc++
 		case opcodeClosure:
 			if trace {
-				println(pc, "\tclosure\t", module.constants[ops[pc+1]])
+				println(pc, "\tclosure\t", constants[ops[pc+1]])
 			}
 			sp--
-			stack[sp] = &Closure{module.constants[ops[pc+1]].(*Code), env}
+			stack[sp] = &Closure{constants[ops[pc+1]].(*Code), env}
 			pc = pc + 2
 		case opcodeUse:
 			if trace {
-				println(pc, "\tuse\t", module.constants[ops[pc+1]])
+				println(pc, "\tuse\t", constants[ops[pc+1]])
 			}
-			sym := module.constants[ops[pc+1]]
-			err := module.use(sym)
+			sym := constants[ops[pc+1]]
+			err := use(sym)
 			if err != nil {
 				return nil, err
 			}

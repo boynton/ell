@@ -62,16 +62,12 @@ func main() {
 	if *pExtended {
 		extendedInstructions = *pExtended
 	}
-	environment := newEnvironment("main", Ell, interrupts)
-	err := environment.loadModule("ell")
-	if err != nil {
-		fatal("*** ", err)
-	}
+	initEnvironment()
 	if len(args) < 1 {
 		if !*pNoInit {
 			_, err := os.Stat(ellini)
 			if err == nil {
-				err := environment.loadModule(ellini)
+				err := loadModule(ellini)
 				if err != nil {
 					fatal("*** ", err)
 				}
@@ -80,7 +76,7 @@ func main() {
 		interrupts = make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
-		readEvalPrintLoop(environment)
+		readEvalPrintLoop()
 	} else {
 		/*
 			if len(os.Args) > 2 {
@@ -95,14 +91,14 @@ func main() {
 		for _, filename := range args {
 			if *pCompile {
 				//just compile and print LAP code
-				lap, err := environment.compileFile(filename)
+				lap, err := compileFile(filename)
 				if err != nil {
 					fatal("*** ", err)
 				}
 				println(lap)
 			} else {
 				//this executes the file
-				err := environment.loadModule(filename)
+				err := loadModule(filename)
 				if err != nil {
 					fatal("*** ", err)
 				}

@@ -16,8 +16,8 @@ limitations under the License.
 
 package main
 
-func compile(module *Module, expr AnyType) (*Code, error) {
-	code := newCode(module, 0, nil, nil, "")
+func compile(expr AnyType) (*Code, error) {
+	code := newCode(0, nil, nil, "")
 	err := compileExpr(code, EmptyList, expr, false, false, "")
 	if err != nil {
 		return nil, err
@@ -351,8 +351,7 @@ func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTa
 	}
 	args = toList(syms) //why not just use the array format in general?
 	newEnv := cons(args, env)
-	mod := code.module()
-	lambdaCode := newCode(mod, argc, defaults, keys, context)
+	lambdaCode := newCode(argc, defaults, keys, context)
 	err := compileSequence(lambdaCode, newEnv, body, true, false, context)
 	if err == nil {
 		if !ignoreResult {

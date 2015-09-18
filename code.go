@@ -54,7 +54,6 @@ const (
 
 // Code - compiled Ell bytecode
 type Code struct {
-	mod            *Module
 	name           string
 	ops            []int
 	argc           int
@@ -83,10 +82,9 @@ type Code struct {
 	symMul         AnyType
 }
 
-func newCode(lmod *Module, argc int, defaults []AnyType, keys []AnyType, name string) *Code {
+func newCode(argc int, defaults []AnyType, keys []AnyType, name string) *Code {
 	var ops []int
 	code := Code{
-		lmod,
 		name,
 		ops,
 		argc,
@@ -171,12 +169,12 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	for offset < max {
 		switch code.ops[offset] {
 		case opcodeLiteral:
-			//fmt.Printf("%sL%03d:\t(literal %d)  \t; %v\n", indent, offset, code.ops[offset+1], code.mod.constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(literal " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			//fmt.Printf("%sL%03d:\t(literal %d)  \t; %v\n", indent, offset, code.ops[offset+1], constants[code.ops[offset+1]])
+			buf.WriteString(begin + "(literal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefGlobal:
-			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, code.mod.constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(defglobal " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, constants[code.ops[offset+1]])
+			buf.WriteString(begin + "(defglobal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeCall:
 			//fmt.Printf("%sL%03d:\t(call %d)\n", indent, offset, code.ops[offset+1])
@@ -206,7 +204,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			if pretty {
 				indent2 = indent + indentAmount
 			}
-			(code.mod.constants[code.ops[offset+1]].(*Code)).decompileInto(buf, indent2, pretty)
+			(constants[code.ops[offset+1]].(*Code)).decompileInto(buf, indent2, pretty)
 			buf.WriteString(")")
 			offset += 2
 		case opcodeLocal:
@@ -214,16 +212,16 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			buf.WriteString(begin + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeGlobal:
-			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, code.mod.constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(global " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, constants[code.ops[offset+1]])
+			buf.WriteString(begin + "(global " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeUndefGlobal:
-			//fmt.Printf("%sL%03d:\t(unglobal %v)\n", indent, offset, code.mod.constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(undefglobal " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			//fmt.Printf("%sL%03d:\t(unglobal %v)\n", indent, offset, constants[code.ops[offset+1]])
+			buf.WriteString(begin + "(undefglobal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefMacro:
-			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], code.mod.constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(defmacro " + write(code.mod.constants[code.ops[offset+1]]) + ")")
+			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], constants[code.ops[offset+1]])
+			buf.WriteString(begin + "(defmacro " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeSetLocal:
 			//Println("%sL%03d:\t(setlocal %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
@@ -244,7 +242,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			buf.WriteString(begin + "(struct " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeUse:
-			buf.WriteString(begin + "(use " + code.mod.constants[code.ops[offset+1]].String() + ")")
+			buf.WriteString(begin + "(use " + constants[code.ops[offset+1]].String() + ")")
 			offset += 2
 		case opcodeCar:
 			buf.WriteString(begin + "(car)")
@@ -271,10 +269,6 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 func (code *Code) String() string {
 	return code.decompile(true)
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
-}
-
-func (code *Code) module() *Module {
-	return code.mod
 }
 
 func (code *Code) loadOps(lst AnyType) error {
@@ -321,7 +315,7 @@ func (code *Code) loadOps(lst AnyType) error {
 			} else {
 				return Error("Bad lap format: ", funcParams)
 			}
-			fun := newCode(code.mod, argc, defaults, keys, name)
+			fun := newCode(argc, defaults, keys, name)
 			fun.loadOps(cdr(lstFunc))
 			code.emitClosure(fun)
 		case code.symLiteral:
@@ -404,12 +398,12 @@ func (code *Code) loadOps(lst AnyType) error {
 
 func (code *Code) emitLiteral(val AnyType) {
 	code.ops = append(code.ops, opcodeLiteral)
-	code.ops = append(code.ops, code.mod.putConstant(val))
+	code.ops = append(code.ops, putConstant(val))
 }
 
 func (code *Code) emitGlobal(sym AnyType) {
 	code.ops = append(code.ops, opcodeGlobal)
-	code.ops = append(code.ops, code.mod.putConstant(sym))
+	code.ops = append(code.ops, putConstant(sym))
 }
 func (code *Code) emitCall(argc int) {
 	code.ops = append(code.ops, opcodeCall)
@@ -437,19 +431,19 @@ func (code *Code) emitSetLocal(i int, j int) {
 }
 func (code *Code) emitDefGlobal(sym AnyType) {
 	code.ops = append(code.ops, opcodeDefGlobal)
-	code.ops = append(code.ops, code.mod.putConstant(sym))
+	code.ops = append(code.ops, putConstant(sym))
 }
 func (code *Code) emitUndefGlobal(sym AnyType) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
-	code.ops = append(code.ops, code.mod.putConstant(sym))
+	code.ops = append(code.ops, putConstant(sym))
 }
 func (code *Code) emitDefMacro(sym AnyType) {
 	code.ops = append(code.ops, opcodeDefMacro)
-	code.ops = append(code.ops, code.mod.putConstant(sym))
+	code.ops = append(code.ops, putConstant(sym))
 }
 func (code *Code) emitClosure(newCode *Code) {
 	code.ops = append(code.ops, opcodeClosure)
-	code.ops = append(code.ops, code.mod.putConstant(newCode))
+	code.ops = append(code.ops, putConstant(newCode))
 }
 func (code *Code) emitJumpFalse(offset int) int {
 	code.ops = append(code.ops, opcodeJumpFalse)
@@ -476,7 +470,7 @@ func (code *Code) emitStruct(slen int) {
 }
 func (code *Code) emitUse(sym AnyType) {
 	code.ops = append(code.ops, opcodeUse)
-	code.ops = append(code.ops, code.mod.putConstant(sym))
+	code.ops = append(code.ops, putConstant(sym))
 }
 func (code *Code) emitCar() {
 	code.ops = append(code.ops, opcodeCar)
