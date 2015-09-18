@@ -209,8 +209,8 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				code.emitReturn()
 			}
 			return nil
-		case intern("lap"):
-			// (lap <instruction> ...)
+		case intern("code"):
+			// (code <instruction> ...)
 			return code.loadOps(cdr(expr))
 		case intern("use"):
 			// (use module_name)

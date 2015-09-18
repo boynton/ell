@@ -139,7 +139,7 @@ func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "(function (0 [] [])", "(lap", 1)
+	return strings.Replace(s, "(function (0 [] [])", "(code", 1)
 }
 
 func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
@@ -302,7 +302,7 @@ func (code *Code) loadOps(lst LAny) error {
 				a := car(funcParams)
 				argc, err = intValue(a)
 				if err != nil {
-					return Error("Bad lap format: ", funcParams)
+					return Error("Bad code format: ", funcParams)
 				}
 				b := cadr(funcParams)
 				if ary, ok := b.(*LArray); ok {
@@ -313,7 +313,7 @@ func (code *Code) loadOps(lst LAny) error {
 					keys = ary.elements
 				}
 			} else {
-				return Error("Bad lap format: ", funcParams)
+				return Error("Bad code format: ", funcParams)
 			}
 			fun := newCode(argc, defaults, keys, name)
 			fun.loadOps(cdr(lstFunc))
