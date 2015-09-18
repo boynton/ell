@@ -1,4 +1,4 @@
-;;; File   : sort.ell
+;;; File   : sort.ell (originally sort.scm)
 ;;; Author : Richard A. O'Keefe (based on Prolog code by D.H.D.Warren)
 ;;; Updated: 11 June 1991
 ;;; Modified for scheme library: Aubrey Jaffer 19 Sept. 1991

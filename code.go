@@ -124,6 +124,11 @@ func (*Code) Type() AnyType {
 	return typeCode
 }
 
+// Value returns the object itself for primitive types
+func (code *Code) Value() AnyType {
+	return code
+}
+
 // Equal returns true if the object is equal to the argument
 func (code *Code) Equal(another AnyType) bool {
 	if c, ok := another.(*Code); ok {

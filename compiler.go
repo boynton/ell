@@ -238,9 +238,8 @@ func compileExpr(code *Code, env *ListType, expr AnyType, isTail bool, ignoreRes
 	} else if aStruct, ok := expr.(*StructType); ok {
 		//struct literal: the elements are evaluated
 		slen := len(aStruct.bindings)
-		vlen := slen*2 + 1
+		vlen := slen*2
 		vals := make([]AnyType, 0, vlen)
-		vals = append(vals, list(symQuote, aStruct.typesym))
 		for k, v := range aStruct.bindings {
 			vals = append(vals, k)
 			vals = append(vals, v)
@@ -308,7 +307,11 @@ func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTa
 					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {
-						sym, _ = unkeyword(sym) //returns sym itself if not a keyword, otherwise strips the colon
+						var err error
+						sym, err = unkeyworded(sym) //returns sym itself if not a keyword, otherwise strips the colon
+						if err != nil { //not a symbol or keyword
+							return SyntaxError(tmp)
+						}
 					}
 					if !isSymbol(sym) {
 						return SyntaxError(tmp)

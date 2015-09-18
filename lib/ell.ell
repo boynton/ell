@@ -93,6 +93,14 @@
       (map1 fun first)
       (mapn fun (cons first rest))))
 
+;;
+;; i.e. (validated-struct {x: 1} '(x: y:))
+(defn validated-struct (val name fields)
+  (if (empty? fields)
+      val
+      (if (null? ((car fields) val))
+          (error "cannot convert to " name ", missing field: " (car fields))
+          (validated-struct val name (cdr fields)))))
 
 ;;
 ;; Defines a struct type by emitting a constructor and a predicate
@@ -109,12 +117,6 @@
 ;;   (struct #point{x: 23, y: 57}) => {x: 23, y: 57}
 ;;
 (defmacro defstruct (sym & fields)
-  (defn validated-struct (val name fields)
-    (if (empty? fields)
-        val
-        (if (null? ((car fields) val))
-            (error "cannot convert to " name ", missing field: " (car fields))
-            (validated-struct val name (cdr fields)))))
   (defn extract-keys (args)
     (let loop ((keys '()) (remaining args))
       (if (empty? remaining)
@@ -125,13 +127,14 @@
                 (loop keys (cdr remaining)))))))
   (let ((keys (extract-keys fields)) (typesym (symbol "<" sym ">")))
     `(begin
-       (defn ~sym args (apply instance (concat '(~typesym ~@fields) (normalize-keyword-args args ~@keys))))
+       (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-args args ~@keys)))))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () '~keys)
        (defn ~(symbol "as-" sym) (o)
          (instance '~typesym (validated-struct o '~typesym '~keys)))
        '~typesym)))
 
+;;
 ;; create a type based on some other (non-struct) type, by providing the predicate
 ;; i.e. 
 ;;   ? (deftype foo (s) (and (string? s) (< (string-length s) 3)))
@@ -163,6 +166,7 @@
 ;;
 (defstruct generic-function name: "" args: '() methods: {})
 
+;; All generic function definitions are stored in this dynamic variable
 (def *genfns* {})
 
 ;;

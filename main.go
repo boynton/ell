@@ -62,21 +62,21 @@ func main() {
 	if *pExtended {
 		extendedInstructions = *pExtended
 	}
+	environment := newEnvironment("main", Ell, interrupts)
+	if !*pNoInit {
+		_, err := os.Stat(ellini)
+		if err == nil {
+			err := environment.loadModule(ellini)
+			if err != nil {
+				println("*** ", err)
+				os.Exit(1)
+			}
+		}
+	}
 	if len(args) < 1 {
 		interrupts = make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
-		environment := newEnvironment("main", Ell, interrupts)
-		if !*pNoInit {
-			_, err := os.Stat(ellini)
-			if err == nil {
-				err := environment.loadModule(ellini)
-				if err != nil {
-					println("*** ", err)
-					os.Exit(1)
-				}
-			}
-		}
 		readEvalPrintLoop(environment)
 	} else {
 		/*
@@ -89,7 +89,6 @@ func main() {
 				defer profile.Start(&cfg).Stop()
 			}
 		*/
-		environment := newEnvironment("main", Ell, nil)
 		for _, filename := range args {
 			if *pCompile {
 				//just compile and print LAP code
