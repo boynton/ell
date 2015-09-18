@@ -24,110 +24,110 @@ import (
 )
 
 //
-// AnyType is the generic Ell object. It supports querying its symbolic type name at runtime
+// LAny is the generic Ell object. It supports querying its symbolic type name at runtime
 //
-type AnyType interface {
-	Type() AnyType
-	Value() AnyType
-	Equal(another AnyType) bool
+type LAny interface {
+	Type() LAny
+	Value() LAny
+	Equal(another LAny) bool
 	String() string
 }
 
 //
-// NullType is the type of the null value
+// LNull is the type of the null value
 //
-type NullType int
+type LNull int
 
 var typeNull = intern("<null>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList
-const Null = NullType(0)
+const Null = LNull(0)
 
 // Type returns the type of the object
-func (NullType) Type() AnyType {
+func (LNull) Type() LAny {
 	return typeNull
 }
 
 // Value returns the object itself for primitive types
-func (NullType) Value() AnyType {
+func (LNull) Value() LAny {
 	return Null
 }
 
 // Equal returns true if the object is equal to the argument
-func (NullType) Equal(another AnyType) bool {
+func (LNull) Equal(another LAny) bool {
 	return another == Null
 }
 
-func (v NullType) String() string {
+func (v LNull) String() string {
 	return "null"
 }
 
 //
-// EOFType is the type of the EOF marker
+// LEOF is the type of the EOF marker
 //
-type EOFType int
+type LEOF int
 
 // EOF is Ell's EOF object
-const EOF = EOFType(0)
+const EOF = LEOF(0)
 
 var typeEOF = intern("<eof>")
 
 // Type returns the type of the object
-func (EOFType) Type() AnyType {
+func (LEOF) Type() LAny {
 	return typeEOF
 }
 
 // Value returns the object itself for primitive types
-func (EOFType) Value() AnyType {
+func (LEOF) Value() LAny {
 	return EOF
 }
 
 // Equal returns true if the object is equal to the argument
-func (EOFType) Equal(another AnyType) bool {
+func (LEOF) Equal(another LAny) bool {
 	return another == EOF
 }
 
-func (EOFType) String() string {
+func (LEOF) String() string {
 	return "#eof"
 }
 
 //
-// BooleanType is the type of true and false
+// LBoolean is the type of true and false
 //
-type BooleanType bool
+type LBoolean bool
 
 //True is Ell's true constant
-const True BooleanType = BooleanType(true)
+const True LBoolean = LBoolean(true)
 
 //False is Ell's false constant
-const False BooleanType = BooleanType(false)
+const False LBoolean = LBoolean(false)
 
 var typeBoolean = intern("<boolean>")
 
-func isBoolean(obj AnyType) bool {
-	_, ok := obj.(BooleanType)
+func isBoolean(obj LAny) bool {
+	_, ok := obj.(LBoolean)
 	return ok
 }
 
 // Type returns the type of the object
-func (BooleanType) Type() AnyType {
+func (LBoolean) Type() LAny {
 	return typeBoolean
 }
 
 // Value returns the object itself for primitive types
-func (b BooleanType) Value() AnyType {
+func (b LBoolean) Value() LAny {
 	return b
 }
 
 // Equal returns true if the object is equal to the argument
-func (b BooleanType) Equal(another AnyType) bool {
-	if a, ok := another.(BooleanType); ok {
+func (b LBoolean) Equal(another LAny) bool {
+	if a, ok := another.(LBoolean); ok {
 		return b == a
 	}
 	return false
 }
 
-func (b BooleanType) String() string {
+func (b LBoolean) String() string {
 	return strconv.FormatBool(bool(b))
 }
 
@@ -189,7 +189,7 @@ var typeType = intern("<type>")
 
 // Type returns the type of the object. Since SymbolType represents keywords, types, and regular
 // symbols, it could return any of those three values
-func (sym *SymbolType) Type() AnyType {
+func (sym *SymbolType) Type() LAny {
 	if sym.tag == keywordTag {
 		return typeKeyword
 	} else if sym.tag == typeTag {
@@ -199,12 +199,12 @@ func (sym *SymbolType) Type() AnyType {
 }
 
 // Value returns the object itself for primitive types
-func (sym *SymbolType) Value() AnyType {
+func (sym *SymbolType) Value() LAny {
 	return sym
 }
 
 // Equal returns true if the object is equal to the argument
-func (sym *SymbolType) Equal(another AnyType) bool {
+func (sym *SymbolType) Equal(another LAny) bool {
 	if a, ok := another.(*SymbolType); ok {
 		return sym == a
 	}
@@ -215,22 +215,22 @@ func (sym *SymbolType) String() string {
 	return sym.Name
 }
 
-func isSymbol(obj AnyType) bool {
+func isSymbol(obj LAny) bool {
 	sym, ok := obj.(*SymbolType)
 	return ok && sym.tag >= 0
 }
 
-func isType(obj AnyType) bool {
+func isType(obj LAny) bool {
 	sym, ok := obj.(*SymbolType)
 	return ok && sym.tag == typeTag
 }
 
-func isKeyword(obj AnyType) bool {
+func isKeyword(obj LAny) bool {
 	sym, ok := obj.(*SymbolType)
 	return ok && sym.tag == keywordTag
 }
 
-func typeName(obj AnyType) (*SymbolType, error) {
+func typeName(obj LAny) (*SymbolType, error) {
 	sym, ok := obj.(*SymbolType)
 	if ok && sym.tag == typeTag {
 		return intern(sym.Name[1 : len(sym.Name)-1]), nil
@@ -245,7 +245,7 @@ func unkeywordedString(sym *SymbolType) string {
 	return sym.Name
 }
 
-func unkeyworded(obj AnyType) (AnyType, error) {
+func unkeyworded(obj LAny) (LAny, error) {
 	sym, ok := obj.(*SymbolType)
 	if ok {
 		switch sym.tag {
@@ -260,7 +260,7 @@ func unkeyworded(obj AnyType) (AnyType, error) {
 	return nil, Error("Type error: expected <keyword> or <symbol>, got ", obj)
 }
 
-func keywordToSymbol(obj AnyType) (AnyType, error) {
+func keywordToSymbol(obj LAny) (LAny, error) {
 	sym, ok := obj.(*SymbolType)
 	if ok && sym.tag == keywordTag {
 		return intern(sym.Name[:len(sym.Name)-1]), nil
@@ -271,15 +271,15 @@ func keywordToSymbol(obj AnyType) (AnyType, error) {
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = map[string]*SymbolType{}
 
-func symbols() []AnyType {
-	syms := make([]AnyType, 0, len(symtab))
+func symbols() []LAny {
+	syms := make([]LAny, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
 	}
 	return syms
 }
 
-func symbol(names []AnyType) (AnyType, error) {
+func symbol(names []LAny) (LAny, error) {
 	size := len(names)
 	if size < 1 {
 		return ArgcError("symbol", "1+", size)
@@ -308,12 +308,12 @@ type StringType string
 
 var typeString = intern("<string>")
 
-func isString(obj AnyType) bool {
+func isString(obj LAny) bool {
 	_, ok := obj.(StringType)
 	return ok
 }
 
-func stringValue(obj AnyType) (string, error) {
+func stringValue(obj LAny) (string, error) {
 	switch s := obj.(type) {
 	case StringType:
 		return string(s), nil
@@ -323,17 +323,17 @@ func stringValue(obj AnyType) (string, error) {
 }
 
 // Type returns the type of the object
-func (StringType) Type() AnyType {
+func (StringType) Type() LAny {
 	return typeString
 }
 
 // Value returns the object itself for primitive types
-func (s StringType) Value() AnyType {
+func (s StringType) Value() LAny {
 	return s
 }
 
 // Equal returns true if the object is equal to the argument
-func (s StringType) Equal(another AnyType) bool {
+func (s StringType) Equal(another LAny) bool {
 	if a, ok := another.(StringType); ok {
 		return s == a
 	}
@@ -372,87 +372,83 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
-func (s StringType) encodedString() string {
-	return encodeString(string(s))
-}
-
 func (s StringType) String() string {
 	return string(s)
 }
 
 //
-// CharType - Ell characters
+// LChar - Ell characters
 //
-type CharType rune
+type LChar rune
 
 var typeChar = intern("<char>")
 
-func isChar(obj AnyType) bool {
-	_, ok := obj.(CharType)
+func isChar(obj LAny) bool {
+	_, ok := obj.(LChar)
 	if ok {
 		return true
 	}
 	return ok
 }
 
-func newCharacter(c rune) CharType {
-	v := CharType(c)
+func newCharacter(c rune) LChar {
+	v := LChar(c)
 	return v
 }
 
 // Type returns the type of the object
-func (CharType) Type() AnyType {
+func (LChar) Type() LAny {
 	return typeChar
 }
 
 // Value returns the object itself for primitive types
-func (i CharType) Value() AnyType {
+func (i LChar) Value() LAny {
 	return i
 }
 
 // Equal returns true if the object is equal to the argument
-func (i CharType) Equal(another AnyType) bool {
+func (i LChar) Equal(another LAny) bool {
 	if a, err := intValue(another); err == nil {
 		return int(i) == a
 	}
 	return false
 }
 
-func (i CharType) String() string {
+func (i LChar) String() string {
 	buf := []rune{rune(i)}
 	return string(buf)
 }
 
 //
-// NumberType - Ell numbers
+// LNumber - Ell numbers
 //
-type NumberType float64
+type LNumber float64
 
 var typeNumber = intern("<number>")
 
 // Type returns the type of the object
-func (NumberType) Type() AnyType {
+func (LNumber) Type() LAny {
 	return typeNumber
 }
 
 // Value returns the object itself for primitive types
-func (f NumberType) Value() AnyType {
+func (f LNumber) Value() LAny {
 	return f
 }
 
-func (f NumberType) String() string {
+func (f LNumber) String() string {
 	return strconv.FormatFloat(float64(f), 'f', -1, 64)
 }
 
-func theNumber(obj AnyType) (NumberType, error) {
-	if n, ok := obj.(NumberType); ok {
+func theNumber(obj LAny) (LNumber, error) {
+	if n, ok := obj.(LNumber); ok {
 		return n, nil
 	}
 	return 0, TypeError(typeNumber, obj)
 }
 
-func isInt(obj AnyType) bool {
-	if n, ok := obj.(NumberType); ok {
+func isInt(obj LAny) bool {
+	if n, ok := obj.(LNumber); ok {
 		f := float64(n)
 		if math.Trunc(f) == f {
 			return true
@@ -461,39 +457,39 @@ func isInt(obj AnyType) bool {
 	return false
 }
 
-func isFloat(obj AnyType) bool {
+func isFloat(obj LAny) bool {
 	return !isInt(obj)
 }
 
-func isNumber(obj AnyType) bool {
-	_, ok := obj.(NumberType)
+func isNumber(obj LAny) bool {
+	_, ok := obj.(LNumber)
 	return ok
 }
 
-func floatValue(obj AnyType) (float64, error) {
+func floatValue(obj LAny) (float64, error) {
 	switch n := obj.(type) {
-	case NumberType:
+	case LNumber:
 		return float64(n), nil
 	}
 	return 0, TypeError(typeNumber, obj)
 }
 
-func int64Value(obj AnyType) (int64, error) {
+func int64Value(obj LAny) (int64, error) {
 	switch n := obj.(type) {
-	case NumberType:
+	case LNumber:
 		return int64(n), nil
-	case CharType:
+	case LChar:
 		return int64(n), nil
 	default:
 		return 0, TypeError(typeNumber, obj)
 	}
 }
 
-func intValue(obj AnyType) (int, error) {
+func intValue(obj LAny) (int, error) {
 	switch n := obj.(type) {
-	case NumberType:
+	case LNumber:
 		return int(n), nil
-	case CharType:
+	case LChar:
 		return int(n), nil
 	default:
 		return 0, TypeError(typeNumber, obj)
@@ -501,7 +497,7 @@ func intValue(obj AnyType) (int, error) {
 }
 
 // Equal returns true if the object is equal to the argument
-func greaterOrEqual(n1 AnyType, n2 AnyType) (AnyType, error) {
+func greaterOrEqual(n1 LAny, n2 LAny) (LAny, error) {
 	f1, err := floatValue(n1)
 	if err == nil {
 		f2, err := floatValue(n2)
@@ -516,7 +512,7 @@ func greaterOrEqual(n1 AnyType, n2 AnyType) (AnyType, error) {
 	return nil, err
 }
 
-func lessOrEqual(n1 AnyType, n2 AnyType) (AnyType, error) {
+func lessOrEqual(n1 LAny, n2 LAny) (LAny, error) {
 	f1, err := floatValue(n1)
 	if err == nil {
 		f2, err := floatValue(n2)
@@ -531,7 +527,7 @@ func lessOrEqual(n1 AnyType, n2 AnyType) (AnyType, error) {
 	return nil, err
 }
 
-func greater(n1 AnyType, n2 AnyType) (AnyType, error) {
+func greater(n1 LAny, n2 LAny) (LAny, error) {
 	f1, err := floatValue(n1)
 	if err == nil {
 		f2, err := floatValue(n2)
@@ -546,7 +542,7 @@ func greater(n1 AnyType, n2 AnyType) (AnyType, error) {
 	return nil, err
 }
 
-func less(n1 AnyType, n2 AnyType) (AnyType, error) {
+func less(n1 LAny, n2 LAny) (LAny, error) {
 	f1, err := floatValue(n1)
 	if err == nil {
 		f2, err := floatValue(n2)
@@ -561,18 +557,18 @@ func less(n1 AnyType, n2 AnyType) (AnyType, error) {
 	return nil, err
 }
 
-func equal(o1 AnyType, o2 AnyType) bool {
+func equal(o1 LAny, o2 LAny) bool {
 	if o1 == o2 {
 		return true
 	}
 	return o1.Equal(o2)
 }
 
-func numericallyEqual(o1 AnyType, o2 AnyType) (bool, error) {
+func numericallyEqual(o1 LAny, o2 LAny) (bool, error) {
 	switch n1 := o1.(type) {
-	case NumberType:
+	case LNumber:
 		switch n2 := o2.(type) {
-		case NumberType:
+		case LNumber:
 			return n1 == n2, nil
 		default:
 			return false, TypeError(typeNumber, o2)
@@ -582,19 +578,19 @@ func numericallyEqual(o1 AnyType, o2 AnyType) (bool, error) {
 	}
 }
 
-func identical(n1 AnyType, n2 AnyType) bool {
+func identical(n1 LAny, n2 LAny) bool {
 	return n1 == n2
 }
 
 // Equal returns true if the object is equal to the argument
-func (f NumberType) Equal(another AnyType) bool {
+func (f LNumber) Equal(another LAny) bool {
 	if a, err := floatValue(another); err == nil {
 		return float64(f) == a
 	}
 	return false
 }
 
-func add(num1 AnyType, num2 AnyType) (AnyType, error) {
+func add(num1 LAny, num2 LAny) (LAny, error) {
 	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
@@ -603,23 +599,23 @@ func add(num1 AnyType, num2 AnyType) (AnyType, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NumberType(n1 + n2), nil
+	return LNumber(n1 + n2), nil
 }
 
-func sum(nums []AnyType, argc int) (AnyType, error) {
+func sum(nums []LAny, argc int) (LAny, error) {
 	var sum float64
 	for _, num := range nums {
 		switch n := num.(type) {
-		case NumberType:
+		case LNumber:
 			sum += float64(n)
 		default:
 			return nil, TypeError(typeNumber, num)
 		}
 	}
-	return NumberType(sum), nil
+	return LNumber(sum), nil
 }
 
-func sub(num1 AnyType, num2 AnyType) (AnyType, error) {
+func sub(num1 LAny, num2 LAny) (LAny, error) {
 	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
@@ -628,17 +624,17 @@ func sub(num1 AnyType, num2 AnyType) (AnyType, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NumberType(n1 - n2), nil
+	return LNumber(n1 - n2), nil
 }
 
-func minus(nums []AnyType, argc int) (AnyType, error) {
+func minus(nums []LAny, argc int) (LAny, error) {
 	if argc < 1 {
 		return ArgcError("-", "1+", argc)
 	}
 	var fsum float64
 	num := nums[0]
 	switch n := num.(type) {
-	case NumberType:
+	case LNumber:
 		fsum = float64(n)
 	default:
 		return nil, TypeError(typeNumber, num)
@@ -648,17 +644,17 @@ func minus(nums []AnyType, argc int) (AnyType, error) {
 	} else {
 		for _, num := range nums[1:] {
 			switch n := num.(type) {
-			case NumberType:
+			case LNumber:
 				fsum -= float64(n)
 			default:
 				return nil, TypeError(typeNumber, num)
 			}
 		}
 	}
-	return NumberType(fsum), nil
+	return LNumber(fsum), nil
 }
 
-func mul(num1 AnyType, num2 AnyType) (AnyType, error) {
+func mul(num1 LAny, num2 LAny) (LAny, error) {
 	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
@@ -667,23 +663,23 @@ func mul(num1 AnyType, num2 AnyType) (AnyType, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NumberType(n1 * n2), nil
+	return LNumber(n1 * n2), nil
 }
 
-func product(argv []AnyType, argc int) (AnyType, error) {
+func product(argv []LAny, argc int) (LAny, error) {
 	prod := 1.0
 	for _, num := range argv {
 		switch n := num.(type) {
-		case NumberType:
+		case LNumber:
 			prod *= float64(n)
 		default:
 			return nil, TypeError(typeNumber, num)
 		}
 	}
-	return NumberType(prod), nil
+	return LNumber(prod), nil
 }
 
-func div(argv []AnyType, argc int) (AnyType, error) {
+func div(argv []LAny, argc int) (LAny, error) {
 	if argc < 1 {
 		return ArgcError("/", "1+", argc)
 	} else if argc == 1 {
@@ -691,7 +687,7 @@ func div(argv []AnyType, argc int) (AnyType, error) {
 		if err != nil {
 			return nil, err
 		}
-		return NumberType(1.0 / n1), nil
+		return LNumber(1.0 / n1), nil
 	} else {
 		quo, err := floatValue(argv[0])
 		if err != nil {
@@ -704,16 +700,16 @@ func div(argv []AnyType, argc int) (AnyType, error) {
 			}
 			quo /= n
 		}
-		return NumberType(quo), nil
+		return LNumber(quo), nil
 	}
 }
 
 //
-// ListType - Ell lists
+// LList - Ell lists
 //
-type ListType struct {
-	car AnyType
-	cdr *ListType
+type LList struct {
+	car LAny
+	cdr *LList
 }
 
 var typeList = intern("<list>")
@@ -727,46 +723,46 @@ var symUnquoteSplicing = intern("unquote-splicing")
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
 
-func initEmpty() *ListType {
-	var lst ListType
+func initEmpty() *LList {
+	var lst LList
 	return &lst
 }
 
-func isEmpty(col AnyType) bool {
+func isEmpty(col LAny) bool {
 	switch v := col.(type) {
-	case NullType: //Do I really want this?
+	case LNull: //Do I really want this?
 		return true
 	case StringType:
 		return len(v) == 0
-	case *ArrayType:
+	case *LArray:
 		return len(v.elements) == 0
-	case *ListType:
+	case *LList:
 		return v == EmptyList
-	case *StructType:
+	case *LStruct:
 		return len(v.bindings) == 0
 	default:
 		return false
 	}
 }
 
-func isList(obj AnyType) bool {
-	_, ok := obj.(*ListType)
+func isList(obj LAny) bool {
+	_, ok := obj.(*LList)
 	return ok
 }
 
 // Type returns the type of the object
-func (*ListType) Type() AnyType {
+func (*LList) Type() LAny {
 	return typeList
 }
 
 // Value returns the object itself for primitive types
-func (lst *ListType) Value() AnyType {
+func (lst *LList) Value() LAny {
 	return lst
 }
 
 // Equal returns true if the object is equal to the argument
-func (lst *ListType) Equal(another AnyType) bool {
-	if a, ok := another.(*ListType); ok {
+func (lst *LList) Equal(another LAny) bool {
+	if a, ok := another.(*LList); ok {
 		for lst != EmptyList {
 			if a == EmptyList {
 				return false
@@ -784,7 +780,7 @@ func (lst *ListType) Equal(another AnyType) bool {
 	return false
 }
 
-func (lst *ListType) String() string {
+func (lst *LList) String() string {
 	var buf bytes.Buffer
 	if lst != EmptyList && lst.cdr != EmptyList && cddr(lst) == EmptyList {
 		if lst.car == symQuote {
@@ -817,7 +813,7 @@ func (lst *ListType) String() string {
 	return buf.String()
 }
 
-func (lst *ListType) length() int {
+func listLength(lst *LList) int {
 	if lst == EmptyList {
 		return 0
 	}
@@ -830,7 +826,7 @@ func (lst *ListType) length() int {
 	return count
 }
 
-func newList(count int, val AnyType) *ListType {
+func newList(count int, val LAny) *LList {
 	result := EmptyList
 	for i := 0; i < count; i++ {
 		result = cons(val, result)
@@ -838,7 +834,7 @@ func newList(count int, val AnyType) *ListType {
 	return result
 }
 
-func cons(car AnyType, cdr *ListType) *ListType {
+func cons(car LAny, cdr *LList) *LList {
 	if car == nil {
 		panic("Assertion failure: don't call cons with nil as car")
 	}
@@ -848,12 +844,12 @@ func cons(car AnyType, cdr *ListType) *ListType {
 	if inExec {
 		conses++
 	}
-	return &ListType{car, cdr}
+	return &LList{car, cdr}
 }
 
-func car(lst AnyType) AnyType {
+func car(lst LAny) LAny {
 	switch p := lst.(type) {
-	case *ListType:
+	case *LList:
 		if p != EmptyList {
 			return p.car
 		}
@@ -861,30 +857,30 @@ func car(lst AnyType) AnyType {
 	return Null
 }
 
-func setCar(lst AnyType, obj AnyType) {
+func setCar(lst LAny, obj LAny) {
 	switch p := lst.(type) {
-	case *ListType:
+	case *LList:
 		if p != EmptyList {
 			p.car = obj
 		}
 	}
 }
 
-func cdr(lst AnyType) *ListType {
+func cdr(lst LAny) *LList {
 	if lst != EmptyList {
 		switch p := lst.(type) {
-		case *ListType:
+		case *LList:
 			return p.cdr
 		}
 	}
 	return EmptyList
 }
 
-func setCdr(lst AnyType, obj AnyType) {
+func setCdr(lst LAny, obj LAny) {
 	switch p := lst.(type) {
-	case *ListType:
+	case *LList:
 		switch n := obj.(type) {
-		case *ListType:
+		case *LList:
 			p.cdr = n
 		default:
 			println("IGNORED: Setting cdr to non-list: ", obj)
@@ -894,29 +890,29 @@ func setCdr(lst AnyType, obj AnyType) {
 	}
 }
 
-func caar(lst AnyType) AnyType {
+func caar(lst LAny) LAny {
 	return car(car(lst))
 }
-func cadr(lst AnyType) AnyType {
+func cadr(lst LAny) LAny {
 	return car(cdr(lst))
 }
-func cddr(lst AnyType) *ListType {
+func cddr(lst LAny) *LList {
 	return cdr(cdr(lst))
 }
-func caddr(lst AnyType) AnyType {
+func caddr(lst LAny) LAny {
 	return car(cdr(cdr(lst)))
 }
-func cdddr(lst AnyType) *ListType {
+func cdddr(lst LAny) *LList {
 	return cdr(cdr(cdr(lst)))
 }
-func cadddr(lst AnyType) AnyType {
+func cadddr(lst LAny) LAny {
 	return car(cdr(cdr(cdr(lst))))
 }
-func cddddr(lst AnyType) *ListType {
+func cddddr(lst LAny) *LList {
 	return cdr(cdr(cdr(cdr(lst))))
 }
 
-func toList(values []AnyType) *ListType {
+func toList(values []LAny) *LList {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
@@ -925,50 +921,50 @@ func toList(values []AnyType) *ListType {
 	return p
 }
 
-func list(values ...AnyType) *ListType {
+func list(values ...LAny) *LList {
 	return toList(values)
 }
 
-func listToArray(lst *ListType) *ArrayType {
-	var elems []AnyType
+func listToArray(lst *LList) *LArray {
+	var elems []LAny
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
 	}
-	return &ArrayType{elems}
+	return &LArray{elems}
 }
 
-func arrayToList(ary AnyType) (AnyType, error) {
-	v, ok := ary.(*ArrayType)
+func arrayToList(ary LAny) (LAny, error) {
+	v, ok := ary.(*LArray)
 	if !ok {
 		return nil, TypeError(typeArray, ary)
 	}
 	return toList(v.elements), nil
 }
 
-func length(seq AnyType) int {
+func length(seq LAny) int {
 	switch v := seq.Value().(type) {
 	case StringType:
 		return len(v)
-	case *ArrayType:
+	case *LArray:
 		return len(v.elements)
-	case *ListType:
-		return v.length()
-	case *StructType:
+	case *LList:
+		return listLength(v)
+	case *LStruct:
 		return len(v.bindings)
 	default:
 		return -1
 	}
 }
 
-func assoc(seq AnyType, key AnyType, val AnyType) (AnyType, error) {
+func assoc(seq LAny, key LAny, val LAny) (LAny, error) {
 	switch s := seq.(type) {
-	case *StructType:
+	case *LStruct:
 		s2 := copyStruct(s)
 		s2.bindings[key] = val
 		return s2, nil
-	case *ArrayType:
-		if idx, ok := key.(NumberType); ok {
+	case *LArray:
+		if idx, ok := key.(LNumber); ok {
 			a := copyArray(s)
 			a.elements[int(idx)] = val
 			return a, nil
@@ -979,9 +975,9 @@ func assoc(seq AnyType, key AnyType, val AnyType) (AnyType, error) {
 	}
 }
 
-func dissoc(seq AnyType, key AnyType) (AnyType, error) {
+func dissoc(seq LAny, key LAny) (LAny, error) {
 	switch s := seq.(type) {
-	case *StructType:
+	case *LStruct:
 		s2 := copyStruct(s)
 		delete(s2.bindings, key)
 		return s2, nil
@@ -990,7 +986,7 @@ func dissoc(seq AnyType, key AnyType) (AnyType, error) {
 	}
 }
 
-func reverse(lst *ListType) *ListType {
+func reverse(lst *LList) *LList {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = cons(lst.car, rev)
@@ -999,7 +995,7 @@ func reverse(lst *ListType) *ListType {
 	return rev
 }
 
-func concat(seq1 *ListType, seq2 *ListType) (*ListType, error) {
+func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 	rev := reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil
@@ -1013,32 +1009,32 @@ func concat(seq1 *ListType, seq2 *ListType) (*ListType, error) {
 }
 
 //
-// ArrayType - Ell Arrays
+// LArray - Ell Arrays
 //
-type ArrayType struct {
-	elements []AnyType
+type LArray struct {
+	elements []LAny
 }
 
 var typeArray = intern("<array>")
 
-func isArray(obj AnyType) bool {
-	_, ok := obj.(*ArrayType)
+func isArray(obj LAny) bool {
+	_, ok := obj.(*LArray)
 	return ok
 }
 
 // Type returns the type of the object
-func (*ArrayType) Type() AnyType {
+func (*LArray) Type() LAny {
 	return typeArray
 }
 
 // Value returns the object itself for primitive types
-func (ary *ArrayType) Value() AnyType {
+func (ary *LArray) Value() LAny {
 	return ary
 }
 
 // Equal returns true if the object is equal to the argument
-func (ary *ArrayType) Equal(another AnyType) bool {
-	if a, ok := another.(*ArrayType); ok {
+func (ary *LArray) Equal(another LAny) bool {
+	if a, ok := another.(*LArray); ok {
 		alen := len(ary.elements)
 		if alen == len(a.elements) {
 			for i := 0; i < alen; i++ {
@@ -1052,7 +1048,7 @@ func (ary *ArrayType) Equal(another AnyType) bool {
 	return false
 }
 
-func (ary *ArrayType) String() string {
+func (ary *LArray) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	count := len(ary.elements)
@@ -1067,43 +1063,39 @@ func (ary *ArrayType) String() string {
 	return buf.String()
 }
 
-func newArray(size int, init AnyType) *ArrayType {
-	elements := make([]AnyType, size)
+func newArray(size int, init LAny) *LArray {
+	elements := make([]LAny, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	return &ArrayType{elements}
+	return &LArray{elements}
 }
 
-func array(elements ...AnyType) AnyType {
+func array(elements ...LAny) LAny {
 	return toArray(elements, len(elements))
 }
 
-func toArray(elements []AnyType, count int) AnyType {
-	el := make([]AnyType, count)
+func toArray(elements []LAny, count int) LAny {
+	el := make([]LAny, count)
 	copy(el, elements[0:count])
-	return &ArrayType{el}
+	return &LArray{el}
 }
 
-func copyArray(a *ArrayType) *ArrayType {
-	elements := make([]AnyType, len(a.elements))
+func copyArray(a *LArray) *LArray {
+	elements := make([]LAny, len(a.elements))
 	copy(elements, a.elements)
-	return &ArrayType{elements}
+	return &LArray{elements}
 }
 
-func (ary *ArrayType) length() int {
-	return len(ary.elements)
-}
-
-func arrayLength(ary AnyType) (int, error) {
-	if a, ok := ary.(*ArrayType); ok {
+func arrayLength(ary LAny) (int, error) {
+	if a, ok := ary.(*LArray); ok {
 		return len(a.elements), nil
 	}
 	return 1, TypeError(typeArray, ary)
 }
 
-func arraySet(ary AnyType, idx int, obj AnyType) error {
-	if a, ok := ary.(*ArrayType); ok {
+func arraySet(ary LAny, idx int, obj LAny) error {
+	if a, ok := ary.(*LArray); ok {
 		if idx < 0 || idx >= len(a.elements) {
 			return Error("Array index out of range")
 		}
@@ -1113,8 +1105,8 @@ func arraySet(ary AnyType, idx int, obj AnyType) error {
 	return TypeError(typeArray, ary)
 }
 
-func arrayRef(ary AnyType, idx int) (AnyType, error) {
-	if a, ok := ary.(*ArrayType); ok {
+func arrayRef(ary LAny, idx int) (LAny, error) {
+	if a, ok := ary.(*LArray); ok {
 		if idx < 0 || idx >= len(a.elements) {
 			return nil, Error("Array index out of range")
 		}
@@ -1123,12 +1115,13 @@ func arrayRef(ary AnyType, idx int) (AnyType, error) {
 	return nil, TypeError(typeArray, ary)
 }
 
-type Instance struct {
-	tag  *SymbolType
-	value AnyType
+// LInstance is a typed value
+type LInstance struct {
+	tag   *SymbolType
+	value LAny
 }
 
-func instance(tag AnyType, val AnyType) (AnyType, error) {
+func instance(tag LAny, val LAny) (LAny, error) {
 	sym, ok := tag.(*SymbolType)
 	if !ok || !isValidTypeName(sym.Name) {
 		return nil, TypeError(typeType, tag)
@@ -1139,53 +1132,53 @@ func instance(tag AnyType, val AnyType) (AnyType, error) {
 	case typeStruct, typeList, typeArray, typeSymbol, typeFunction, typeInput, typeOutput:
 		return val, nil
 	default:
-		return &Instance{tag: sym, value: val}, nil
+		return &LInstance{tag: sym, value: val}, nil
 	}
 }
 
 // Type returns the type of the object
-func (s *Instance) Type() AnyType {
+func (s *LInstance) Type() LAny {
 	return s.tag
 }
 
-// Type returns the type of the object
-func (s *Instance) Value() AnyType {
+// Value returns the value of the object
+func (s *LInstance) Value() LAny {
 	return s.value
 }
 
 // Equal returns true if the object is equal to the argument
-func (s *Instance) Equal(another AnyType) bool {
-	if a, ok := another.(*Instance); ok {
+func (s *LInstance) Equal(another LAny) bool {
+	if a, ok := another.(*LInstance); ok {
 		return s.tag == a.tag && s.value.Equal(a.value)
 	}
 	return false
 }
 
 // String of a instance, i.e. #<point>{x: 1 y: 2} or #<uuid>"0bbbc94a-5e14-11e5-81e6-003ee1be85f9"
-func (s *Instance) String() string {
+func (s *LInstance) String() string {
 	return "#" + s.tag.String() + write(s.value)
 }
 
 //
-// StructType - Ell structs (objects). They are extensible, having a special type symbol in them.
+// LStruct - Ell structs (objects). They are extensible, having a special type symbol in them.
 //
-type StructType struct {
-	bindings map[AnyType]AnyType
+type LStruct struct {
+	bindings map[LAny]LAny
 }
 
 var typeStruct = intern("<struct>")
 
 // Type returns the type of the object
-func (s *StructType) Type() AnyType {
+func (s *LStruct) Type() LAny {
 	return typeStruct
 }
 
 // Value returns the object itself for primitive types
-func (s *StructType) Value() AnyType {
+func (s *LStruct) Value() LAny {
 	return s
 }
 
-func sliceContains(slice []AnyType, obj AnyType) bool {
+func sliceContains(slice []LAny, obj LAny) bool {
 	for _, o := range slice {
 		if o == obj {
 			return true
@@ -1194,9 +1187,9 @@ func sliceContains(slice []AnyType, obj AnyType) bool {
 	return false
 }
 
-func normalizeKeywordArgs(args *ListType, keys []AnyType) (*ListType, error) {
+func normalizeKeywordArgs(args *LList, keys []LAny) (*LList, error) {
 	count := length(args)
-	bindings := make(map[AnyType]AnyType, count/2)
+	bindings := make(map[LAny]LAny, count/2)
 	for args != EmptyList {
 		key := car(args)
 		switch t := key.Value().(type) {
@@ -1212,7 +1205,7 @@ func normalizeKeywordArgs(args *ListType, keys []AnyType) (*ListType, error) {
 				return nil, Error(key, " mismatched keyword/value pair in parameter")
 			}
 			bindings[key] = car(args)
-		case *StructType:
+		case *LStruct:
 			for k, v := range t.bindings {
 				if sliceContains(keys, k) {
 					bindings[k] = v
@@ -1225,7 +1218,7 @@ func normalizeKeywordArgs(args *ListType, keys []AnyType) (*ListType, error) {
 	if count == 0 {
 		return EmptyList, nil
 	}
-	lst := make([]AnyType, 0, count*2)
+	lst := make([]LAny, 0, count*2)
 	for k, v := range bindings {
 		lst = append(lst, k)
 		lst = append(lst, v)
@@ -1233,23 +1226,23 @@ func normalizeKeywordArgs(args *ListType, keys []AnyType) (*ListType, error) {
 	return toList(lst), nil
 }
 
-func copyStruct(s *StructType) *StructType {
-	bindings := make(map[AnyType]AnyType, len(s.bindings))
+func copyStruct(s *LStruct) *LStruct {
+	bindings := make(map[LAny]LAny, len(s.bindings))
 	for k, v := range s.bindings {
 		bindings[k] = v
 	}
-	return &StructType{bindings}
+	return &LStruct{bindings}
 }
 
-func newStruct(fieldvals []AnyType) (*StructType, error) {
+func newStruct(fieldvals []LAny) (*LStruct, error) {
 	count := len(fieldvals)
 	i := 0
-	bindings := make(map[AnyType]AnyType, count/2) //optimal if all key/value pairs
+	bindings := make(map[LAny]LAny, count/2) //optimal if all key/value pairs
 	for i < count {
 		o := fieldvals[i]
 		i++
 		switch t := o.Value().(type) {
-		case NullType:
+		case LNull:
 			//ignore
 		case StringType:
 			if i == count {
@@ -1263,7 +1256,7 @@ func newStruct(fieldvals []AnyType) (*StructType, error) {
 			}
 			bindings[o] = fieldvals[i]
 			i++
-		case *StructType:
+		case *LStruct:
 			for k, v := range t.bindings {
 				bindings[k] = v
 			}
@@ -1271,17 +1264,17 @@ func newStruct(fieldvals []AnyType) (*StructType, error) {
 			return nil, Error("bad parameter to instance: ", o)
 		}
 	}
-	return &StructType{bindings}, nil
+	return &LStruct{bindings}, nil
 }
 
-func isStruct(obj AnyType) bool {
-	_, ok := obj.(*StructType)
+func isStruct(obj LAny) bool {
+	_, ok := obj.(*LStruct)
 	return ok
 }
 
 // Equal returns true if the object is equal to the argument
-func (s *StructType) Equal(another AnyType) bool {
-	if a, ok := another.(*StructType); ok {
+func (s *LStruct) Equal(another LAny) bool {
+	if a, ok := another.(*LStruct); ok {
 		slen := len(s.bindings)
 		if slen == len(a.bindings) {
 			for k, v := range s.bindings {
@@ -1299,11 +1292,7 @@ func (s *StructType) Equal(another AnyType) bool {
 	return false
 }
 
-func (s *StructType) length() int {
-	return len(s.bindings)
-}
-
-func (s *StructType) String() string {
+func (s *LStruct) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
@@ -1321,50 +1310,36 @@ func (s *StructType) String() string {
 	return buf.String()
 }
 
-func (s *StructType) put(key AnyType, value AnyType) AnyType {
-	s.bindings[key] = value
-	return s
-}
-
-func (s *StructType) get(key AnyType) AnyType {
-	if val, ok := s.bindings[key]; ok {
-		return val
-	}
-	return Null
-}
-
-func (s *StructType) has(key AnyType) bool {
-	_, ok := s.bindings[key]
-	return ok
-}
-
-func has(obj AnyType, key AnyType) (bool, error) {
+func has(obj LAny, key LAny) (bool, error) {
 	o := obj.Value()
-	if aStruct, ok := o.(*StructType); ok {
-		return aStruct.has(key), nil
+	if s, ok := o.(*LStruct); ok {
+		_, ok := s.bindings[key]
+		return ok, nil
 	}
 	return false, TypeError(typeStruct, obj)
 }
 
-func get(obj AnyType, key AnyType) (AnyType, error) {
-	//this is called by the keyword execution in runtime.c, in addition to other explicit calls
+func get(obj LAny, key LAny) (LAny, error) {
 	o := obj.Value()
-	if aStruct, ok := o.(*StructType); ok {
-		return aStruct.get(key), nil
+	if s, ok := o.(*LStruct); ok {
+		if val, ok := s.bindings[key]; ok {
+			return val, nil
+		}
+		return Null, nil
 	}
 	return nil, TypeError(typeStruct, obj)
 }
 
-//mutate! might want to get rid of this, use assoc instead
-func put(obj AnyType, key AnyType, value AnyType) (AnyType, error) {
-	if aStruct, ok := obj.(*StructType); ok {
-		return aStruct.put(key, value), nil
+func put(obj LAny, key LAny, value LAny) (LAny, error) {
+	if aStruct, ok := obj.(*LStruct); ok {
+		aStruct.bindings[key] = value
+		return aStruct, nil
 	}
 	return nil, TypeError(typeStruct, obj)
 }
 
-func structToList(obj AnyType) (AnyType, error) {
-	if aStruct, ok := obj.(*StructType); ok {
+func structToList(obj LAny) (LAny, error) {
+	if aStruct, ok := obj.(*LStruct); ok {
 		result := EmptyList
 		tail := EmptyList
 		for k, v := range aStruct.bindings {
@@ -1387,13 +1362,13 @@ func structToList(obj AnyType) (AnyType, error) {
 //
 func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
-	if l, ok := arg1.(AnyType); ok {
+	if l, ok := arg1.(LAny); ok {
 		buf.WriteString(fmt.Sprintf("%v", write(l)))
 	} else {
 		buf.WriteString(fmt.Sprintf("%v", arg1))
-		}
+	}
 	for _, o := range args {
-		if l, ok := o.(AnyType); ok {
+		if l, ok := o.(LAny); ok {
 			buf.WriteString(fmt.Sprintf("%v", write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
@@ -1404,7 +1379,7 @@ func Error(arg1 interface{}, args ...interface{}) error {
 }
 
 // TypeError - an error indicating expected and actual value for a type mismatch
-func TypeError(typeSym AnyType, obj AnyType) error {
+func TypeError(typeSym LAny, obj LAny) error {
 	return Error("Type error: expected ", typeSym, ", got ", obj)
 }
 

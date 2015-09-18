@@ -57,32 +57,32 @@ type Code struct {
 	name           string
 	ops            []int
 	argc           int
-	defaults       []AnyType
-	keys           []AnyType
-	symClosure     AnyType
-	symFunction    AnyType
-	symLiteral     AnyType
-	symLocal       AnyType
-	symSetLocal    AnyType
-	symGlobal      AnyType
-	symJump        AnyType
-	symJumpFalse   AnyType
-	symCall        AnyType
-	symTailCall    AnyType
-	symReturn      AnyType
-	symPop         AnyType
-	symDefGlobal   AnyType
-	symUndefGlobal AnyType
-	symDefMacro    AnyType
-	symUse         AnyType
-	symCar         AnyType
-	symCdr         AnyType
-	symNull        AnyType
-	symAdd         AnyType
-	symMul         AnyType
+	defaults       []LAny
+	keys           []LAny
+	symClosure     LAny
+	symFunction    LAny
+	symLiteral     LAny
+	symLocal       LAny
+	symSetLocal    LAny
+	symGlobal      LAny
+	symJump        LAny
+	symJumpFalse   LAny
+	symCall        LAny
+	symTailCall    LAny
+	symReturn      LAny
+	symPop         LAny
+	symDefGlobal   LAny
+	symUndefGlobal LAny
+	symDefMacro    LAny
+	symUse         LAny
+	symCar         LAny
+	symCdr         LAny
+	symNull        LAny
+	symAdd         LAny
+	symMul         LAny
 }
 
-func newCode(argc int, defaults []AnyType, keys []AnyType, name string) *Code {
+func newCode(argc int, defaults []LAny, keys []LAny, name string) *Code {
 	var ops []int
 	code := Code{
 		name,
@@ -118,17 +118,17 @@ func newCode(argc int, defaults []AnyType, keys []AnyType, name string) *Code {
 var typeCode = intern("<code>")
 
 // Type returns the type of the code
-func (*Code) Type() AnyType {
+func (*Code) Type() LAny {
 	return typeCode
 }
 
 // Value returns the object itself for primitive types
-func (code *Code) Value() AnyType {
+func (code *Code) Value() LAny {
 	return code
 }
 
 // Equal returns true if the object is equal to the argument
-func (code *Code) Equal(another AnyType) bool {
+func (code *Code) Equal(another LAny) bool {
 	if c, ok := another.(*Code); ok {
 		return code == c
 	}
@@ -271,7 +271,7 @@ func (code *Code) String() string {
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *Code) loadOps(lst AnyType) error {
+func (code *Code) loadOps(lst LAny) error {
 	name := ""
 	for lst != EmptyList {
 		instr := car(lst)
@@ -285,8 +285,8 @@ func (code *Code) loadOps(lst AnyType) error {
 			lstFunc = cdr(lstFunc)
 			funcParams := car(lstFunc)
 			var argc int
-			var defaults []AnyType
-			var keys []AnyType
+			var defaults []LAny
+			var keys []LAny
 			var err error
 			if isSymbol(funcParams) {
 				//legacy form, just the argc
@@ -296,7 +296,7 @@ func (code *Code) loadOps(lst AnyType) error {
 				}
 				if argc < 0 {
 					argc = -argc - 1
-					defaults = make([]AnyType, 0)
+					defaults = make([]LAny, 0)
 				}
 			} else if isList(funcParams) && length(funcParams) == 3 {
 				a := car(funcParams)
@@ -305,11 +305,11 @@ func (code *Code) loadOps(lst AnyType) error {
 					return Error("Bad lap format: ", funcParams)
 				}
 				b := cadr(funcParams)
-				if ary, ok := b.(*ArrayType); ok {
+				if ary, ok := b.(*LArray); ok {
 					defaults = ary.elements
 				}
 				c := caddr(funcParams)
-				if ary, ok := c.(*ArrayType); ok {
+				if ary, ok := c.(*LArray); ok {
 					keys = ary.elements
 				}
 			} else {
@@ -396,12 +396,12 @@ func (code *Code) loadOps(lst AnyType) error {
 	return nil
 }
 
-func (code *Code) emitLiteral(val AnyType) {
+func (code *Code) emitLiteral(val LAny) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *Code) emitGlobal(sym AnyType) {
+func (code *Code) emitGlobal(sym LAny) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
@@ -429,15 +429,15 @@ func (code *Code) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *Code) emitDefGlobal(sym AnyType) {
+func (code *Code) emitDefGlobal(sym LAny) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitUndefGlobal(sym AnyType) {
+func (code *Code) emitUndefGlobal(sym LAny) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitDefMacro(sym AnyType) {
+func (code *Code) emitDefMacro(sym LAny) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, putConstant(sym))
 }
@@ -468,7 +468,7 @@ func (code *Code) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *Code) emitUse(sym AnyType) {
+func (code *Code) emitUse(sym LAny) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, putConstant(sym))
 }

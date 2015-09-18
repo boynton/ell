@@ -36,8 +36,8 @@ func fileReadable(path string) bool {
 	return false
 }
 
-// InputPort - an object to read from
-type InputPort struct {
+// Input - an object to read from
+type Input struct {
 	file   *os.File
 	reader *dataReader
 	name   string
@@ -46,55 +46,55 @@ type InputPort struct {
 var typeInput = intern("<input>")
 var typeOutput = intern("<input>")
 
-func isInputPort(obj AnyType) bool {
-	_, ok := obj.(*InputPort)
+func isInput(obj LAny) bool {
+	_, ok := obj.(*Input)
 	return ok
 }
 
 // Type returns the type of the object
-func (*InputPort) Type() AnyType {
+func (*Input) Type() LAny {
 	return typeInput
 }
 
 // Value returns the object itself for primitive types
-func (in *InputPort) Value() AnyType {
+func (in *Input) Value() LAny {
 	return in
 }
 
-func (in *InputPort) String() string {
+func (in *Input) String() string {
 	if in.reader == nil {
-		return fmt.Sprintf("<input-port: CLOSED %s>", in.name)
+		return fmt.Sprintf("<input: CLOSED %s>", in.name)
 	}
-	return fmt.Sprintf("<input-port: %s>", in.name)
+	return fmt.Sprintf("<input: %s>", in.name)
 }
 
 // Equal returns true if the object is equal to the argument
-func (in *InputPort) Equal(another AnyType) bool {
-	if a, ok := another.(*InputPort); ok {
+func (in *Input) Equal(another LAny) bool {
+	if a, ok := another.(*Input); ok {
 		return in == a
 	}
 	return false
 }
 
-func readInputPort(inport AnyType) (AnyType, error) {
-	switch in := inport.(type) {
-	case *InputPort:
+func readInput(input LAny) (LAny, error) {
+	switch in := input.(type) {
+	case *Input:
 		return in.read()
 	default:
-		return nil, TypeError(intern("input-port"), inport)
+		return nil, TypeError(intern("input"), input)
 	}
 }
-func closeInputPort(inport AnyType) error {
-	switch in := inport.(type) {
-	case *InputPort:
+func closeInput(input LAny) error {
+	switch in := input.(type) {
+	case *Input:
 		return in.close()
 	default:
-		return TypeError(intern("input-port"), inport)
+		return TypeError(intern("input"), input)
 	}
 }
-func (in *InputPort) read() (AnyType, error) {
+func (in *Input) read() (LAny, error) {
 	if in.reader == nil {
-		return nil, Error("Input port is closed: ", in)
+		return nil, Error("Input is closed: ", in)
 	}
 	obj, err := in.reader.readData()
 	if err != nil {
@@ -105,7 +105,7 @@ func (in *InputPort) read() (AnyType, error) {
 	}
 	return obj, nil
 }
-func (in *InputPort) close() error {
+func (in *Input) close() error {
 	var err error
 	if in.file != nil {
 		err = in.file.Close()
@@ -123,27 +123,25 @@ func fileContents(path string) (string, error) {
 	return string(b), nil
 }
 
-//todo: implement LOutputPort
+//todo: implement Output
 
-func openInputFile(path string) (*InputPort, error) {
+func openInputFile(path string) (*Input, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	r := bufio.NewReader(fi)
 	dr := newDataReader(r)
-	port := InputPort{fi, dr, path}
-	return &port, nil
+	return &Input{fi, dr, path}, nil
 }
 
-func openInputString(input string) *InputPort {
+func openInputString(input string) *Input {
 	r := strings.NewReader(input)
 	dr := newDataReader(r)
-	port := InputPort{nil, dr, input}
-	return &port
+	return &Input{nil, dr, input}
 }
 
-func decode(in io.Reader) (AnyType, error) {
+func decode(in io.Reader) (LAny, error) {
 	br := bufio.NewReader(in)
 	dr := dataReader{br}
 	return dr.readData()
@@ -166,7 +164,7 @@ func (dr *dataReader) ungetChar() error {
 	return dr.in.UnreadByte()
 }
 
-func (dr *dataReader) readData() (AnyType, error) {
+func (dr *dataReader) readData() (LAny, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
@@ -244,7 +242,7 @@ func (dr *dataReader) decodeComment() error {
 	return e
 }
 
-func (dr *dataReader) decodeString() (AnyType, error) {
+func (dr *dataReader) decodeString() (LAny, error) {
 	buf := []byte{}
 	c, e := dr.getChar()
 	escape := false
@@ -298,7 +296,7 @@ func (dr *dataReader) decodeString() (AnyType, error) {
 	return s, e
 }
 
-func (dr *dataReader) decodeList() (AnyType, error) {
+func (dr *dataReader) decodeList() (LAny, error) {
 	items, err := dr.decodeSequence(')')
 	if err != nil {
 		return nil, err
@@ -306,7 +304,7 @@ func (dr *dataReader) decodeList() (AnyType, error) {
 	return toList(items), nil
 }
 
-func (dr *dataReader) decodeArray() (AnyType, error) {
+func (dr *dataReader) decodeArray() (LAny, error) {
 	items, err := dr.decodeSequence(']')
 	if err != nil {
 		return nil, err
@@ -314,7 +312,7 @@ func (dr *dataReader) decodeArray() (AnyType, error) {
 	return toArray(items, len(items)), nil
 }
 
-func (dr *dataReader) decodeStruct() (AnyType, error) {
+func (dr *dataReader) decodeStruct() (LAny, error) {
 	items, err := dr.decodeSequence('}')
 	if err != nil {
 		return nil, err
@@ -322,9 +320,9 @@ func (dr *dataReader) decodeStruct() (AnyType, error) {
 	return newStruct(items)
 }
 
-func (dr *dataReader) decodeSequence(endChar byte) ([]AnyType, error) {
+func (dr *dataReader) decodeSequence(endChar byte) ([]LAny, error) {
 	c, err := dr.getChar()
-	items := []AnyType{}
+	items := []LAny{}
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -351,7 +349,7 @@ func (dr *dataReader) decodeSequence(endChar byte) ([]AnyType, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeAtom(firstChar byte) (AnyType, error) {
+func (dr *dataReader) decodeAtom(firstChar byte) (LAny, error) {
 	s, err := dr.decodeAtomString(firstChar)
 	if err != nil {
 		return nil, err
@@ -373,7 +371,7 @@ func (dr *dataReader) decodeAtom(firstChar byte) (AnyType, error) {
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err == nil {
-		return NumberType(f), nil
+		return LNumber(f), nil
 	}
 	sym := intern(s)
 	return sym, nil
@@ -436,7 +434,7 @@ func namedChar(name string) (rune, error) {
 	}
 }
 
-func (dr *dataReader) decodeReaderMacro() (AnyType, error) {
+func (dr *dataReader) decodeReaderMacro() (LAny, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -506,7 +504,7 @@ func isDelimiter(b byte) bool {
 	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';'
 }
 
-func write(obj AnyType) string {
+func write(obj LAny) string {
 	if obj == nil {
 		panic("null pointer")
 	}
@@ -514,12 +512,12 @@ func write(obj AnyType) string {
 	return elldn
 }
 
-func writeData(obj AnyType, json bool) (string, error) {
+func writeData(obj LAny, json bool) (string, error) {
 	//an error is never returned for non-json
 	switch o := obj.(type) {
-	case BooleanType, NullType:
+	case LBoolean, LNull:
 		return o.String(), nil
-	case *ListType:
+	case *LList:
 		if json {
 			return writeArray(listToArray(o), json)
 		}
@@ -532,13 +530,13 @@ func writeData(obj AnyType, json bool) (string, error) {
 	case StringType:
 		s := encodeString(string(o))
 		return s, nil
-	case *ArrayType:
+	case *LArray:
 		return writeArray(o, json)
-	case *StructType:
+	case *LStruct:
 		return writeStruct(o, json)
-	case NumberType:
+	case LNumber:
 		return o.String(), nil
-	case CharType:
+	case LChar:
 		switch o {
 		case 0:
 			return "#\\null", nil
@@ -575,7 +573,7 @@ func writeData(obj AnyType, json bool) (string, error) {
 	}
 }
 
-func writeList(lst *ListType) string {
+func writeList(lst *LList) string {
 	if lst == EmptyList {
 		return "()"
 	}
@@ -604,7 +602,7 @@ func writeList(lst *ListType) string {
 	return buf.String()
 }
 
-func writeArray(ary *ArrayType, json bool) (string, error) {
+func writeArray(ary *LArray, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(ary.elements)
@@ -631,7 +629,7 @@ func writeArray(ary *ArrayType, json bool) (string, error) {
 	return buf.String(), nil
 }
 
-func writeStruct(m *StructType, json bool) (string, error) {
+func writeStruct(m *LStruct, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
@@ -667,6 +665,6 @@ func writeStruct(m *StructType, json bool) (string, error) {
 //return a JSON string of the object, or an error if it cannot be expressed in JSON
 //this is very close to EllDn, the standard output format. Exceptions:
 //  1. the only symbols allowed are true, false, null
-func toJSON(obj AnyType) (string, error) {
+func toJSON(obj LAny) (string, error) {
 	return writeData(obj, true)
 }

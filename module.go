@@ -21,10 +21,10 @@ import (
 	"strings"
 )
 
-var constantsMap map[AnyType]int = make(map[AnyType]int, 0)
-var constants    []AnyType = make([]AnyType, 0, 1000)
-var globals    []*binding = make([]*binding, 0, 1000)
-var macroMap     map[AnyType]*macro = make(map[AnyType]*macro, 0)
+var constantsMap = make(map[LAny]int, 0)
+var constants = make([]LAny, 0, 1000)
+var globals = make([]*binding, 0, 1000)
+var macroMap = make(map[LAny]*macro, 0)
 
 func checkInterrupt() bool {
 	if interrupts != nil {
@@ -38,7 +38,7 @@ func checkInterrupt() bool {
 	return false
 }
 
-func define(name string, obj AnyType) {
+func define(name string, obj LAny) {
 	sym := intern(name)
 	if sym == nil {
 		panic("Cannot define a value for this symbol: " + name)
@@ -51,7 +51,7 @@ func defineFunction(name string, fun primitive) {
 	if global(sym) != nil {
 		println("*** Warning: redefining ", name)
 	}
-	prim := Primitive{name, fun}
+	prim := LPrimitive{name, fun}
 	defGlobal(sym, &prim)
 }
 
@@ -60,13 +60,13 @@ func defineMacro(name string, fun primitive) {
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
-	prim := Primitive{name, fun}
+	prim := LPrimitive{name, fun}
 	defMacro(sym, &prim)
 }
 
-func getKeywords() []AnyType {
+func getKeywords() []LAny {
 	//keywords reserved for the base language that Ell compiles
-	keywords := []AnyType{
+	keywords := []LAny{
 		intern("quote"),
 		intern("define"),
 		intern("lambda"),
@@ -80,8 +80,8 @@ func getKeywords() []AnyType {
 	return keywords
 }
 
-func getGlobals() []AnyType {
-	syms := make([]AnyType, 0, symtag)
+func getGlobals() []LAny {
+	syms := make([]LAny, 0, symtag)
 	for _, b := range globals {
 		if b != nil {
 			syms = append(syms, b.sym)
@@ -90,7 +90,7 @@ func getGlobals() []AnyType {
 	return syms
 }
 
-func global(sym AnyType) AnyType {
+func global(sym LAny) LAny {
 	s := sym.(*SymbolType)
 	if s.tag >= len(globals) {
 		return nil
@@ -103,22 +103,22 @@ func global(sym AnyType) AnyType {
 }
 
 type binding struct {
-	sym AnyType
-	val AnyType
+	sym LAny
+	val LAny
 }
 
-func defGlobal(sym AnyType, val AnyType) {
+func defGlobal(sym LAny, val LAny) {
 	s := sym.(*SymbolType)
 	if s.tag >= len(globals) {
-		gAnyType := make([]*binding, s.tag+100)
-		copy(gAnyType, globals)
-		globals = gAnyType
+		gLAny := make([]*binding, s.tag+100)
+		copy(gLAny, globals)
+		globals = gLAny
 	}
 	b := binding{sym, val}
 	globals[s.tag] = &b
 }
 
-func isDefined(sym AnyType) bool {
+func isDefined(sym LAny) bool {
 	s := sym.(*SymbolType)
 	if s.tag < len(globals) {
 		return globals[s.tag] != nil
@@ -126,14 +126,14 @@ func isDefined(sym AnyType) bool {
 	return false
 }
 
-func undefGlobal(sym AnyType) {
+func undefGlobal(sym LAny) {
 	s := sym.(*SymbolType)
 	if s.tag < len(globals) {
 		globals[s.tag] = nil
 	}
 }
 
-func setGlobal(sym AnyType, val AnyType) error {
+func setGlobal(sym LAny, val LAny) error {
 	s := sym.(*SymbolType)
 	if s.tag < len(globals) {
 		if globals[s.tag] != nil {
@@ -145,15 +145,15 @@ func setGlobal(sym AnyType, val AnyType) error {
 	return Error("*** Warning: set on undefined global ", sym)
 }
 
-func macros() []AnyType {
-	keys := make([]AnyType, 0, len(macroMap))
+func macros() []LAny {
+	keys := make([]LAny, 0, len(macroMap))
 	for k := range macroMap {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func getMacro(sym AnyType) *macro {
+func getMacro(sym LAny) *macro {
 	mac, ok := macroMap[sym]
 	if !ok {
 		return nil
@@ -161,13 +161,13 @@ func getMacro(sym AnyType) *macro {
 	return mac
 }
 
-func defMacro(sym AnyType, val AnyType) {
+func defMacro(sym LAny, val LAny) {
 	macroMap[sym] = newMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func putConstant(val AnyType) int {
+func putConstant(val LAny) int {
 	idx, present := constantsMap[val]
 	if !present {
 		idx = len(constants)
@@ -177,12 +177,12 @@ func putConstant(val AnyType) int {
 	return idx
 }
 
-func use(sym AnyType) error {
+func use(sym LAny) error {
 	name := sym.String()
 	return loadModule(name)
 }
 
-func importCode(thunk *Code) (AnyType, error) {
+func importCode(thunk *Code) (LAny, error) {
 	result, err := exec(thunk)
 	if err != nil {
 		return nil, err
@@ -252,7 +252,7 @@ func loadFile(file string) error {
 	}
 }
 
-func eval(expr AnyType) (AnyType, error) {
+func eval(expr LAny) (LAny, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
@@ -289,7 +289,7 @@ func findModuleFile(name string) (string, error) {
 	return name, nil
 }
 
-func compileObject(expr AnyType) (string, error) {
+func compileObject(expr LAny) (string, error) {
 	if verbose {
 		println("; compile: ", write(expr))
 	}
@@ -311,7 +311,7 @@ func compileObject(expr AnyType) (string, error) {
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func compileFile(name string) (AnyType, error) {
+func compileFile(name string) (LAny, error) {
 	file, err := findModuleFile(name)
 	if err != nil {
 		return nil, err

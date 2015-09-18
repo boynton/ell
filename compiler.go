@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-func compile(expr AnyType) (*Code, error) {
+func compile(expr LAny) (*Code, error) {
 	code := newCode(0, nil, nil, "")
 	err := compileExpr(code, EmptyList, expr, false, false, "")
 	if err != nil {
@@ -26,13 +26,13 @@ func compile(expr AnyType) (*Code, error) {
 	return code, nil
 }
 
-func calculateLocation(sym AnyType, env *ListType) (int, int, bool) {
+func calculateLocation(sym LAny, env *LList) (int, int, bool) {
 	i := 0
 	for env != EmptyList {
 		j := 0
 		e := car(env)
 		switch ee := e.(type) {
-		case *ListType:
+		case *LList:
 			for ee != EmptyList {
 				if car(ee) == sym {
 					return i, j, true
@@ -47,7 +47,7 @@ func calculateLocation(sym AnyType, env *ListType) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(code *Code, env *ListType, expr AnyType, isTail bool, ignoreResult bool, context string) error {
+func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bool, context string) error {
 	if isKeyword(expr) || isType(expr) {
 		if !ignoreResult {
 			code.emitLiteral(expr)
@@ -220,7 +220,7 @@ func compileExpr(code *Code, env *ListType, expr AnyType, isTail bool, ignoreRes
 			// (<fn> <arg> ...)
 			return compileFuncall(code, env, fn, cdr(lst), isTail, ignoreResult, context)
 		}
-	} else if ary, ok := expr.(*ArrayType); ok {
+	} else if ary, ok := expr.(*LArray); ok {
 		//array literal: the elements are evaluated
 		alen := len(ary.elements)
 		for i := alen - 1; i >= 0; i-- {
@@ -235,11 +235,11 @@ func compileExpr(code *Code, env *ListType, expr AnyType, isTail bool, ignoreRes
 			code.emitReturn()
 		}
 		return nil
-	} else if aStruct, ok := expr.(*StructType); ok {
+	} else if aStruct, ok := expr.(*LStruct); ok {
 		//struct literal: the elements are evaluated
 		slen := len(aStruct.bindings)
-		vlen := slen*2
-		vals := make([]AnyType, 0, vlen)
+		vlen := slen * 2
+		vals := make([]LAny, 0, vlen)
 		for k, v := range aStruct.bindings {
 			vals = append(vals, k)
 			vals = append(vals, v)
@@ -266,24 +266,24 @@ func compileExpr(code *Code, env *ListType, expr AnyType, isTail bool, ignoreRes
 	return nil
 }
 
-func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTail bool, ignoreResult bool, context string) error {
+func compileLambda(code *Code, env *LList, args LAny, body *LList, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
-	syms := []AnyType{}
-	var defaults []AnyType
-	var keys []AnyType
+	syms := []LAny{}
+	var defaults []LAny
+	var keys []LAny
 	tmp := args
 	rest := false
 	if !isSymbol(args) {
 		for tmp != EmptyList {
 			a := car(tmp)
-			if ary, ok := a.(*ArrayType); ok {
+			if ary, ok := a.(*LArray); ok {
 				//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
 				if cdr(tmp) != EmptyList {
 					return SyntaxError(tmp)
 				}
-				defaults = make([]AnyType, 0, len(ary.elements))
+				defaults = make([]LAny, 0, len(ary.elements))
 				for _, sym := range ary.elements {
-					def := AnyType(Null)
+					def := LAny(Null)
 					if isList(sym) {
 						def = cadr(sym)
 						sym = car(sym)
@@ -296,20 +296,20 @@ func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTa
 				}
 				tmp = EmptyList
 				break
-			} else if sp, ok := a.(*StructType); ok {
+			} else if sp, ok := a.(*LStruct); ok {
 				//i.e. (x {y: 23, z: 57}]) is for optional y and z, keyword args, with defaults
 				if cdr(tmp) != EmptyList {
 					return SyntaxError(tmp)
 				}
-				defaults = make([]AnyType, 0, len(sp.bindings))
-				keys = make([]AnyType, 0, len(sp.bindings))
+				defaults = make([]LAny, 0, len(sp.bindings))
+				keys = make([]LAny, 0, len(sp.bindings))
 				for sym, defValue := range sp.bindings {
 					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {
 						var err error
 						sym, err = unkeyworded(sym) //returns sym itself if not a keyword, otherwise strips the colon
-						if err != nil { //not a symbol or keyword
+						if err != nil {             //not a symbol or keyword
 							return SyntaxError(tmp)
 						}
 					}
@@ -331,7 +331,7 @@ func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTa
 			} else {
 				if rest {
 					syms = append(syms, a) //note: added, but argv not incremented
-					defaults = make([]AnyType, 0)
+					defaults = make([]LAny, 0)
 					tmp = EmptyList
 					break
 				}
@@ -344,7 +344,7 @@ func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTa
 	if tmp != EmptyList { //entire arglist bound to a single variable
 		if isSymbol(tmp) {
 			syms = append(syms, tmp) //note: added, but argv not incremented
-			defaults = make([]AnyType, 0)
+			defaults = make([]LAny, 0)
 		} else {
 			return SyntaxError(tmp)
 		}
@@ -364,7 +364,7 @@ func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTa
 	return err
 }
 
-func compileSequence(code *Code, env *ListType, exprs *ListType, isTail bool, ignoreResult bool, context string) error {
+func compileSequence(code *Code, env *LList, exprs *LList, isTail bool, ignoreResult bool, context string) error {
 	if exprs != EmptyList {
 		for cdr(exprs) != EmptyList {
 			err := compileExpr(code, env, car(exprs), false, true, context)
@@ -378,7 +378,7 @@ func compileSequence(code *Code, env *ListType, exprs *ListType, isTail bool, ig
 	return SyntaxError(cons(intern("begin"), exprs))
 }
 
-func compileFuncall(code *Code, env *ListType, fn AnyType, args *ListType, isTail bool, ignoreResult bool, context string) error {
+func compileFuncall(code *Code, env *LList, fn LAny, args *LList, isTail bool, ignoreResult bool, context string) error {
 	argc := length(args)
 	if argc < 0 {
 		return SyntaxError(cons(fn, args))
@@ -411,7 +411,7 @@ func compileFuncall(code *Code, env *ListType, fn AnyType, args *ListType, isTai
 	return nil
 }
 
-func compileArgs(code *Code, env *ListType, args *ListType, context string) error {
+func compileArgs(code *Code, env *LList, args *LList, context string) error {
 	if args != EmptyList {
 		err := compileArgs(code, env, cdr(args), context)
 		if err != nil {
@@ -422,7 +422,7 @@ func compileArgs(code *Code, env *ListType, args *ListType, context string) erro
 	return nil
 }
 
-func compilePrimopCall(code *Code, fn AnyType, argc int, isTail bool, ignoreResult bool) (bool, error) {
+func compilePrimopCall(code *Code, fn LAny, argc int, isTail bool, ignoreResult bool) (bool, error) {
 	switch fn {
 	case intern("car"):
 		if argc != 1 {
@@ -460,8 +460,8 @@ func compilePrimopCall(code *Code, fn AnyType, argc int, isTail bool, ignoreResu
 	return true, nil
 }
 
-func compileIfElse(code *Code, env *ListType, predicate AnyType, consequent AnyType, antecedentOptional AnyType, isTail bool, ignoreResult bool, context string) error {
-	var antecedent AnyType = Null
+func compileIfElse(code *Code, env *LList, predicate LAny, consequent LAny, antecedentOptional LAny, isTail bool, ignoreResult bool, context string) error {
+	var antecedent LAny = Null
 	if antecedentOptional != EmptyList {
 		antecedent = car(antecedentOptional)
 	}
@@ -488,7 +488,7 @@ func compileIfElse(code *Code, env *ListType, predicate AnyType, consequent AnyT
 	return err
 }
 
-func compileUse(code *Code, rest *ListType) error {
+func compileUse(code *Code, rest *LList) error {
 	lstlen := length(rest)
 	if lstlen != 1 {
 		//to do: other options for use.
@@ -503,6 +503,6 @@ func compileUse(code *Code, rest *ListType) error {
 }
 
 //SyntaxError returns an error indicating that the given expression has bad syntax
-func SyntaxError(expr AnyType) error {
+func SyntaxError(expr LAny) error {
 	return Error("Syntax error: ", expr)
 }
