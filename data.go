@@ -1298,7 +1298,11 @@ func structToList(obj AnyType) (AnyType, error) {
 //
 func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("%v", arg1))
+	if l, ok := arg1.(AnyType); ok {
+		buf.WriteString(fmt.Sprintf("%v", write(l)))
+	} else {
+		buf.WriteString(fmt.Sprintf("%v", arg1))
+		}
 	for _, o := range args {
 		if l, ok := o.(AnyType); ok {
 			buf.WriteString(fmt.Sprintf("%v", write(l)))

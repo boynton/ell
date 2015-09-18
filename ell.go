@@ -102,6 +102,7 @@ func Ell(module *Module) {
 	module.defineFunction("newline", ellNewline)
 	module.defineFunction("print", ellPrint)
 	module.defineFunction("println", ellPrintln)
+	module.defineFunction("write-to-string", ellWriteToString)
 
 	module.defineFunction("number?", elNumberTypeP) // either float or int
 	module.defineFunction("int?", ellIntP)          //int only
@@ -345,6 +346,16 @@ func ellFatal(argv []AnyType, argc int) (AnyType, error) {
 		s += fmt.Sprintf("%v", o)
 	}
 	return nil, Error(s)
+}
+
+
+func ellWriteToString(argv []AnyType, argc int) (AnyType, error) {
+	if argc != 1 {
+		return ArgcError("write-to-string", "1", argc)
+	}
+	s := write(argv[0])
+	return StringType(s), nil
+	
 }
 
 func ellPrint(argv []AnyType, argc int) (AnyType, error) {
