@@ -96,17 +96,17 @@ func exec(code *Code, args ...LAny) (LAny, error) {
 	return result, err
 }
 
-// LVM - the Ell VM
-type LVM struct {
+// VM - the Ell VM
+type VM struct {
 	stackSize int
 }
 
-func newVM(stackSize int) *LVM {
-	return &LVM{stackSize}
+func newVM(stackSize int) *VM {
+	return &VM{stackSize}
 }
 
-// LInstruction - a primitive instruction for the LVM
-type LInstruction int
+// LInstruction - a primitive instruction for the VM
+type LInstruction int // <function>
 
 // Apply is a primitive instruction to apply a function to a list of arguments
 var Apply = LInstruction(0)
@@ -144,8 +144,8 @@ func (s LInstruction) String() string {
 
 type primitive func(argv []LAny, argc int) (LAny, error)
 
-// LPrimitive - a primitive function, written in Go, callable by LVM
-type LPrimitive struct {
+// LPrimitive - a primitive function, written in Go, callable by VM
+type LPrimitive struct { // <function>
 	name string
 	fun  primitive
 }
@@ -196,7 +196,7 @@ func (frame frame) String() string {
 }
 
 // LClosure - an Ell closure formed over some compiled code and the current environment
-type LClosure struct {
+type LClosure struct { // <function>
 	code  *Code
 	frame *frame
 }
@@ -323,7 +323,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 	return f, nil
 }
 
-func (vm *LVM) exec(code *Code, args []LAny) (LAny, error) {
+func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 	stack := make([]LAny, vm.stackSize)
 	sp := vm.stackSize
 	env := new(frame)

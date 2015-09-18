@@ -26,7 +26,7 @@ import (
 //
 // LAny is the generic Ell object. It supports querying its symbolic type name at runtime
 //
-type LAny interface {
+type LAny interface { // <any> - the interface all Lxxx types must implement
 	Type() LAny
 	Value() LAny
 	Equal(another LAny) bool
@@ -36,7 +36,7 @@ type LAny interface {
 //
 // LNull is the type of the null value
 //
-type LNull int
+type LNull int // <null>
 
 var typeNull = intern("<null>")
 
@@ -65,7 +65,7 @@ func (v LNull) String() string {
 //
 // LEOF is the type of the EOF marker
 //
-type LEOF int
+type LEOF int // <eof>
 
 // EOF is Ell's EOF object
 const EOF = LEOF(0)
@@ -94,7 +94,7 @@ func (LEOF) String() string {
 //
 // LBoolean is the type of true and false
 //
-type LBoolean bool
+type LBoolean bool // <boolean>
 
 //True is Ell's true constant
 const True LBoolean = LBoolean(true)
@@ -379,7 +379,7 @@ func (s StringType) String() string {
 //
 // LChar - Ell characters
 //
-type LChar rune
+type LChar rune // <char>
 
 var typeChar = intern("<char>")
 
@@ -422,7 +422,7 @@ func (i LChar) String() string {
 //
 // LNumber - Ell numbers
 //
-type LNumber float64
+type LNumber float64 // <number>
 
 var typeNumber = intern("<number>")
 
@@ -707,7 +707,7 @@ func div(argv []LAny, argc int) (LAny, error) {
 //
 // LList - Ell lists
 //
-type LList struct {
+type LList struct { // <list>
 	car LAny
 	cdr *LList
 }
@@ -1011,7 +1011,7 @@ func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 //
 // LArray - Ell Arrays
 //
-type LArray struct {
+type LArray struct { // <array>
 	elements []LAny
 }
 
@@ -1116,7 +1116,7 @@ func arrayRef(ary LAny, idx int) (LAny, error) {
 }
 
 // LInstance is a typed value
-type LInstance struct {
+type LInstance struct { // <user-defined-type>
 	tag   *SymbolType
 	value LAny
 }
@@ -1162,7 +1162,7 @@ func (s *LInstance) String() string {
 //
 // LStruct - Ell structs (objects). They are extensible, having a special type symbol in them.
 //
-type LStruct struct {
+type LStruct struct { // <struct>
 	bindings map[LAny]LAny
 }
 
