@@ -379,6 +379,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			}
 			sym := constants[ops[pc+1]]
 			defMacro(sym, stack[sp])
+			stack[sp] = sym
 			pc += 2
 		case opcodeLocal:
 			if trace {
