@@ -126,6 +126,11 @@ func (Instruction) Type() AnyType {
 	return typeFunction
 }
 
+// Value returns the object itself for primitive types
+func (s Instruction) Value() AnyType {
+	return s
+}
+
 // Equal returns true if the object is equal to the argument
 func (s Instruction) Equal(another AnyType) bool {
 	if a, ok := another.(Instruction); ok {
@@ -157,6 +162,11 @@ var typeFunction = intern("<function>")
 // Type returns the type of the object
 func (prim *Primitive) Type() AnyType {
 	return typeFunction
+}
+
+// Value returns the object itself for primitive types
+func (prim *Primitive) Value() AnyType {
+	return prim
 }
 
 // Equal returns true if the object is equal to the argument
@@ -202,6 +212,11 @@ type Closure struct {
 // Type returns the type of the object
 func (Closure) Type() AnyType {
 	return typeFunction
+}
+
+// Value returns the object itself for primitive types
+func (closure *Closure) Value() AnyType {
+	return closure
 }
 
 // Equal returns true if the object is equal to the argument
@@ -295,7 +310,7 @@ func buildFrame(env *frame, pc int, ops []int, module *Module, fun *Closure, arg
 			el[i] = defaults[i-expectedArgc]
 		}
 		for i := expectedArgc; i < argc; i += 2 {
-			key, err := unkeyword(stack[sp+i])
+			key, err := keywordToSymbol(stack[sp+i])
 			if err != nil {
 				return nil, Error("Bad keyword argument: ", stack[sp+1])
 			}
@@ -656,8 +671,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				println(pc, "\tstruct\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			typesym := stack[sp].(*SymbolType)
-			v, _ := newInstance(typesym, stack[sp+1:sp+vlen]) //To do: extend to other types
+			v, _ := newStruct(stack[sp:sp+vlen])
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2

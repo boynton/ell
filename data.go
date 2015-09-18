@@ -28,6 +28,7 @@ import (
 //
 type AnyType interface {
 	Type() AnyType
+	Value() AnyType
 	Equal(another AnyType) bool
 	String() string
 }
@@ -45,6 +46,11 @@ const Null = NullType(0)
 // Type returns the type of the object
 func (NullType) Type() AnyType {
 	return typeNull
+}
+
+// Value returns the object itself for primitive types
+func (NullType) Value() AnyType {
+	return Null
 }
 
 // Equal returns true if the object is equal to the argument
@@ -69,6 +75,11 @@ var typeEOF = intern("<eof>")
 // Type returns the type of the object
 func (EOFType) Type() AnyType {
 	return typeEOF
+}
+
+// Value returns the object itself for primitive types
+func (EOFType) Value() AnyType {
+	return EOF
 }
 
 // Equal returns true if the object is equal to the argument
@@ -101,6 +112,11 @@ func isBoolean(obj AnyType) bool {
 // Type returns the type of the object
 func (BooleanType) Type() AnyType {
 	return typeBoolean
+}
+
+// Value returns the object itself for primitive types
+func (b BooleanType) Value() AnyType {
+	return b
 }
 
 // Equal returns true if the object is equal to the argument
@@ -171,7 +187,8 @@ var typeSymbol = intern("<symbol>")
 var typeKeyword = intern("<keyword>")
 var typeType = intern("<type>")
 
-// Type returns the type of the object
+// Type returns the type of the object. Since SymbolType represents keywords, types, and regular
+// symbols, it could return any of those three values
 func (sym *SymbolType) Type() AnyType {
 	if sym.tag == keywordTag {
 		return typeKeyword
@@ -179,6 +196,11 @@ func (sym *SymbolType) Type() AnyType {
 		return typeType
 	}
 	return typeSymbol
+}
+
+// Value returns the object itself for primitive types
+func (sym *SymbolType) Value() AnyType {
+	return sym
 }
 
 // Equal returns true if the object is equal to the argument
@@ -191,14 +213,6 @@ func (sym *SymbolType) Equal(another AnyType) bool {
 
 func (sym *SymbolType) String() string {
 	return sym.Name
-}
-
-func isSymbolKeyword(sym *SymbolType) bool {
-	return sym.tag == keywordTag
-}
-
-func isSymbolType(sym *SymbolType) bool {
-	return sym.tag == typeTag
 }
 
 func isSymbol(obj AnyType) bool {
@@ -216,48 +230,42 @@ func isKeyword(obj AnyType) bool {
 	return ok && sym.tag == keywordTag
 }
 
-func unKeywordString(sym *SymbolType) string {
-	if isSymbolKeyword(sym) {
+func typeName(obj AnyType) (*SymbolType, error) {
+	sym, ok := obj.(*SymbolType)
+	if ok && sym.tag == typeTag {
+		return intern(sym.Name[1 : len(sym.Name)-1]), nil
+	}
+	return nil, Error("Type error: expected <type>, got ", obj)
+}
+
+func unkeywordedString(sym *SymbolType) string {
+	if sym.tag == keywordTag {
 		return sym.Name[:len(sym.Name)-1]
 	}
 	return sym.Name
 }
 
-func typeName(obj AnyType) (*SymbolType, error) {
-	switch t := obj.(type) {
-	case *SymbolType:
-		if !isSymbolType(t) {
-			return nil, TypeError(typeType, obj)
+func unkeyworded(obj AnyType) (AnyType, error) {
+	sym, ok := obj.(*SymbolType)
+	if ok {
+		switch sym.tag {
+		case keywordTag:
+			return intern(sym.Name[:len(sym.Name)-1]), nil
+		case typeTag:
+			//nothing
+		default: //already a regular symbol
+			return obj, nil
 		}
-		return intern(t.Name[1 : len(t.Name)-1]), nil
-	default:
-		return nil, Error("Type error: expected symbol or string, got ", obj)
 	}
+	return nil, Error("Type error: expected <keyword> or <symbol>, got ", obj)
 }
 
-func unkeyword(obj AnyType) (AnyType, error) {
-	switch t := obj.(type) {
-	case NullType:
-		return obj, nil
-	case *SymbolType:
-		last := len(t.Name) - 1 //can never be less than 0, symbols always have len > 0
-		if t.Name[last] != ':' {
-			return obj, nil
-		}
-		return intern(t.Name[:last]), nil
-	case StringType:
-		s := string(t)
-		last := len(s) - 1
-		if last < 0 {
-			return obj, nil
-		}
-		if s[last] == ':' {
-			s = s[:last]
-		}
-		return intern(s), nil
-	default:
-		return nil, Error("Type error: expected symbol or string, got ", obj)
+func keywordToSymbol(obj AnyType) (AnyType, error) {
+	sym, ok := obj.(*SymbolType)
+	if ok && sym.tag == keywordTag {
+		return intern(sym.Name[:len(sym.Name)-1]), nil
 	}
+	return nil, Error("Type error: expected <keyword>, got ", obj)
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
@@ -319,6 +327,11 @@ func (StringType) Type() AnyType {
 	return typeString
 }
 
+// Value returns the object itself for primitive types
+func (s StringType) Value() AnyType {
+	return s
+}
+
 // Equal returns true if the object is equal to the argument
 func (s StringType) Equal(another AnyType) bool {
 	if a, ok := another.(StringType); ok {
@@ -372,7 +385,7 @@ func (s StringType) String() string {
 //
 type CharType rune
 
-var symCharType = intern("<char>")
+var typeChar = intern("<char>")
 
 func isChar(obj AnyType) bool {
 	_, ok := obj.(CharType)
@@ -389,7 +402,12 @@ func newCharacter(c rune) CharType {
 
 // Type returns the type of the object
 func (CharType) Type() AnyType {
-	return symCharType
+	return typeChar
+}
+
+// Value returns the object itself for primitive types
+func (i CharType) Value() AnyType {
+	return i
 }
 
 // Equal returns true if the object is equal to the argument
@@ -415,6 +433,11 @@ var typeNumber = intern("<number>")
 // Type returns the type of the object
 func (NumberType) Type() AnyType {
 	return typeNumber
+}
+
+// Value returns the object itself for primitive types
+func (f NumberType) Value() AnyType {
+	return f
 }
 
 func (f NumberType) String() string {
@@ -736,6 +759,11 @@ func (*ListType) Type() AnyType {
 	return typeList
 }
 
+// Value returns the object itself for primitive types
+func (lst *ListType) Value() AnyType {
+	return lst
+}
+
 // Equal returns true if the object is equal to the argument
 func (lst *ListType) Equal(another AnyType) bool {
 	if a, ok := another.(*ListType); ok {
@@ -919,7 +947,7 @@ func arrayToList(ary AnyType) (AnyType, error) {
 }
 
 func length(seq AnyType) int {
-	switch v := seq.(type) {
+	switch v := seq.Value().(type) {
 	case StringType:
 		return len(v)
 	case *ArrayType:
@@ -930,6 +958,35 @@ func length(seq AnyType) int {
 		return len(v.bindings)
 	default:
 		return -1
+	}
+}
+
+func assoc(seq AnyType, key AnyType, val AnyType) (AnyType, error) {
+	switch s := seq.(type) {
+	case *StructType:
+		s2 := copyStruct(s)
+		s2.bindings[key] = val
+		return s2, nil
+	case *ArrayType:
+		if idx, ok := key.(NumberType); ok {
+			a := copyArray(s)
+			a.elements[int(idx)] = val
+			return a, nil
+		}
+		return nil, TypeError(typeNumber, key)
+	default:
+		return nil, Error("Cannot assoc with this value: ", seq)
+	}
+}
+
+func dissoc(seq AnyType, key AnyType) (AnyType, error) {
+	switch s := seq.(type) {
+	case *StructType:
+		s2 := copyStruct(s)
+		delete(s2.bindings, key)
+		return s2, nil
+	default:
+		return nil, Error("Cannot dissoc with this value: ", seq)
 	}
 }
 
@@ -974,6 +1031,11 @@ func (*ArrayType) Type() AnyType {
 	return typeArray
 }
 
+// Value returns the object itself for primitive types
+func (ary *ArrayType) Value() AnyType {
+	return ary
+}
+
 // Equal returns true if the object is equal to the argument
 func (ary *ArrayType) Equal(another AnyType) bool {
 	if a, ok := another.(*ArrayType); ok {
@@ -1014,18 +1076,19 @@ func newArray(size int, init AnyType) *ArrayType {
 }
 
 func array(elements ...AnyType) AnyType {
-	size := len(elements)
-	el := make([]AnyType, size)
-	for i := 0; i < size; i++ {
-		el[i] = elements[i]
-	}
-	return &ArrayType{el}
+	return toArray(elements, len(elements))
 }
 
 func toArray(elements []AnyType, count int) AnyType {
 	el := make([]AnyType, count)
 	copy(el, elements[0:count])
 	return &ArrayType{el}
+}
+
+func copyArray(a *ArrayType) *ArrayType {
+	elements := make([]AnyType, len(a.elements))
+	copy(elements, a.elements)
+	return &ArrayType{elements}
 }
 
 func (ary *ArrayType) length() int {
@@ -1060,11 +1123,53 @@ func arrayRef(ary AnyType, idx int) (AnyType, error) {
 	return nil, TypeError(typeArray, ary)
 }
 
+type Instance struct {
+	tag  *SymbolType
+	value AnyType
+}
+
+func instance(tag AnyType, val AnyType) (AnyType, error) {
+	sym, ok := tag.(*SymbolType)
+	if !ok || !isValidTypeName(sym.Name) {
+		return nil, TypeError(typeType, tag)
+	}
+	switch sym {
+	case typeString, typeNumber, typeNull, typeBoolean, typeChar, typeEOF:
+		return val, nil
+	case typeStruct, typeList, typeArray, typeSymbol, typeFunction, typeInput, typeOutput:
+		return val, nil
+	default:
+		return &Instance{tag: sym, value: val}, nil
+	}
+}
+
+// Type returns the type of the object
+func (s *Instance) Type() AnyType {
+	return s.tag
+}
+
+// Type returns the type of the object
+func (s *Instance) Value() AnyType {
+	return s.value
+}
+
+// Equal returns true if the object is equal to the argument
+func (s *Instance) Equal(another AnyType) bool {
+	if a, ok := another.(*Instance); ok {
+		return s.tag == a.tag && s.value.Equal(a.value)
+	}
+	return false
+}
+
+// String of a instance, i.e. #<point>{x: 1 y: 2} or #<uuid>"0bbbc94a-5e14-11e5-81e6-003ee1be85f9"
+func (s *Instance) String() string {
+	return "#" + s.tag.String() + write(s.value)
+}
+
 //
 // StructType - Ell structs (objects). They are extensible, having a special type symbol in them.
 //
 type StructType struct {
-	typesym  *SymbolType
 	bindings map[AnyType]AnyType
 }
 
@@ -1072,7 +1177,12 @@ var typeStruct = intern("<struct>")
 
 // Type returns the type of the object
 func (s *StructType) Type() AnyType {
-	return s.typesym
+	return typeStruct
+}
+
+// Value returns the object itself for primitive types
+func (s *StructType) Value() AnyType {
+	return s
 }
 
 func sliceContains(slice []AnyType, obj AnyType) bool {
@@ -1089,7 +1199,7 @@ func normalizeKeywordArgs(args *ListType, keys []AnyType) (*ListType, error) {
 	bindings := make(map[AnyType]AnyType, count/2)
 	for args != EmptyList {
 		key := car(args)
-		switch t := key.(type) {
+		switch t := key.Value().(type) {
 		case *SymbolType:
 			if !isKeyword(key) {
 				key = intern(t.String() + ":")
@@ -1123,17 +1233,22 @@ func normalizeKeywordArgs(args *ListType, keys []AnyType) (*ListType, error) {
 	return toList(lst), nil
 }
 
-func newInstance(typesym *SymbolType, fieldvals []AnyType) (*StructType, error) {
-	if !isType(typesym) {
-		return nil, TypeError(typeType, typesym)
+func copyStruct(s *StructType) *StructType {
+	bindings := make(map[AnyType]AnyType, len(s.bindings))
+	for k, v := range s.bindings {
+		bindings[k] = v
 	}
+	return &StructType{bindings}
+}
+
+func newStruct(fieldvals []AnyType) (*StructType, error) {
 	count := len(fieldvals)
 	i := 0
 	bindings := make(map[AnyType]AnyType, count/2) //optimal if all key/value pairs
 	for i < count {
 		o := fieldvals[i]
 		i++
-		switch t := o.(type) {
+		switch t := o.Value().(type) {
 		case NullType:
 			//ignore
 		case StringType:
@@ -1146,9 +1261,6 @@ func newInstance(typesym *SymbolType, fieldvals []AnyType) (*StructType, error) 
 			if i == count {
 				return nil, Error("mismatched keyword/value in arglist: ", o)
 			}
-			if !isSymbolKeyword(t) {
-				o = intern(t.String() + ":")
-			}
 			bindings[o] = fieldvals[i]
 			i++
 		case *StructType:
@@ -1159,11 +1271,7 @@ func newInstance(typesym *SymbolType, fieldvals []AnyType) (*StructType, error) 
 			return nil, Error("bad parameter to instance: ", o)
 		}
 	}
-	return &StructType{typesym, bindings}, nil
-}
-
-func newStruct(pairwiseBindings ...AnyType) (*StructType, error) {
-	return newInstance(typeStruct, pairwiseBindings)
+	return &StructType{bindings}, nil
 }
 
 func isStruct(obj AnyType) bool {
@@ -1171,37 +1279,21 @@ func isStruct(obj AnyType) bool {
 	return ok
 }
 
-func asStruct(o AnyType) (*StructType, error) {
-	if o == Null {
-		return newStruct()
-	}
-	switch t := o.(type) {
-	case *StructType:
-		if t.typesym == typeStruct {
-			return t, nil
-		}
-		return &StructType{typeStruct, t.bindings}, nil
-	}
-	return nil, Error("Cannot convert to struct: ", o)
-}
-
 // Equal returns true if the object is equal to the argument
 func (s *StructType) Equal(another AnyType) bool {
 	if a, ok := another.(*StructType); ok {
-		if s.typesym == a.typesym {
-			slen := len(s.bindings)
-			if slen == len(a.bindings) {
-				for k, v := range s.bindings {
-					if v2, ok := a.bindings[k]; ok {
-						if !equal(v, v2) {
-							return false
-						}
-					} else {
+		slen := len(s.bindings)
+		if slen == len(a.bindings) {
+			for k, v := range s.bindings {
+				if v2, ok := a.bindings[k]; ok {
+					if !equal(v, v2) {
 						return false
 					}
+				} else {
+					return false
 				}
-				return true
 			}
+			return true
 		}
 	}
 	return false
@@ -1213,11 +1305,6 @@ func (s *StructType) length() int {
 
 func (s *StructType) String() string {
 	var buf bytes.Buffer
-	if s.typesym != typeStruct {
-		buf.WriteString("#")
-		n, _ := typeName(s.typesym)
-		buf.WriteString(n.String())
-	}
 	buf.WriteString("{")
 	first := true
 	for k, v := range s.bindings {
@@ -1252,22 +1339,24 @@ func (s *StructType) has(key AnyType) bool {
 }
 
 func has(obj AnyType, key AnyType) (bool, error) {
-	if aStruct, ok := obj.(*StructType); ok {
+	o := obj.Value()
+	if aStruct, ok := o.(*StructType); ok {
 		return aStruct.has(key), nil
 	}
 	return false, TypeError(typeStruct, obj)
 }
 
 func get(obj AnyType, key AnyType) (AnyType, error) {
-	if aStruct, ok := obj.(*StructType); ok {
+	//this is called by the keyword execution in runtime.c, in addition to other explicit calls
+	o := obj.Value()
+	if aStruct, ok := o.(*StructType); ok {
 		return aStruct.get(key), nil
 	}
 	return nil, TypeError(typeStruct, obj)
 }
 
+//mutate! might want to get rid of this, use assoc instead
 func put(obj AnyType, key AnyType, value AnyType) (AnyType, error) {
-	//not clear if I want to export this. Would prefer immutable values
-	//i.e. (merge s {x: 23}) or (struct s x: 23)
 	if aStruct, ok := obj.(*StructType); ok {
 		return aStruct.put(key, value), nil
 	}

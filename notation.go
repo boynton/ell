@@ -43,6 +43,9 @@ type InputPort struct {
 	name   string
 }
 
+var typeInput = intern("<input>")
+var typeOutput = intern("<input>")
+
 func isInputPort(obj AnyType) bool {
 	_, ok := obj.(*InputPort)
 	return ok
@@ -50,7 +53,12 @@ func isInputPort(obj AnyType) bool {
 
 // Type returns the type of the object
 func (*InputPort) Type() AnyType {
-	return intern("input-port")
+	return typeInput
+}
+
+// Value returns the object itself for primitive types
+func (in *InputPort) Value() AnyType {
+	return in
 }
 
 func (in *InputPort) String() string {
@@ -307,15 +315,11 @@ func (dr *dataReader) decodeArray() (AnyType, error) {
 }
 
 func (dr *dataReader) decodeStruct() (AnyType, error) {
-	return dr.decodeInstance(typeStruct)
-}
-
-func (dr *dataReader) decodeInstance(typesym *SymbolType) (AnyType, error) {
 	items, err := dr.decodeSequence('}')
 	if err != nil {
 		return nil, err
 	}
-	return newInstance(typesym, items)
+	return newStruct(items)
 }
 
 func (dr *dataReader) decodeSequence(endChar byte) ([]AnyType, error) {
@@ -438,7 +442,7 @@ func (dr *dataReader) decodeReaderMacro() (AnyType, error) {
 		return nil, e
 	}
 	switch c {
-	case '\\':
+	case '\\': // to handle character literals.
 		c, e = dr.getChar()
 		if e != nil {
 			return nil, e
@@ -483,32 +487,14 @@ func (dr *dataReader) decodeReaderMacro() (AnyType, error) {
 		if err != nil {
 			return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
 		}
-		c, err := dr.getChar()
-		if err == nil {
-			if c == '{' {
-				t := intern("<" + atom + ">")
-				if err == nil {
-					inst, err := dr.decodeInstance(t)
-					if err == nil {
-						return inst, nil
-					}
-				}
-				return nil, err
+		if isValidTypeName(atom) {
+			val, err := dr.readData()
+			if err != nil {
+				return nil, Error("Bad reader macro: #", atom, " ...")
 			}
-			dr.ungetChar()
+			return instance(intern(atom), val)
 		}
-		switch atom {
-		case "eof": //bogus
-			return EOF, nil
-		case "f":
-			return False, nil
-		case "t":
-			return True, nil
-		case "n":
-			return Null, nil
-		default:
-			return nil, Error("Bad reader macro: #", atom, " ...")
-		}
+		return nil, Error("Bad reader macro: #", atom, " ...")
 	}
 }
 
@@ -540,7 +526,7 @@ func writeData(obj AnyType, json bool) (string, error) {
 		return writeList(o), nil
 	case *SymbolType:
 		if json {
-			return encodeString(unKeywordString(o)), nil
+			return encodeString(unkeywordedString(o)), nil
 		}
 		return o.String(), nil
 	case StringType:
@@ -647,11 +633,6 @@ func writeArray(ary *ArrayType, json bool) (string, error) {
 
 func writeStruct(m *StructType, json bool) (string, error) {
 	var buf bytes.Buffer
-	if !json && m.typesym != typeStruct {
-		buf.WriteString("#")
-		n, _ := typeName(m.typesym)
-		buf.WriteString(n.String())
-	}
 	buf.WriteString("{")
 	first := true
 	delim := ", "

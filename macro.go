@@ -198,10 +198,13 @@ func expandLambda(module *Module, expr *ListType) (*ListType, error) {
 	if exprLen < 3 {
 		return nil, SyntaxError(expr)
 	}
-	tmp := cddr(expr)
-	//bug: the check for internal defines should happen *after* the expandSequence
-	// otherwise defn and def won't work
-	if exprLen > 3 {
+	body, err := expandSequence(module, cddr(expr))
+	if err != nil {
+		return nil, err
+	}
+	bodyLen := length(body)
+	if bodyLen > 0 {
+		tmp := body
 		if isList(tmp) && caar(tmp) == intern("define") {
 			bindings := EmptyList
 			for caar(tmp) == intern("define") {
@@ -213,14 +216,10 @@ func expandLambda(module *Module, expr *ListType) (*ListType, error) {
 				tmp = cdr(tmp)
 			}
 			bindings = reverse(bindings)
-			tmp = cons(intern("letrec"), cons(bindings, tmp))
+			tmp = cons(intern("letrec"), cons(bindings, tmp)) //scheme specifies letrec*
 			tmp2, err := macroexpandList(module, tmp)
 			return list(car(expr), cadr(expr), tmp2), err
 		}
-	}
-	body, err := expandSequence(module, tmp)
-	if err != nil {
-		return nil, err
 	}
 	args := cadr(expr)
 	return cons(car(expr), cons(args, body)), nil

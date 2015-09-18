@@ -1,12 +1,9 @@
-;;; File   : sort.ell
+;;; File   : sort.ell (originally sort.scm)
 ;;; Author : Richard A. O'Keefe (based on Prolog code by D.H.D.Warren)
 ;;; Updated: 11 June 1991
 ;;; Modified for scheme library: Aubrey Jaffer 19 Sept. 1991
 ;;; Defines: sorted?, merge, merge!, sort, sort!
 ;;; Adapted to Ell: Lee Boynton, 2015-09-14
-
-(define append concat)
-(define null? empty?)
 
 ;;; --------------------------------------------------------------------
 ;   Many Scheme systems provide some kind of sorting functions.  They do
@@ -73,10 +70,10 @@
 ;   x must *not* precede y.
 ;
 ;   (sorted? sequence less?)
-;       returns #t when the sequence argument is in non-decreasing order
+;       returns true when the sequence argument is in non-decreasing order
 ;       according to less? (that is, there is no adjacent pair ... x y ...
 ;       for which (less? y x))
-;       returns #f when the sequence contains at least one out-of-order pair.
+;       returns false when the sequence contains at least one out-of-order pair.
 ;       It is an error if the sequence is neither a list nor a array.
 ;
 ;   (merge list1 list2 less?)
@@ -97,7 +94,7 @@
 ;       
 ;       The code of merge and merge! could have been quite a bit simpler,
 ;       but they have been coded to reduce the amount of work done per
-;       iteration.  (For example, we only have one null? test per iteration.)
+;       iteration.  (For example, we only have one empty? test per iteration.)
 ;
 ;   (sort sequence less?)
 ;       accepts either a list or a array, and returns a new sequence which
@@ -129,12 +126,12 @@
 
 (define (sorted? seq less?)
     (cond
-        ((null? seq)
-            #t)
+        ((empty? seq)
+            true)
         ((array? seq)
             (let ((n (array-length seq)))
                 (if (<= n 1)
-                    #t
+                    true
                     (do ((i 1 (+ i 1)))
                         ((or (= i n)
                              (less? (array-ref seq (- i 1))
@@ -142,7 +139,7 @@
                             (= i n)) )) ))
         (else
             (let loop ((last (car seq)) (next (cdr seq)))
-                (or (null? next)
+                (or (empty? next)
                     (and (not (less? (car next) last))
                          (loop (car next) (cdr next)) )) )) ))
 
@@ -155,17 +152,17 @@
 
 (define (merge a b less?)
     (cond
-        ((null? a) b)
-        ((null? b) a)
+        ((empty? a) b)
+        ((empty? b) a)
         (else (let loop ((x (car a)) (a (cdr a)) (y (car b)) (b (cdr b)))
             ;; The loop handles the merging of non-empty lists.  It has
             ;; been written this way to save testing and car/cdring.
             (if (less? y x)
-                (if (null? b)
+                (if (empty? b)
                     (cons y (cons x a))
                     (cons y (loop x a (car b) (cdr b)) ))
                 ;; x <= y
-                (if (null? a)
+                (if (empty? a)
                     (cons x (cons y b))
                     (cons x (loop (car a) (cdr a) y b)) )) )) ))
 
@@ -180,25 +177,25 @@
         (if (less? (car b) (car a))
             (begin
                 (set-cdr! r b)
-                (if (null? (cdr b))
+                (if (empty? (cdr b))
                     (set-cdr! b a)
                     (loop b a (cdr b)) ))
             ;; (car a) <= (car b)
             (begin
                 (set-cdr! r a)
-                (if (null? (cdr a))
+                (if (empty? (cdr a))
                     (set-cdr! a b)
                     (loop a (cdr a) b)) )) )
     (cond
-        ((null? a) b)
-        ((null? b) a)
+        ((empty? a) b)
+        ((empty? b) a)
         ((less? (car b) (car a))
-            (if (null? (cdr b))
+            (if (empty? (cdr b))
                 (set-cdr! b a)
                 (loop b a (cdr b)))
             b)
         (else ; (car a) <= (car b)
-            (if (null? (cdr a))
+            (if (empty? (cdr a))
                 (set-cdr! a b)
                 (loop a (cdr a) b))
             a)))
@@ -242,7 +239,7 @@
             (set! seq (array->list seq))
             (do ((p (step n) (cdr p))
                  (i 0 (+ i 1)))
-                ((null? p) array)
+                ((empty? p) array)
                 (array-set! array i (car p)) ))
         ;; otherwise, assume it is a list
         (step (length seq)) ))
@@ -251,12 +248,12 @@
 ;;; (sort sequence less?)
 ;;; sorts a array or list non-destructively.  It does this by sorting a
 ;;; copy of the sequence.  My understanding is that the Standard says
-;;; that the result of append is always "newly allocated" except for
-;;; sharing structure with "the last argument", so (append x '()) ought
+;;; that the result of concat is always "newly allocated" except for
+;;; sharing structure with "the last argument", so (concat x '()) ought
 ;;; to be a standard way of copying a list x.
 
 (define (sort seq less?)
     (if (array? seq)
         (list->array (sort! (array->list seq) less?))
-        (sort! (append seq '()) less?)))
+        (sort! (concat seq '()) less?)))
 

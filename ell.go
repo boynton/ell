@@ -48,13 +48,14 @@ func Ell(module *Module) {
 
 	module.defineFunction("macroexpand", ellMacroexpand)
 	module.defineFunction("type", ellType)
+	module.defineFunction("value", ellValue)
+	module.defineFunction("instance", ellInstance)
 	module.defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs)
 
 	module.defineFunction("type?", ellTypeP)
 	module.defineFunction("type-name", ellTypeName)
 
 	module.defineFunction("struct", ellStruct)
-	module.defineFunction("instance", ellInstance)
 	module.defineFunction("equal?", ellEq)
 	module.defineFunction("identical?", ellIdenticalP)
 	module.defineFunction("not", ellNot)
@@ -65,8 +66,6 @@ func Ell(module *Module) {
 	module.defineFunction("symbol", elSymbolType)
 
 	module.defineFunction("keyword?", ellKeywordP)
-	//	module.defineFunction("keyword", ellKeyword)
-	module.defineFunction("unkeyword", ellUnkeyword)
 	module.defineFunction("string?", elStringTypeP)
 	module.defineFunction("char?", ellCharP)
 	module.defineFunction("function?", ellFunctionP)
@@ -79,19 +78,21 @@ func Ell(module *Module) {
 	module.defineFunction("list", elListType)
 	module.defineFunction("concat", ellConcat)
 	module.defineFunction("reverse", ellReverse)
-	module.defineFunction("set-car!", ellSetCarBang)
-	module.defineFunction("set-cdr!", ellSetCdrBang)
+	module.defineFunction("set-car!", ellSetCarBang) //mutate!
+	module.defineFunction("set-cdr!", ellSetCdrBang) //mutate!
 
 	module.defineFunction("array?", ellArrayP)
 	module.defineFunction("array", ellArray)
 	module.defineFunction("make-array", ellMakeArray)
-	module.defineFunction("array-set!", ellArraySetBang)
+	module.defineFunction("array-set!", ellArraySetBang) //mutate!
 	module.defineFunction("array-ref", ellArrayRef)
 
 	module.defineFunction("struct?", ellStructP)
 	module.defineFunction("has?", ellHasP)
 	module.defineFunction("get", ellGet)
-	module.defineFunction("put!", ellPutBang)
+	module.defineFunction("assoc", ellAssoc)
+	module.defineFunction("dissoc", ellDissoc)
+	module.defineFunction("put!", ellPutBang) //mutate!
 	module.defineFunction("struct->list", ellStructToList)
 
 	module.defineFunction("empty?", ellEmptyP)
@@ -247,6 +248,20 @@ func ellType(argv []AnyType, argc int) (AnyType, error) {
 	return argv[0].Type(), nil
 }
 
+func ellValue(argv []AnyType, argc int) (AnyType, error) {
+	if argc != 1 {
+		return ArgcError("value", "1", argc)
+	}
+	return argv[0].Value(), nil
+}
+
+func ellInstance(argv []AnyType, argc int) (AnyType, error) {
+	if argc != 2 {
+		return ArgcError("instance", "2", argc)
+	}
+	return instance(argv[0], argv[1])
+}
+
 func ellNormalizeKeywordArgs(argv []AnyType, argc int) (AnyType, error) {
 	//(normalize-keyword-args '(x: 23) '(x: y:) -> (x:)
 	//(normalize-keyword-args '(x: 23 z: 100) '(x: y:) -> error("bad keyword z: in argument list")
@@ -260,20 +275,7 @@ func ellNormalizeKeywordArgs(argv []AnyType, argc int) (AnyType, error) {
 }
 
 func ellStruct(argv []AnyType, argc int) (AnyType, error) {
-	return newInstance(typeStruct, argv[:argc])
-}
-
-func ellInstance(argv []AnyType, argc int) (AnyType, error) {
-	if argc < 1 {
-		return ArgcError("instance", "1+", argc)
-	}
-	switch s := argv[0].(type) {
-	case *SymbolType:
-		if isSymbolType(s) {
-			return newInstance(s, argv[1:argc])
-		}
-	}
-	return ArgTypeError("type", 1, argv[0])
+	return newStruct(argv[:argc])
 }
 
 func ellIdenticalP(argv []AnyType, argc int) (AnyType, error) {
@@ -732,22 +734,6 @@ func ellTypeName(argv []AnyType, argc int) (AnyType, error) {
 	return ArgcError("type-name", "1", argc)
 }
 
-/*
-func ellKeyword(argv []AnyType, argc int) (AnyType, error) {
-	if argc < 1 {
-		return ArgcError("symbol", "1+", argc)
-	}
-	return keyword(argv)
-}
-*/
-
-func ellUnkeyword(argv []AnyType, argc int) (AnyType, error) {
-	if argc != 1 {
-		return ArgcError("unkeyword", "1", argc)
-	}
-	return unkeyword(argv[0])
-}
-
 func elStringTypeP(argv []AnyType, argc int) (AnyType, error) {
 	if argc == 1 {
 		if isString(argv[0]) {
@@ -968,6 +954,20 @@ func ellPutBang(argv []AnyType, argc int) (AnyType, error) {
 		return ArgcError("put!", "3", argc)
 	}
 	return put(argv[0], argv[1], argv[2])
+}
+
+func ellAssoc(argv []AnyType, argc int) (AnyType, error) {
+	if argc != 3 {
+		return ArgcError("assoc", "3", argc)
+	}
+	return assoc(argv[0], argv[1], argv[2])
+}
+
+func ellDissoc(argv []AnyType, argc int) (AnyType, error) {
+	if argc != 3 {
+		return ArgcError("dissoc", "2", argc)
+	}
+	return dissoc(argv[0], argv[1])
 }
 
 func ellStructToList(argv []AnyType, argc int) (AnyType, error) {
