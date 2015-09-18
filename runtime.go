@@ -44,10 +44,12 @@ func println(args ...interface{}) {
 	fmt.Println(args[max])
 }
 
+// ArgcError - returns an nil, error describing an argument count mismatch.
 func ArgcError(name string, expected string, got int) (AnyType, error) {
 	return nil, Error("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
 }
 
+// ArgTypeError - returns an error describing an argument type mismatch
 func ArgTypeError(expected string, num int, arg AnyType) (AnyType, error) {
 	return nil, Error("Argument ", num, " is not of type <", expected, ">: ", arg)
 }
@@ -67,13 +69,12 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
-func exec(thunk code, args ...AnyType) (AnyType, error) {
+func exec(code *Code, args ...AnyType) (AnyType, error) {
 	if verbose {
 		println("; begin execution")
 		inExec = true
 		conses = 0
 	}
-	code := thunk.(*Code)
 	vm := newVM(defaultStackSize)
 	if len(args) != code.argc {
 		return nil, Error("Wrong number of arguments")
@@ -88,7 +89,7 @@ func exec(thunk code, args ...AnyType) (AnyType, error) {
 		return nil, err
 	}
 	exports := vm.exported()
-	module := code.module().(*Module)
+	module := code.module()
 	module.exported = exports[:]
 	if verbose {
 		//Println("; end execution")
@@ -99,6 +100,7 @@ func exec(thunk code, args ...AnyType) (AnyType, error) {
 	return result, err
 }
 
+// LVM - the Ell VM
 type LVM struct {
 	stackSize int
 	defs      []AnyType
@@ -110,13 +112,14 @@ func newVM(stackSize int) *LVM {
 	return &vm
 }
 
+// Instruction - a primitive instruction for the LVM
 type Instruction int
 
-// APPLY is a primitive instruction to apply a function to a list of arguments
-var APPLY = Instruction(0)
+// Apply is a primitive instruction to apply a function to a list of arguments
+var Apply = Instruction(0)
 
-// CALLCC is a primitive instruction to executable (restore) a continuation
-var CALLCC = Instruction(1)
+// CallCC is a primitive instruction to executable (restore) a continuation
+var CallCC = Instruction(1)
 
 // Type returns the type of the object
 func (Instruction) Type() AnyType {
@@ -143,12 +146,13 @@ func (s Instruction) String() string {
 
 type primitive func(argv []AnyType, argc int) (AnyType, error)
 
+// Primitive - a primitive function, written in Go, callable by LVM
 type Primitive struct {
 	name string
 	fun  primitive
 }
 
-var typeFunction = internSymbol("<function>")
+var typeFunction = intern("<function>")
 
 // Type returns the type of the object
 func (prim *Primitive) Type() AnyType {
@@ -189,6 +193,7 @@ func (frame frame) String() string {
 	return buf.String()
 }
 
+// Closure - an Ell closure formed over some compiled code and the current environment
 type Closure struct {
 	code  *Code
 	frame *frame
@@ -361,7 +366,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				println(pc, "\tdefgAnyType\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			module.defGAnyTypeal(sym, stack[sp])
+			module.defGlobal(sym, stack[sp])
 			if vm.defs != nil {
 				vm.defs = append(vm.defs, sym)
 			}
@@ -371,7 +376,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				println(pc, "\tungAnyType\t", module.constants[ops[pc+1]])
 			}
 			sym := module.constants[ops[pc+1]]
-			module.undefGAnyTypeal(sym)
+			module.undefGlobal(sym)
 			pc += 2
 		case opcodeDefMacro:
 			if trace {
@@ -444,7 +449,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				module = tfun.code.mod
 				pc = 0
 			case Instruction:
-				if tfun == APPLY {
+				if tfun == Apply {
 					if argc < 2 {
 						return ArgcError("apply", "2+", argc)
 					}
@@ -527,7 +532,7 @@ func (vm *LVM) exec(code *Code, args []AnyType) (AnyType, error) {
 				pc = 0
 				env = f
 			case Instruction:
-				if tfun == APPLY {
+				if tfun == Apply {
 					if argc < 2 {
 						return ArgcError("apply", "2+", argc)
 					}

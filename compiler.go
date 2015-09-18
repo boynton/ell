@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-func compile(module module, expr AnyType) (code, error) {
+func compile(module *Module, expr AnyType) (*Code, error) {
 	code := newCode(module, 0, nil, nil, "")
 	err := compileExpr(code, EmptyList, expr, false, false, "")
 	if err != nil {
@@ -47,7 +47,7 @@ func calculateLocation(sym AnyType, env *ListType) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(code code, env *ListType, expr AnyType, isTail bool, ignoreResult bool, context string) error {
+func compileExpr(code *Code, env *ListType, expr AnyType, isTail bool, ignoreResult bool, context string) error {
 	if isKeyword(expr) || isType(expr) {
 		if !ignoreResult {
 			code.emitLiteral(expr)
@@ -60,7 +60,7 @@ func compileExpr(code code, env *ListType, expr AnyType, isTail bool, ignoreResu
 		if i, j, ok := calculateLocation(expr, env); ok {
 			code.emitLocal(i, j)
 		} else {
-			code.emitGAnyTypeal(expr)
+			code.emitGlobal(expr)
 		}
 		if ignoreResult {
 			code.emitPop()
@@ -126,7 +126,7 @@ func compileExpr(code code, env *ListType, expr AnyType, isTail bool, ignoreResu
 			}
 			err := compileExpr(code, env, val, false, false, sym.String())
 			if err == nil {
-				code.emitDefGAnyTypeal(sym)
+				code.emitDefGlobal(sym)
 				if ignoreResult {
 					code.emitPop()
 				} else if isTail {
@@ -142,7 +142,7 @@ func compileExpr(code code, env *ListType, expr AnyType, isTail bool, ignoreResu
 			if !isSymbol(sym) {
 				return SyntaxError(expr)
 			}
-			code.emitUndefGAnyTypeal(sym)
+			code.emitUndefGlobal(sym)
 			if ignoreResult {
 			} else {
 				code.emitLiteral(sym)
@@ -201,7 +201,7 @@ func compileExpr(code code, env *ListType, expr AnyType, isTail bool, ignoreResu
 			if i, j, ok := calculateLocation(sym, env); ok {
 				code.emitSetLocal(i, j)
 			} else {
-				code.emitDefGAnyTypeal(sym) //fix, should be SetGAnyTypeal!!!
+				code.emitDefGlobal(sym) //fix, should be SetGlobal
 			}
 			if ignoreResult {
 				code.emitPop()
@@ -267,7 +267,7 @@ func compileExpr(code code, env *ListType, expr AnyType, isTail bool, ignoreResu
 	return nil
 }
 
-func compileLambda(code code, env *ListType, args AnyType, body *ListType, isTail bool, ignoreResult bool, context string) error {
+func compileLambda(code *Code, env *ListType, args AnyType, body *ListType, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
 	syms := []AnyType{}
 	var defaults []AnyType
@@ -348,7 +348,7 @@ func compileLambda(code code, env *ListType, args AnyType, body *ListType, isTai
 	}
 	args = toList(syms) //why not just use the array format in general?
 	newEnv := cons(args, env)
-	mod := (code.(*Code)).module()
+	mod := code.module()
 	lambdaCode := newCode(mod, argc, defaults, keys, context)
 	err := compileSequence(lambdaCode, newEnv, body, true, false, context)
 	if err == nil {
@@ -362,7 +362,7 @@ func compileLambda(code code, env *ListType, args AnyType, body *ListType, isTai
 	return err
 }
 
-func compileSequence(code code, env *ListType, exprs *ListType, isTail bool, ignoreResult bool, context string) error {
+func compileSequence(code *Code, env *ListType, exprs *ListType, isTail bool, ignoreResult bool, context string) error {
 	if exprs != EmptyList {
 		for cdr(exprs) != EmptyList {
 			err := compileExpr(code, env, car(exprs), false, true, context)
@@ -376,7 +376,7 @@ func compileSequence(code code, env *ListType, exprs *ListType, isTail bool, ign
 	return SyntaxError(cons(intern("begin"), exprs))
 }
 
-func compileFuncall(code code, env *ListType, fn AnyType, args *ListType, isTail bool, ignoreResult bool, context string) error {
+func compileFuncall(code *Code, env *ListType, fn AnyType, args *ListType, isTail bool, ignoreResult bool, context string) error {
 	argc := length(args)
 	if argc < 0 {
 		return SyntaxError(cons(fn, args))
@@ -409,7 +409,7 @@ func compileFuncall(code code, env *ListType, fn AnyType, args *ListType, isTail
 	return nil
 }
 
-func compileArgs(code code, env *ListType, args *ListType, context string) error {
+func compileArgs(code *Code, env *ListType, args *ListType, context string) error {
 	if args != EmptyList {
 		err := compileArgs(code, env, cdr(args), context)
 		if err != nil {
@@ -420,7 +420,7 @@ func compileArgs(code code, env *ListType, args *ListType, context string) error
 	return nil
 }
 
-func compilePrimopCall(code code, fn AnyType, argc int, isTail bool, ignoreResult bool) (bool, error) {
+func compilePrimopCall(code *Code, fn AnyType, argc int, isTail bool, ignoreResult bool) (bool, error) {
 	switch fn {
 	case intern("car"):
 		if argc != 1 {
@@ -458,7 +458,7 @@ func compilePrimopCall(code code, fn AnyType, argc int, isTail bool, ignoreResul
 	return true, nil
 }
 
-func compileIfElse(code code, env *ListType, predicate AnyType, consequent AnyType, antecedentOptional AnyType, isTail bool, ignoreResult bool, context string) error {
+func compileIfElse(code *Code, env *ListType, predicate AnyType, consequent AnyType, antecedentOptional AnyType, isTail bool, ignoreResult bool, context string) error {
 	var antecedent AnyType = Null
 	if antecedentOptional != EmptyList {
 		antecedent = car(antecedentOptional)
@@ -486,7 +486,7 @@ func compileIfElse(code code, env *ListType, predicate AnyType, consequent AnyTy
 	return err
 }
 
-func compileUse(code code, rest *ListType) error {
+func compileUse(code *Code, rest *ListType) error {
 	lstlen := length(rest)
 	if lstlen != 1 {
 		//to do: other options for use.

@@ -37,7 +37,7 @@ type AnyType interface {
 //
 type NullType int
 
-var typeNull = internSymbol("<null>")
+var typeNull = intern("<null>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList
 const Null = NullType(0)
@@ -64,8 +64,7 @@ type EOFType int
 // EOF is Ell's EOF object
 const EOF = EOFType(0)
 
-var typeEOF = internSymbol("<eof>")
-var symEOF = internSymbol("eof")
+var typeEOF = intern("<eof>")
 
 // Type returns the type of the object
 func (EOFType) Type() AnyType {
@@ -92,8 +91,7 @@ const True BooleanType = BooleanType(true)
 //False is Ell's false constant
 const False BooleanType = BooleanType(false)
 
-var typeBoolean = internSymbol("<boolean>")
-var symBoolean = internSymbol("boolean")
+var typeBoolean = intern("<boolean>")
 
 func isBoolean(obj AnyType) bool {
 	_, ok := obj.(BooleanType)
@@ -118,23 +116,66 @@ func (b BooleanType) String() string {
 }
 
 //
-// ------------------- symbol, keyword, type
+// SymbolType holds symbols, keywords, and types. Use the tag to distinguish between them
 //
-
 type SymbolType struct {
 	Name string
-	tag  int
+	tag  int //an incrementing sequence number for symbols, -1 for types, and -2 for keywords
 }
 
-var typeSymbol = internSymbol("<symbol>")
-var typeKeyword = internSymbol("<keyword>")
-var typeType = internSymbol("<type>")
+const typeTag = -1
+const keywordTag = -2
+
+var symtag int
+
+func intern(name string) *SymbolType {
+	sym, ok := symtab[name]
+	if !ok {
+		if isValidKeywordName(name) {
+			sym = &SymbolType{name, keywordTag}
+		} else if isValidTypeName(name) {
+			sym = &SymbolType{name, typeTag}
+		} else if isValidSymbolName(name) {
+			sym = &SymbolType{name, symtag}
+			symtag++
+		}
+		if sym == nil {
+			panic("invalid symbol/type/keyword name passed to intern: " + name)
+		}
+		symtab[name] = sym
+	}
+	return sym
+}
+
+func isValidSymbolName(name string) bool {
+	return len(name) > 0
+}
+
+func isValidTypeName(s string) bool {
+	n := len(s)
+	if n > 2 && s[0] == '<' && s[n-1] == '>' {
+		return true
+	}
+	return false
+}
+
+func isValidKeywordName(s string) bool {
+	n := len(s)
+	if n > 1 && s[n-1] == ':' {
+		return true
+	}
+	return false
+}
+
+var typeSymbol = intern("<symbol>")
+var typeKeyword = intern("<keyword>")
+var typeType = intern("<type>")
 
 // Type returns the type of the object
 func (sym *SymbolType) Type() AnyType {
-	if isSymbolKeyword(sym) {
+	if sym.tag == keywordTag {
 		return typeKeyword
-	} else if isSymbolType(sym) {
+	} else if sym.tag == typeTag {
 		return typeType
 	}
 	return typeSymbol
@@ -153,37 +194,26 @@ func (sym *SymbolType) String() string {
 }
 
 func isSymbolKeyword(sym *SymbolType) bool {
-	n := len(sym.Name)
-	return sym.Name[n-1] == ':'
+	return sym.tag == keywordTag
 }
 
 func isSymbolType(sym *SymbolType) bool {
-	n := len(sym.Name)
-	if n > 2 && sym.Name[0] == '<' && sym.Name[n-1] == '>' {
-		return true
-	}
-	return false
+	return sym.tag == typeTag
 }
 
 func isSymbol(obj AnyType) bool {
 	sym, ok := obj.(*SymbolType)
-	return ok && !isSymbolKeyword(sym) && !isSymbolType(sym)
+	return ok && sym.tag >= 0
 }
 
 func isType(obj AnyType) bool {
 	sym, ok := obj.(*SymbolType)
-	if ok {
-		return isSymbolType(sym)
-	}
-	return false
+	return ok && sym.tag == typeTag
 }
 
 func isKeyword(obj AnyType) bool {
 	sym, ok := obj.(*SymbolType)
-	if ok {
-		return isSymbolKeyword(sym)
-	}
-	return false
+	return ok && sym.tag == keywordTag
 }
 
 func unKeywordString(sym *SymbolType) string {
@@ -193,39 +223,13 @@ func unKeywordString(sym *SymbolType) string {
 	return sym.Name
 }
 
-func keywordString(s string) (*SymbolType, error) {
-	last := len(s) - 1
-	if last < 0 { //empty string
-		return nil, Error("Cannot create keyword from an ampty string")
-	}
-	if s[last] != ':' {
-		s += ":"
-	}
-	return internSymbol(s), nil
-}
-
-func keyword(obj interface{}) (AnyType, error) {
-	switch t := obj.(type) {
-	case NullType:
-		return Null, nil
-	case *SymbolType:
-		return keywordString(string(t.Name))
-	case StringType:
-		return keywordString(string(t))
-	case string:
-		return keywordString(t)
-	default:
-		return nil, Error("Type error: expected symbol or string, got ", obj)
-	}
-}
-
 func typeName(obj AnyType) (*SymbolType, error) {
 	switch t := obj.(type) {
 	case *SymbolType:
 		if !isSymbolType(t) {
 			return nil, TypeError(typeType, obj)
 		}
-		return internSymbol(t.Name[1 : len(t.Name)-1]), nil
+		return intern(t.Name[1 : len(t.Name)-1]), nil
 	default:
 		return nil, Error("Type error: expected symbol or string, got ", obj)
 	}
@@ -267,26 +271,6 @@ func symbols() []AnyType {
 	return syms
 }
 
-var symtag int
-
-func internSymbol(name string) *SymbolType {
-	//to do: validate the symbol name, based on EllDN spec
-	if len(name) == 0 {
-		panic("empty symbol!")
-	}
-	v, ok := symtab[name]
-	if !ok {
-		v = &SymbolType{name, symtag}
-		symtag++
-		symtab[name] = v
-	}
-	return v
-}
-
-func intern(name string) AnyType {
-	return internSymbol(name)
-}
-
 func symbol(names []AnyType) (AnyType, error) {
 	size := len(names)
 	if size < 1 {
@@ -310,14 +294,11 @@ func symbol(names []AnyType) (AnyType, error) {
 }
 
 //
-// ------------------- string
+// StringType - Ell Strings
 //
-
 type StringType string
 
-var typeString = internSymbol("<string>")
-
-//var typeString = internSymbol("string")
+var typeString = intern("<string>")
 
 func isString(obj AnyType) bool {
 	_, ok := obj.(StringType)
@@ -387,10 +368,11 @@ func (s StringType) String() string {
 }
 
 //
-// ------------------- character
+// CharType - Ell characters
 //
-var symCharType = internSymbol("<char>")
-var symChar = internSymbol("char")
+type CharType rune
+
+var symCharType = intern("<char>")
 
 func isChar(obj AnyType) bool {
 	_, ok := obj.(CharType)
@@ -404,8 +386,6 @@ func newCharacter(c rune) CharType {
 	v := CharType(c)
 	return v
 }
-
-type CharType rune
 
 // Type returns the type of the object
 func (CharType) Type() AnyType {
@@ -426,12 +406,11 @@ func (i CharType) String() string {
 }
 
 //
-// ------------------- number
+// NumberType - Ell numbers
 //
-
-var typeNumber = internSymbol("<number>")
-
 type NumberType float64
+
+var typeNumber = intern("<number>")
 
 // Type returns the type of the object
 func (NumberType) Type() AnyType {
@@ -707,20 +686,20 @@ func div(argv []AnyType, argc int) (AnyType, error) {
 }
 
 //
-// ------------------- list
+// ListType - Ell lists
 //
 type ListType struct {
 	car AnyType
 	cdr *ListType
 }
 
-var typeList = internSymbol("<list>")
+var typeList = intern("<list>")
 
-//var symList = internSymbol("list")
-var symQuote = internSymbol("quote")
-var symQuasiquote = internSymbol("quasiquote")
-var symUnquote = internSymbol("unquote")
-var symUnquoteSplicing = internSymbol("unquote-splicing")
+var symList = intern("list")
+var symQuote = intern("quote")
+var symQuasiquote = intern("quasiquote")
+var symUnquote = intern("unquote")
+var symUnquoteSplicing = intern("unquote-splicing")
 
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
@@ -977,14 +956,13 @@ func concat(seq1 *ListType, seq2 *ListType) (*ListType, error) {
 }
 
 //
-// ------------------- array
+// ArrayType - Ell Arrays
 //
-
 type ArrayType struct {
 	elements []AnyType
 }
 
-var typeArray = internSymbol("<array>")
+var typeArray = intern("<array>")
 
 func isArray(obj AnyType) bool {
 	_, ok := obj.(*ArrayType)
@@ -1083,14 +1061,14 @@ func arrayRef(ary AnyType, idx int) (AnyType, error) {
 }
 
 //
-// ------------------- struct
+// StructType - Ell structs (objects). They are extensible, having a special type symbol in them.
 //
 type StructType struct {
 	typesym  *SymbolType
 	bindings map[AnyType]AnyType
 }
 
-var typeStruct = internSymbol("<struct>")
+var typeStruct = intern("<struct>")
 
 // Type returns the type of the object
 func (s *StructType) Type() AnyType {
@@ -1316,7 +1294,7 @@ func structToList(obj AnyType) (AnyType, error) {
 }
 
 //
-// NewError - creates a new Error from the arguments
+// Error - creates a new Error from the arguments
 //
 func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
@@ -1332,10 +1310,12 @@ func Error(arg1 interface{}, args ...interface{}) error {
 	return &err
 }
 
+// TypeError - an error indicating expected and actual value for a type mismatch
 func TypeError(typeSym AnyType, obj AnyType) error {
 	return Error("Type error: expected ", typeSym, ", got ", obj)
 }
 
+// GenericError - most Ell errors are one of these
 type GenericError struct {
 	msg string
 }

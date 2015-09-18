@@ -23,35 +23,6 @@ import (
 	"strings"
 )
 
-type module interface {
-	typeSymbol() AnyType
-	Name() string
-	String() string
-
-	keywords() []AnyType
-	globals() []AnyType
-	global(sym AnyType) AnyType
-	isDefined(sym AnyType) bool
-	defGAnyTypeal(sym AnyType, val AnyType)
-	undefGAnyTypeal(sym AnyType)
-	setGAnyTypeal(sym AnyType, val AnyType) error
-	macros() []AnyType
-	macro(sym AnyType) *macro
-	defMacro(sym AnyType, val AnyType)
-
-	define(name string, val AnyType)
-	defineFunction(name string, fun primitive)
-	defineMacro(name string, fun primitive)
-
-	eval(expr AnyType) (AnyType, error)
-
-	checkInterrupt() bool
-	compileFile(filename string) (AnyType, error)
-	loadFile(filename string) error
-	loadModule(filename string) error
-	exports() []AnyType
-}
-
 // Module - a package of code. Every module has its own namespace that symbols, types, and kerywords are interned into
 type Module struct {
 	name         string
@@ -63,11 +34,11 @@ type Module struct {
 	interrupts   chan os.Signal
 }
 
-type environmentInitializer func(mod module)
+type environmentInitializer func(mod *Module)
 
 var initializer environmentInitializer
 
-func newEnvironment(name string, init environmentInitializer, interrupts chan os.Signal) module {
+func newEnvironment(name string, init environmentInitializer, interrupts chan os.Signal) *Module {
 	if initializer != nil {
 		panic("Cannot define an environment twice.")
 	}
@@ -87,7 +58,7 @@ func (mod *Module) checkInterrupt() bool {
 	return false
 }
 
-func newModule(name string, interrupts chan os.Signal) module {
+func newModule(name string, interrupts chan os.Signal) *Module {
 	constMap := make(map[AnyType]int, 0)
 	var constants []AnyType
 	globalMap := make([]*binding, 100)
@@ -101,7 +72,11 @@ func newModule(name string, interrupts chan os.Signal) module {
 }
 
 func (mod *Module) define(name string, obj AnyType) {
-	mod.defGAnyTypeal(intern(name), obj)
+	sym := intern(name)
+	if sym == nil {
+		panic("Cannot define a value for this symbol: " + name)
+	}
+	mod.defGlobal(sym, obj)
 }
 
 func (mod *Module) defineFunction(name string, fun primitive) {
@@ -110,22 +85,19 @@ func (mod *Module) defineFunction(name string, fun primitive) {
 		println("*** Warning: redefining ", name)
 	}
 	prim := Primitive{name, fun}
-	mod.defGAnyTypeal(sym, &prim)
+	mod.defGlobal(sym, &prim)
 }
 
 func (mod *Module) defineMacro(name string, fun primitive) {
 	sym := intern(name)
 	if mod.macro(sym) != nil {
-		println("*** Warning: redefining macro ", name)
+		println("*** Warning: redefining macro ", name, " -> ", mod.macro(sym))
 	}
 	prim := Primitive{name, fun}
 	mod.defMacro(sym, &prim)
 }
 
-func (mod *Module) typeSymbol() AnyType {
-	return intern("module")
-}
-
+// Name - the name fo the module
 func (mod *Module) Name() string {
 	return mod.name
 }
@@ -177,7 +149,7 @@ type binding struct {
 	val AnyType
 }
 
-func (mod *Module) defGAnyTypeal(sym AnyType, val AnyType) {
+func (mod *Module) defGlobal(sym AnyType, val AnyType) {
 	s := sym.(*SymbolType)
 	if s.tag >= len(mod.globalMap) {
 		gAnyType := make([]*binding, s.tag+100)
@@ -196,14 +168,14 @@ func (mod *Module) isDefined(sym AnyType) bool {
 	return false
 }
 
-func (mod *Module) undefGAnyTypeal(sym AnyType) {
+func (mod *Module) undefGlobal(sym AnyType) {
 	s := sym.(*SymbolType)
 	if s.tag < len(mod.globalMap) {
 		mod.globalMap[s.tag] = nil
 	}
 }
 
-func (mod *Module) setGAnyTypeal(sym AnyType, val AnyType) error {
+func (mod *Module) setGlobal(sym AnyType, val AnyType) error {
 	s := sym.(*SymbolType)
 	if s.tag < len(mod.globalMap) {
 		if mod.globalMap[s.tag] != nil {
@@ -252,7 +224,7 @@ func (mod *Module) use(sym AnyType) error {
 	return mod.loadModule(name)
 }
 
-func (mod *Module) importCode(thunk code) (AnyType, error) {
+func (mod *Module) importCode(thunk *Code) (AnyType, error) {
 	moduleToUse := thunk.module()
 	result, err := exec(thunk)
 	if err != nil {
@@ -265,7 +237,7 @@ func (mod *Module) importCode(thunk code) (AnyType, error) {
 			mac := moduleToUse.macro(sym)
 			mod.defMacro(sym, mac.expander)
 		} else {
-			mod.defGAnyTypeal(sym, val)
+			mod.defGlobal(sym, val)
 		}
 	}
 	return result, nil

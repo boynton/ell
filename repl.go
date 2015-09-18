@@ -11,7 +11,7 @@ import (
 )
 
 type ellHandler struct {
-	env module
+	env *Module
 	buf string
 }
 
@@ -210,7 +210,7 @@ func (ell *ellHandler) Stop(history []string) {
 	}
 }
 
-func readEvalPrintLoop(environment module) {
+func readEvalPrintLoop(environment *Module) {
 	handler := ellHandler{environment, ""}
 	err := repl.REPL(&handler)
 	if err != nil {

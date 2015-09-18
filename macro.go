@@ -37,7 +37,7 @@ func macroexpand(expr AnyType) (AnyType, error) {
 	return macroexpandObject(currentModule, expr)
 }
 
-func macroexpandObject(mod module, expr AnyType) (AnyType, error) {
+func macroexpandObject(mod *Module, expr AnyType) (AnyType, error) {
 	if lst, ok := expr.(*ListType); ok {
 		if lst != EmptyList {
 			return macroexpandList(mod, lst)
@@ -46,7 +46,7 @@ func macroexpandObject(mod module, expr AnyType) (AnyType, error) {
 	return expr, nil
 }
 
-func macroexpandList(module module, expr *ListType) (AnyType, error) {
+func macroexpandList(module *Module, expr *ListType) (AnyType, error) {
 	if expr == EmptyList {
 		return expr, nil
 	}
@@ -76,9 +76,9 @@ func macroexpandList(module module, expr *ListType) (AnyType, error) {
 	return cons(head, tail), nil
 }
 
-var currentModule module
+var currentModule *Module
 
-func (mac *macro) expand(module module, expr *ListType) (AnyType, error) {
+func (mac *macro) expand(module *Module, expr *ListType) (AnyType, error) {
 	expander := mac.expander
 	switch fun := expander.(type) {
 	case *Closure:
@@ -104,7 +104,7 @@ func (mac *macro) expand(module module, expr *ListType) (AnyType, error) {
 	return nil, Error("Bad macro expander function")
 }
 
-func expandSequence(module module, seq *ListType) (*ListType, error) {
+func expandSequence(module *Module, seq *ListType) (*ListType, error) {
 	var result []AnyType
 	if seq == nil {
 		panic("Whoops: should be (), not nil!")
@@ -130,7 +130,7 @@ func expandSequence(module module, seq *ListType) (*ListType, error) {
 	return lst, nil
 }
 
-func expandIf(module module, expr AnyType) (*ListType, error) {
+func expandIf(module *Module, expr AnyType) (*ListType, error) {
 	i := length(expr)
 	if i == 4 {
 		tmp, err := expandSequence(module, cdr(expr))
@@ -150,14 +150,14 @@ func expandIf(module module, expr AnyType) (*ListType, error) {
 	}
 }
 
-func expandUndefine(module module, expr *ListType) (*ListType, error) {
+func expandUndefine(module *Module, expr *ListType) (*ListType, error) {
 	if length(expr) != 2 || !isSymbol(cadr(expr)) {
 		return nil, SyntaxError(expr)
 	}
 	return expr, nil
 }
 
-func expandDefine(module module, expr *ListType) (AnyType, error) {
+func expandDefine(module *Module, expr *ListType) (AnyType, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
 		return nil, SyntaxError(expr)
@@ -193,7 +193,7 @@ func expandDefine(module module, expr *ListType) (AnyType, error) {
 	}
 }
 
-func expandLambda(module module, expr *ListType) (*ListType, error) {
+func expandLambda(module *Module, expr *ListType) (*ListType, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
 		return nil, SyntaxError(expr)
@@ -224,7 +224,7 @@ func expandLambda(module module, expr *ListType) (*ListType, error) {
 	return cons(car(expr), cons(args, body)), nil
 }
 
-func expandSet(module module, expr *ListType) (*ListType, error) {
+func expandSet(module *Module, expr *ListType) (*ListType, error) {
 	exprLen := length(expr)
 	if exprLen != 3 {
 		return nil, SyntaxError(expr)
@@ -241,7 +241,7 @@ func expandSet(module module, expr *ListType) (*ListType, error) {
 	return list(car(expr), cadr(expr), val), nil
 }
 
-func expandPrimitive(module module, fn AnyType, expr *ListType) (AnyType, error) {
+func expandPrimitive(module *Module, fn AnyType, expr *ListType) (AnyType, error) {
 	switch fn {
 	case intern("quote"):
 		return expr, nil
@@ -335,7 +335,7 @@ func expandLetrec(expr AnyType) (AnyType, error) {
 	return cons(code, values), nil
 }
 
-func crackLetBindings(module module, bindings *ListType) (*ListType, *ListType, bool) {
+func crackLetBindings(module *Module, bindings *ListType) (*ListType, *ListType, bool) {
 	var names []AnyType
 	var values []AnyType
 	for bindings != EmptyList {
@@ -404,7 +404,7 @@ func expandNamedLet(expr AnyType) (AnyType, error) {
 	return macroexpandList(module, tmp)
 }
 
-func crackDoBindings(module module, bindings *ListType) (*ListType, *ListType, *ListType, bool) {
+func crackDoBindings(module *Module, bindings *ListType) (*ListType, *ListType, *ListType, bool) {
 	names := EmptyList
 	inits := EmptyList
 	steps := EmptyList
@@ -616,6 +616,9 @@ func expandQQList(lst *ListType) (AnyType, error) {
 	for lst != EmptyList {
 		item := car(lst)
 		if isList(item) && item != EmptyList {
+			if car(item) == symQuasiquote {
+				return nil, Error("nested quasiquote not supported")
+			}
 			if car(item) == symUnquote && length(item) == 2 {
 				tmp, err = macroexpand(cadr(item))
 				tmp = list(intern("list"), tmp)
@@ -631,8 +634,6 @@ func expandQQList(lst *ListType) (AnyType, error) {
 				}
 				tail.cdr = list(tmp)
 				tail = tail.cdr
-			} else if car(item) == symQuasiquote {
-				return nil, Error("nested quasiquote not supported")
 			} else {
 				tmp, err = expandQQList(item.(*ListType))
 				if err != nil {

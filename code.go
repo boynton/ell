@@ -52,73 +52,39 @@ const (
 	opcodeUndefGlobal
 )
 
-// code is an Ell code object
-type code interface {
-	Type() AnyType
-	String() string
-	Equal(another AnyType) bool
-	module() module
-	loadOps(ops AnyType) error
-	decompile(pretty bool) string
-	emitLiteral(val AnyType)
-	emitGAnyTypeal(sym AnyType)
-	emitCall(argc int)
-	emitReturn()
-	emitTailCall(argc int)
-	emitPop()
-	emitLocal(i int, j int)
-	emitSetLocal(i int, j int)
-	emitDefGAnyTypeal(sym AnyType)
-	emitUndefGAnyTypeal(sym AnyType)
-	emitDefMacro(sym AnyType)
-	emitClosure(code code)
-	emitJumpFalse(offset int) int
-	emitJump(offset int) int
-	setJumpLocation(loc int)
-	emitArray(length int)
-	emitStruct(length int)
-	emitUse(sym AnyType)
-	emitCar()
-	emitCdr()
-	emitNull()
-	emitAdd()
-	emitMul()
-}
-
 // Code - compiled Ell bytecode
 type Code struct {
-	mod                *Module
-	name               string
-	ops                []int
-	argc               int
-	defaults           []AnyType
-	keys               []AnyType
-	symClosure         AnyType
-	symFunction        AnyType
-	symLiteral         AnyType
-	symLocal           AnyType
-	symSetLocal        AnyType
-	symGAnyTypeal      AnyType
-	symJump            AnyType
-	symJumpFalse       AnyType
-	symCall            AnyType
-	symTailCall        AnyType
-	symReturn          AnyType
-	symPop             AnyType
-	symDefGAnyTypeal   AnyType
-	symUndefGAnyTypeal AnyType
-	symDefMacro        AnyType
-	symUse             AnyType
-	symCar             AnyType
-	symCdr             AnyType
-	symNull            AnyType
-	symAdd             AnyType
-	symMul             AnyType
+	mod            *Module
+	name           string
+	ops            []int
+	argc           int
+	defaults       []AnyType
+	keys           []AnyType
+	symClosure     AnyType
+	symFunction    AnyType
+	symLiteral     AnyType
+	symLocal       AnyType
+	symSetLocal    AnyType
+	symGlobal      AnyType
+	symJump        AnyType
+	symJumpFalse   AnyType
+	symCall        AnyType
+	symTailCall    AnyType
+	symReturn      AnyType
+	symPop         AnyType
+	symDefGlobal   AnyType
+	symUndefGlobal AnyType
+	symDefMacro    AnyType
+	symUse         AnyType
+	symCar         AnyType
+	symCdr         AnyType
+	symNull        AnyType
+	symAdd         AnyType
+	symMul         AnyType
 }
 
-func newCode(mod module, argc int, defaults []AnyType, keys []AnyType, name string) code {
+func newCode(lmod *Module, argc int, defaults []AnyType, keys []AnyType, name string) *Code {
 	var ops []int
-	lmod := mod.(*Module)
 	code := Code{
 		lmod,
 		name,
@@ -151,7 +117,7 @@ func newCode(mod module, argc int, defaults []AnyType, keys []AnyType, name stri
 	return &code
 }
 
-var typeCode = internSymbol("<code>")
+var typeCode = intern("<code>")
 
 // Type returns the type of the code
 func (*Code) Type() AnyType {
@@ -302,7 +268,7 @@ func (code *Code) String() string {
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *Code) module() module {
+func (code *Code) module() *Module {
 	return code.mod
 }
 
@@ -375,10 +341,10 @@ func (code *Code) loadOps(lst AnyType) error {
 				return err
 			}
 			code.emitSetLocal(i, j)
-		case code.symGAnyTypeal:
-			code.emitGAnyTypeal(cadr(instr))
-		case code.symUndefGAnyTypeal:
-			code.emitUndefGAnyTypeal(cadr(instr))
+		case code.symGlobal:
+			code.emitGlobal(cadr(instr))
+		case code.symUndefGlobal:
+			code.emitUndefGlobal(cadr(instr))
 		case code.symJump:
 			loc, err := intValue(cadr(instr))
 			if err != nil {
@@ -407,8 +373,8 @@ func (code *Code) loadOps(lst AnyType) error {
 			code.emitReturn()
 		case code.symPop:
 			code.emitPop()
-		case code.symDefGAnyTypeal:
-			code.emitDefGAnyTypeal(cadr(instr))
+		case code.symDefGlobal:
+			code.emitDefGlobal(cadr(instr))
 		case code.symDefMacro:
 			code.emitDefMacro(cadr(instr))
 		case code.symUse:
@@ -436,7 +402,7 @@ func (code *Code) emitLiteral(val AnyType) {
 	code.ops = append(code.ops, code.mod.putConstant(val))
 }
 
-func (code *Code) emitGAnyTypeal(sym AnyType) {
+func (code *Code) emitGlobal(sym AnyType) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
@@ -464,11 +430,11 @@ func (code *Code) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *Code) emitDefGAnyTypeal(sym AnyType) {
+func (code *Code) emitDefGlobal(sym AnyType) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *Code) emitUndefGAnyTypeal(sym AnyType) {
+func (code *Code) emitUndefGlobal(sym AnyType) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
@@ -476,7 +442,7 @@ func (code *Code) emitDefMacro(sym AnyType) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, code.mod.putConstant(sym))
 }
-func (code *Code) emitClosure(newCode code) {
+func (code *Code) emitClosure(newCode *Code) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, code.mod.putConstant(newCode))
 }

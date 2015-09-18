@@ -21,7 +21,7 @@ import (
 )
 
 // Ell defines the global functions for the top level environment
-func Ell(module module) {
+func Ell(module *Module) {
 
 	module.defineMacro("let", ellLet)
 	module.defineMacro("letrec", ellLetrec)
@@ -34,7 +34,7 @@ func Ell(module module) {
 	module.define("true", True)
 	module.define("false", False)
 
-	module.define("apply", APPLY)
+	module.define("apply", Apply)
 
 	module.defineFunction("version", ellVersion)
 
@@ -65,7 +65,7 @@ func Ell(module module) {
 	module.defineFunction("symbol", elSymbolType)
 
 	module.defineFunction("keyword?", ellKeywordP)
-	module.defineFunction("keyword", ellKeyword)
+	//	module.defineFunction("keyword", ellKeyword)
 	module.defineFunction("unkeyword", ellUnkeyword)
 	module.defineFunction("string?", elStringTypeP)
 	module.defineFunction("char?", ellCharP)
@@ -268,10 +268,11 @@ func ellInstance(argv []AnyType, argc int) (AnyType, error) {
 	}
 	switch s := argv[0].(type) {
 	case *SymbolType:
-		return newInstance(s, argv[1:argc])
-	default:
-		return ArgTypeError("symbol", 1, argv[0])
+		if isSymbolType(s) {
+			return newInstance(s, argv[1:argc])
+		}
 	}
+	return ArgTypeError("type", 1, argv[0])
 }
 
 func ellIdenticalP(argv []AnyType, argc int) (AnyType, error) {
@@ -720,12 +721,14 @@ func ellTypeName(argv []AnyType, argc int) (AnyType, error) {
 	return ArgcError("type-name", "1", argc)
 }
 
+/*
 func ellKeyword(argv []AnyType, argc int) (AnyType, error) {
 	if argc < 1 {
 		return ArgcError("symbol", "1+", argc)
 	}
-	return keyword(argv[0])
+	return keyword(argv)
 }
+*/
 
 func ellUnkeyword(argv []AnyType, argc int) (AnyType, error) {
 	if argc != 1 {

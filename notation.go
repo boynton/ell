@@ -36,6 +36,7 @@ func fileReadable(path string) bool {
 	return false
 }
 
+// InputPort - an object to read from
 type InputPort struct {
 	file   *os.File
 	reader *dataReader
@@ -47,6 +48,7 @@ func isInputPort(obj AnyType) bool {
 	return ok
 }
 
+// Type returns the type of the object
 func (*InputPort) Type() AnyType {
 	return intern("input-port")
 }
@@ -486,7 +488,7 @@ func (dr *dataReader) decodeReaderMacro() (AnyType, error) {
 			if c == '{' {
 				t := intern("<" + atom + ">")
 				if err == nil {
-					inst, err := dr.decodeInstance(t.(*SymbolType))
+					inst, err := dr.decodeInstance(t)
 					if err == nil {
 						return inst, nil
 					}
