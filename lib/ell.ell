@@ -132,13 +132,42 @@
          (instance '~typesym (validated-struct o '~typesym '~keys)))
        '~typesym)))
 
+;; create a type based on some other (non-struct) type, by providing the predicate
+;; i.e. 
+;;   ? (deftype foo (s) (and (string? s) (< (string-length s) 3)))
+;;   = <foo>
+;;   ? (foo "abc")
+;;    *** not a valid <foo>: "abc"
+;;   ? (foo "ab")
+;;   = #foo{value: "ab"}
+;;   ? (foo? (foo "ab"))
+;;   = true
+;; 
+;; This aggregates the parameter, so the result is a struct, but correctness is determined by the
+;; predicate, instead of matching fields of another struct like defstruct does.
+;;
+(defmacro deftype (sym args & predicate-body)
+  (let ((typesym (symbol "<" sym ">"))
+        (arg (car args)))
+    `(begin
+       (defn ~(symbol sym "?") (o)
+         (and (struct? o) ((lambda ~args ~@predicate-body) (value: o)) true))
+       (defn ~sym ~args
+         (if (not ~@predicate-body)
+             (error ~(string "not a valid " typesym ": ") (write-to-string ~arg)))
+         (instance ~typesym value: ~(car args)))
+       ~typesym)))
+
+;;
 ;; generic functions dispatch to methods based on argument type
+;;
 (defstruct generic-function name: "" args: '() methods: {})
 
 (def *genfns* {})
 
 ;;
 ;; declares the specified symbol to be a generic dispatch function for the given arguments
+;;
 (defmacro defgeneric (name args)
   (let ((gf (generic-function name: name args: args)))
     (put! *genfns* name gf)
@@ -147,13 +176,13 @@
 ;;
 ;; Called by the generic function.
 ;; Given the generic function symbol and an actual argument list, return the metching method
-;; Currently, this does not do any inheritance, just exact type matching
+;; This does not do any inheritance, just exact type matching.
 ;; This function needs optimizing!
 ;;
 ;; BUG: doesn't work with either rest (&) or keyword args
 ;;
 (defn get-method (sym args)
-  (defn combos (lst)
+  (define (combos lst)
     (if (empty? lst)
         (list '())
         (let ((first (car lst))
@@ -161,8 +190,7 @@
           (concat
            (map (lambda (r) (cons first r)) rest)
            (map (lambda (r) (cons <any> r)) rest)))))
-  (defn combos-as-strings (lst)
-    (map (lambda (x) (apply string x)) (combos lst)))
+  (define (combos-as-strings lst) (map (lambda (x) (apply string x)) (combos lst)))
   (define gf (get *genfns* sym))
   (if (null? gf)
       (error "Not a generic function: " sym))
@@ -182,13 +210,13 @@
 ;; Called by defmethod
 ;;
 (defn add-method (sym specialized-args fun)
-  (defn method-arg-types (args)
+  (define (method-arg-types args)
     (let loop ((remaining args) (result '()))
       (if (empty? remaining)
           (reverse result)
           (let ((item (car remaining)))
             (loop (cdr remaining) (if (symbol? item) (cons <any> result) (cons (cadr item) result)))))))
-  (defn method-arg-names (args)
+  (define (method-arg-names args)
     (map (lambda (item) (if (symbol? item) item (car item))) args))
   (let ((gf (get *genfns* sym)))
     (if (null? gf)
@@ -213,3 +241,4 @@
             (error sym " is already defined to something other than a generic function"))
         (error sym " is is not defined as a generic function"))
     `(add-method '~sym '~specialized-args (lambda ~names ~@body))))
+
