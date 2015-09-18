@@ -199,6 +199,8 @@ func expandLambda(module *Module, expr *ListType) (*ListType, error) {
 		return nil, SyntaxError(expr)
 	}
 	tmp := cddr(expr)
+	//bug: the check for internal defines should happen *after* the expandSequence
+	// otherwise defn and def won't work
 	if exprLen > 3 {
 		if isList(tmp) && caar(tmp) == intern("define") {
 			bindings := EmptyList
