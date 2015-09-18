@@ -40,12 +40,6 @@ func fatal(args ...interface{}) {
 var interrupts chan os.Signal
 
 func main() {
-	EllPath = os.Getenv("ELL_PATH")
-	ellini := filepath.Join(os.Getenv("HOME"), ".ell")
-	if EllPath == "" {
-		filename, _ := filepath.Abs(filepath.Dir(os.Args[0]))
-		EllPath = ".:" + filepath.Join(filepath.Dir(filename), "src/github.com/boynton/gell/lib")
-	}
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
 	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
@@ -53,6 +47,27 @@ func main() {
 	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
 	flag.Parse()
 	args := flag.Args()
+
+	EllPath = os.Getenv("ELL_PATH")
+	home := os.Getenv("HOME")
+	ellini := filepath.Join(home, ".ell")
+	if EllPath == "" {
+		EllPath = "."
+		homelib := filepath.Join(home,  "lib/ell")
+		_, err := os.Stat(homelib)
+		if err == nil {
+			EllPath += ":" + homelib
+		}
+		gopath := os.Getenv("GOPATH")
+		if gopath != "" {
+			golibdir := filepath.Join(gopath,  "src/github.com/boynton/gell/lib")
+			_, err := os.Stat(golibdir)
+			if err == nil {
+				EllPath += ":" + golibdir
+			}
+		}
+	}
+	println("[EllPath set to ", EllPath, "]")
 	if *pVerbose {
 		verbose = *pVerbose
 	}
