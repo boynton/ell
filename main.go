@@ -63,17 +63,20 @@ func main() {
 		extendedInstructions = *pExtended
 	}
 	environment := newEnvironment("main", Ell, interrupts)
-	if !*pNoInit {
-		_, err := os.Stat(ellini)
-		if err == nil {
-			err := environment.loadModule(ellini)
-			if err != nil {
-				println("*** ", err)
-				os.Exit(1)
-			}
-		}
+	err := environment.loadModule("ell")
+	if err != nil {
+		fatal("*** ", err)
 	}
 	if len(args) < 1 {
+		if !*pNoInit {
+			_, err := os.Stat(ellini)
+			if err == nil {
+				err := environment.loadModule(ellini)
+				if err != nil {
+					fatal("*** ", err)
+				}
+			}
+		}
 		interrupts = make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
@@ -94,16 +97,14 @@ func main() {
 				//just compile and print LAP code
 				lap, err := environment.compileFile(filename)
 				if err != nil {
-					println("*** ", err)
-					os.Exit(1)
+					fatal("*** ", err)
 				}
 				println(lap)
 			} else {
 				//this executes the file
 				err := environment.loadModule(filename)
 				if err != nil {
-					println("*** ", err)
-					os.Exit(1)
+					fatal("*** ", err)
 				}
 			}
 		}
