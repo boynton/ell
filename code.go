@@ -52,6 +52,28 @@ const (
 	opcodeUndefGlobal
 )
 
+var symOpClosure = intern("closure")
+var symOpFunction = intern("function")
+var symOpLiteral = intern("literal")
+var symOpLocal = intern("local")
+var symOpSetLocal = intern("setlocal")
+var symOpGlobal = intern("global")
+var symOpJump = intern("jump")
+var symOpJumpFalse = intern("jumpfalse")
+var symOpCall = intern("call")
+var symOpTailCall = intern("tailcall")
+var symOpReturn =	intern("return")
+var symOpPop =	intern("pop")
+var symOpDefGlobal = intern("defglobal")
+var symOpUndefGlobal = intern("undefglobal")
+var symOpDefMacro = intern("defmacro")
+var symOpUse = intern("use")
+var symOpCar = intern("car")
+var symOpCdr =	intern("cdr")
+var symOpNull = intern("null")
+var symOpAdd = intern("add")
+var symOpMul = intern("mul")
+
 // Code - compiled Ell bytecode
 type Code struct {
 	name           string
@@ -59,27 +81,6 @@ type Code struct {
 	argc           int
 	defaults       []LAny
 	keys           []LAny
-	symClosure     LAny
-	symFunction    LAny
-	symLiteral     LAny
-	symLocal       LAny
-	symSetLocal    LAny
-	symGlobal      LAny
-	symJump        LAny
-	symJumpFalse   LAny
-	symCall        LAny
-	symTailCall    LAny
-	symReturn      LAny
-	symPop         LAny
-	symDefGlobal   LAny
-	symUndefGlobal LAny
-	symDefMacro    LAny
-	symUse         LAny
-	symCar         LAny
-	symCdr         LAny
-	symNull        LAny
-	symAdd         LAny
-	symMul         LAny
 }
 
 func newCode(argc int, defaults []LAny, keys []LAny, name string) *Code {
@@ -90,27 +91,6 @@ func newCode(argc int, defaults []LAny, keys []LAny, name string) *Code {
 		argc,
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
-		intern("closure"),
-		intern("function"),
-		intern("literal"),
-		intern("local"),
-		intern("setlocal"),
-		intern("global"),
-		intern("jump"),
-		intern("jumpfalse"),
-		intern("call"),
-		intern("tailcall"),
-		intern("return"),
-		intern("pop"),
-		intern("defglobal"),
-		intern("undefglobal"),
-		intern("defmacro"),
-		intern("use"),
-		intern("car"),
-		intern("cdr"),
-		intern("null"),
-		intern("add"),
-		intern("mul"),
 	}
 	return &code
 }
@@ -133,6 +113,42 @@ func (code *Code) Equal(another LAny) bool {
 		return code == c
 	}
 	return false
+}
+
+func (code *Code) signature() string {
+	//
+	//experimental: external annotations on the functions: *declarations* is a map from symbol to string
+	//
+	//a macro to declare could be as follows:
+	// (defmacro declare (name args)
+	//   (or (symbol? name) (error "expected a <symbol> got " name))
+	//   (let ((sig (string args)))
+	//     `(put! *declarations* '~name '~sig)))
+	//used as:
+	// (declare cons (<any> <list>) <list>)
+	if code.name != "" {
+		val := global(intern("*declarations*")) //so if this this has not been defined, we'll just skip it
+		if s, ok := val.(*LStruct); ok {
+			sig, _ := get(s, intern(code.name))
+			if sig != Null {
+				return sig.String()
+			}
+		}
+	}
+	//the following has no type info
+	tmp := ""
+	for i:=0; i<code.argc; i++ {
+		tmp += " <any>"
+	}
+	if code.defaults != nil {
+		tmp += " <any>*"
+	}
+	if tmp != "" {
+		tmp = "(" + tmp[1:] + ")"
+	} else {
+		tmp = "()"
+	}
+	return tmp
 }
 
 func (code *Code) decompile(pretty bool) string {
@@ -277,9 +293,9 @@ func (code *Code) loadOps(lst LAny) error {
 		instr := car(lst)
 		op := car(instr)
 		switch op {
-		case code.symClosure:
+		case symOpClosure:
 			lstFunc := cadr(instr)
-			if car(lstFunc) != code.symFunction {
+			if car(lstFunc) != symOpFunction {
 				return Error("Bad argument for a closure: ", lstFunc)
 			}
 			lstFunc = cdr(lstFunc)
@@ -318,9 +334,9 @@ func (code *Code) loadOps(lst LAny) error {
 			fun := newCode(argc, defaults, keys, name)
 			fun.loadOps(cdr(lstFunc))
 			code.emitClosure(fun)
-		case code.symLiteral:
+		case symOpLiteral:
 			code.emitLiteral(cadr(instr))
-		case code.symLocal:
+		case symOpLocal:
 			i, err := intValue(cadr(instr))
 			if err != nil {
 				return err
@@ -330,7 +346,7 @@ func (code *Code) loadOps(lst LAny) error {
 				return err
 			}
 			code.emitLocal(i, j)
-		case code.symSetLocal:
+		case symOpSetLocal:
 			i, err := intValue(cadr(instr))
 			if err != nil {
 				return err
@@ -340,53 +356,53 @@ func (code *Code) loadOps(lst LAny) error {
 				return err
 			}
 			code.emitSetLocal(i, j)
-		case code.symGlobal:
+		case symOpGlobal:
 			code.emitGlobal(cadr(instr))
-		case code.symUndefGlobal:
+		case symOpUndefGlobal:
 			code.emitUndefGlobal(cadr(instr))
-		case code.symJump:
+		case symOpJump:
 			loc, err := intValue(cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitJump(loc)
-		case code.symJumpFalse:
+		case symOpJumpFalse:
 			loc, err := intValue(cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitJumpFalse(loc)
-		case code.symCall:
+		case symOpCall:
 			argc, err := intValue(cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitCall(argc)
-		case code.symTailCall:
+		case symOpTailCall:
 			argc, err := intValue(cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitTailCall(argc)
-		case code.symReturn:
+		case symOpReturn:
 			code.emitReturn()
-		case code.symPop:
+		case symOpPop:
 			code.emitPop()
-		case code.symDefGlobal:
+		case symOpDefGlobal:
 			code.emitDefGlobal(cadr(instr))
-		case code.symDefMacro:
+		case symOpDefMacro:
 			code.emitDefMacro(cadr(instr))
-		case code.symUse:
+		case symOpUse:
 			code.emitUse(cadr(instr))
-		case code.symCar:
+		case symOpCar:
 			code.emitCar()
-		case code.symCdr:
+		case symOpCdr:
 			code.emitCdr()
-		case code.symNull:
+		case symOpNull:
 			code.emitNull()
-		case code.symAdd:
+		case symOpAdd:
 			code.emitAdd()
-		case code.symMul:
+		case symOpMul:
 			code.emitMul()
 		default:
 			panic(fmt.Sprintf("Bad instruction: %v", op))

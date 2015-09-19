@@ -46,12 +46,14 @@ func define(name string, obj LAny) {
 	defGlobal(sym, obj)
 }
 
-func defineFunction(name string, fun primitive) {
+//Need to pass a "signature" string to document usage
+// "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
+func defineFunction(name string, fun primitive, signature string) {
 	sym := intern(name)
 	if global(sym) != nil {
 		println("*** Warning: redefining ", name)
 	}
-	prim := LPrimitive{name, fun}
+	prim := LPrimitive{name, fun, signature}
 	defGlobal(sym, &prim)
 }
 
@@ -60,7 +62,7 @@ func defineMacro(name string, fun primitive) {
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
-	prim := LPrimitive{name, fun}
+	prim := LPrimitive{name, fun, "(<any>)"}
 	defMacro(sym, &prim)
 }
 
@@ -91,7 +93,7 @@ func getGlobals() []LAny {
 }
 
 func global(sym LAny) LAny {
-	s := sym.(*SymbolType)
+	s := sym.(*LSymbol)
 	if s.tag >= len(globals) {
 		return nil
 	}
@@ -108,7 +110,7 @@ type binding struct {
 }
 
 func defGlobal(sym LAny, val LAny) {
-	s := sym.(*SymbolType)
+	s := sym.(*LSymbol)
 	if s.tag >= len(globals) {
 		gLAny := make([]*binding, s.tag+100)
 		copy(gLAny, globals)
@@ -119,7 +121,7 @@ func defGlobal(sym LAny, val LAny) {
 }
 
 func isDefined(sym LAny) bool {
-	s := sym.(*SymbolType)
+	s := sym.(*LSymbol)
 	if s.tag < len(globals) {
 		return globals[s.tag] != nil
 	}
@@ -127,14 +129,14 @@ func isDefined(sym LAny) bool {
 }
 
 func undefGlobal(sym LAny) {
-	s := sym.(*SymbolType)
+	s := sym.(*LSymbol)
 	if s.tag < len(globals) {
 		globals[s.tag] = nil
 	}
 }
 
 func setGlobal(sym LAny, val LAny) error {
-	s := sym.(*SymbolType)
+	s := sym.(*LSymbol)
 	if s.tag < len(globals) {
 		if globals[s.tag] != nil {
 			globals[s.tag].val = val
@@ -330,7 +332,7 @@ func compileFile(name string) (LAny, error) {
 	var lap string
 	for err == nil {
 		if expr == EOF {
-			return StringType(result), nil
+			return LString(result), nil
 		}
 		lap, err = compileObject(expr)
 		if err != nil {

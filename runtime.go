@@ -120,26 +120,26 @@ func (LInstruction) Type() LAny {
 }
 
 // Value returns the object itself for primitive types
-func (s LInstruction) Value() LAny {
-	return s
+func (i LInstruction) Value() LAny {
+	return i
 }
 
 // Equal returns true if the object is equal to the argument
-func (s LInstruction) Equal(another LAny) bool {
+func (i LInstruction) Equal(another LAny) bool {
 	if a, ok := another.(LInstruction); ok {
-		return s == a
+		return i == a
 	}
 	return false
 }
 
-func (s LInstruction) String() string {
-	switch s {
+func (i LInstruction) String() string {
+	switch i {
 	case 0:
-		return "<function apply>"
+		return "#[function apply (<function> <any>* <list>)]"
 	case 1:
-		return "<function callcc>"
+		return "#[function callcc (<function>)]"
 	}
-	return "<instr ?>"
+	return fmt.Sprintf("#[function UNDEFINED]", i)
 }
 
 type primitive func(argv []LAny, argc int) (LAny, error)
@@ -148,6 +148,7 @@ type primitive func(argv []LAny, argc int) (LAny, error)
 type LPrimitive struct { // <function>
 	name string
 	fun  primitive
+	signature string
 }
 
 var typeFunction = intern("<function>")
@@ -171,7 +172,7 @@ func (prim *LPrimitive) Equal(another LAny) bool {
 }
 
 func (prim *LPrimitive) String() string {
-	return "<function " + prim.name + ">"
+	return "#[function " + prim.name + " " + prim.signature + "]"
 }
 
 type frame struct {
@@ -221,10 +222,25 @@ func (closure *LClosure) Equal(another LAny) bool {
 
 func (closure LClosure) String() string {
 	n := closure.code.name
-	if n == "" {
-		return "<function>"
+	s := closure.code.signature()
+/*
+	s := " arguments"
+	if closure.code.defaults != nil {
+		if len(closure.code.defaults) == 0 {
+			s = " or more arguments"
+		} else {
+			s = fmt.Sprintf(" to %d arguments", argc + len(closure.code.defaults))
+		}
+	} else {
+		if argc == 1 {
+			s = " argument"
+		}
 	}
-	return "<function " + n + ">"
+*/
+	if n == "" {
+		return fmt.Sprintf("#[function %s]", s)
+	}
+	return fmt.Sprintf("#[function %s %s]", n, s)
 }
 
 func showEnv(f *frame) string {
@@ -467,7 +483,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 				} else {
 					return nil, Error("unsupported instruction", tfun)
 				}
-			case *SymbolType:
+			case *LSymbol:
 				if isKeyword(tfun) {
 					if argc != 1 {
 						return ArgcError(tfun.Name, "1", argc)
@@ -548,7 +564,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 				} else {
 					return nil, Error("unsupported instruction", tfun)
 				}
-			case *SymbolType:
+			case *LSymbol:
 				if isKeyword(tfun) {
 					if argc != 1 {
 						return ArgcError(tfun.Name, "1", argc)

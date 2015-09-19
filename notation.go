@@ -292,7 +292,7 @@ func (dr *dataReader) decodeString() (LAny, error) {
 		}
 		c, e = dr.getChar()
 	}
-	s := StringType(string(buf))
+	s := LString(string(buf))
 	return s, e
 }
 
@@ -522,12 +522,12 @@ func writeData(obj LAny, json bool) (string, error) {
 			return writeArray(listToArray(o), json)
 		}
 		return writeList(o), nil
-	case *SymbolType:
+	case *LSymbol:
 		if json {
 			return encodeString(unkeywordedString(o)), nil
 		}
 		return o.String(), nil
-	case StringType:
+	case LString:
 		s := encodeString(string(o))
 		return s, nil
 	case *LArray:

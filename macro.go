@@ -593,7 +593,7 @@ func expandQQ(expr LAny) (LAny, error) {
 			return nil, err
 		}
 		return macroexpand(tmp)
-	case *SymbolType:
+	case *LSymbol:
 		if isKeyword(v) {
 			return expr, nil
 		}

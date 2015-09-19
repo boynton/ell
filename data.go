@@ -132,9 +132,9 @@ func (b LBoolean) String() string {
 }
 
 //
-// SymbolType holds symbols, keywords, and types. Use the tag to distinguish between them
+// LSymbol holds symbols, keywords, and types. Use the tag to distinguish between them
 //
-type SymbolType struct {
+type LSymbol struct {
 	Name string
 	tag  int //an incrementing sequence number for symbols, -1 for types, and -2 for keywords
 }
@@ -144,15 +144,15 @@ const keywordTag = -2
 
 var symtag int
 
-func intern(name string) *SymbolType {
+func intern(name string) *LSymbol {
 	sym, ok := symtab[name]
 	if !ok {
 		if isValidKeywordName(name) {
-			sym = &SymbolType{name, keywordTag}
+			sym = &LSymbol{name, keywordTag}
 		} else if isValidTypeName(name) {
-			sym = &SymbolType{name, typeTag}
+			sym = &LSymbol{name, typeTag}
 		} else if isValidSymbolName(name) {
-			sym = &SymbolType{name, symtag}
+			sym = &LSymbol{name, symtag}
 			symtag++
 		}
 		if sym == nil {
@@ -187,9 +187,9 @@ var typeSymbol = intern("<symbol>")
 var typeKeyword = intern("<keyword>")
 var typeType = intern("<type>")
 
-// Type returns the type of the object. Since SymbolType represents keywords, types, and regular
+// Type returns the type of the object. Since LSymbol represents keywords, types, and regular
 // symbols, it could return any of those three values
-func (sym *SymbolType) Type() LAny {
+func (sym *LSymbol) Type() LAny {
 	if sym.tag == keywordTag {
 		return typeKeyword
 	} else if sym.tag == typeTag {
@@ -199,46 +199,46 @@ func (sym *SymbolType) Type() LAny {
 }
 
 // Value returns the object itself for primitive types
-func (sym *SymbolType) Value() LAny {
+func (sym *LSymbol) Value() LAny {
 	return sym
 }
 
 // Equal returns true if the object is equal to the argument
-func (sym *SymbolType) Equal(another LAny) bool {
-	if a, ok := another.(*SymbolType); ok {
+func (sym *LSymbol) Equal(another LAny) bool {
+	if a, ok := another.(*LSymbol); ok {
 		return sym == a
 	}
 	return false
 }
 
-func (sym *SymbolType) String() string {
+func (sym *LSymbol) String() string {
 	return sym.Name
 }
 
 func isSymbol(obj LAny) bool {
-	sym, ok := obj.(*SymbolType)
+	sym, ok := obj.(*LSymbol)
 	return ok && sym.tag >= 0
 }
 
 func isType(obj LAny) bool {
-	sym, ok := obj.(*SymbolType)
+	sym, ok := obj.(*LSymbol)
 	return ok && sym.tag == typeTag
 }
 
 func isKeyword(obj LAny) bool {
-	sym, ok := obj.(*SymbolType)
+	sym, ok := obj.(*LSymbol)
 	return ok && sym.tag == keywordTag
 }
 
-func typeName(obj LAny) (*SymbolType, error) {
-	sym, ok := obj.(*SymbolType)
+func typeName(obj LAny) (*LSymbol, error) {
+	sym, ok := obj.(*LSymbol)
 	if ok && sym.tag == typeTag {
 		return intern(sym.Name[1 : len(sym.Name)-1]), nil
 	}
 	return nil, Error("Type error: expected <type>, got ", obj)
 }
 
-func unkeywordedString(sym *SymbolType) string {
+func unkeywordedString(sym *LSymbol) string {
 	if sym.tag == keywordTag {
 		return sym.Name[:len(sym.Name)-1]
 	}
@@ -246,7 +246,7 @@ func unkeywordedString(sym *SymbolType) string {
 }
 
 func unkeyworded(obj LAny) (LAny, error) {
-	sym, ok := obj.(*SymbolType)
+	sym, ok := obj.(*LSymbol)
 	if ok {
 		switch sym.tag {
 		case keywordTag:
@@ -261,7 +261,7 @@ func unkeyworded(obj LAny) (LAny, error) {
 }
 
 func keywordToSymbol(obj LAny) (LAny, error) {
-	sym, ok := obj.(*SymbolType)
+	sym, ok := obj.(*LSymbol)
 	if ok && sym.tag == keywordTag {
 		return intern(sym.Name[:len(sym.Name)-1]), nil
 	}
@@ -269,7 +269,7 @@ func keywordToSymbol(obj LAny) (LAny, error) {
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
-var symtab = map[string]*SymbolType{}
+var symtab = map[string]*LSymbol{}
 
 func symbols() []LAny {
 	syms := make([]LAny, 0, len(symtab))
@@ -289,9 +289,9 @@ func symbol(names []LAny) (LAny, error) {
 		o := names[i]
 		s := ""
 		switch t := o.(type) {
-		case StringType:
+		case LString:
 			s = string(t)
-		case *SymbolType:
+		case *LSymbol:
 			s = t.Name
 		default:
 			return nil, Error("symbol name component invalid: ", o)
@@ -302,20 +302,20 @@ func symbol(names []LAny) (LAny, error) {
 }
 
 //
-// StringType - Ell Strings
+// LString - Ell Strings
 //
-type StringType string
+type LString string
 
 var typeString = intern("<string>")
 
 func isString(obj LAny) bool {
-	_, ok := obj.(StringType)
+	_, ok := obj.(LString)
 	return ok
 }
 
 func stringValue(obj LAny) (string, error) {
 	switch s := obj.(type) {
-	case StringType:
+	case LString:
 		return string(s), nil
 	default:
 		return "", TypeError(typeString, obj)
@@ -323,18 +323,18 @@ func stringValue(obj LAny) (string, error) {
 }
 
 // Type returns the type of the object
-func (StringType) Type() LAny {
+func (LString) Type() LAny {
 	return typeString
 }
 
 // Value returns the object itself for primitive types
-func (s StringType) Value() LAny {
+func (s LString) Value() LAny {
 	return s
 }
 
 // Equal returns true if the object is equal to the argument
-func (s StringType) Equal(another LAny) bool {
-	if a, ok := another.(StringType); ok {
+func (s LString) Equal(another LAny) bool {
+	if a, ok := another.(LString); ok {
 		return s == a
 	}
 	return false
@@ -372,7 +372,7 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
-func (s StringType) String() string {
+func (s LString) String() string {
 	return string(s)
 }
 
@@ -732,7 +732,7 @@ func isEmpty(col LAny) bool {
 	switch v := col.(type) {
 	case LNull: //Do I really want this?
 		return true
-	case StringType:
+	case LString:
 		return len(v) == 0
 	case *LArray:
 		return len(v.elements) == 0
@@ -944,7 +944,7 @@ func arrayToList(ary LAny) (LAny, error) {
 
 func length(seq LAny) int {
 	switch v := seq.Value().(type) {
-	case StringType:
+	case LString:
 		return len(v)
 	case *LArray:
 		return len(v.elements)
@@ -1117,12 +1117,12 @@ func arrayRef(ary LAny, idx int) (LAny, error) {
 
 // LInstance is a typed value
 type LInstance struct { // <user-defined-type>
-	tag   *SymbolType
+	tag   *LSymbol
 	value LAny
 }
 
 func instance(tag LAny, val LAny) (LAny, error) {
-	sym, ok := tag.(*SymbolType)
+	sym, ok := tag.(*LSymbol)
 	if !ok || !isValidTypeName(sym.Name) {
 		return nil, TypeError(typeType, tag)
 	}
@@ -1193,7 +1193,7 @@ func normalizeKeywordArgs(args *LList, keys []LAny) (*LList, error) {
 	for args != EmptyList {
 		key := car(args)
 		switch t := key.Value().(type) {
-		case *SymbolType:
+		case *LSymbol:
 			if !isKeyword(key) {
 				key = intern(t.String() + ":")
 			}
@@ -1244,13 +1244,13 @@ func newStruct(fieldvals []LAny) (*LStruct, error) {
 		switch t := o.Value().(type) {
 		case LNull:
 			//ignore
-		case StringType:
+		case LString:
 			if i == count {
 				return nil, Error("mismatched keyword/value in arglist: ", o)
 			}
 			bindings[o] = fieldvals[i]
 			i++
-		case *SymbolType:
+		case *LSymbol:
 			if i == count {
 				return nil, Error("mismatched keyword/value in arglist: ", o)
 			}

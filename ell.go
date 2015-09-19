@@ -36,98 +36,98 @@ func initEnvironment() {
 
 	define("apply", Apply)
 
-	defineFunction("version", ellVersion)
+	defineFunction("version", ellVersion, "()")
 
-	defineFunction("defined?", ellDefinedP)
+	defineFunction("defined?", ellDefinedP, "(<any>)")
 
-	defineFunction("file-contents", ellFileContents)
-	defineFunction("open-input-string", ellOpenInputString)
-	defineFunction("open-input-file", ellOpenInputFile)
-	defineFunction("read", ellRead)
-	defineFunction("close-input", ellCloseInput)
+	defineFunction("file-contents", ellFileContents, "(<string>) <string>")
+	defineFunction("open-input-string", ellOpenInputString, "(<string>) <input>")
+	defineFunction("open-input-file", ellOpenInputFile, "(<string>) <input>")
+	defineFunction("read", ellRead, "([<input>]) <any>")
+	defineFunction("close-input", ellCloseInput, "(<input>) <null>")
 
-	defineFunction("macroexpand", ellMacroexpand)
-	defineFunction("type", ellType)
-	defineFunction("value", ellValue)
-	defineFunction("instance", ellInstance)
-	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs)
+	defineFunction("macroexpand", ellMacroexpand, "(<any>) <any>")
+	defineFunction("type", ellType, "(<any>) <type>")
+	defineFunction("value", ellValue, "<any>) <any>")
+	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
+	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs, "(<list> <keyword>+) <list>")
 
-	defineFunction("type?", ellTypeP)
-	defineFunction("type-name", ellTypeName)
+	defineFunction("type?", ellTypeP, "(<any>) <boolean>")
+	defineFunction("type-name", ellTypeName, "(<type>) <symbol>")
 
-	defineFunction("struct", ellStruct)
-	defineFunction("equal?", ellEq)
-	defineFunction("identical?", ellIdenticalP)
-	defineFunction("not", ellNot)
+	defineFunction("struct", ellStruct, "(<any>+) <struct>")
+	defineFunction("equal?", ellEq, "(<any> <any>) <boolean>")
+	defineFunction("identical?", ellIdenticalP, "(<any> <any>) <boolean>")
+	defineFunction("not", ellNot, "(<any>) <boolean>")
 
-	defineFunction("boolean?", ellBooleanP)
-	defineFunction("null?", ellNullP)
-	defineFunction("symbol?", elSymbolTypeP)
-	defineFunction("symbol", elSymbolType)
+	defineFunction("boolean?", ellBooleanP, "(<any>) <boolean>")
+	defineFunction("null?", ellNullP, "(<any>) <boolean>")
+	defineFunction("symbol?", elLSymbolP, "(<any>) <boolean>")
+	defineFunction("symbol", elLSymbol, "(<any>+) <boolean>")
 
-	defineFunction("keyword?", ellKeywordP)
-	defineFunction("string?", elStringTypeP)
-	defineFunction("char?", ellCharP)
-	defineFunction("function?", ellFunctionP)
-	defineFunction("eof?", ellFunctionP)
+	defineFunction("keyword?", ellKeywordP, "(<any>) <boolean>")
+	defineFunction("string?", ellStringP, "(<any>) <boolean>")
+	defineFunction("char?", ellCharP, "(<any>) <boolean>")
+	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
+	defineFunction("eof?", ellFunctionP, "(<any>) <boolean>")
 
-	defineFunction("list?", elLListP)
-	defineFunction("cons", ellCons)
-	defineFunction("car", ellCar)
-	defineFunction("cdr", ellCdr)
-	defineFunction("list", elLList)
-	defineFunction("concat", ellConcat)
-	defineFunction("reverse", ellReverse)
-	defineFunction("set-car!", ellSetCarBang) //mutate!
-	defineFunction("set-cdr!", ellSetCdrBang) //mutate!
+	defineFunction("list?", ellListP, "(<any>) <boolean>")
+	defineFunction("cons", ellCons, "(<any> <list>) <list>")
+	defineFunction("car", ellCar, "(<list>) <any>")
+	defineFunction("cdr", ellCdr, "(<list>) <list>")
+	defineFunction("list", ellList, "(<any>*) <list>")
+	defineFunction("concat", ellConcat, "(<list>*) <list>")
+	defineFunction("reverse", ellReverse, "(<list>) <list>")
+	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>") //mutate!
+	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
 
-	defineFunction("array?", ellArrayP)
-	defineFunction("array", ellArray)
-	defineFunction("make-array", ellMakeArray)
-	defineFunction("array-set!", ellArraySetBang) //mutate!
-	defineFunction("array-ref", ellArrayRef)
+	defineFunction("array?", ellArrayP, "(<any>) <boolean>")
+	defineFunction("array", ellArray, "(<any>*) <array>")
+	defineFunction("make-array", ellMakeArray, "(<number> <any>) <array>")
+	defineFunction("array-set!", ellArraySetBang, "(<array> <number> <any>) <null>") //mutate!
+	defineFunction("array-ref", ellArrayRef, "(<array> <number>) <any>")
 
-	defineFunction("struct?", ellStructP)
-	defineFunction("has?", ellHasP)
-	defineFunction("get", ellGet)
-	defineFunction("assoc", ellAssoc)
-	defineFunction("dissoc", ellDissoc)
-	defineFunction("put!", ellPutBang) //mutate!
-	defineFunction("struct->list", ellStructToList)
+	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
+	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
+	defineFunction("get", ellGet, "(<struct> <any>) <any>")
+	defineFunction("assoc", ellAssoc, "(<struct> <any>) <struct")
+	defineFunction("dissoc", ellDissoc, "(<struct> <any>) <struct>")
+	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
+	defineFunction("struct->list", ellStructToList, "(<struct>) <list>")
 
-	defineFunction("empty?", ellEmptyP)
+	defineFunction("empty?", ellEmptyP, "(<any>) <boolean>")
 
-	defineFunction("string", elStringType)
-	defineFunction("display", ellDisplay)
-	defineFunction("write", ellWrite)
-	defineFunction("newline", ellNewline)
-	defineFunction("print", ellPrint)
-	defineFunction("println", ellPrintln)
-	defineFunction("write-to-string", ellWriteToString)
+	defineFunction("string", ellString, "(<any>*) <string>")
+	defineFunction("string-length", ellStringLength, "(<string>) <number>")
 
-	defineFunction("number?", elLNumberP) // either float or int
-	defineFunction("int?", ellIntP)       //int only
-	defineFunction("float?", ellFloatP)   //float only
-	defineFunction("+", ellPlus)
-	defineFunction("-", ellMinus)
-	defineFunction("*", ellTimes)
-	defineFunction("/", ellDiv)
-	defineFunction("quotient", ellQuotient)
-	defineFunction("remainder", ellRemainder)
-	defineFunction("modulo", ellRemainder) //fix!
+	defineFunction("display", ellDisplay, "(<any>) <null>")
+	defineFunction("write", ellWrite, "(<any>) <null>")
+	defineFunction("newline", ellNewline, "() <null>")
+	defineFunction("print", ellPrint, "(<any>*) <null>")
+	defineFunction("println", ellPrintln, "(<any>*) <null>")
+	defineFunction("to-string", ellToString, "(<any>)  <string>")
 
-	defineFunction("=", ellNumeq)
-	defineFunction("<=", ellLe)
-	defineFunction(">=", ellGe)
-	defineFunction(">", ellGt)
-	defineFunction("<", ellLt)
-	defineFunction("zero?", ellZeroP)
-	defineFunction("number->string", elLNumberToString)
-	defineFunction("string-length", elStringTypeLength)
+	defineFunction("number?", ellNumberP, "(<any>) <boolean>") // either float or int
+	defineFunction("int?", ellIntP, "(<any>) <boolean>")       //int only
+	defineFunction("float?", ellFloatP, "(<any>) <boolean>")   //float only
+	defineFunction("+", ellPlus, "(<number>*) <number>")
+	defineFunction("-", ellMinus, "(<number>+) <number>")
+	defineFunction("*", ellTimes, "(<number>*) <number>")
+	defineFunction("/", ellDiv, "(<number>+) <number>")
+	defineFunction("quotient", ellQuotient, "(<number> <number>) <number>")
+	defineFunction("remainder", ellRemainder, "(<number> <number>) <number>")
+	defineFunction("modulo", ellRemainder, "(<number> <number>) <number>") //fix!
 
-	defineFunction("error", ellFatal)
-	defineFunction("length", ellLength)
-	defineFunction("json", ellJSON)
+	defineFunction("=", ellNumeq, "(<number>+) <boolean>")
+	defineFunction("<=", ellLe, "(<number>+) <boolean>")
+	defineFunction(">=", ellGe, "(<number>+) <boolean>")
+	defineFunction(">", ellGt, "(<number>+) <boolean>")
+	defineFunction("<", ellLt, "(<number>+) <boolean>")
+	defineFunction("zero?", ellZeroP, "(<number>) <boolean>")
+
+	defineFunction("error", ellFatal, "(<any>+) <null>")
+	defineFunction("length", ellLength, "(<any>) <number>")
+	defineFunction("json", ellJSON, "(<any>) <string>")
 
 	err := loadModule("ell")
 	if err != nil {
@@ -162,7 +162,7 @@ func ellQuasiquote(argv []LAny, argc int) (LAny, error) {
 // functions
 
 func ellVersion(argv []LAny, argc int) (LAny, error) {
-	return StringType(Version), nil
+	return LString(Version), nil
 }
 
 func ellDefinedP(argv []LAny, argc int) (LAny, error) {
@@ -193,7 +193,7 @@ func ellFileContents(argv []LAny, argc int) (LAny, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringType(s), nil
+	return LString(s), nil
 }
 
 func ellOpenInputString(argv []LAny, argc int) (LAny, error) {
@@ -266,8 +266,8 @@ func ellInstance(argv []LAny, argc int) (LAny, error) {
 }
 
 func ellNormalizeKeywordArgs(argv []LAny, argc int) (LAny, error) {
-	//(normalize-keyword-args '(x: 23) '(x: y:) -> (x:)
-	//(normalize-keyword-args '(x: 23 z: 100) '(x: y:) -> error("bad keyword z: in argument list")
+	//(normalize-keyword-args '(x: 23) x: y:) -> (x:)
+	//(normalize-keyword-args '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
 	if argc < 1 {
 		return ArgcError("normalizeKeywordArgs", "1+", argc)
 	}
@@ -353,13 +353,12 @@ func ellFatal(argv []LAny, argc int) (LAny, error) {
 	return nil, Error(s)
 }
 
-func ellWriteToString(argv []LAny, argc int) (LAny, error) {
+func ellToString(argv []LAny, argc int) (LAny, error) {
 	if argc != 1 {
-		return ArgcError("write-to-string", "1", argc)
+		return ArgcError("to-string", "1", argc)
 	}
 	s := write(argv[0])
-	return StringType(s), nil
-
+	return LString(s), nil
 }
 
 func ellPrint(argv []LAny, argc int) (LAny, error) {
@@ -413,7 +412,7 @@ func ellReverse(argv []LAny, argc int) (LAny, error) {
 	}
 }
 
-func elLList(argv []LAny, argc int) (LAny, error) {
+func ellList(argv []LAny, argc int) (LAny, error) {
 	p := EmptyList
 	for i := argc - 1; i >= 0; i-- {
 		p = cons(argv[i], p)
@@ -421,7 +420,7 @@ func elLList(argv []LAny, argc int) (LAny, error) {
 	return p, nil
 }
 
-func elLNumberP(argv []LAny, argc int) (LAny, error) {
+func ellNumberP(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
 		if isNumber(argv[0]) {
 			return True, nil
@@ -631,17 +630,17 @@ func ellZeroP(argv []LAny, argc int) (LAny, error) {
 	return ArgcError("zero?", "1", argc)
 }
 
-func elLNumberToString(argv []LAny, argc int) (LAny, error) {
+func ellNumberToString(argv []LAny, argc int) (LAny, error) {
 	if argc != 1 {
 		return ArgcError("number->string", "1", argc)
 	}
 	if !isNumber(argv[0]) {
 		return ArgTypeError("number", 1, argv[0])
 	}
-	return StringType(argv[0].String()), nil
+	return LString(argv[0].String()), nil
 }
 
-func elStringTypeLength(argv []LAny, argc int) (LAny, error) {
+func ellStringLength(argv []LAny, argc int) (LAny, error) {
 	if argc != 1 {
 		return ArgcError("string-length", "1", argc)
 	}
@@ -689,7 +688,7 @@ func ellBooleanP(argv []LAny, argc int) (LAny, error) {
 	return ArgcError("boolean?", "1", argc)
 }
 
-func elSymbolTypeP(argv []LAny, argc int) (LAny, error) {
+func elLSymbolP(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
 		if isSymbol(argv[0]) {
 			return True, nil
@@ -699,7 +698,7 @@ func elSymbolTypeP(argv []LAny, argc int) (LAny, error) {
 	return ArgcError("symbol?", "1", argc)
 }
 
-func elSymbolType(argv []LAny, argc int) (LAny, error) {
+func elLSymbol(argv []LAny, argc int) (LAny, error) {
 	if argc < 1 {
 		return ArgcError("symbol", "1+", argc)
 	}
@@ -736,7 +735,7 @@ func ellTypeName(argv []LAny, argc int) (LAny, error) {
 	return ArgcError("type-name", "1", argc)
 }
 
-func elStringTypeP(argv []LAny, argc int) (LAny, error) {
+func ellStringP(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
 		if isString(argv[0]) {
 			return True, nil
@@ -766,7 +765,7 @@ func ellFunctionP(argv []LAny, argc int) (LAny, error) {
 	return ArgcError("function?", "1", argc)
 }
 
-func elLListP(argv []LAny, argc int) (LAny, error) {
+func ellListP(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
 		if isList(argv[0]) {
 			return True, nil
@@ -786,12 +785,12 @@ func ellEmptyP(argv []LAny, argc int) (LAny, error) {
 	return False, nil
 }
 
-func elStringType(argv []LAny, argc int) (LAny, error) {
+func ellString(argv []LAny, argc int) (LAny, error) {
 	s := ""
 	for i := 0; i < argc; i++ {
 		s += argv[i].String()
 	}
-	return StringType(s), nil
+	return LString(s), nil
 }
 
 func ellCar(argv []LAny, argc int) (LAny, error) {
@@ -987,5 +986,5 @@ func ellJSON(argv []LAny, argc int) (LAny, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringType(s), nil
+	return LString(s), nil
 }

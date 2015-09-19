@@ -15,7 +15,7 @@
                (let ((t (+ 1 (* 2 k))))
                      (array-set! a k (remainder q t))
                          (set! q (* k (quotient q t)))))
-                 (let ((s (number->string (+ b (quotient q r)))))
+                 (let ((s (to-string (+ b (quotient q r)))))
                        (do ((l (string-length s) (+ 1 l)))
                            ((>= l d) (display s))
                          (display #\0)))
