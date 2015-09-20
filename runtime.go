@@ -646,12 +646,12 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			sp--
 			stack[sp] = sym
 			pc += 2
-		case opcodeArray:
+		case opcodeVector:
 			if trace {
-				println(pc, "\tarray\t", ops[pc+1])
+				println(pc, "\tvector\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v := toArray(stack[sp:], vlen)
+			v := toVector(stack[sp:], vlen)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2

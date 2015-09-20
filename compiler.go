@@ -174,7 +174,7 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 			// (lambda ()  <expr> ...)
 			// (lambda (sym ...)  <expr> ...) ;; binds arguments to successive syms
 			// (lambda (sym ... & rsym)  <expr> ...) ;; all args after the & are collected and bound to rsym
-			// (lambda (sym ... [sym sym])  <expr> ...) ;; all args up to the array are required, the rest are optional
+			// (lambda (sym ... [sym sym])  <expr> ...) ;; all args up to the vector are required, the rest are optional
 			// (lambda (sym ... [(sym val) sym])  <expr> ...) ;; default values can be provided to optional args
 			// (lambda (sym ... {sym: def sym: def})  <expr> ...) ;; required args, then keyword args
 			// (lambda (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
@@ -220,8 +220,8 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 			// (<fn> <arg> ...)
 			return compileFuncall(code, env, fn, cdr(lst), isTail, ignoreResult, context)
 		}
-	} else if ary, ok := expr.(*LArray); ok {
-		//array literal: the elements are evaluated
+	} else if ary, ok := expr.(*LVector); ok {
+		//vector literal: the elements are evaluated
 		alen := len(ary.elements)
 		for i := alen - 1; i >= 0; i-- {
 			obj := ary.elements[i]
@@ -230,7 +230,7 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				return err
 			}
 		}
-		code.emitArray(alen)
+		code.emitVector(alen)
 		if isTail {
 			code.emitReturn()
 		}
@@ -276,7 +276,7 @@ func compileLambda(code *Code, env *LList, args LAny, body *LList, isTail bool, 
 	if !isSymbol(args) {
 		for tmp != EmptyList {
 			a := car(tmp)
-			if ary, ok := a.(*LArray); ok {
+			if ary, ok := a.(*LVector); ok {
 				//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
 				if cdr(tmp) != EmptyList {
 					return SyntaxError(tmp)
@@ -326,7 +326,7 @@ func compileLambda(code *Code, env *LList, args LAny, body *LList, isTail bool, 
 				return SyntaxError(tmp)
 			}
 			if a == intern("&") { //the rest of the arglist is bound to a single variable
-				//note that the & annotation is optional if  what follows is a struct or array
+				//note that the & annotation is optional if  what follows is a struct or vector
 				rest = true
 			} else {
 				if rest {
@@ -349,7 +349,7 @@ func compileLambda(code *Code, env *LList, args LAny, body *LList, isTail bool, 
 			return SyntaxError(tmp)
 		}
 	}
-	args = toList(syms) //why not just use the array format in general?
+	args = toList(syms) //why not just use the vector format in general?
 	newEnv := cons(args, env)
 	lambdaCode := newCode(argc, defaults, keys, context)
 	err := compileSequence(lambdaCode, newEnv, body, true, false, context)

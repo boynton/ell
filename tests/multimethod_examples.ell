@@ -4,7 +4,7 @@
 (defmethod foo (x y a) (list "any/any/any: " x y a))
 (defmethod foo ((x <number>) y a) (list "number/any/any: " x y a))
 (defmethod foo ((x <number>) (y <string>) a) (list "number/string/any: " x y a))
-(defmethod foo ((x <number>) (y <string>) (a <array>)) (list "number/string/array: " x y a))
+(defmethod foo ((x <number>) (y <string>) (a <vector>)) (list "number/string/vector: " x y a))
 (defmethod foo (x (y <string>) a) (list "any/string/any: " x y a))
 
 (println (foo 1 2 3))

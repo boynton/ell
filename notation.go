@@ -216,7 +216,7 @@ func (dr *dataReader) readData() (LAny, error) {
 		case '(':
 			return dr.decodeList()
 		case '[':
-			return dr.decodeArray()
+			return dr.decodeVector()
 		case '{':
 			return dr.decodeStruct()
 		case '"':
@@ -304,12 +304,12 @@ func (dr *dataReader) decodeList() (LAny, error) {
 	return toList(items), nil
 }
 
-func (dr *dataReader) decodeArray() (LAny, error) {
+func (dr *dataReader) decodeVector() (LAny, error) {
 	items, err := dr.decodeSequence(']')
 	if err != nil {
 		return nil, err
 	}
-	return toArray(items, len(items)), nil
+	return toVector(items, len(items)), nil
 }
 
 func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
@@ -586,7 +586,7 @@ func writeData(obj LAny, json bool) (string, error) {
 		return o.String(), nil
 	case *LList:
 		if json {
-			return writeArray(listToArray(o), json)
+			return writeVector(listToVector(o), json)
 		}
 		return writeList(o), nil
 	case *LSymbol:
@@ -597,8 +597,8 @@ func writeData(obj LAny, json bool) (string, error) {
 	case LString:
 		s := encodeString(string(o))
 		return s, nil
-	case *LArray:
-		return writeArray(o, json)
+	case *LVector:
+		return writeVector(o, json)
 	case *LStruct:
 		return writeStruct(o, json)
 	case LNumber:
@@ -669,7 +669,7 @@ func writeList(lst *LList) string {
 	return buf.String()
 }
 
-func writeArray(ary *LArray, json bool) (string, error) {
+func writeVector(ary *LVector, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(ary.elements)

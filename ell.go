@@ -47,6 +47,8 @@ func initEnvironment() {
 	defineFunction("close-input", ellCloseInput, "(<input>) <null>")
 
 	defineFunction("macroexpand", ellMacroexpand, "(<any>) <any>")
+	defineFunction("compile", ellCompile, "(<any>) <code>")
+
 	defineFunction("type", ellType, "(<any>) <type>")
 	defineFunction("value", ellValue, "<any>) <any>")
 	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
@@ -81,11 +83,11 @@ func initEnvironment() {
 	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>") //mutate!
 	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
 
-	defineFunction("array?", ellArrayP, "(<any>) <boolean>")
-	defineFunction("array", ellArray, "(<any>*) <array>")
-	defineFunction("make-array", ellMakeArray, "(<number> <any>) <array>")
-	defineFunction("array-set!", ellArraySetBang, "(<array> <number> <any>) <null>") //mutate!
-	defineFunction("array-ref", ellArrayRef, "(<array> <number>) <any>")
+	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
+	defineFunction("vector", ellVector, "(<any>*) <vector>")
+	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
+	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
+	defineFunction("vector-ref", ellVectorRef, "(<vector> <number>) <any>")
 
 	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
 	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
@@ -242,6 +244,17 @@ func ellMacroexpand(argv []LAny, argc int) (LAny, error) {
 		return ArgcError("macroexpand", "1", argc)
 	}
 	return macroexpand(argv[0])
+}
+
+func ellCompile(argv []LAny, argc int) (LAny, error) {
+	if argc != 1 {
+		return ArgcError("compile", "1", argc)
+	}
+	expanded, err := macroexpand(argv[0])
+	if err != nil {
+		return nil, err
+	}
+	return compile(expanded)
 }
 
 func ellType(argv []LAny, argc int) (LAny, error) {
@@ -508,11 +521,11 @@ func ellDiv(argv []LAny, argc int) (LAny, error) {
 	return div(argv, argc)
 }
 
-func ellArray(argv []LAny, argc int) (LAny, error) {
-	return array(argv...), nil
+func ellVector(argv []LAny, argc int) (LAny, error) {
+	return vector(argv...), nil
 }
 
-func ellMakeArray(argv []LAny, argc int) (LAny, error) {
+func ellMakeVector(argv []LAny, argc int) (LAny, error) {
 	if argc > 0 {
 		initVal := LAny(Null)
 		vlen, err := intValue(argv[0])
@@ -521,55 +534,55 @@ func ellMakeArray(argv []LAny, argc int) (LAny, error) {
 		}
 		if argc > 1 {
 			if argc != 2 {
-				return ArgcError("make-array", "1-2", argc)
+				return ArgcError("make-vector", "1-2", argc)
 			}
 			initVal = argv[1]
 		}
-		return newArray(int(vlen), initVal), nil
+		return newVector(int(vlen), initVal), nil
 	}
-	return ArgcError("make-array", "1-2", argc)
+	return ArgcError("make-vector", "1-2", argc)
 }
 
-func ellArrayP(argv []LAny, argc int) (LAny, error) {
+func ellVectorP(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
-		if isArray(argv[0]) {
+		if isVector(argv[0]) {
 			return True, nil
 		}
 		return False, nil
 	}
-	return ArgcError("array?", "1", argc)
+	return ArgcError("vector?", "1", argc)
 }
 
-func ellArraySetBang(argv []LAny, argc int) (LAny, error) {
+func ellVectorSetBang(argv []LAny, argc int) (LAny, error) {
 	if argc == 3 {
 		a := argv[0]
 		idx, err := intValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
-		err = arraySet(a, int(idx), argv[2])
+		err = vectorSet(a, int(idx), argv[2])
 		if err != nil {
 			return nil, err
 		}
 		return a, nil
 	}
-	return ArgcError("array-set!", "3", argc)
+	return ArgcError("vector-set!", "3", argc)
 }
 
-func ellArrayRef(argv []LAny, argc int) (LAny, error) {
+func ellVectorRef(argv []LAny, argc int) (LAny, error) {
 	if argc == 2 {
 		a := argv[0]
 		idx, err := intValue(argv[1])
 		if err != nil {
 			return nil, err
 		}
-		val, err := arrayRef(a, int(idx))
+		val, err := vectorRef(a, int(idx))
 		if err != nil {
 			return nil, err
 		}
 		return val, nil
 	}
-	return ArgcError("array-ref", "2", argc)
+	return ArgcError("vector-ref", "2", argc)
 }
 
 func ellGe(argv []LAny, argc int) (LAny, error) {

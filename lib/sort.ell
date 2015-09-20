@@ -20,19 +20,19 @@
 ;   while the MIT Scheme 7.1 manual, following Common Lisp, offers
 ;       (sort list predicate),
 ;   TI PC Scheme offers
-;       (sort! list/array predicate?)
+;       (sort! list/vector predicate?)
 ;   and Elk offers
-;       (sort list/array predicate?)
-;       (sort! list/array predicate?)
+;       (sort list/vector predicate?)
+;       (sort! list/vector predicate?)
 ;   Here is a comprehensive catalogue of the variations I have found.
 ;   (1) Both sort and sort! may be provided.
 ;   (2) sort may be provided without sort!
 ;   (3) sort! may be provided without sort
 ;   (4) Neither may be provided
 ;   ---
-;   (5) The sequence argument may be either a list or a array.
+;   (5) The sequence argument may be either a list or a vector.
 ;   (6) The sequence argument may only be a list.
-;   (7) The sequence argument may only be a array.
+;   (7) The sequence argument may only be a vector.
 ;   ---
 ;   (8) The comparison function may be expected to behave like <
 ;   (9) or it may be expected to behave like <=
@@ -74,7 +74,7 @@
 ;       according to less? (that is, there is no adjacent pair ... x y ...
 ;       for which (less? y x))
 ;       returns false when the sequence contains at least one out-of-order pair.
-;       It is an error if the sequence is neither a list nor a array.
+;       It is an error if the sequence is neither a list nor a vector.
 ;
 ;   (merge list1 list2 less?)
 ;       This merges two lists, producing a completely new list as result.
@@ -97,7 +97,7 @@
 ;       iteration.  (For example, we only have one empty? test per iteration.)
 ;
 ;   (sort sequence less?)
-;       accepts either a list or a array, and returns a new sequence which
+;       accepts either a list or a vector, and returns a new sequence which
 ;       is sorted.  The new sequence is the same type as the input.  Always
 ;       (sorted? (sort sequence less?) less?).
 ;       The original sequence is not altered in any way.  The new sequence
@@ -106,8 +106,8 @@
 ;   (sort! sequence less?)
 ;       returns its sorted result in the original boxes.  If the original
 ;       sequence is a list, no new storage is allocated at all.  If the
-;       original sequence is a array, the sorted elements are put back
-;       in the same array.
+;       original sequence is a vector, the sorted elements are put back
+;       in the same vector.
 ;
 ;   Note that these functions do NOT accept a CL-style ":key" argument.
 ;   A simple device for obtaining the same expressiveness is to define
@@ -120,7 +120,7 @@
 ;;; --------------------------------------------------------------------
 
 ;;; (sorted? sequence less?)
-;;; is true when sequence is a list (x0 x1 ... xm) or a array #(x0 ... xm)
+;;; is true when sequence is a list (x0 x1 ... xm) or a vector #(x0 ... xm)
 ;;; such that for all 1 <= i <= m,
 ;;;     (not (less? (list-ref list i) (list-ref list (- i 1)))).
 
@@ -128,14 +128,14 @@
     (cond
         ((empty? seq)
             true)
-        ((array? seq)
-            (let ((n (array-length seq)))
+        ((vector? seq)
+            (let ((n (vector-length seq)))
                 (if (<= n 1)
                     true
                     (do ((i 1 (+ i 1)))
                         ((or (= i n)
-                             (less? (array-ref seq (- i 1))
-                                    (array-ref seq i)))
+                             (less? (vector-ref seq (- i 1))
+                                    (vector-ref seq i)))
                             (= i n)) )) ))
         (else
             (let loop ((last (car seq)) (next (cdr seq)))
@@ -148,7 +148,7 @@
 ;;; takes two lists a and b such that (sorted? a less?) and (sorted? b less?)
 ;;; and returns a new list in which the elements of a and b have been stably
 ;;; interleaved so that (sorted? (merge a b less?) less?).
-;;; Note:  this does _not_ accept arrays.  See below.
+;;; Note:  this does _not_ accept vectors.  See below.
 
 (define (merge a b less?)
     (cond
@@ -170,7 +170,7 @@
 ;;; (merge! a b less?)
 ;;; takes two sorted lists a and b and smashes their cdr fields to form a
 ;;; single sorted list including the elements of both.
-;;; Note:  this does _not_ accept arrays.
+;;; Note:  this does _not_ accept vectors.
 
 (define (merge! a b less?)
     (define (loop r a b)
@@ -203,7 +203,7 @@
 
 
 ;;; (sort! sequence less?)
-;;; sorts the list or array sequence destructively.  It uses a version
+;;; sorts the list or vector sequence destructively.  It uses a version
 ;;; of merge-sort invented, to the best of my knowledge, by David H. D.
 ;;; Warren, and first used in the DEC-10 Prolog system.  R. A. O'Keefe
 ;;; adapted it to work destructively in Scheme.
@@ -234,26 +234,26 @@
                     p))
             (else
                 '()) ))
-    (if (array? seq)
-        (let ((n (array-length seq)))
-            (set! seq (array->list seq))
+    (if (vector? seq)
+        (let ((n (vector-length seq)))
+            (set! seq (vector->list seq))
             (do ((p (step n) (cdr p))
                  (i 0 (+ i 1)))
-                ((empty? p) array)
-                (array-set! array i (car p)) ))
+                ((empty? p) vector)
+                (vector-set! vector i (car p)) ))
         ;; otherwise, assume it is a list
         (step (length seq)) ))
 
 
 ;;; (sort sequence less?)
-;;; sorts a array or list non-destructively.  It does this by sorting a
+;;; sorts a vector or list non-destructively.  It does this by sorting a
 ;;; copy of the sequence.  My understanding is that the Standard says
 ;;; that the result of concat is always "newly allocated" except for
 ;;; sharing structure with "the last argument", so (concat x '()) ought
 ;;; to be a standard way of copying a list x.
 
 (define (sort seq less?)
-    (if (array? seq)
-        (list->array (sort! (array->list seq) less?))
+    (if (vector? seq)
+        (list->vector (sort! (vector->list seq) less?))
         (sort! (concat seq '()) less?)))
 

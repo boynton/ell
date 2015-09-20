@@ -39,7 +39,7 @@ const (
 	opcodeSetLocal
 	opcodeUse
 	opcodeDefMacro
-	opcodeArray // 15
+	opcodeVector // 15
 	opcodeStruct
 
 	//extended instructions
@@ -251,8 +251,8 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
 			buf.WriteString(begin + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
-		case opcodeArray:
-			buf.WriteString(begin + "(array " + strconv.Itoa(code.ops[offset+1]) + ")")
+		case opcodeVector:
+			buf.WriteString(begin + "(vector " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeStruct:
 			buf.WriteString(begin + "(struct " + strconv.Itoa(code.ops[offset+1]) + ")")
@@ -321,11 +321,11 @@ func (code *Code) loadOps(lst LAny) error {
 					return Error("Bad code format: ", funcParams)
 				}
 				b := cadr(funcParams)
-				if ary, ok := b.(*LArray); ok {
+				if ary, ok := b.(*LVector); ok {
 					defaults = ary.elements
 				}
 				c := caddr(funcParams)
-				if ary, ok := c.(*LArray); ok {
+				if ary, ok := c.(*LVector); ok {
 					keys = ary.elements
 				}
 			} else {
@@ -476,8 +476,8 @@ func (code *Code) emitJump(offset int) int {
 func (code *Code) setJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
 }
-func (code *Code) emitArray(alen int) {
-	code.ops = append(code.ops, opcodeArray)
+func (code *Code) emitVector(alen int) {
+	code.ops = append(code.ops, opcodeVector)
 	code.ops = append(code.ops, alen)
 }
 func (code *Code) emitStruct(slen int) {

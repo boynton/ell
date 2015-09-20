@@ -5,7 +5,7 @@ A Go implementation of the [Ell](https://github.com/boynton/ell) language
 
 ## Features
 
-All basic data types implemented (null, boolean, string, number, symbol, keyword, type, list, array, struct, object, function).
+All basic data types implemented (null, boolean, string, number, symbol, keyword, type, list, vector, struct, instance, function).
 
 The reader handles all of [EllDN](https://github.com/boynton/elldn) syntax, which is a superset of JSON.
 
@@ -14,7 +14,8 @@ examples of that.
 
 Simple macros are supported, see tests/macro_example.ell and lib/ell.ell for examples of those.
 
-Type objects, called `instances` are also supported. They are used by defstruct and deftype, define as macros
+Typed objects, called `instances` are also supported. An instance is simply a pairing of type and value.
+They are used by defstruct and deftype, which are defined as macros
 in lib/ell.ell, with some examples also that file, as well as tests/defstruct_examples.ell.
 
 Generic functions with full multimethod dispatch is also supported, defined in lib/ell.ell, with an example in

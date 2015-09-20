@@ -737,7 +737,7 @@ func isEmpty(col LAny) bool {
 		return true
 	case LString:
 		return len(v) == 0
-	case *LArray:
+	case *LVector:
 		return len(v.elements) == 0
 	case *LList:
 		return v == EmptyList
@@ -928,19 +928,19 @@ func list(values ...LAny) *LList {
 	return toList(values)
 }
 
-func listToArray(lst *LList) *LArray {
+func listToVector(lst *LList) *LVector {
 	var elems []LAny
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
 	}
-	return &LArray{elems}
+	return &LVector{elems}
 }
 
-func arrayToList(ary LAny) (LAny, error) {
-	v, ok := ary.(*LArray)
+func vectorToList(ary LAny) (LAny, error) {
+	v, ok := ary.(*LVector)
 	if !ok {
-		return nil, TypeError(typeArray, ary)
+		return nil, TypeError(typeVector, ary)
 	}
 	return toList(v.elements), nil
 }
@@ -949,7 +949,7 @@ func length(seq LAny) int {
 	switch v := seq.Value().(type) {
 	case LString:
 		return len(v)
-	case *LArray:
+	case *LVector:
 		return len(v.elements)
 	case *LList:
 		return listLength(v)
@@ -966,9 +966,9 @@ func assoc(seq LAny, key LAny, val LAny) (LAny, error) {
 		s2 := copyStruct(s)
 		s2.bindings[key] = val
 		return s2, nil
-	case *LArray:
+	case *LVector:
 		if idx, ok := key.(LNumber); ok {
-			a := copyArray(s)
+			a := copyVector(s)
 			a.elements[int(idx)] = val
 			return a, nil
 		}
@@ -1012,32 +1012,32 @@ func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 }
 
 //
-// LArray - Ell Arrays
+// LVector - Ell Vectors
 //
-type LArray struct { // <array>
+type LVector struct { // <vector>
 	elements []LAny
 }
 
-var typeArray = intern("<array>")
+var typeVector = intern("<vector>")
 
-func isArray(obj LAny) bool {
-	_, ok := obj.(*LArray)
+func isVector(obj LAny) bool {
+	_, ok := obj.(*LVector)
 	return ok
 }
 
 // Type returns the type of the object
-func (*LArray) Type() LAny {
-	return typeArray
+func (*LVector) Type() LAny {
+	return typeVector
 }
 
 // Value returns the object itself for primitive types
-func (ary *LArray) Value() LAny {
+func (ary *LVector) Value() LAny {
 	return ary
 }
 
 // Equal returns true if the object is equal to the argument
-func (ary *LArray) Equal(another LAny) bool {
-	if a, ok := another.(*LArray); ok {
+func (ary *LVector) Equal(another LAny) bool {
+	if a, ok := another.(*LVector); ok {
 		alen := len(ary.elements)
 		if alen == len(a.elements) {
 			for i := 0; i < alen; i++ {
@@ -1051,7 +1051,7 @@ func (ary *LArray) Equal(another LAny) bool {
 	return false
 }
 
-func (ary *LArray) String() string {
+func (ary *LVector) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	count := len(ary.elements)
@@ -1066,56 +1066,56 @@ func (ary *LArray) String() string {
 	return buf.String()
 }
 
-func newArray(size int, init LAny) *LArray {
+func newVector(size int, init LAny) *LVector {
 	elements := make([]LAny, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	return &LArray{elements}
+	return &LVector{elements}
 }
 
-func array(elements ...LAny) LAny {
-	return toArray(elements, len(elements))
+func vector(elements ...LAny) LAny {
+	return toVector(elements, len(elements))
 }
 
-func toArray(elements []LAny, count int) LAny {
+func toVector(elements []LAny, count int) LAny {
 	el := make([]LAny, count)
 	copy(el, elements[0:count])
-	return &LArray{el}
+	return &LVector{el}
 }
 
-func copyArray(a *LArray) *LArray {
+func copyVector(a *LVector) *LVector {
 	elements := make([]LAny, len(a.elements))
 	copy(elements, a.elements)
-	return &LArray{elements}
+	return &LVector{elements}
 }
 
-func arrayLength(ary LAny) (int, error) {
-	if a, ok := ary.(*LArray); ok {
+func vectorLength(ary LAny) (int, error) {
+	if a, ok := ary.(*LVector); ok {
 		return len(a.elements), nil
 	}
-	return 1, TypeError(typeArray, ary)
+	return 1, TypeError(typeVector, ary)
 }
 
-func arraySet(ary LAny, idx int, obj LAny) error {
-	if a, ok := ary.(*LArray); ok {
+func vectorSet(ary LAny, idx int, obj LAny) error {
+	if a, ok := ary.(*LVector); ok {
 		if idx < 0 || idx >= len(a.elements) {
-			return Error("Array index out of range")
+			return Error("Vector index out of range")
 		}
 		a.elements[idx] = obj
 		return nil
 	}
-	return TypeError(typeArray, ary)
+	return TypeError(typeVector, ary)
 }
 
-func arrayRef(ary LAny, idx int) (LAny, error) {
-	if a, ok := ary.(*LArray); ok {
+func vectorRef(ary LAny, idx int) (LAny, error) {
+	if a, ok := ary.(*LVector); ok {
 		if idx < 0 || idx >= len(a.elements) {
-			return nil, Error("Array index out of range")
+			return nil, Error("Vector index out of range")
 		}
 		return a.elements[idx], nil
 	}
-	return nil, TypeError(typeArray, ary)
+	return nil, TypeError(typeVector, ary)
 }
 
 // LInstance is a typed value
@@ -1132,7 +1132,7 @@ func instance(tag LAny, val LAny) (LAny, error) {
 	switch sym {
 	case typeString, typeNumber, typeNull, typeBoolean, typeChar, typeEOF:
 		return val, nil
-	case typeStruct, typeList, typeArray, typeSymbol, typeFunction, typeInput, typeOutput:
+	case typeStruct, typeList, typeVector, typeSymbol, typeFunction, typeInput, typeOutput:
 		return val, nil
 	default:
 		return &LInstance{tag: sym, value: val}, nil
