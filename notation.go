@@ -312,12 +312,61 @@ func (dr *dataReader) decodeArray() (LAny, error) {
 	return toArray(items, len(items)), nil
 }
 
-func (dr *dataReader) decodeStruct() (LAny, error) {
-	items, err := dr.decodeSequence('}')
-	if err != nil {
-		return nil, err
+func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
+	c, err := dr.getChar()
+	for err == nil {
+		if isWhitespace(c) || (skipColon && c == ':') {
+			c, err = dr.getChar()
+			continue
+		}
+		if c == ';' {
+			err = dr.decodeComment()
+			if err == nil {
+				c, err = dr.getChar()
+			}
+			continue
+		}
+		return c, nil
 	}
-	return newStruct(items)
+	return 0, err
+}
+
+func (dr *dataReader) decodeStruct() (LAny, error) {
+	items := []LAny{}
+	var err error
+	var c byte
+	for err == nil {
+		c, err = dr.skipToData(false)
+		if err != nil {
+			return nil, err
+		}
+		if c == ':' {
+			return nil, Error("Bad syntax, unexpected ':' in struct")
+		}
+		if c == '}' {
+			return newStruct(items)
+		}
+		dr.ungetChar()
+		element, err := dr.readData()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, element)
+		c, err = dr.skipToData(true)
+		if err != nil {
+			return nil, err
+		}
+		if c == '}' {
+			return nil, Error("mismatched key/value in struct")
+		}
+		dr.ungetChar()
+		element, err = dr.readData()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, element)
+	}
+	return nil, err
 }
 
 func (dr *dataReader) decodeSequence(endChar byte) ([]LAny, error) {
@@ -354,24 +403,35 @@ func (dr *dataReader) decodeAtom(firstChar byte) (LAny, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(s) == 0 { //?
+	slen := len(s)
+	if slen == 0 { //?
+		panic("whuh?")
 		return dr.readData()
 	}
-	if s == ":" {
-		return nil, Error("Bad token: :")
-	}
-	//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
-	//but EllDn is JSON compatible, so these symbols need to be reserved
-	if s == "null" {
-		return Null, nil
-	} else if s == "true" {
-		return True, nil
-	} else if s == "false" {
-		return False, nil
+	keyword := false
+	if s[slen-1] == ':' {
+		keyword = true
+		s = s[:slen-1]
+	} else {
+		//reserved words. We could do without this by using #n, #f, #t reader macros like scheme does
+		//but EllDn is JSON compatible, so these symbols need to be reserved
+		if s == "null" {
+			return Null, nil
+		} else if s == "true" {
+			return True, nil
+		} else if s == "false" {
+			return False, nil
+		}
 	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err == nil {
+		if keyword {
+			return nil, Error("Keyword cannot have a name that looks like a number: ", s, ":")
+		}
 		return LNumber(f), nil
+	}
+	if keyword {
+		s += ":"
 	}
 	sym := intern(s)
 	return sym, nil
@@ -380,11 +440,18 @@ func (dr *dataReader) decodeAtom(firstChar byte) (LAny, error) {
 func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 	buf := []byte{}
 	if firstChar != 0 {
+		if firstChar == ':' {
+			return "", Error("Invalid keyword: colons go at the end of symbols, not at the beginning")
+		}
 		buf = append(buf, firstChar)
 	}
 	c, e := dr.getChar()
 	for e == nil {
 		if isWhitespace(c) {
+			break
+		}
+		if c == ':' {
+			buf = append(buf, c)
 			break
 		}
 		if isDelimiter(c) {
@@ -501,7 +568,7 @@ func isWhitespace(b byte) bool {
 }
 
 func isDelimiter(b byte) bool {
-	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';'
+	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';' || b == ':'
 }
 
 func write(obj LAny) string {
