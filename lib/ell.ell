@@ -158,7 +158,7 @@
        (defn ~sym ~args
          (if (not ~@predicate-body)
              (error ~(string "not a valid " typesym ": ") (write-to-string ~arg)))
-         (instance ~typesym value: ~(car args)))
+         (instance ~typesym ~(car args)))
        ~typesym)))
 
 ;;
