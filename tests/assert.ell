@@ -1,0 +1,19 @@
+(defmacro assert (b & msg)
+   `(if (not ~b) (error "Assertion failure: " ~@msg) true))
+
+(defmacro assert-equal (o1 o2 & msg)
+   `(assert (equal? ~o1 ~o2) "Not equal" ~@msg))
+
+(defmacro assert-not-equal (o1 o2 & msg)
+   `(assert (not (equal? ~o1 ~o2)) "Not equal" ~@msg))
+
+(defmacro assert-null (o & msg)
+   `(assert (null? ~o) "Not null " ~@msg))
+
+(defmacro assert-not-null (o & msg)
+   `(assert (not (null? ~o)) "Null " ~@msg))
+
+(defmacro assert-type (o t & msg)
+   `(assert (identical? (type ~o) ~t) "Type mismatch " ~@msg))
+
+
