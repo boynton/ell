@@ -345,6 +345,9 @@ func encodeString(s string) string {
 	buf = append(buf, '"')
 	for _, c := range s {
 		switch c {
+		case '"':
+			buf = append(buf, '\\')
+			buf = append(buf, '"')
 		case '\\':
 			buf = append(buf, '\\')
 			buf = append(buf, '\\')
@@ -1261,7 +1264,7 @@ func newStruct(fieldvals []LAny) (*LStruct, error) {
 				bindings[k] = v
 			}
 		default:
-			return nil, Error("bad parameter to instance: ", o)
+			return nil, Error("bad parameter to struct: ", o)
 		}
 	}
 	return &LStruct{bindings}, nil
