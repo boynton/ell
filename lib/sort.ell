@@ -175,13 +175,13 @@
 (define (merge! a b less?)
     (define (loop r a b)
         (if (less? (car b) (car a))
-            (begin
+            (do
                 (set-cdr! r b)
                 (if (empty? (cdr b))
                     (set-cdr! b a)
                     (loop b a (cdr b)) ))
             ;; (car a) <= (car b)
-            (begin
+            (do
                 (set-cdr! r a)
                 (if (empty? (cdr a))
                     (set-cdr! a b)
@@ -222,7 +222,7 @@
                       (y (car (cdr seq)))
                       (p seq))
                     (set! seq (cdr (cdr seq)))
-                    (if (less? y x) (begin
+                    (if (less? y x) (do
                         (set-car! p y)
                         (set-car! (cdr p) x)))
                     (set-cdr! (cdr p) '())

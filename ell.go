@@ -25,8 +25,7 @@ func initEnvironment() {
 
 	defineMacro("let", ellLet)
 	defineMacro("letrec", ellLetrec)
-	defineMacro("do", ellDo) //scheme's do. I don't like it, will replace with... "for" of some sort
-	//note clojure uses "do" instead of "begin". I rather prefer that.
+	defineMacro("for", ellFor) //currently like scheme's do. I don't like it, will replace with something more like clojure's
 	defineMacro("cond", ellCond)
 	defineMacro("quasiquote", ellQuasiquote)
 
@@ -149,8 +148,8 @@ func ellLet(argv []LAny, argc int) (LAny, error) {
 	return expandLet(argv[0])
 }
 
-func ellDo(argv []LAny, argc int) (LAny, error) {
-	return expandDo(argv[0])
+func ellFor(argv []LAny, argc int) (LAny, error) {
+	return expandFor(argv[0])
 }
 
 func ellCond(argv []LAny, argc int) (LAny, error) {

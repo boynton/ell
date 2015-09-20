@@ -97,8 +97,8 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				}
 			}
 			return nil
-		case intern("begin"):
-			// (begin <expr> ...)
+		case intern("do"): // a sequence of expressions, for side-effect only
+			// (do <expr> ...)
 			return compileSequence(code, env, cdr(lst), isTail, ignoreResult, context)
 		case intern("if"):
 			// (if <pred> <consequent>)
@@ -375,7 +375,7 @@ func compileSequence(code *Code, env *LList, exprs *LList, isTail bool, ignoreRe
 		}
 		return compileExpr(code, env, car(exprs), isTail, ignoreResult, context)
 	}
-	return SyntaxError(cons(intern("begin"), exprs))
+	return SyntaxError(cons(intern("do"), exprs))
 }
 
 func compileFuncall(code *Code, env *LList, fn LAny, args *LList, isTail bool, ignoreResult bool, context string) error {

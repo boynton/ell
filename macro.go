@@ -243,7 +243,7 @@ func expandPrimitive(fn LAny, expr *LList) (LAny, error) {
 	switch fn {
 	case intern("quote"):
 		return expr, nil
-	case intern("begin"):
+	case intern("do"):
 		return expandSequence(expr)
 	case intern("if"):
 		return expandIf(expr)
@@ -309,7 +309,7 @@ func crackLetrecBindings(bindings *LList, tail *LList) (*LList, *LList, bool) {
 }
 
 func expandLetrec(expr LAny) (LAny, error) {
-	// (letrec () expr ...) -> (begin expr ...)
+	// (letrec () expr ...) -> (do expr ...)
 	// (letrec ((x 1) (y 2)) expr ...) -> ((lambda (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := cddr(expr)
 	if body == EmptyList {
@@ -358,7 +358,7 @@ func crackLetBindings(bindings *LList) (*LList, *LList, bool) {
 }
 
 func expandLet(expr LAny) (LAny, error) {
-	// (let () expr ...) -> (begin expr ...)
+	// (let () expr ...) -> (do expr ...)
 	// (let ((x 1) (y 2)) expr ...) -> ((lambda (x y) expr ...) 1 2)
 	// (let label ((x 1) (y 2)) expr ...) -> (lambda (label) expr
 	if isSymbol(cadr(expr)) {
@@ -437,9 +437,9 @@ func crackDoBindings(bindings *LList) (*LList, *LList, *LList, bool) {
 	return names, inits, steps, true
 }
 
-func expandDo(expr LAny) (LAny, error) {
-	// (do ((myvar init-val) ...) (mytest expr ...) body ...)
-	// (do ((myvar init-val step) ...) (mytest expr ...) body ...)
+func expandFor(expr LAny) (LAny, error) {
+	// (for ((myvar init-val) ...) (mytest expr ...) body ...)
+	// (for ((myvar init-val step) ...) (mytest expr ...) body ...)
 	var tmp LAny
 	var tmpl, tmpl2 *LList
 	if length(expr) < 3 {
@@ -462,17 +462,17 @@ func expandDo(expr LAny) (LAny, error) {
 	exitPred := car(tmpl)
 	exitExprs := LAny(Null)
 	if cddr(tmpl) != EmptyList {
-		exitExprs = cons(intern("begin"), cdr(tmpl))
+		exitExprs = cons(intern("do"), cdr(tmpl))
 	} else {
 		exitExprs = cadr(tmpl)
 	}
 	loopSym := intern("system_loop")
 	if cdddr(expr) != EmptyList {
 		tmpl = cdddr(expr)
-		tmpl = cons(intern("begin"), tmpl)
+		tmpl = cons(intern("do"), tmpl)
 		tmpl2 = cons(loopSym, steps)
 		tmpl2 = list(tmpl2)
-		tmpl = cons(intern("begin"), cons(tmpl, tmpl2))
+		tmpl = cons(intern("do"), cons(tmpl, tmpl2))
 	} else {
 		tmpl = cons(loopSym, steps)
 	}
@@ -493,7 +493,7 @@ func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 	ifsym := intern("if")
 	elsesym := intern("else")
 	letsym := intern("let")
-	begsym := intern("begin")
+	dosym := intern("do")
 
 	clause0 := car(clauses)
 	next := cdr(clauses)
@@ -508,9 +508,9 @@ func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 				if length(clause0) != 3 {
 					return nil, SyntaxError(expr)
 				}
-				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), cons(begsym, cdr(clause1))))
+				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), cons(dosym, cdr(clause1))))
 			} else {
-				result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), cons(begsym, cdr(clause1)))
+				result = list(ifsym, car(clause0), cons(dosym, cdr(clause0)), cons(dosym, cdr(clause1)))
 			}
 		} else {
 			if cadr(clause1) == intern("=>") {
@@ -519,7 +519,7 @@ func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 				}
 				result = list(letsym, list(list(tmpsym, car(clause1))), list(ifsym, tmpsym, list(caddr(clause1), tmpsym), clause1))
 			} else {
-				result = list(ifsym, car(clause1), cons(begsym, cdr(clause1)))
+				result = list(ifsym, car(clause1), cons(dosym, cdr(clause1)))
 			}
 			if cadr(clause0) == intern("=>") {
 				if length(clause0) != 3 {
@@ -527,7 +527,7 @@ func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 				}
 				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
 			} else {
-				result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), result)
+				result = list(ifsym, car(clause0), cons(dosym, cdr(clause0)), result)
 			}
 		}
 	} else {
@@ -541,7 +541,7 @@ func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 			}
 			result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
 		} else {
-			result = list(ifsym, car(clause0), cons(begsym, cdr(clause0)), result)
+			result = list(ifsym, car(clause0), cons(dosym, cdr(clause0)), result)
 		}
 	}
 	return macroexpand(result)
@@ -554,9 +554,9 @@ func expandCond(expr LAny) (LAny, error) {
 	} else if i == 2 {
 		tmp := cadr(expr)
 		if car(tmp) == intern("else") {
-			tmp = cons(intern("begin"), cdr(tmp))
+			tmp = cons(intern("do"), cdr(tmp))
 		} else {
-			expr = cons(intern("begin"), cdr(tmp))
+			expr = cons(intern("do"), cdr(tmp))
 			tmp = list(intern("if"), car(tmp), expr)
 		}
 		return macroexpand(tmp)

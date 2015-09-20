@@ -73,7 +73,7 @@ func getKeywords() []LAny {
 		intern("define"),
 		intern("lambda"),
 		intern("if"),
-		intern("begin"),
+		intern("do"),
 		intern("define-macro"),
 		intern("set!"),
 		intern("lap"),

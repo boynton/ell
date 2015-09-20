@@ -4,7 +4,7 @@
 (let foo ((x 4))
    (if (= x 0)
       'done
-      (begin
+      (do
         (display x)
         (newline)
         (foo (- x 1)))))

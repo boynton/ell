@@ -126,7 +126,7 @@
                 (loop (cons sym keys) (cddr remaining))
                 (loop keys (cdr remaining)))))))
   (let ((keys (extract-keys fields)) (typesym (symbol "<" sym ">")))
-    `(begin
+    `(do
        (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-args args ~@keys)))))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () '~keys)
@@ -152,7 +152,7 @@
 (defmacro deftype (sym args & predicate-body)
   (let ((typesym (symbol "<" sym ">"))
         (arg (car args)))
-    `(begin
+    `(do
        (defn ~(symbol sym "?") (o)
          (and (struct? o) ((lambda ~args ~@predicate-body) (value: o)) true))
        (defn ~sym ~args

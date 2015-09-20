@@ -162,7 +162,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	indentAmount := "   "
 	offset := 0
 	max := len(code.ops)
-	begin := " "
+	prefix := " "
 	buf.WriteString(indent + "(function (")
 	buf.WriteString(strconv.Itoa(code.argc))
 	if code.defaults != nil {
@@ -180,37 +180,37 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	buf.WriteString(")")
 	if pretty {
 		indent = indent + indentAmount
-		begin = "\n" + indent
+		prefix = "\n" + indent
 	}
 	for offset < max {
 		switch code.ops[offset] {
 		case opcodeLiteral:
 			//fmt.Printf("%sL%03d:\t(literal %d)  \t; %v\n", indent, offset, code.ops[offset+1], constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(literal " + write(constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(prefix + "(literal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefGlobal:
 			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(defglobal " + write(constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(prefix + "(defglobal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeCall:
 			//fmt.Printf("%sL%03d:\t(call %d)\n", indent, offset, code.ops[offset+1])
-			buf.WriteString(begin + "(call " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(prefix + "(call " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeTailCall:
 			//fmt.Printf("%s%03d:\t(tailcall %d)\n", indent, offset, code.ops[offset+1])
-			buf.WriteString(begin + "(tailcall " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(prefix + "(tailcall " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodePop:
 			//fmt.Printf("%sL%03d:\t(pop)\n", indent, offset)
-			buf.WriteString(begin + "(pop)")
+			buf.WriteString(prefix + "(pop)")
 			offset++
 		case opcodeReturn:
 			//fmt.Printf("%sL%03d:\t(return)\n", indent, offset)
-			buf.WriteString(begin + "(return)")
+			buf.WriteString(prefix + "(return)")
 			offset++
 		case opcodeClosure:
 			//fmt.Printf("%sL%03d:\t(closure %v)\n", indent, offset, code.ops[offset+1])
-			buf.WriteString(begin + "(closure")
+			buf.WriteString(prefix + "(closure")
 			if pretty {
 				buf.WriteString("\n")
 			} else {
@@ -225,55 +225,55 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			offset += 2
 		case opcodeLocal:
 			//fmt.Printf("%sL%03d:\t(local %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
-			buf.WriteString(begin + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
+			buf.WriteString(prefix + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeGlobal:
 			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(global " + write(constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(prefix + "(global " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeUndefGlobal:
 			//fmt.Printf("%sL%03d:\t(unglobal %v)\n", indent, offset, constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(undefglobal " + write(constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(prefix + "(undefglobal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefMacro:
 			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], constants[code.ops[offset+1]])
-			buf.WriteString(begin + "(defmacro " + write(constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(prefix + "(defmacro " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeSetLocal:
 			//Println("%sL%03d:\t(setlocal %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
-			buf.WriteString(begin + "(setlocal " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
+			buf.WriteString(prefix + "(setlocal " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeJumpFalse:
 			//fmt.Printf("%sL%03d:\t(jumpfalse %d)\t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
-			buf.WriteString(begin + "(jumpfalse " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(prefix + "(jumpfalse " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeJump:
 			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
-			buf.WriteString(begin + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(prefix + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeVector:
-			buf.WriteString(begin + "(vector " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(prefix + "(vector " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeStruct:
-			buf.WriteString(begin + "(struct " + strconv.Itoa(code.ops[offset+1]) + ")")
+			buf.WriteString(prefix + "(struct " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeUse:
-			buf.WriteString(begin + "(use " + constants[code.ops[offset+1]].String() + ")")
+			buf.WriteString(prefix + "(use " + constants[code.ops[offset+1]].String() + ")")
 			offset += 2
 		case opcodeCar:
-			buf.WriteString(begin + "(car)")
+			buf.WriteString(prefix + "(car)")
 			offset++
 		case opcodeCdr:
-			buf.WriteString(begin + "(cdr)")
+			buf.WriteString(prefix + "(cdr)")
 			offset++
 		case opcodeNull:
-			buf.WriteString(begin + "(null)")
+			buf.WriteString(prefix + "(null)")
 			offset++
 		case opcodeAdd:
-			buf.WriteString(begin + "(add)")
+			buf.WriteString(prefix + "(add)")
 			offset++
 		case opcodeMul:
-			buf.WriteString(begin + "(mul)")
+			buf.WriteString(prefix + "(mul)")
 			offset++
 		default:
 			panic(fmt.Sprintf("Bad instruction: %d", code.ops[offset]))
