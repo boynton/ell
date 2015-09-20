@@ -1,0 +1,17 @@
+(use assert)
+
+(assert (equal? <blah> (deftype blah (x) (and (string? x) (< (length x) 5)))) "deftype did not return the type it defined")
+
+; error, 1 arg is required.
+;(def b (blah))
+
+(def s "foo")
+(def b (blah s))
+(assert (identical? <blah> (type b)))
+(assert (identical? s (value b)))
+(assert (= (length s) (length b))) ; b can be treated as string in
+
+; error, as string-length must exactly have a string as an arg
+;(assert (= (string-length s) (string-length b))) ; b can be treated as string?
+
+

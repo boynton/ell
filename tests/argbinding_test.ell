@@ -51,5 +51,4 @@
 (test (fun_keyonly) '(23) "(fun_keyonly)")
 (test (fun_keyonly y: 100) '(100) "(fun_keyonly y: 100)")
 
-(println "[all tests passed]")
 

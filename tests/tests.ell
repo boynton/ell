@@ -1,0 +1,6 @@
+(use json_test)
+(use argbinding_test)
+(use deftype_test)
+;(use defstruct_examples)
+
+(println "[all tests passed]")

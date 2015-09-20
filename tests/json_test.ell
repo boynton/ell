@@ -1,0 +1,27 @@
+(use assert)
+
+(def ell-ref {x: 23 y: 57.5 z: [1 2 3 true]})
+(def json-ref (string (json ell-ref))) ;; keywords get converted to strings
+(println "ell: " ell-ref)
+(println "json: " json-ref)
+
+(defn read-from-string (s)
+   (let ((in (open-input-string s)))
+      (read in)))
+
+(defn write-to-string (o)
+   (to-string o))
+
+(def j1 (read-from-string json-ref)) ; but we get strings when reading, not keywords. Because JSON has no restrictions on key strings
+(def j2 (string (json j1)))
+(println "json-ref: " (write-to-string json-ref) ", j2: " (write-to-string j2))
+(println "json-ref: " json-ref ", j2: " j2)
+(assert-equal json-ref j2)
+
+(def jref {"x" 23 "y" 57.5 "z" [1 2 3 true]})
+
+(def j1 {"x": 23, "y": 57.5, "z": [1, 2, 3, true]}) ; ignore commas
+(assert-equal j1 jref)
+
+(def j2 {"x":23,"y":57.5,"z":[1,2,3,true]}) ; no whitespace
+(assert-equal j2 jref)
