@@ -52,6 +52,7 @@ func main() {
 	home := os.Getenv("HOME")
 	ellini := filepath.Join(home, ".ell")
 	if EllPath == "" {
+		EllPath = "." 
 		homelib := filepath.Join(home,  "lib/ell")
 		_, err := os.Stat(homelib)
 		if err == nil {
