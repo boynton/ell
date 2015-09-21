@@ -57,6 +57,9 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 		}
 		return nil
 	} else if isSymbol(expr) {
+		if getMacro(expr) != nil {
+			return Error("Cannot use macro as a value: ", expr)
+		}
 		if i, j, ok := calculateLocation(expr, env); ok {
 			code.emitLocal(i, j)
 		} else {

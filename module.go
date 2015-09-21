@@ -118,6 +118,7 @@ func defGlobal(sym LAny, val LAny) {
 	}
 	b := binding{sym, val}
 	globals[s.tag] = &b
+	delete(macroMap, sym)
 }
 
 func isDefined(sym LAny) bool {
@@ -140,6 +141,7 @@ func setGlobal(sym LAny, val LAny) error {
 	if s.tag < len(globals) {
 		if globals[s.tag] != nil {
 			globals[s.tag].val = val
+			delete(macroMap, sym)
 			return nil
 		}
 
