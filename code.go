@@ -155,7 +155,7 @@ func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "(function (0 [] [])", "(code", 1)
+	return strings.Replace(s, "(function (\"\" 0 [] [])", "(code", 1)
 }
 
 func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
@@ -164,6 +164,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	max := len(code.ops)
 	prefix := " "
 	buf.WriteString(indent + "(function (")
+	buf.WriteString(fmt.Sprintf("%q ", code.name))
 	buf.WriteString(strconv.Itoa(code.argc))
 	if code.defaults != nil {
 		buf.WriteString(" ")
@@ -288,7 +289,6 @@ func (code *Code) String() string {
 }
 
 func (code *Code) loadOps(lst LAny) error {
-	name := ""
 	for lst != EmptyList {
 		instr := car(lst)
 		op := car(instr)
@@ -301,6 +301,7 @@ func (code *Code) loadOps(lst LAny) error {
 			lstFunc = cdr(lstFunc)
 			funcParams := car(lstFunc)
 			var argc int
+			var name string
 			var defaults []LAny
 			var keys []LAny
 			var err error
@@ -314,18 +315,27 @@ func (code *Code) loadOps(lst LAny) error {
 					argc = -argc - 1
 					defaults = make([]LAny, 0)
 				}
-			} else if isList(funcParams) && length(funcParams) == 3 {
-				a := car(funcParams)
+			} else if isList(funcParams) && length(funcParams) == 4 {
+				tmp := funcParams
+				a := car(tmp)
+				tmp = cdr(tmp)
+				name, err = stringValue(a)
+				if err != nil {
+					return Error("Bad code format: ", funcParams)
+				}
+				a = car(tmp)
+				tmp = cdr(tmp)
 				argc, err = intValue(a)
 				if err != nil {
 					return Error("Bad code format: ", funcParams)
 				}
-				b := cadr(funcParams)
-				if ary, ok := b.(*LVector); ok {
+				a = car(tmp)
+				tmp = cdr(tmp)
+				if ary, ok := a.(*LVector); ok {
 					defaults = ary.elements
 				}
-				c := caddr(funcParams)
-				if ary, ok := c.(*LVector); ok {
+				a = car(tmp)
+				if ary, ok := a.(*LVector); ok {
 					keys = ary.elements
 				}
 			} else {

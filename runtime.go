@@ -182,6 +182,7 @@ type frame struct {
 	locals    *frame
 	elements  []LAny
 	constants []LAny
+	code *Code
 }
 
 func (frame frame) String() string {
@@ -223,20 +224,6 @@ func (closure *LClosure) Equal(another LAny) bool {
 func (closure LClosure) String() string {
 	n := closure.code.name
 	s := closure.code.signature()
-/*
-	s := " arguments"
-	if closure.code.defaults != nil {
-		if len(closure.code.defaults) == 0 {
-			s = " or more arguments"
-		} else {
-			s = fmt.Sprintf(" to %d arguments", argc + len(closure.code.defaults))
-		}
-	} else {
-		if argc == 1 {
-			s = " argument"
-		}
-	}
-*/
 	if n == "" {
 		return fmt.Sprintf("#[function %s]", s)
 	}
@@ -272,6 +259,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 	f.pc = pc
 	f.ops = ops
 	f.locals = fun.frame
+	f.code = fun.code
 	expectedArgc := fun.code.argc
 	defaults := fun.code.defaults
 	if defaults == nil {
@@ -339,6 +327,13 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 	return f, nil
 }
 
+func addContext(env *frame, err error) error {
+	if env.code == nil {
+		return err
+	}
+	return Error("[", env.code.name, "] ", err.Error())
+}
+
 func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 	stack := make([]LAny, vm.stackSize)
 	sp := vm.stackSize
@@ -348,7 +343,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 	ops := code.ops
 	pc := 0
 	if len(ops) == 0 {
-		return nil, Error("No code to execute")
+		return nil, addContext(env, Error("No code to execute"))
 	}
 	if trace {
 		println("------------------ BEGIN EXECUTION of ", code)
@@ -370,7 +365,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			sym := constants[ops[pc+1]]
 			val := global(sym)
 			if val == nil {
-				return nil, Error("Undefined symbol: ", sym)
+				return nil, addContext(env, Error(env, ": Undefined symbol: ", sym))
 			}
 			sp--
 			stack[sp] = val
@@ -439,18 +434,18 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 				val, err := tfun.fun(stack[sp:sp+argc], argc)
 				if err != nil {
 					//to do: fix to throw an Ell continuation-based error
-					return nil, err
+					return nil, addContext(env, err)
 				}
 				sp = sp + argc - 1
 				stack[sp] = val
 				pc = savedPc
 			case *LClosure:
 				if checkInterrupt() {
-					return nil, Error("Interrupt")
+					return nil, addContext(env, Error("Interrupt"))
 				}
 				f, err := buildFrame(env, savedPc, ops, tfun, argc, stack, sp)
 				if err != nil {
-					return nil, err
+					return nil, addContext(env, err)
 				}
 				sp += argc
 				env = f
@@ -459,12 +454,14 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case LInstruction:
 				if tfun == Apply {
 					if argc < 2 {
-						return ArgcError("apply", "2+", argc)
+						_, err := ArgcError("apply", "2+", argc)
+						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						return ArgTypeError("list", argc, args)
+						_, err := ArgTypeError("list", argc, args)
+						return nil, addContext(env, err)
 					}
 					arglist := args.(*LList)
 					for i := argc - 2; i > 0; i-- {
@@ -481,28 +478,29 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 					}
 					goto opcodeCallAgain
 				} else {
-					return nil, Error("unsupported instruction", tfun)
+					return nil, addContext(env, Error("unsupported instruction", tfun))
 				}
 			case *LSymbol:
 				if isKeyword(tfun) {
 					if argc != 1 {
-						return ArgcError(tfun.Name, "1", argc)
+						_, err := ArgcError(tfun.Name, "1", argc)
+						return nil, addContext(env, err)
 					}
 					v, err := get(stack[sp], fun)
 					if err != nil {
-						return nil, err
+						return nil, addContext(env, err)
 					}
 					stack[sp] = v
 					pc = savedPc
 				} else {
-					return nil, Error("Not a function: ", tfun)
+					return nil, addContext(env, Error("Not a function: ", tfun))
 				}
 			default:
-				return nil, Error("Not a function: ", tfun)
+				return nil, addContext(env, Error("Not a function: ", tfun))
 			}
 		case opcodeTailCall:
 			if checkInterrupt() {
-				return nil, Error("Interrupt")
+				return nil, addContext(env, Error("Interrupt"))
 			}
 			if trace {
 				println(pc, "\ttcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
@@ -515,7 +513,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case *LPrimitive:
 				val, err := tfun.fun(stack[sp:sp+argc], argc)
 				if err != nil {
-					return nil, err
+					return nil, addContext(env, err)
 				}
 				sp = sp + argc - 1
 				stack[sp] = val
@@ -531,21 +529,24 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case *LClosure:
 				f, err := buildFrame(env.previous, env.pc, env.ops, tfun, argc, stack, sp)
 				if err != nil {
-					return nil, err
+					return nil, addContext(env, err)
 				}
 				sp += argc
 				ops = tfun.code.ops
+				code = tfun.code
 				pc = 0
 				env = f
 			case LInstruction:
 				if tfun == Apply {
 					if argc < 2 {
-						return ArgcError("apply", "2+", argc)
+						_, err := ArgcError("apply", "2+", argc)
+						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						return ArgTypeError("list", argc, args)
+						_, err := ArgTypeError("list", argc, args)
+						return nil, addContext(env, err)
 					}
 					arglist := args.(*LList)
 					for i := argc - 2; i > 0; i-- {
@@ -562,16 +563,17 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 					}
 					goto opcodeTailCallAgain
 				} else {
-					return nil, Error("unsupported instruction", tfun)
+					return nil, addContext(env, Error("unsupported instruction", tfun))
 				}
 			case *LSymbol:
 				if isKeyword(tfun) {
 					if argc != 1 {
-						return ArgcError(tfun.Name, "1", argc)
+						_, err := ArgcError(tfun.Name, "1", argc)
+						return nil, addContext(env, err)
 					}
 					v, err := get(stack[sp], fun)
 					if err != nil {
-						return nil, err
+						return nil, addContext(env, err)
 					}
 					stack[sp] = v
 					pc = env.pc
@@ -584,14 +586,14 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 						return stack[sp], nil
 					}
 				} else {
-					return nil, Error("Not a function: ", tfun)
+					return nil, addContext(env, Error("Not a function: ", tfun))
 				}
 			default:
-				return nil, Error("Not a function:", tfun)
+				return nil, addContext(env, Error("Not a function:", tfun))
 			}
 		case opcodeReturn:
 			if checkInterrupt() {
-				return nil, Error("Interrupt")
+				return nil, addContext(env, Error("Interrupt"))
 			}
 			if trace {
 				println(pc, "\tret")
@@ -641,7 +643,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			sym := constants[ops[pc+1]]
 			err := use(sym)
 			if err != nil {
-				return nil, err
+				return nil, addContext(env, err)
 			}
 			sp--
 			stack[sp] = sym
@@ -692,7 +694,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			}
 			v, err := add(stack[sp], stack[sp+1])
 			if err != nil {
-				return nil, err
+				return nil, addContext(env, err)
 			}
 			sp++
 			stack[sp] = v
@@ -703,13 +705,13 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			}
 			v, err := mul(stack[sp], stack[sp+1])
 			if err != nil {
-				return nil, err
+				return nil, addContext(env, err)
 			}
 			sp++
 			stack[sp] = v
 			pc++
 		default:
-			return nil, Error("Bad instruction: ", strconv.Itoa(ops[pc]))
+			return nil, addContext(env, Error("Bad instruction: ", strconv.Itoa(ops[pc])))
 		}
 	}
 }
