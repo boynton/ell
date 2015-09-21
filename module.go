@@ -230,7 +230,7 @@ func loadModule(name string) error {
 func loadFile(file string) error {
 	if verbose {
 		println("; loadFile: " + file)
-	} else {
+	} else if interactive {
 		println("[loading " + file + "]")
 	}
 	port, err := openInputFile(file)

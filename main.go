@@ -24,6 +24,7 @@ import (
 )
 
 var verbose bool
+var interactive bool
 var extendedInstructions = false
 
 // Version - this version of gell
@@ -67,7 +68,6 @@ func main() {
 			}
 		}
 	}
-	println("[EllPath set to ", EllPath, "]")
 	if *pVerbose {
 		verbose = *pVerbose
 	}
@@ -79,6 +79,7 @@ func main() {
 	}
 	initEnvironment()
 	if len(args) < 1 {
+		interactive = true
 		if !*pNoInit {
 			_, err := os.Stat(ellini)
 			if err == nil {
@@ -93,6 +94,7 @@ func main() {
 		defer signal.Stop(interrupts)
 		readEvalPrintLoop()
 	} else {
+		interactive = false
 		/*
 			if len(os.Args) > 2 {
 				cfg := profile.Config{
