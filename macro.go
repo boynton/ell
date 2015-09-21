@@ -202,9 +202,12 @@ func expandLambda(expr *LList) (*LList, error) {
 	bodyLen := length(body)
 	if bodyLen > 0 {
 		tmp := body
-		if isList(tmp) && caar(tmp) == intern("define") {
+		if isList(tmp) && caar(tmp) == intern("define") || caar(tmp) == intern("define-macro") {
 			bindings := EmptyList
-			for caar(tmp) == intern("define") {
+			for caar(tmp) == intern("define") || caar(tmp) == intern("define-macro") {
+				if caar(tmp) == intern("define-macro") {
+					return nil, Error("macros can only be defined at top level")
+				}
 				def, err := expandDefine(car(tmp).(*LList))
 				if err != nil {
 					return nil, err
