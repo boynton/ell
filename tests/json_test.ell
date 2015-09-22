@@ -2,8 +2,8 @@
 
 (def ell-ref {x: 23 y: 57.5 z: [1 2 3 true]})
 (def json-ref (string (json ell-ref))) ;; keywords get converted to strings
-(println "ell: " ell-ref)
-(println "json: " json-ref)
+;(println "ell: " ell-ref)
+;(println "json: " json-ref)
 
 (defn read-from-string (s)
    (let ((in (open-input-string s)))

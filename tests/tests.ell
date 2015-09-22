@@ -1,3 +1,4 @@
+(use for_range_test)
 (use json_test)
 (use argbinding_test)
 (use deftype_test)

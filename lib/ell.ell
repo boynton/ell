@@ -249,3 +249,51 @@
         (error sym " is is not defined as a generic function"))
     `(add-method '~sym '~specialized-args (lambda ~names ~@body))))
 
+;;
+;; For - list comprehension. Creates nested loops over the given sequences
+;;
+;; ? (for ((x '(a b c)) (y '(1 2 3))) [x y])                                     
+;; = ([a 1] [a 2] [a 3] [b 1] [b 2] [b 3] [c 1] [c 2] [c 3])
+;;
+(defmacro for (bindings & body)
+  (defn expand-for-loop (sym init final-body prev-final prev more-bindings)
+    (let ((loop (symbol "loop-" sym))
+          (remaining (symbol "remaining-" sym))
+          (result (symbol "result-" sym)))
+      (if (empty? more-bindings)
+          (let ((final-result (if (symbol? prev)
+                                  `(if (empty? ~(symbol "remaining-" prev))
+                                       ~(symbol "result-" prev)
+                                       (~(symbol "loop-" prev) (cdr ~(symbol "remaining-" prev)) (concat ~(symbol "result-" prev) ~result))) result)))
+            (let ((body `(if (empty? ~remaining) ~final-result (~loop (cdr ~remaining) (concat ~result ~prev-final)))))
+              `(let ~loop ((~remaining ~init) (~result '())) ~body)))
+          (let ((body (expand-for-loop (caar more-bindings) (cadar more-bindings) result final-body sym (cdr more-bindings))))
+            `(let ~loop ((~remaining ~init) (~result '())) ~body)))))
+  (if (empty? bindings)
+      `((lambda () ~@body))
+      (let ((final-body (list 'list (cons `(lambda (~@(map car bindings)) ~@body) (map (lambda (binding) `(car ~(symbol "remaining-" (car binding)))) bindings))))
+            (binding (car bindings))
+            (more (cdr bindings)))
+        (expand-for-loop (car binding) (cadr binding) final-body final-body false more))))
+
+;;
+;; placeholder -> this will be a lazy sequence at some point
+;;
+(defn range args
+  (defn range-aux (start end step)
+    (let loop ((i start) (result '()))
+      (if (>= i end)
+          (reverse result)
+          (loop (+ i step) (cons i result)))))
+  (let ((argc (length args)))
+    (cond
+      ((= argc 0)
+       (error "infinite sequences not yet supported"))
+      ((= argc 1)
+       (range-aux 0 (car args) 1))
+      ((= argc 2)
+       (range-aux (car args) (cadr args) 1))
+      ((= argc 3)
+       (range-aux (car args) (cadr args) (caddr args)))
+      (true
+       (error "wrong number of args to range: " argc)))))
