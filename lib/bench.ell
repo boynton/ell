@@ -1,7 +1,8 @@
 (use sort)
 (use pi)
 
-(define (make-foo n) (for ((i 0 (+ i 1)) (l '() (cons i l))) ((>= i n) l)))
+(define (make-foo n) (range n))
+
 (define (benchmark)
   (let ((foo (make-foo 100000)))
     (sort foo <)
