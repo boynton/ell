@@ -440,55 +440,6 @@ func crackDoBindings(bindings *LList) (*LList, *LList, *LList, bool) {
 	return names, inits, steps, true
 }
 
-func expandFor(expr LAny) (LAny, error) {
-	// (for ((myvar init-val) ...) (mytest expr ...) body ...)
-	// (for ((myvar init-val step) ...) (mytest expr ...) body ...)
-	var tmp LAny
-	var tmpl, tmpl2 *LList
-	if length(expr) < 3 {
-		return nil, SyntaxError(expr)
-	}
-
-	bindings, ok := cadr(expr).(*LList)
-	if !ok {
-		return nil, SyntaxError(expr)
-	}
-	names, inits, steps, ok := crackDoBindings(bindings)
-	if !ok {
-		return nil, SyntaxError(expr)
-	}
-	tmp = caddr(expr)
-	if !isList(tmp) {
-		return nil, SyntaxError(expr)
-	}
-	tmpl = tmp.(*LList)
-	exitPred := car(tmpl)
-	exitExprs := LAny(Null)
-	if cddr(tmpl) != EmptyList {
-		exitExprs = cons(intern("do"), cdr(tmpl))
-	} else {
-		exitExprs = cadr(tmpl)
-	}
-	loopSym := intern("system_loop")
-	if cdddr(expr) != EmptyList {
-		tmpl = cdddr(expr)
-		tmpl = cons(intern("do"), tmpl)
-		tmpl2 = cons(loopSym, steps)
-		tmpl2 = list(tmpl2)
-		tmpl = cons(intern("do"), cons(tmpl, tmpl2))
-	} else {
-		tmpl = cons(loopSym, steps)
-	}
-	tmpl = list(tmpl)
-	tmpl = cons(intern("if"), cons(exitPred, cons(exitExprs, tmpl)))
-	tmpl = list(intern("lambda"), names, tmpl)
-	tmpl = list(loopSym, tmpl)
-	tmpl = list(tmpl)
-	tmpl2 = cons(loopSym, inits)
-	tmpl = list(intern("letrec"), tmpl, tmpl2)
-	return macroexpandList(tmpl)
-}
-
 func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 	var result LAny
 	var err error

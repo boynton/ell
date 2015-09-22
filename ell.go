@@ -25,7 +25,6 @@ func initEnvironment() {
 
 	defineMacro("let", ellLet)
 	defineMacro("letrec", ellLetrec)
-	defineMacro("for", ellFor) //currently like scheme's do. I don't like it, will replace with something more like clojure's
 	defineMacro("cond", ellCond)
 	defineMacro("quasiquote", ellQuasiquote)
 
@@ -146,10 +145,6 @@ func ellLetrec(argv []LAny, argc int) (LAny, error) {
 
 func ellLet(argv []LAny, argc int) (LAny, error) {
 	return expandLet(argv[0])
-}
-
-func ellFor(argv []LAny, argc int) (LAny, error) {
-	return expandFor(argv[0])
 }
 
 func ellCond(argv []LAny, argc int) (LAny, error) {
