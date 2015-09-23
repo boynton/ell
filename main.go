@@ -25,7 +25,6 @@ import (
 
 var verbose bool
 var interactive bool
-var extendedInstructions = false
 
 // Version - this version of gell
 const Version = "gell v0.1"
@@ -44,7 +43,6 @@ func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
 	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
-	pExtended := flag.Bool("e", false, "enable extended VM instructions for common primitive operations")
 	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
 	flag.Parse()
 	args := flag.Args()
@@ -73,9 +71,6 @@ func main() {
 	}
 	if *pTrace {
 		setTrace(*pTrace)
-	}
-	if *pExtended {
-		extendedInstructions = *pExtended
 	}
 	initEnvironment()
 	if len(args) < 1 {

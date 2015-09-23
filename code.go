@@ -41,14 +41,6 @@ const (
 	opcodeDefMacro
 	opcodeVector // 15
 	opcodeStruct
-
-	//extended instructions
-	opcodeNull
-	opcodeCar
-	opcodeCdr
-	opcodeAdd // 20
-	opcodeMul
-
 	opcodeUndefGlobal
 )
 
@@ -68,11 +60,6 @@ var symOpDefGlobal = intern("defglobal")
 var symOpUndefGlobal = intern("undefglobal")
 var symOpDefMacro = intern("defmacro")
 var symOpUse = intern("use")
-var symOpCar = intern("car")
-var symOpCdr =	intern("cdr")
-var symOpNull = intern("null")
-var symOpAdd = intern("add")
-var symOpMul = intern("mul")
 
 // Code - compiled Ell bytecode
 type Code struct {
@@ -261,21 +248,6 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 		case opcodeUse:
 			buf.WriteString(prefix + "(use " + constants[code.ops[offset+1]].String() + ")")
 			offset += 2
-		case opcodeCar:
-			buf.WriteString(prefix + "(car)")
-			offset++
-		case opcodeCdr:
-			buf.WriteString(prefix + "(cdr)")
-			offset++
-		case opcodeNull:
-			buf.WriteString(prefix + "(null)")
-			offset++
-		case opcodeAdd:
-			buf.WriteString(prefix + "(add)")
-			offset++
-		case opcodeMul:
-			buf.WriteString(prefix + "(mul)")
-			offset++
 		default:
 			panic(fmt.Sprintf("Bad instruction: %d", code.ops[offset]))
 		}
@@ -404,16 +376,6 @@ func (code *Code) loadOps(lst LAny) error {
 			code.emitDefMacro(cadr(instr))
 		case symOpUse:
 			code.emitUse(cadr(instr))
-		case symOpCar:
-			code.emitCar()
-		case symOpCdr:
-			code.emitCdr()
-		case symOpNull:
-			code.emitNull()
-		case symOpAdd:
-			code.emitAdd()
-		case symOpMul:
-			code.emitMul()
 		default:
 			panic(fmt.Sprintf("Bad instruction: %v", op))
 		}
@@ -497,19 +459,4 @@ func (code *Code) emitStruct(slen int) {
 func (code *Code) emitUse(sym LAny) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, putConstant(sym))
-}
-func (code *Code) emitCar() {
-	code.ops = append(code.ops, opcodeCar)
-}
-func (code *Code) emitCdr() {
-	code.ops = append(code.ops, opcodeCdr)
-}
-func (code *Code) emitNull() {
-	code.ops = append(code.ops, opcodeNull)
-}
-func (code *Code) emitAdd() {
-	code.ops = append(code.ops, opcodeAdd)
-}
-func (code *Code) emitMul() {
-	code.ops = append(code.ops, opcodeMul)
 }

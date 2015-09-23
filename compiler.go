@@ -390,15 +390,6 @@ func compileFuncall(code *Code, env *LList, fn LAny, args *LList, isTail bool, i
 	if err != nil {
 		return err
 	}
-	if extendedInstructions {
-		ok, err := compilePrimopCall(code, fn, argc, isTail, ignoreResult)
-		if err != nil {
-			return err
-		}
-		if ok {
-			return nil
-		}
-	}
 	err = compileExpr(code, env, fn, false, false, context)
 	if err != nil {
 		return err
@@ -423,44 +414,6 @@ func compileArgs(code *Code, env *LList, args *LList, context string) error {
 		return compileExpr(code, env, car(args), false, false, context)
 	}
 	return nil
-}
-
-func compilePrimopCall(code *Code, fn LAny, argc int, isTail bool, ignoreResult bool) (bool, error) {
-	switch fn {
-	case intern("car"):
-		if argc != 1 {
-			return false, nil
-		}
-		code.emitCar()
-	case intern("cdr"):
-		if argc != 1 {
-			return false, nil
-		}
-		code.emitCdr()
-	case intern("null?"):
-		if argc != 1 {
-			return false, nil
-		}
-		code.emitNull()
-	case intern("+"):
-		if argc != 2 {
-			return false, nil
-		}
-		code.emitAdd()
-	case intern("*"):
-		if argc != 2 {
-			return false, nil
-		}
-		code.emitMul()
-	default:
-		return false, nil
-	}
-	if isTail {
-		code.emitReturn()
-	} else if ignoreResult {
-		code.emitPop()
-	}
-	return true, nil
 }
 
 func compileIfElse(code *Code, env *LList, predicate LAny, consequent LAny, antecedentOptional LAny, isTail bool, ignoreResult bool, context string) error {

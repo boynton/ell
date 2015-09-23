@@ -44,14 +44,14 @@ func println(args ...interface{}) {
 	fmt.Println(args[max])
 }
 
-// ArgcError - returns an nil, error describing an argument count mismatch.
-func ArgcError(name string, expected string, got int) (LAny, error) {
-	return nil, Error("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
+// ArgcError - returns an error describing an argument count mismatch.
+func ArgcError(name string, expected string, got int) error {
+	return Error("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
 }
 
 // ArgTypeError - returns an error describing an argument type mismatch
-func ArgTypeError(expected string, num int, arg LAny) (LAny, error) {
-	return nil, Error("Argument ", num, " is not of type <", expected, ">: ", arg)
+func ArgTypeError(expected string, num int, arg LAny) error {
+	return Error("Argument ", num, " is not of type <", expected, ">: ", arg)
 }
 
 func isFunction(obj LAny) bool {
@@ -454,13 +454,13 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case LInstruction:
 				if tfun == Apply {
 					if argc < 2 {
-						_, err := ArgcError("apply", "2+", argc)
+						err := ArgcError("apply", "2+", argc)
 						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						_, err := ArgTypeError("list", argc, args)
+						err := ArgTypeError("list", argc, args)
 						return nil, addContext(env, err)
 					}
 					arglist := args.(*LList)
@@ -483,7 +483,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case *LSymbol:
 				if isKeyword(tfun) {
 					if argc != 1 {
-						_, err := ArgcError(tfun.Name, "1", argc)
+						err := ArgcError(tfun.Name, "1", argc)
 						return nil, addContext(env, err)
 					}
 					v, err := get(stack[sp], fun)
@@ -539,13 +539,13 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case LInstruction:
 				if tfun == Apply {
 					if argc < 2 {
-						_, err := ArgcError("apply", "2+", argc)
+						err := ArgcError("apply", "2+", argc)
 						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						_, err := ArgTypeError("list", argc, args)
+						err := ArgTypeError("list", argc, args)
 						return nil, addContext(env, err)
 					}
 					arglist := args.(*LList)
@@ -568,7 +568,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			case *LSymbol:
 				if isKeyword(tfun) {
 					if argc != 1 {
-						_, err := ArgcError(tfun.Name, "1", argc)
+						err := ArgcError(tfun.Name, "1", argc)
 						return nil, addContext(env, err)
 					}
 					v, err := get(stack[sp], fun)
@@ -666,50 +666,6 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
-		case opcodeCar:
-			if trace {
-				println(pc, "\tcar")
-			}
-			stack[sp] = car(stack[sp])
-			pc++
-		case opcodeCdr:
-			if trace {
-				println(pc, "\tcdr")
-			}
-			stack[sp] = cdr(stack[sp])
-			pc++
-		case opcodeNull:
-			if trace {
-				println(pc, "\tnull")
-			}
-			if stack[sp] == Null {
-				stack[sp] = True
-			} else {
-				stack[sp] = False
-			}
-			pc++
-		case opcodeAdd:
-			if trace {
-				println(pc, "\tadd")
-			}
-			v, err := add(stack[sp], stack[sp+1])
-			if err != nil {
-				return nil, addContext(env, err)
-			}
-			sp++
-			stack[sp] = v
-			pc++
-		case opcodeMul:
-			if trace {
-				println(pc, "\tmul")
-			}
-			v, err := mul(stack[sp], stack[sp+1])
-			if err != nil {
-				return nil, addContext(env, err)
-			}
-			sp++
-			stack[sp] = v
-			pc++
 		default:
 			return nil, addContext(env, Error("Bad instruction: ", strconv.Itoa(ops[pc])))
 		}

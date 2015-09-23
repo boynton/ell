@@ -76,7 +76,8 @@
 ;;
 (defn map (fun first & rest)
   (defn map1 (fun lst)
-    (if (empty? lst) '()
+    (if (empty? lst)
+        '()
         (cons (fun (car lst)) (map1 fun (cdr lst)))))
   (defn any-empty? (list-of-lists)
     (if (empty? list-of-lists)
@@ -277,7 +278,7 @@
         (expand-for-loop (car binding) (cadr binding) final-body final-body false more))))
 
 ;;
-;; placeholder -> this will be a lazy sequence at some point
+;; A non-lazy range, simple produces a list
 ;;
 (defn range args
   (defn range-aux (start end step)

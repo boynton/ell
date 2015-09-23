@@ -282,7 +282,7 @@ func symbols() []LAny {
 func symbol(names []LAny) (LAny, error) {
 	size := len(names)
 	if size < 1 {
-		return ArgcError("symbol", "1+", size)
+		return nil, ArgcError("symbol", "1+", size)
 	}
 	name := ""
 	for i := 0; i < size; i++ {
@@ -632,7 +632,7 @@ func sub(num1 LAny, num2 LAny) (LAny, error) {
 
 func minus(nums []LAny, argc int) (LAny, error) {
 	if argc < 1 {
-		return ArgcError("-", "1+", argc)
+		return nil, ArgcError("-", "1+", argc)
 	}
 	var fsum float64
 	num := nums[0]
@@ -684,7 +684,7 @@ func product(argv []LAny, argc int) (LAny, error) {
 
 func div(argv []LAny, argc int) (LAny, error) {
 	if argc < 1 {
-		return ArgcError("/", "1+", argc)
+		return nil, ArgcError("/", "1+", argc)
 	} else if argc == 1 {
 		n1, err := floatValue(argv[0])
 		if err != nil {
@@ -850,47 +850,72 @@ func cons(car LAny, cdr *LList) *LList {
 	return &LList{car, cdr}
 }
 
-func car(lst LAny) LAny {
+func safeCar(lst LAny) (LAny, error) {
 	switch p := lst.(type) {
 	case *LList:
-		if p != EmptyList {
+		if p == EmptyList {
+			return Null, nil
+		}
+		return p.car, nil
+	default:
+		return nil, ArgTypeError("list", 1, lst)
+	}
+}
+
+func car(lst LAny) LAny {
+	if lst != EmptyList {
+		if p, ok := lst.(*LList); ok {
 			return p.car
 		}
 	}
 	return Null
 }
 
-func setCar(lst LAny, obj LAny) {
+func setCar(lst LAny, obj LAny) error {
 	switch p := lst.(type) {
 	case *LList:
-		if p != EmptyList {
-			p.car = obj
+		if p == EmptyList {
+			return Error("argument to set-car! must be a non-empty list: ", lst)
 		}
+		p.car = obj
+		return nil
+	default:
+		return ArgTypeError("list", 1, lst)
+	}
+}
+
+func safeCdr(lst LAny) (*LList, error) {
+	switch p := lst.(type) {
+	case *LList:
+		if lst != EmptyList {
+			return p.cdr, nil
+		}
+		return EmptyList, nil
+	default:
+		return nil, ArgTypeError("list", 1, lst)
 	}
 }
 
 func cdr(lst LAny) *LList {
 	if lst != EmptyList {
-		switch p := lst.(type) {
-		case *LList:
+		if p, ok := lst.(*LList); ok {
 			return p.cdr
 		}
 	}
 	return EmptyList
 }
 
-func setCdr(lst LAny, obj LAny) {
-	switch p := lst.(type) {
-	case *LList:
-		switch n := obj.(type) {
-		case *LList:
-			p.cdr = n
-		default:
-			println("IGNORED: Setting cdr to non-list: ", obj)
+func setCdr(lst LAny, obj LAny) error {
+	if p, ok := lst.(*LList); ok {
+		if p != EmptyList {
+			if d, ok := obj.(*LList); ok {
+				p.cdr = d
+				return nil
+			}
+			return Error("argument 2 to set-cdr! must be a list: ", lst)
 		}
-	default:
-		println("IGNORED: Setting cdr of non-list: ", lst)
 	}
+	return Error("argument 1 to set-cdr! must be a non-empty list: ", lst)
 }
 
 func caar(lst LAny) LAny {
@@ -1009,6 +1034,24 @@ func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 		rev = rev.cdr
 	}
 	return lst, nil
+}
+
+func nextRangeValue(val int, end int, step int) (int, bool) {
+	val += step
+	return val, isValidRange(val, end, step)
+}
+
+func isValidRange(val int, end int, step int) bool {
+	if step >= 0 {
+		if val < end {
+			return true
+		}
+	} else {
+		if val > end {
+			return true
+		}
+	}
+	return false
 }
 
 //
