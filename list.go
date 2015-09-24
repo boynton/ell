@@ -301,4 +301,3 @@ func toList(obj LAny) (LAny, error) {
 	}
 	return nil, Error("Cannot convert ", obj.Type(), " to <list>")
 }
-

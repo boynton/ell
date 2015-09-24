@@ -299,4 +299,3 @@ func div(argv []LAny, argc int) (LAny, error) {
 		return LNumber(quo), nil
 	}
 }
-

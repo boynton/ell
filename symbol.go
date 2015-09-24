@@ -188,4 +188,3 @@ func symbol(names []LAny) (LAny, error) {
 	}
 	return intern(name), nil
 }
-

@@ -31,7 +31,6 @@ func length(seq LAny) int {
 	}
 }
 
-
 func assoc(seq LAny, key LAny, val LAny) (LAny, error) {
 	switch s := seq.(type) {
 	case *LStruct:
@@ -99,7 +98,6 @@ func flatten(lst *LList) *LList {
 	return result
 }
 
-
 func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 	rev := reverse(seq1)
 	if rev == EmptyList {
@@ -130,4 +128,3 @@ func isValidRange(val int, end int, step int) bool {
 	}
 	return false
 }
-

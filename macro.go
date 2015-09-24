@@ -193,7 +193,7 @@ func expandDefmacro(expr *LList) (LAny, error) {
 				return nil, err
 			}
 			sym := intern("expr")
-			tmp, err = expandFn(list(intern("fn"), list(sym), list(intern("apply"),	tmp, list(intern("cdr"), sym))))
+			tmp, err = expandFn(list(intern("fn"), list(sym), list(intern("apply"), tmp, list(intern("cdr"), sym))))
 			if err != nil {
 				return nil, err
 			}

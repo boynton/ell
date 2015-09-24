@@ -51,15 +51,15 @@ func main() {
 	home := os.Getenv("HOME")
 	ellini := filepath.Join(home, ".ell")
 	if EllPath == "" {
-		EllPath = "." 
-		homelib := filepath.Join(home,  "lib/ell")
+		EllPath = "."
+		homelib := filepath.Join(home, "lib/ell")
 		_, err := os.Stat(homelib)
 		if err == nil {
 			EllPath += ":" + homelib
 		}
 		gopath := os.Getenv("GOPATH")
 		if gopath != "" {
-			golibdir := filepath.Join(gopath,  "src/github.com/boynton/gell/lib")
+			golibdir := filepath.Join(gopath, "src/github.com/boynton/gell/lib")
 			_, err := os.Stat(golibdir)
 			if err == nil {
 				EllPath += ":" + golibdir
