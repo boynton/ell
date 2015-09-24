@@ -63,7 +63,7 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 		if i, j, ok := calculateLocation(expr, env); ok {
 			code.emitLocal(i, j)
 		} else {
-			code.emitGlobal(expr)
+			code.emitGlobal(expr.(*LSymbol))
 		}
 		if ignoreResult {
 			code.emitPop()
@@ -382,6 +382,19 @@ func compileFuncall(code *Code, env *LList, fn LAny, args *LList, isTail bool, i
 	err := compileArgs(code, env, args, context)
 	if err != nil {
 		return err
+	}
+	fval := global(fn)
+	if fval != nil && true {
+		switch fprim := fval.(type) {
+		case *LPrimitive:
+			code.emitPrimCall(fprim, argc)
+			if ignoreResult {
+				code.emitPop()
+			} else if isTail {
+				code.emitReturn()
+			}
+			return nil
+		}
 	}
 	err = compileExpr(code, env, fn, false, false, context)
 	if err != nil {

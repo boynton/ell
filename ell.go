@@ -81,11 +81,11 @@ func initEnvironment() {
 	defineFunction("concat", ellConcat, "(<list>*) <list>")
 	defineFunction("reverse", ellReverse, "(<list>) <list>")
 	defineFunction("flatten", ellFlatten, "(<list>) <list>")
-	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>") //mutate!
+	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>")  //mutate!
 	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
 
 	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
-	defineFunction("to-vector", ellToVector, "(<any>) <vector>")	
+	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
 	defineFunction("vector", ellVector, "(<any>*) <vector>")
 	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
 	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
@@ -358,7 +358,7 @@ func ellNewline(argv []LAny, argc int) (LAny, error) {
 		//todo: add the optional output argument like scheme
 		return nil, ArgcError("newline", "0", argc)
 	}
-	fmt.Printf("\n")
+	fmt.Println("")
 	return Null, nil
 }
 
@@ -834,14 +834,16 @@ func ellString(argv []LAny, argc int) (LAny, error) {
 
 func ellCar(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
-		return safeCar(argv[0])
+		//		return safeCar(argv[0])
+		return car(argv[0]), nil
 	}
 	return nil, ArgcError("car", "1", argc)
 }
 
 func ellCdr(argv []LAny, argc int) (LAny, error) {
 	if argc == 1 {
-		return safeCdr(argv[0])
+		//		return safeCdr(argv[0])
+		return cdr(argv[0]), nil
 	}
 	return nil, ArgcError("cdr", "1", argc)
 }

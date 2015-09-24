@@ -42,6 +42,7 @@ const (
 	opcodeVector // 15
 	opcodeStruct
 	opcodeUndefGlobal
+	opcodePrimCall
 )
 
 var symOpClosure = intern("closure")
@@ -54,8 +55,9 @@ var symOpJump = intern("jump")
 var symOpJumpFalse = intern("jumpfalse")
 var symOpCall = intern("call")
 var symOpTailCall = intern("tailcall")
-var symOpReturn =	intern("return")
-var symOpPop =	intern("pop")
+var symOpPrimCall = intern("primcall")
+var symOpReturn = intern("return")
+var symOpPop = intern("pop")
 var symOpDefGlobal = intern("defglobal")
 var symOpUndefGlobal = intern("undefglobal")
 var symOpDefMacro = intern("defmacro")
@@ -63,11 +65,11 @@ var symOpUse = intern("use")
 
 // Code - compiled Ell bytecode
 type Code struct {
-	name           string
-	ops            []int
-	argc           int
-	defaults       []LAny
-	keys           []LAny
+	name     string
+	ops      []int
+	argc     int
+	defaults []LAny
+	keys     []LAny
 }
 
 func newCode(argc int, defaults []LAny, keys []LAny, name string) *Code {
@@ -148,7 +150,7 @@ func (code *Code) signature() string {
 	}
 	//the following has no type info
 	tmp := ""
-	for i:=0; i<code.argc; i++ {
+	for i := 0; i < code.argc; i++ {
 		tmp += " <any>"
 	}
 	if code.defaults != nil {
@@ -197,31 +199,27 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	for offset < max {
 		switch code.ops[offset] {
 		case opcodeLiteral:
-			//fmt.Printf("%sL%03d:\t(literal %d)  \t; %v\n", indent, offset, code.ops[offset+1], constants[code.ops[offset+1]])
 			buf.WriteString(prefix + "(literal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefGlobal:
-			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, constants[code.ops[offset+1]])
 			buf.WriteString(prefix + "(defglobal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeCall:
-			//fmt.Printf("%sL%03d:\t(call %d)\n", indent, offset, code.ops[offset+1])
 			buf.WriteString(prefix + "(call " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeTailCall:
-			//fmt.Printf("%s%03d:\t(tailcall %d)\n", indent, offset, code.ops[offset+1])
 			buf.WriteString(prefix + "(tailcall " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
+		case opcodePrimCall:
+			buf.WriteString(prefix + "(primcall " + strconv.Itoa(code.ops[offset+1]) + " " + primitives[code.ops[offset+2]].name + ")")
+			offset += 3
 		case opcodePop:
-			//fmt.Printf("%sL%03d:\t(pop)\n", indent, offset)
 			buf.WriteString(prefix + "(pop)")
 			offset++
 		case opcodeReturn:
-			//fmt.Printf("%sL%03d:\t(return)\n", indent, offset)
 			buf.WriteString(prefix + "(return)")
 			offset++
 		case opcodeClosure:
-			//fmt.Printf("%sL%03d:\t(closure %v)\n", indent, offset, code.ops[offset+1])
 			buf.WriteString(prefix + "(closure")
 			if pretty {
 				buf.WriteString("\n")
@@ -236,31 +234,24 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			buf.WriteString(")")
 			offset += 2
 		case opcodeLocal:
-			//fmt.Printf("%sL%03d:\t(local %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
 			buf.WriteString(prefix + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeGlobal:
-			//fmt.Printf("%sL%03d:\t(global %v)\n", indent, offset, constants[code.ops[offset+1]])
 			buf.WriteString(prefix + "(global " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeUndefGlobal:
-			//fmt.Printf("%sL%03d:\t(unglobal %v)\n", indent, offset, constants[code.ops[offset+1]])
 			buf.WriteString(prefix + "(undefglobal " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeDefMacro:
-			//fmt.Printf("%sL%03d:\t(defmacro%6d ; %v)\n", indent, offset, code.ops[offset+1], constants[code.ops[offset+1]])
 			buf.WriteString(prefix + "(defmacro " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeSetLocal:
-			//Println("%sL%03d:\t(setlocal %d %d)\n", indent, offset, code.ops[offset+1], code.ops[offset+2])
 			buf.WriteString(prefix + "(setlocal " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeJumpFalse:
-			//fmt.Printf("%sL%03d:\t(jumpfalse %d)\t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
 			buf.WriteString(prefix + "(jumpfalse " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeJump:
-			//fmt.Printf("%sL%03d:\t(jump %d)    \t; L%03d\n", indent, offset, code.ops[offset+1], code.ops[offset+1] + offset)
 			buf.WriteString(prefix + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
 		case opcodeVector:
@@ -363,7 +354,11 @@ func (code *Code) loadOps(lst LAny) error {
 			}
 			code.emitSetLocal(i, j)
 		case symOpGlobal:
-			code.emitGlobal(cadr(instr))
+			if sym, ok := cadr(instr).(*LSymbol); ok {
+				code.emitGlobal(sym)
+			} else {
+				return Error(symOpGlobal, " argument 1 not a symbol: ", cadr(instr))
+			}
 		case symOpUndefGlobal:
 			code.emitUndefGlobal(cadr(instr))
 		case symOpJump:
@@ -413,9 +408,9 @@ func (code *Code) emitLiteral(val LAny) {
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *Code) emitGlobal(sym LAny) {
+func (code *Code) emitGlobal(sym *LSymbol) {
 	code.ops = append(code.ops, opcodeGlobal)
-	code.ops = append(code.ops, putConstant(sym))
+	code.ops = append(code.ops, sym.tag)
 }
 func (code *Code) emitCall(argc int) {
 	code.ops = append(code.ops, opcodeCall)
@@ -426,6 +421,11 @@ func (code *Code) emitReturn() {
 }
 func (code *Code) emitTailCall(argc int) {
 	code.ops = append(code.ops, opcodeTailCall)
+	code.ops = append(code.ops, argc)
+}
+func (code *Code) emitPrimCall(prim *LPrimitive, argc int) {
+	code.ops = append(code.ops, opcodePrimCall)
+	code.ops = append(code.ops, prim.idx)
 	code.ops = append(code.ops, argc)
 }
 func (code *Code) emitPop() {

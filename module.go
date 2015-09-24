@@ -24,7 +24,9 @@ import (
 var constantsMap = make(map[LAny]int, 0)
 var constants = make([]LAny, 0, 1000)
 var globals = make([]*binding, 0, 1000)
+var globalsMap = make(map[*LSymbol]int, 0)
 var macroMap = make(map[LAny]*macro, 0)
+var primitives = make([]*LPrimitive, 0, 1000)
 
 func checkInterrupt() bool {
 	if interrupts != nil {
@@ -51,10 +53,11 @@ func define(name string, obj LAny) {
 func defineFunction(name string, fun primitive, signature string) {
 	sym := intern(name)
 	if global(sym) != nil {
-		println("*** Warning: redefining ", name)
+		println("*** Warning: redefining ", name, " with a primitive")
 	}
-	prim := LPrimitive{name, fun, signature}
-	defGlobal(sym, &prim)
+
+	prim := newPrimitive(name, fun, signature)
+	defGlobal(sym, prim)
 }
 
 func defineMacro(name string, fun primitive) {
@@ -62,8 +65,8 @@ func defineMacro(name string, fun primitive) {
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
-	prim := LPrimitive{name, fun, "(<any>)"}
-	defMacro(sym, &prim)
+	prim := newPrimitive(name, fun, "(<any>)")
+	defMacro(sym, prim)
 }
 
 func getKeywords() []LAny {
@@ -93,31 +96,50 @@ func getGlobals() []LAny {
 	return syms
 }
 
-func global(sym LAny) LAny {
-	s := sym.(*LSymbol)
-	if s.tag >= len(globals) {
+func globalValue(tag int) LAny {
+	if tag < len(globals) {
+		tmp := globals[tag]
+		if tmp != nil {
+			return tmp.val
+		}
+	}
+	return nil
+}
+
+//used to report errors, doesn't need to be fast
+func globalName(tag int) string {
+	for k, v := range symtab {
+		if v.tag == tag {
+			return k
+		}
+	}
+	return "?"
+}
+
+func global(obj LAny) LAny {
+	sym, ok := obj.(*LSymbol)
+	if !ok || sym.tag < 0 || sym.tag >= len(globals) {
 		return nil
 	}
-	tmp := globals[s.tag]
-	if tmp == nil {
-		return nil
-	}
-	return tmp.val
+	return globalValue(sym.tag)
 }
 
 type binding struct {
-	sym LAny
+	sym *LSymbol
 	val LAny
 }
 
 func defGlobal(sym LAny, val LAny) {
-	s := sym.(*LSymbol)
-	if s.tag >= len(globals) {
-		gLAny := make([]*binding, s.tag+100)
-		copy(gLAny, globals)
-		globals = gLAny
+	s, ok := sym.(*LSymbol)
+	if !ok {
+		panic("defGlobal with a non-symbol first argument")
 	}
-	b := binding{sym, val}
+	if s.tag >= len(globals) {
+		glob := make([]*binding, s.tag+100)
+		copy(glob, globals)
+		globals = glob
+	}
+	b := binding{s, val}
 	globals[s.tag] = &b
 	delete(macroMap, sym)
 }

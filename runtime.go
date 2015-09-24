@@ -22,7 +22,7 @@ import (
 	"strconv"
 )
 
-var trace bool
+var trace bool = false
 
 func setTrace(b bool) {
 	trace = b
@@ -150,9 +150,17 @@ type primitive func(argv []LAny, argc int) (LAny, error)
 
 // LPrimitive - a primitive function, written in Go, callable by VM
 type LPrimitive struct { // <function>
-	name string
-	fun  primitive
+	name      string
+	fun       primitive
 	signature string
+	idx       int
+}
+
+func newPrimitive(name string, fun primitive, signature string) *LPrimitive {
+	idx := len(primitives)
+	prim := &LPrimitive{name, fun, signature, idx}
+	primitives = append(primitives, prim)
+	return prim
 }
 
 var typeFunction = intern("<function>")
@@ -190,7 +198,7 @@ type frame struct {
 	locals    *frame
 	elements  []LAny
 	constants []LAny
-	code *Code
+	code      *Code
 }
 
 func (frame frame) String() string {
@@ -373,26 +381,25 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			pc += 2
 		case opcodeGlobal:
 			if trace {
-				println(pc, "\tgLAny\t", constants[ops[pc+1]])
+				println(pc, "\tglob\t", constants[ops[pc+1]])
 			}
-			sym := constants[ops[pc+1]]
-			val := global(sym)
+			val := globalValue(ops[pc+1])
 			if val == nil {
-				return nil, addContext(env, Error("Undefined symbol: ", sym))
+				return nil, addContext(env, Error("Undefined symbol: ", globalName(ops[pc+1])))
 			}
 			sp--
 			stack[sp] = val
 			pc += 2
 		case opcodeDefGlobal:
 			if trace {
-				println(pc, "\tdefgLAny\t", constants[ops[pc+1]])
+				println(pc, "\tdef\t", constants[ops[pc+1]])
 			}
 			sym := constants[ops[pc+1]]
 			defGlobal(sym, stack[sp])
 			pc += 2
 		case opcodeUndefGlobal:
 			if trace {
-				println(pc, "\tungLAny\t", constants[ops[pc+1]])
+				println(pc, "\tundef\t", constants[ops[pc+1]])
 			}
 			sym := constants[ops[pc+1]]
 			undefGlobal(sym)
@@ -432,6 +439,19 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			}
 			j := ops[pc+2]
 			tmpEnv.elements[j] = stack[sp]
+			pc += 3
+		case opcodePrimCall:
+			if trace {
+				println(pc, "\tprimcall\t", primitives[ops[pc+2]], " ", ops[pc+1], "\tstack: ", showStack(stack, sp))
+			}
+			tfun := primitives[ops[pc+1]]
+			argc := ops[pc+2]
+			val, err := tfun.fun(stack[sp:sp+argc], argc)
+			if err != nil {
+				return nil, addContext(env, err)
+			}
+			sp = sp + argc - 1
+			stack[sp] = val
 			pc += 3
 		case opcodeCall:
 			if trace {
@@ -666,7 +686,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 				println(pc, "\tvector\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v := vector(stack[sp:sp+vlen]...)
+			v := vector(stack[sp : sp+vlen]...)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
