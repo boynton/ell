@@ -102,6 +102,30 @@ func (code *Code) Equal(another LAny) bool {
 	return false
 }
 
+func copyElements(elements []LAny) []LAny {
+	if elements == nil {
+		return nil
+	}
+	size := len(elements)
+	c := make([]LAny, size)
+	for i := 0; i < size; i++ {
+		c[i] = elements[i].Copy()
+	}
+	return c
+}
+
+func (code *Code) Copy() LAny {
+	ops := make([]int, len(code.ops))
+	copy(ops, code.ops)
+	return &Code{
+		code.name,
+		ops,
+		code.argc,
+		copyElements(code.defaults), //nil for normal procs, empty for rest, and non-empty for optional/keyword
+		copyElements(code.keys),
+	}
+}
+
 func (code *Code) signature() string {
 	//
 	//experimental: external annotations on the functions: *declarations* is a map from symbol to string

@@ -142,6 +142,10 @@ func (i LInstruction) String() string {
 	return fmt.Sprintf("#[function UNDEFINED]", i)
 }
 
+func (i LInstruction) Copy() LAny {
+	return i
+}
+
 type primitive func(argv []LAny, argc int) (LAny, error)
 
 // LPrimitive - a primitive function, written in Go, callable by VM
@@ -173,6 +177,10 @@ func (prim *LPrimitive) Equal(another LAny) bool {
 
 func (prim *LPrimitive) String() string {
 	return "#[function " + prim.name + " " + prim.signature + "]"
+}
+
+func (prim *LPrimitive) Copy() LAny {
+	return prim
 }
 
 type frame struct {
@@ -219,6 +227,11 @@ func (closure *LClosure) Equal(another LAny) bool {
 		return closure == a
 	}
 	return false
+}
+
+func (closure *LClosure) Copy() LAny {
+	//note: this isn't really a copy! closed-over state can still be mutated
+	return closure
 }
 
 func (closure LClosure) String() string {

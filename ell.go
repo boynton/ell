@@ -49,6 +49,7 @@ func initEnvironment() {
 
 	defineFunction("type", ellType, "(<any>) <type>")
 	defineFunction("value", ellValue, "<any>) <any>")
+	defineFunction("copy", ellCopy, "(<any>) <any>")
 	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
 	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs, "(<list> <keyword>+) <list>")
 
@@ -263,6 +264,13 @@ func ellValue(argv []LAny, argc int) (LAny, error) {
 		return nil, ArgcError("value", "1", argc)
 	}
 	return argv[0].Value(), nil
+}
+
+func ellCopy(argv []LAny, argc int) (LAny, error) {
+	if argc != 1 {
+		return nil, ArgcError("copy", "1", argc)
+	}
+	return argv[0].Copy(), nil
 }
 
 func ellInstance(argv []LAny, argc int) (LAny, error) {

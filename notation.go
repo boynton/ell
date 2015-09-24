@@ -68,6 +68,11 @@ func (in *Input) String() string {
 	return fmt.Sprintf("<input: %s>", in.name)
 }
 
+func (in *Input) Copy() LAny {
+	//not a copy!
+	return in
+}
+
 // Equal returns true if the object is equal to the argument
 func (in *Input) Equal(another LAny) bool {
 	if a, ok := another.(*Input); ok {
