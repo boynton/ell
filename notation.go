@@ -306,7 +306,7 @@ func (dr *dataReader) decodeList() (LAny, error) {
 	if err != nil {
 		return nil, err
 	}
-	return toList(items), nil
+	return listFromValues(items), nil
 }
 
 func (dr *dataReader) decodeVector() (LAny, error) {
@@ -314,7 +314,7 @@ func (dr *dataReader) decodeVector() (LAny, error) {
 	if err != nil {
 		return nil, err
 	}
-	return toVector(items, len(items)), nil
+	return vector(items...), nil
 }
 
 func (dr *dataReader) skipToData(skipColon bool) (byte, error) {

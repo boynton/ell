@@ -119,7 +119,7 @@ func expandSequence(seq *LList) (*LList, error) {
 		}
 		seq = cdr(seq)
 	}
-	lst := toList(result)
+	lst := listFromValues(result)
 	if seq != EmptyList {
 		tmp := cons(seq, EmptyList)
 		return concat(lst, tmp)
@@ -147,50 +147,89 @@ func expandIf(expr LAny) (*LList, error) {
 	}
 }
 
-func expandUndefine(expr *LList) (*LList, error) {
+func expandUndef(expr *LList) (*LList, error) {
 	if length(expr) != 2 || !isSymbol(cadr(expr)) {
 		return nil, SyntaxError(expr)
 	}
 	return expr, nil
 }
 
-func expandDefine(expr *LList) (LAny, error) {
+// (defn f (x) (+ 1 x))
+//  ->
+// (def f (fn (x) (+ 1 x)))
+func expandDefn(expr *LList) (LAny, error) {
 	exprLen := length(expr)
-	if exprLen < 3 {
+	if exprLen >= 4 {
+		name := cadr(expr)
+		if isSymbol(name) {
+			args := caddr(expr)
+			body, err := expandSequence(cdddr(expr))
+			if err != nil {
+				return nil, err
+			}
+			tmp, err := expandFn(cons(intern("fn"), cons(args, body)))
+			if err != nil {
+				return nil, err
+			}
+			return list(intern("def"), name, tmp), nil
+		}
+	}
+	return nil, SyntaxError(expr)
+}
+
+func expandDefmacro(expr *LList) (LAny, error) {
+	exprLen := length(expr)
+	if exprLen >= 4 {
+		name := cadr(expr)
+		if isSymbol(name) {
+			args := caddr(expr)
+			body, err := expandSequence(cdddr(expr))
+			if err != nil {
+				return nil, err
+			}
+			//(fn (expr) (apply xxx
+			tmp, err := expandFn(cons(intern("fn"), cons(args, body))) //this is the expander with special args\
+			if err != nil {
+				return nil, err
+			}
+			sym := intern("expr")
+			tmp, err = expandFn(list(intern("fn"), list(sym), list(intern("apply"),	tmp, list(intern("cdr"), sym))))
+			if err != nil {
+				return nil, err
+			}
+			return list(intern("defmacro"), name, tmp), nil
+		}
+	}
+	return nil, SyntaxError(expr)
+}
+
+//(defmacro (defmacro expr)
+//  `(defmacro ~(cadr expr) (fn (expr) (apply (fn ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
+
+func expandDef(expr *LList) (LAny, error) {
+	exprLen := length(expr)
+	if exprLen != 3 {
 		return nil, SyntaxError(expr)
 	}
 	name := cadr(expr)
-	if isSymbol(name) {
-		if exprLen > 3 {
-			return nil, SyntaxError(expr)
-		}
-		body, ok := caddr(expr).(*LList)
-		if !ok {
-			return expr, nil
-		}
-		val, err := macroexpandList(body)
-		if err != nil {
-			return nil, err
-		}
-		return list(car(expr), name, val), nil
-	} else if isList(name) {
-		args := cdr(name)
-		name = car(name)
-		body, err := expandSequence(cddr(expr))
-		if err != nil {
-			return nil, err
-		}
-		tmp, err := expandLambda(cons(intern("lambda"), cons(args, body)))
-		if err != nil {
-			return nil, err
-		}
-		return list(car(expr), name, tmp), nil
-	} else {
+	if !isSymbol(name) {
 		return nil, SyntaxError(expr)
 	}
+	if exprLen > 3 {
+		return nil, SyntaxError(expr)
+	}
+	body, ok := caddr(expr).(*LList)
+	if !ok {
+		return expr, nil
+	}
+	val, err := macroexpandList(body)
+	if err != nil {
+		return nil, err
+	}
+	return list(car(expr), name, val), nil
 }
 
-func expandLambda(expr *LList) (*LList, error) {
+func expandFn(expr *LList) (*LList, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
 		return nil, SyntaxError(expr)
@@ -202,13 +241,13 @@ func expandLambda(expr *LList) (*LList, error) {
 	bodyLen := length(body)
 	if bodyLen > 0 {
 		tmp := body
-		if isList(tmp) && caar(tmp) == intern("define") || caar(tmp) == intern("define-macro") {
+		if isList(tmp) && caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
 			bindings := EmptyList
-			for caar(tmp) == intern("define") || caar(tmp) == intern("define-macro") {
-				if caar(tmp) == intern("define-macro") {
+			for caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
+				if caar(tmp) == intern("defmacro") {
 					return nil, Error("macros can only be defined at top level")
 				}
-				def, err := expandDefine(car(tmp).(*LList))
+				def, err := expandDef(car(tmp).(*LList))
 				if err != nil {
 					return nil, err
 				}
@@ -225,7 +264,7 @@ func expandLambda(expr *LList) (*LList, error) {
 	return cons(car(expr), cons(args, body)), nil
 }
 
-func expandSet(expr *LList) (*LList, error) {
+func expandSetBang(expr *LList) (*LList, error) {
 	exprLen := length(expr)
 	if exprLen != 3 {
 		return nil, SyntaxError(expr)
@@ -250,17 +289,18 @@ func expandPrimitive(fn LAny, expr *LList) (LAny, error) {
 		return expandSequence(expr)
 	case intern("if"):
 		return expandIf(expr)
-	case intern("define"):
-		return expandDefine(expr)
-	case intern("undefine"):
-		return expandUndefine(expr)
-	case intern("define-macro"):
-		return expandDefine(expr)
-		//return expandDefineMacro(expr)
-	case intern("lambda"):
-		return expandLambda(expr)
+	case intern("def"):
+		return expandDef(expr)
+	case intern("undef"):
+		return expandUndef(expr)
+	case intern("defn"):
+		return expandDefn(expr)
+	case intern("defmacro"):
+		return expandDefmacro(expr)
+	case intern("fn"):
+		return expandFn(expr)
 	case intern("set!"):
-		return expandSet(expr)
+		return expandSetBang(expr)
 	case intern("lap"):
 		return expr, nil
 	case intern("use"):
@@ -308,12 +348,12 @@ func crackLetrecBindings(bindings *LList, tail *LList) (*LList, *LList, bool) {
 		inits = inits.cdr
 	}
 	inits.cdr = tail
-	return toList(names), head, true
+	return listFromValues(names), head, true
 }
 
 func expandLetrec(expr LAny) (LAny, error) {
 	// (letrec () expr ...) -> (do expr ...)
-	// (letrec ((x 1) (y 2)) expr ...) -> ((lambda (x y) (set! x 1) (set! y 2) expr ...) nil nil)
+	// (letrec ((x 1) (y 2)) expr ...) -> ((fn (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := cddr(expr)
 	if body == EmptyList {
 		return nil, SyntaxError(expr)
@@ -327,7 +367,7 @@ func expandLetrec(expr LAny) (LAny, error) {
 	if !ok {
 		return nil, SyntaxError(expr)
 	}
-	code, err := macroexpandList(cons(intern("lambda"), cons(names, body)))
+	code, err := macroexpandList(cons(intern("fn"), cons(names, body)))
 	if err != nil {
 		return nil, err
 	}
@@ -357,13 +397,13 @@ func crackLetBindings(bindings *LList) (*LList, *LList, bool) {
 		}
 		return nil, nil, false
 	}
-	return toList(names), toList(values), true
+	return listFromValues(names), listFromValues(values), true
 }
 
 func expandLet(expr LAny) (LAny, error) {
 	// (let () expr ...) -> (do expr ...)
-	// (let ((x 1) (y 2)) expr ...) -> ((lambda (x y) expr ...) 1 2)
-	// (let label ((x 1) (y 2)) expr ...) -> (lambda (label) expr
+	// (let ((x 1) (y 2)) expr ...) -> ((fn (x y) expr ...) 1 2)
+	// (let label ((x 1) (y 2)) expr ...) -> (fn (label) expr
 	if isSymbol(cadr(expr)) {
 		//return ell_expand_named_let(argv, argc)
 		return expandNamedLet(expr)
@@ -380,7 +420,7 @@ func expandLet(expr LAny) (LAny, error) {
 	if body == EmptyList {
 		return nil, SyntaxError(expr)
 	}
-	code, err := macroexpandList(cons(intern("lambda"), cons(names, body)))
+	code, err := macroexpandList(cons(intern("fn"), cons(names, body)))
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +438,7 @@ func expandNamedLet(expr LAny) (LAny, error) {
 		return nil, SyntaxError(expr)
 	}
 	body := cdddr(expr)
-	tmp := list(intern("letrec"), list(list(name, cons(intern("lambda"), cons(names, body)))), cons(name, values))
+	tmp := list(intern("letrec"), list(list(name, cons(intern("fn"), cons(names, body)))), cons(name, values))
 	return macroexpandList(tmp)
 }
 

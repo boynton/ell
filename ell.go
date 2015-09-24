@@ -36,7 +36,7 @@ func initEnvironment() {
 
 	defineFunction("version", ellVersion, "()")
 
-	defineFunction("defined?", ellDefinedP, "(<any>)")
+	defineFunction("def?", ellDefinedP, "(<any>)")
 
 	defineFunction("file-contents", ellFileContents, "(<string>) <string>")
 	defineFunction("open-input-string", ellOpenInputString, "(<string>) <input>")
@@ -73,16 +73,19 @@ func initEnvironment() {
 	defineFunction("eof?", ellFunctionP, "(<any>) <boolean>")
 
 	defineFunction("list?", ellListP, "(<any>) <boolean>")
+	defineFunction("to-list", ellToList, "(<any>) <list>")
 	defineFunction("cons", ellCons, "(<any> <list>) <list>")
 	defineFunction("car", ellCar, "(<list>) <any>")
 	defineFunction("cdr", ellCdr, "(<list>) <list>")
 	defineFunction("list", ellList, "(<any>*) <list>")
 	defineFunction("concat", ellConcat, "(<list>*) <list>")
 	defineFunction("reverse", ellReverse, "(<list>) <list>")
+	defineFunction("flatten", ellFlatten, "(<list>) <list>")
 	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>") //mutate!
 	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
 
 	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
+	defineFunction("to-vector", ellToVector, "(<any>) <vector>")	
 	defineFunction("vector", ellVector, "(<any>*) <vector>")
 	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
 	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
@@ -94,7 +97,6 @@ func initEnvironment() {
 	defineFunction("assoc", ellAssoc, "(<struct> <any>) <struct")
 	defineFunction("dissoc", ellDissoc, "(<struct> <any>) <struct>")
 	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
-	defineFunction("struct->list", ellStructToList, "(<struct>) <list>")
 
 	defineFunction("empty?", ellEmptyP, "(<any>) <boolean>")
 
@@ -427,6 +429,21 @@ func ellReverse(argv []LAny, argc int) (LAny, error) {
 	}
 }
 
+func ellFlatten(argv []LAny, argc int) (LAny, error) {
+	if argc != 1 {
+		return nil, ArgcError("flatten", "1", argc)
+	}
+	switch t := argv[0].(type) {
+	case *LList:
+		return flatten(t), nil
+	case *LVector:
+		lst, _ := toList(t)
+		return flatten(lst.(*LList)), nil
+	default:
+		return nil, ArgTypeError("list", 1, argv[0])
+	}
+}
+
 func ellList(argv []LAny, argc int) (LAny, error) {
 	p := EmptyList
 	for i := argc - 1; i >= 0; i-- {
@@ -525,6 +542,13 @@ func ellDiv(argv []LAny, argc int) (LAny, error) {
 
 func ellVector(argv []LAny, argc int) (LAny, error) {
 	return vector(argv...), nil
+}
+
+func ellToVector(argv []LAny, argc int) (LAny, error) {
+	if argc != 1 {
+		return nil, ArgcError("to-vector", "1", argc)
+	}
+	return toVector(argv[0])
 }
 
 func ellMakeVector(argv []LAny, argc int) (LAny, error) {
@@ -973,11 +997,11 @@ func ellDissoc(argv []LAny, argc int) (LAny, error) {
 	return dissoc(argv[0], argv[1])
 }
 
-func ellStructToList(argv []LAny, argc int) (LAny, error) {
+func ellToList(argv []LAny, argc int) (LAny, error) {
 	if argc != 1 {
-		return nil, ArgcError("struct->list", "1", argc)
+		return nil, ArgcError("to-list", "1", argc)
 	}
-	return structToList(argv[0])
+	return toList(argv[0])
 }
 
 func ellJSON(argv []LAny, argc int) (LAny, error) {

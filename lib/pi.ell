@@ -1,4 +1,4 @@
-(define (pi n d)
+(defn pi (n d)
   (set! n (+ (quotient n d) 1))
   (let ((m (quotient (* n (* d 3322)) 1000)))
     (let ((r (let looop ((s 1) (i 0)) (if (>= i d) s (looop (* 10 s) (+ 1 i)))))

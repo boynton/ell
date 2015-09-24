@@ -84,7 +84,7 @@ func normalizeKeywordArgs(args *LList, keys []LAny) (*LList, error) {
 		lst = append(lst, k)
 		lst = append(lst, v)
 	}
-	return toList(lst), nil
+	return listFromValues(lst), nil
 }
 
 func copyStruct(s *LStruct) *LStruct {
@@ -208,22 +208,29 @@ func put(obj LAny, key LAny, value LAny) (LAny, error) {
 	return nil, TypeError(typeStruct, obj)
 }
 
-func structToList(obj LAny) (LAny, error) {
-	if aStruct, ok := obj.(*LStruct); ok {
-		result := EmptyList
-		tail := EmptyList
-		for k, v := range aStruct.bindings {
-			tmp := list(k, v)
-			if result == EmptyList {
-				result = list(tmp)
-				tail = result
-			} else {
-				tail.cdr = list(tmp)
-				tail = tail.cdr
-			}
+func structToList(aStruct *LStruct) (*LList, error) {
+	result := EmptyList
+	tail := EmptyList
+	for k, v := range aStruct.bindings {
+		tmp := list(k, v)
+		if result == EmptyList {
+			result = list(tmp)
+			tail = result
+		} else {
+			tail.cdr = list(tmp)
+			tail = tail.cdr
 		}
-		return result, nil
 	}
-	return nil, TypeError(typeStruct, obj)
+	return result, nil
 }
 
+func structToVector(aStruct *LStruct) *LVector {
+	size := len(aStruct.bindings)
+	el := make([]LAny, size)
+	var i int
+	for k, v := range aStruct.bindings {
+		el[i] = vector(k, v)
+		i++
+	}
+	return &LVector{el}
+}

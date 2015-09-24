@@ -303,7 +303,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 	if rest {
 		copy(el, stack[sp:end])
 		restElements := stack[end : sp+argc]
-		el[expectedArgc] = toList(restElements)
+		el[expectedArgc] = listFromValues(restElements)
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
@@ -666,7 +666,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 				println(pc, "\tvector\t", ops[pc+1])
 			}
 			vlen := ops[pc+1]
-			v := toVector(stack[sp:], vlen)
+			v := vector(stack[sp:sp+vlen]...)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2

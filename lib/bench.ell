@@ -1,9 +1,9 @@
 (use sort)
 (use pi)
 
-(define (make-foo n) (range n))
+(defn make-foo (n) (range n))
 
-(define (benchmark)
+(defn benchmark ()
   (let ((foo (make-foo 100000)))
     (sort foo <)
     (sort foo >)

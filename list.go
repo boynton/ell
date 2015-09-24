@@ -258,7 +258,7 @@ func cddddr(lst LAny) *LList {
 	return cdr(cdr(cdr(cdr(lst))))
 }
 
-func toList(values []LAny) *LList {
+func listFromValues(values []LAny) *LList {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
@@ -268,7 +268,7 @@ func toList(values []LAny) *LList {
 }
 
 func list(values ...LAny) *LList {
-	return toList(values)
+	return listFromValues(values)
 }
 
 func listToVector(lst *LList) *LVector {
@@ -285,5 +285,20 @@ func vectorToList(ary LAny) (LAny, error) {
 	if !ok {
 		return nil, TypeError(typeVector, ary)
 	}
-	return toList(v.elements), nil
+	return listFromValues(v.elements), nil
 }
+
+func toList(obj LAny) (LAny, error) {
+	switch t := obj.(type) {
+	case *LList:
+		return t, nil
+	case *LVector:
+		return listFromValues(t.elements), nil
+	case *LStruct:
+		return structToList(t)
+	case LString:
+		return stringToList(t), nil
+	}
+	return nil, Error("Cannot convert ", obj.Type(), " to <list>")
+}
+

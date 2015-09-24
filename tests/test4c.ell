@@ -1,3 +1,3 @@
-(define p (lambda (s) (println s) 23))
-(define cat (lambda (n) (if (<= n 5) (p "small") (p "large"))))
+(defn p (s) (println s) 23)
+(defn cat (n) (if (<= n 5) (p "small") (p "large")))
 (cat 4)

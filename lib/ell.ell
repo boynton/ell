@@ -1,50 +1,38 @@
-;
-; macros and non-core definitions to the Ell language
-;
+;;
+;; macros and non-core definitions to the Ell language
+;;
 
 ;;
 ;; shortcuts for accessing lists
 ;;
-(define (caar p) (car (car p)))
-(define (cadr p) (car (cdr p)))
-(define (cdar p) (cdr (car p)))
-(define (cddr p) (cdr (cdr p)))
-(define (caaar p) (car (car (car p))))
-(define (caadr p) (car (car (cdr p))))
-(define (cadar p) (car (cdr (car p))))
-(define (caddr p) (car (cdr (cdr p))))
-(define (cdaar p) (cdr (car (car p))))
-(define (cdadr p) (cdr (car (cdr p))))
-(define (cddar p) (cdr (cdr (car p))))
-(define (cdddr p) (cdr (cdr (cdr p))))
-(define (caaaar p) (car (car (car (car p)))))
-(define (caaadr p) (car (car (car (cdr p)))))
-(define (caadar p) (car (car (cdr (car p)))))
-(define (caaddr p) (car (car (cdr (cdr p)))))
-(define (cadaar p) (car (cdr (car (car p)))))
-(define (cadadr p) (car (cdr (car (cdr p)))))
-(define (caddar p) (car (cdr (cdr (car p)))))
-(define (cadddr p) (car (cdr (cdr (cdr p)))))
-(define (cdaaar p) (cdr (car (car (car p)))))
-(define (cdaadr p) (cdr (car (car (cdr p)))))
-(define (cdadar p) (cdr (car (cdr (car p)))))
-(define (cdaddr p) (cdr (car (cdr (cdr p)))))
-(define (cddaar p) (cdr (cdr (car (car p)))))
-(define (cddadr p) (cdr (cdr (car (cdr p)))))
-(define (cdddar p) (cdr (cdr (cdr (car p)))))
-(define (cddddr p) (cdr (cdr (cdr (cdr p)))))
-
-;; defmacro is a more convenient form. This should get pushed down as a primitive
-(define-macro (defmacro expr)
-  `(define-macro ~(cadr expr) (lambda (expr) (apply (lambda ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
-
-;; should be a primitive
-(defmacro def (name value)
-  `(define ~name ~value))
-
-;; shorthand for define function, should be a primitive
-(defmacro defn (name args & body)
-  `(define ~name (lambda ~args ~@body)))
+(defn caar (p) (car (car p)))
+(defn cadr (p) (car (cdr p)))
+(defn cdar (p) (cdr (car p)))
+(defn cddr (p) (cdr (cdr p)))
+(defn caaar (p) (car (car (car p))))
+(defn caadr (p) (car (car (cdr p))))
+(defn cadar (p) (car (cdr (car p))))
+(defn caddr (p) (car (cdr (cdr p))))
+(defn cdaar (p) (cdr (car (car p))))
+(defn cdadr (p) (cdr (car (cdr p))))
+(defn cddar (p) (cdr (cdr (car p))))
+(defn cdddr (p) (cdr (cdr (cdr p))))
+(defn caaaar (p) (car (car (car (car p)))))
+(defn caaadr (p) (car (car (car (cdr p)))))
+(defn caadar (p) (car (car (cdr (car p)))))
+(defn caaddr (p) (car (car (cdr (cdr p)))))
+(defn cadaar (p) (car (cdr (car (car p)))))
+(defn cadadr (p) (car (cdr (car (cdr p)))))
+(defn caddar (p) (car (cdr (cdr (car p)))))
+(defn cadddr (p) (car (cdr (cdr (cdr p)))))
+(defn cdaaar (p) (cdr (car (car (car p)))))
+(defn cdaadr (p) (cdr (car (car (cdr p)))))
+(defn cdadar (p) (cdr (car (cdr (car p)))))
+(defn cdaddr (p) (cdr (car (cdr (cdr p)))))
+(defn cddaar (p) (cdr (cdr (car (car p)))))
+(defn cddadr (p) (cdr (cdr (car (cdr p)))))
+(defn cdddar (p) (cdr (cdr (cdr (car p)))))
+(defn cddddr (p) (cdr (cdr (cdr (cdr p)))))
 
 ;; or returns the first non-false item in the list
 (defmacro or ops
@@ -132,7 +120,7 @@
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () '~keys)
        (defn ~(symbol "as-" sym) (o)
-         (instance '~typesym (validated-struct o '~typesym '~keys)))
+             (instance '~typesym (validated-struct o '~typesym '~keys)))
        '~typesym)))
 
 ;;
@@ -155,7 +143,7 @@
         (arg (car args)))
     `(do
        (defn ~(symbol sym "?") (o)
-         (and (struct? o) ((lambda ~args ~@predicate-body) (value: o)) true))
+             (and (struct? o) ((fn ~args ~@predicate-body) (value: o)) true))
        (defn ~sym ~args
          (if (not ~@predicate-body)
              (error ~(string "not a valid " typesym ": ") (write-to-string ~arg)))
@@ -176,7 +164,7 @@
 (defmacro defgeneric (name args)
   (let ((gf (generic-function name: name args: args)))
     (put! *genfns* name gf)
-    `(define ~name (lambda ~args ((get-method '~name (list ~@args)) ~@args)))))
+    `(def ~name (fn ~args ((get-method '~name (list ~@args)) ~@args)))))
 
 ;;
 ;; Called by the generic function.
@@ -187,16 +175,16 @@
 ;; BUG: doesn't work with either rest (&) or keyword args
 ;;
 (defn get-method (sym args)
-  (define (combos lst)
+  (defn combos (lst)
     (if (empty? lst)
         (list '())
         (let ((first (car lst))
               (rest (combos (cdr lst))))
           (concat
-           (map (lambda (r) (cons first r)) rest)
-           (map (lambda (r) (cons <any> r)) rest)))))
-  (define (combos-as-strings lst) (map (lambda (x) (apply string x)) (combos lst)))
-  (define gf (get *genfns* sym))
+           (map (fn (r) (cons first r)) rest)
+           (map (fn (r) (cons <any> r)) rest)))))
+  (defn combos-as-strings (lst) (map (fn (x) (apply string x)) (combos lst)))
+  (def gf (get *genfns* sym))
   (if (null? gf)
       (error "Not a generic function: " sym))
   (let ((methods (methods: gf)) (arg-types (map type args)))
@@ -210,45 +198,44 @@
                   meth
                   (loop (cdr keys)))))))))
 
-
-;;
-;; Called by defmethod
-;;
-
+;; show the methods for the generic function
 (defn methods (sym)
   (let ((gf (get *genfns* sym)))
     (if (not (null? gf))
         (map car (struct->list (methods: gf))))))
 
 ;;
+;; Adds a method for the specialized args to the generic function
+(defn add-method (sym specialized-args fun)
+  (defn method-arg-types (args)
+    (let loop ((remaining args) (result '()))
+      (if (empty? remaining)
+          (reverse result)
+          (let ((item (car remaining)))
+            (loop (cdr remaining) (if (symbol? item) (cons <any> result) (cons (cadr item) result)))))))
+  (defn method-arg-names (args)
+    (map (fn (item) (if (symbol? item) item (car item))) args))
+  (let ((gf (get *genfns* sym)))
+    (if (null? gf)
+        (error "Not a generic function: " sym))
+    (letrec ((methods (methods: gf))
+             (types (method-arg-types specialized-args))
+             (names (method-arg-names specialized-args))
+             (key (apply string types)))
+      (put! methods key fun)
+      sym)))
+
+;;
 ;; defmethod - defines a method for the generic function with the specialized types
 ;;
 (defmacro defmethod (sym specialized-args & body)
-  (defn add-method (sym specialized-args fun)
-    (define (method-arg-types args)
-      (let loop ((remaining args) (result '()))
-        (if (empty? remaining)
-            (reverse result)
-            (let ((item (car remaining)))
-              (loop (cdr remaining) (if (symbol? item) (cons <any> result) (cons (cadr item) result)))))))
-    (define (method-arg-names args)
-      (map (lambda (item) (if (symbol? item) item (car item))) args))
-    (let ((gf (get *genfns* sym)))
-      (if (null? gf)
-          (error "Not a generic function: " sym))
-      (letrec ((methods (methods: gf))
-               (types (method-arg-types specialized-args))
-               (names (method-arg-names specialized-args))
-               (key (apply string types)))
-        (put! methods key fun)
-        sym)))
-  (let ((names (map (lambda (item) (if (symbol? item) item (car item))) specialized-args))
+  (let ((names (map (fn (item) (if (symbol? item) item (car item))) specialized-args))
         (gf (get *genfns* sym)))
-    (if (defined? sym)
+    (if (def? sym)
         (if (not (generic-function? gf))
             (error sym " is already defined to something other than a generic function"))
         (error sym " is is not defined as a generic function"))
-    `(add-method '~sym '~specialized-args (lambda ~names ~@body))))
+    `(add-method '~sym '~specialized-args (fn ~names ~@body))))
 
 ;;
 ;; For - list comprehension. Creates nested loops over the given sequences
@@ -271,8 +258,8 @@
           (let ((body (expand-for-loop (caar more-bindings) (cadar more-bindings) result final-body sym (cdr more-bindings))))
             `(let ~loop ((~remaining ~init) (~result '())) ~body)))))
   (if (empty? bindings)
-      `((lambda () ~@body))
-      (let ((final-body (list 'list (cons `(lambda (~@(map car bindings)) ~@body) (map (lambda (binding) `(car ~(symbol "remaining-" (car binding)))) bindings))))
+      `((fn () ~@body))
+      (let ((final-body (list 'list (cons `(fn (~@(map car bindings)) ~@body) (map (fn (binding) `(car ~(symbol "remaining-" (car binding)))) bindings))))
             (binding (car bindings))
             (more (cdr bindings)))
         (expand-for-loop (car binding) (cadr binding) final-body final-body false more))))
@@ -280,16 +267,16 @@
 (defn range-arguments (args) 
   (let ((argc (length args)))
     (cond
-      ((= argc 0)
-       (error "infinite ranges not supported"))
-      ((= argc 1)
-       (list 0 (car args) 1))
-      ((= argc 2)
-       (list (car args) (cadr args) 1))
-      ((= argc 3)
-       (list (car args) (cadr args) (caddr args)))
-      (else
-       (error "wrong number of args for range: " argc)))))
+     ((= argc 0)
+      (error "infinite ranges not supported"))
+     ((= argc 1)
+      (list 0 (car args) 1))
+     ((= argc 2)
+      (list (car args) (cadr args) 1))
+     ((= argc 3)
+      (list (car args) (cadr args) (caddr args)))
+     (else
+      (error "wrong number of args for range: " argc)))))
 
 ;;
 ;; execute the body once for each value in the specified range
@@ -299,10 +286,10 @@
 ;; (dorange (sym start end step) ...)
 ;;
 (defmacro dorange (init & body)
-   (let ((sym (car init)) (args (range-arguments (cdr init))))
-     (if (>= (caddr args) 0)
-         `(let loop ((~sym ~(car args))) (if (< ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args))))))
-         `(let loop ((~sym ~(car args))) (if (> ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args)))))))))
+  (let ((sym (car init)) (args (range-arguments (cdr init))))
+    (if (>= (caddr args) 0)
+        `(let loop ((~sym ~(car args))) (if (< ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args))))))
+        `(let loop ((~sym ~(car args))) (if (> ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args)))))))))
 
 ;;
 ;; Produces a list representing the range (not lazy!).

@@ -51,7 +51,7 @@
 ;   use (but please retain D.H.D.Warren's credit for the original idea).
 ;   You may have to rename some of these functions in order to use them
 ;   in a system which already provides incompatible or inferior sorts.
-;   For each of the functions, only the top-level define needs to be
+;   For each of the functions, only the top-level defn needs to be
 ;   edited to do that.
 ;   I could have given these functions names which would not clash with
 ;   any Scheme that I know of, but I would like to encourage implementors
@@ -111,7 +111,7 @@
 ;
 ;   Note that these functions do NOT accept a CL-style ":key" argument.
 ;   A simple device for obtaining the same expressiveness is to define
-;   (define (keyed less? key) (lambda (x y) (less? (key x) (key y))))
+;   (defn keyed (less? key) (fn (x y) (less? (key x) (key y))))
 ;   and then, when you would have written
 ;       (sort a-sequence #'my-less :key #'my-key)
 ;   in Common Lisp, just write
@@ -124,7 +124,7 @@
 ;;; such that for all 1 <= i <= m,
 ;;;     (not (less? (list-ref list i) (list-ref list (- i 1)))).
 
-(define (sorted? seq less?)
+(defn sorted? (seq less?)
     (cond
         ((empty? seq)
             true)
@@ -150,7 +150,7 @@
 ;;; interleaved so that (sorted? (merge a b less?) less?).
 ;;; Note:  this does _not_ accept vectors.  See below.
 
-(define (merge a b less?)
+(defn merge (a b less?)
     (cond
         ((empty? a) b)
         ((empty? b) a)
@@ -172,8 +172,8 @@
 ;;; single sorted list including the elements of both.
 ;;; Note:  this does _not_ accept vectors.
 
-(define (merge! a b less?)
-    (define (loop r a b)
+(defn merge! (a b less?)
+    (defn loop (r a b)
         (if (less? (car b) (car a))
             (do
                 (set-cdr! r b)
@@ -208,8 +208,8 @@
 ;;; Warren, and first used in the DEC-10 Prolog system.  R. A. O'Keefe
 ;;; adapted it to work destructively in Scheme.
 
-(define (sort! seq less?)
-    (define (step n)
+(defn sort! (seq less?)
+    (defn step (n)
         (cond
             ((> n 2)
                 (letrec ((j (quotient n 2)) ;;was let*
@@ -252,7 +252,7 @@
 ;;; sharing structure with "the last argument", so (concat x '()) ought
 ;;; to be a standard way of copying a list x.
 
-(define (sort seq less?)
+(defn sort (seq less?)
     (if (vector? seq)
         (list->vector (sort! (vector->list seq) less?))
         (sort! (concat seq '()) less?)))

@@ -1,13 +1,13 @@
 (use ell)
 (defstruct point x: 0 y: 0)
 
-(define s1 {x: 23 y: 57})
+(def s1 {x: 23 y: 57})
 
-(define p1 (point))
-(define p2 (point x: 100))
-(define p3 (point x: 100 y: 50))
-(define p4 (point s1 y: 75))
-(define p4 (point p2 y: 75))
+(def p1 (point))
+(def p2 (point x: 100))
+(def p3 (point x: 100 y: 50))
+(def p4 (point s1 y: 75))
+(def p4 (point p2 y: 75))
 
 (println s1)
 (println p1)
@@ -23,7 +23,7 @@
 
 (defstruct point3d x: 0 y: 0 z: 0)
 
-(define p5 (point3d x: 1 y: 2 z: 3))
+(def p5 (point3d x: 1 y: 2 z: 3))
 (println p5)
 
 (println "is " p5 " a point? => " (point? p5))
@@ -35,5 +35,5 @@
 ;(defn as (t m)
 ;   (instance t (struct m)))
 
-(define p6 (as-point p5))
+(def p6 (as-point p5))
 (println "a point3d *as* a point: ", p6)

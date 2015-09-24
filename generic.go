@@ -70,6 +70,36 @@ func reverse(lst *LList) *LList {
 	return rev
 }
 
+func flatten(lst *LList) *LList {
+	result := EmptyList
+	tail := EmptyList
+	for lst != EmptyList {
+		item := lst.car
+		var fitem *LList
+		switch titem := item.(type) {
+		case *LList:
+			fitem = flatten(titem)
+		case *LVector:
+			litem, _ := toList(titem)
+			fitem = flatten(litem.(*LList))
+		default:
+			fitem = list(item)
+		}
+		if tail == EmptyList {
+			result = fitem
+			tail = result
+		} else {
+			tail.cdr = fitem
+		}
+		for tail.cdr != EmptyList {
+			tail = tail.cdr
+		}
+		lst = lst.cdr
+	}
+	return result
+}
+
+
 func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 	rev := reverse(seq1)
 	if rev == EmptyList {

@@ -110,23 +110,13 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				return compileIfElse(code, env, cadr(expr), caddr(expr), cdddr(expr), isTail, ignoreResult, context)
 			}
 			return SyntaxError(expr)
-		case intern("define"):
-			// (define <name> <val>)
+		case intern("def"):
+			// (def <name> <val>)
 			if lstlen < 3 {
 				return SyntaxError(expr)
 			}
 			sym := cadr(lst)
 			val := caddr(lst)
-			if !isSymbol(sym) {
-				if isList(sym) && sym != EmptyList {
-					args := cdr(sym)
-					sym = car(sym)
-					//we could give the symbolic name to the function
-					val = list(intern("lambda"), args, val)
-				} else {
-					return SyntaxError(expr)
-				}
-			}
 			err := compileExpr(code, env, val, false, false, sym.String())
 			if err == nil {
 				code.emitDefGlobal(sym)
@@ -137,7 +127,7 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				}
 			}
 			return err
-		case intern("undefine"):
+		case intern("undef"):
 			if lstlen != 2 {
 				return SyntaxError(expr)
 			}
@@ -154,8 +144,8 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				}
 			}
 			return nil
-		case intern("define-macro"):
-			// (defmacro <name> (lambda (expr) '(the expanded value)))
+		case intern("defmacro"):
+			// (defmacro <name> (fn args & body))
 			if lstlen != 3 {
 				return SyntaxError(expr)
 			}
@@ -163,7 +153,10 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 			if !isSymbol(sym) {
 				return SyntaxError(expr)
 			}
-			err := compileExpr(code, env, caddr(lst), false, false, sym.String())
+			err := compileExpr(code, env, caddr(expr), false, false, sym.String())
+			if err != nil {
+				return err
+			}
 			if err == nil {
 				code.emitDefMacro(sym)
 				if ignoreResult {
@@ -173,21 +166,21 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 				}
 			}
 			return err
-		case intern("lambda"):
-			// (lambda ()  <expr> ...)
-			// (lambda (sym ...)  <expr> ...) ;; binds arguments to successive syms
-			// (lambda (sym ... & rsym)  <expr> ...) ;; all args after the & are collected and bound to rsym
-			// (lambda (sym ... [sym sym])  <expr> ...) ;; all args up to the vector are required, the rest are optional
-			// (lambda (sym ... [(sym val) sym])  <expr> ...) ;; default values can be provided to optional args
-			// (lambda (sym ... {sym: def sym: def})  <expr> ...) ;; required args, then keyword args
-			// (lambda (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
-			// (lambda sym <expr> ...) ;; all args in a list, bound to sym
+		case intern("fn"):
+			// (fn ()  <expr> ...)
+			// (fn (sym ...)  <expr> ...) ;; binds arguments to successive syms
+			// (fn (sym ... & rsym)  <expr> ...) ;; all args after the & are collected and bound to rsym
+			// (fn (sym ... [sym sym])  <expr> ...) ;; all args up to the vector are required, the rest are optional
+			// (fn (sym ... [(sym val) sym])  <expr> ...) ;; default values can be provided to optional args
+			// (fn (sym ... {sym: def sym: def})  <expr> ...) ;; required args, then keyword args
+			// (fn (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
+			// (fn sym <expr> ...) ;; all args in a list, bound to sym
 			if lstlen < 3 {
 				return SyntaxError(expr)
 			}
 			body := cddr(lst)
 			args := cadr(lst)
-			return compileLambda(code, env, args, body, isTail, ignoreResult, context)
+			return compileFn(code, env, args, body, isTail, ignoreResult, context)
 		case intern("set!"):
 			// (set! <sym> <val>)
 			if lstlen != 3 {
@@ -269,7 +262,7 @@ func compileExpr(code *Code, env *LList, expr LAny, isTail bool, ignoreResult bo
 	return nil
 }
 
-func compileLambda(code *Code, env *LList, args LAny, body *LList, isTail bool, ignoreResult bool, context string) error {
+func compileFn(code *Code, env *LList, args LAny, body *LList, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
 	syms := []LAny{}
 	var defaults []LAny
@@ -352,13 +345,13 @@ func compileLambda(code *Code, env *LList, args LAny, body *LList, isTail bool, 
 			return SyntaxError(tmp)
 		}
 	}
-	args = toList(syms) //why not just use the vector format in general?
+	args = listFromValues(syms) //why not just use the vector format in general?
 	newEnv := cons(args, env)
-	lambdaCode := newCode(argc, defaults, keys, context)
-	err := compileSequence(lambdaCode, newEnv, body, true, false, context)
+	fnCode := newCode(argc, defaults, keys, context)
+	err := compileSequence(fnCode, newEnv, body, true, false, context)
 	if err == nil {
 		if !ignoreResult {
-			code.emitClosure(lambdaCode)
+			code.emitClosure(fnCode)
 			if isTail {
 				code.emitReturn()
 			}

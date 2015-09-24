@@ -140,3 +140,19 @@ func (i LChar) String() string {
 func (i LChar) Copy() LAny {
 	return i
 }
+
+func stringChars(s LString) []LAny {
+	chars := make([]LAny, len(s))
+	for i, c := range s {
+		chars[i] = LChar(c)
+	}
+	return chars
+}
+
+func stringToVector(s LString) LAny {
+	return vector(stringChars(s)...)
+}
+
+func stringToList(s LString) LAny {
+	return list(stringChars(s)...)
+}

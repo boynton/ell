@@ -1,1 +1,1 @@
-(define p (lambda (s) (println s) 23))
+(defn p (s) (println s) 23)

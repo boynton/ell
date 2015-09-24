@@ -70,11 +70,12 @@ func getKeywords() []LAny {
 	//keywords reserved for the base language that Ell compiles
 	keywords := []LAny{
 		intern("quote"),
-		intern("define"),
-		intern("lambda"),
+		intern("def"),
+		intern("defn"),
+		intern("fn"),
 		intern("if"),
 		intern("do"),
-		intern("define-macro"),
+		intern("defmacro"),
 		intern("set!"),
 		intern("lap"),
 		intern("use"),

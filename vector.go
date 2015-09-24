@@ -90,10 +90,10 @@ func newVector(size int, init LAny) *LVector {
 }
 
 func vector(elements ...LAny) LAny {
-	return toVector(elements, len(elements))
+	return vectorFromElements(elements, len(elements))
 }
 
-func toVector(elements []LAny, count int) LAny {
+func vectorFromElements(elements []LAny, count int) LAny {
 	el := make([]LAny, count)
 	copy(el, elements[0:count])
 	return &LVector{el}
@@ -133,3 +133,44 @@ func vectorRef(ary LAny, idx int) (LAny, error) {
 	return nil, TypeError(typeVector, ary)
 }
 
+func toVector(obj LAny) (LAny, error) {
+	switch t := obj.(type) {
+	case *LList:
+		return listToVector(t), nil
+	case *LVector:
+		return t, nil
+	case *LStruct:
+		return structToVector(t), nil
+	case LString:
+		return stringToVector(t), nil
+	}
+	return nil, Error("Cannot convert ", obj.Type(), " to <vector>")
+}
+
+/*
+func flattenVector(vec *LVector) *LVector {
+	result := EmptyList
+	tail := EmptyList
+	for lst != EmptyList {
+		item := lst.car
+		var fitem *LList
+		lstItem, ok := item.(*LList)
+		if ok {
+			fitem = flatten(lstItem)
+		} else {
+			fitem = list(item)
+		}
+		if tail == EmptyList {
+			result = fitem
+			tail = result
+		} else {
+			tail.cdr = fitem
+		}
+		for tail.cdr != EmptyList {
+			tail = tail.cdr
+		}
+		lst = lst.cdr
+	}
+	return result
+}
+*/
