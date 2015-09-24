@@ -277,24 +277,43 @@
             (more (cdr bindings)))
         (expand-for-loop (car binding) (cadr binding) final-body final-body false more))))
 
-;;
-;; A non-lazy range, simple produces a list
-;;
-(defn range args
-  (defn range-aux (start end step)
-    (let loop ((i start) (result '()))
-      (if (>= i end)
-          (reverse result)
-          (loop (+ i step) (cons i result)))))
+(defn range-arguments (args) 
   (let ((argc (length args)))
     (cond
       ((= argc 0)
-       (error "infinite sequences not yet supported"))
+       (error "infinite ranges not supported"))
       ((= argc 1)
-       (range-aux 0 (car args) 1))
+       (list 0 (car args) 1))
       ((= argc 2)
-       (range-aux (car args) (cadr args) 1))
+       (list (car args) (cadr args) 1))
       ((= argc 3)
-       (range-aux (car args) (cadr args) (caddr args)))
-      (true
-       (error "wrong number of args to range: " argc)))))
+       (list (car args) (cadr args) (caddr args)))
+      (else
+       (error "wrong number of args for range: " argc)))))
+
+;;
+;; execute the body once for each value in the specified range
+;; i.e.
+;; (dorange (sym end) ...)
+;; (dorange (sym start end) ...)
+;; (dorange (sym start end step) ...)
+;;
+(defmacro dorange (init & body)
+   (let ((sym (car init)) (args (range-arguments (cdr init))))
+     (if (>= (caddr args) 0)
+         `(let loop ((~sym ~(car args))) (if (< ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args))))))
+         `(let loop ((~sym ~(car args))) (if (> ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args)))))))))
+
+;;
+;; Produces a list representing the range (not lazy!).
+;;
+(defn range args
+  (defn range-aux (pred start end step)
+    (let loop ((i start) (result '()))
+      (if (pred i end)
+          (reverse result)
+          (loop (+ i step) (cons i result)))))
+  (let ((rargs (range-arguments args)))
+    (if (>= (caddr rargs) 0)
+        (apply range-aux (cons >= rargs))
+        (apply range-aux (cons <= rargs)))))
