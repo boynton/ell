@@ -195,13 +195,13 @@ type frame struct {
 
 func (frame frame) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("<frame")
+	buf.WriteString("#[frame")
 	tmpEnv := &frame
 	for tmpEnv != nil {
 		buf.WriteString(fmt.Sprintf(" %v", tmpEnv.elements))
 		tmpEnv = tmpEnv.locals
 	}
-	buf.WriteString(">")
+	buf.WriteString("]")
 	return buf.String()
 }
 
@@ -341,7 +341,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 }
 
 func addContext(env *frame, err error) error {
-	if env.code == nil {
+	if env.code == nil || env.code.name == "" {
 		return err
 	}
 	return Error("[", env.code.name, "] ", err.Error())
@@ -378,7 +378,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			sym := constants[ops[pc+1]]
 			val := global(sym)
 			if val == nil {
-				return nil, addContext(env, Error(env, ": Undefined symbol: ", sym))
+				return nil, addContext(env, Error("Undefined symbol: ", sym))
 			}
 			sp--
 			stack[sp] = val
