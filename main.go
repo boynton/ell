@@ -48,9 +48,6 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	println("size of number: ", unsafe.Sizeof(*newFloat64(0)))
-	println("size of bool: ", unsafe.Sizeof(*True))
-
 	EllPath = os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")
 	ellini := filepath.Join(home, ".ell")

@@ -26,20 +26,15 @@ import (
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
 	variant  *LOB       // i.e. <string>
+	function *LFunction // <function>
+	car      *LOB       // non-nil for instances and <list>
+	cdr      *LOB       // non-nil for <list>, nil for everything else
+	code     *LCode     //<code>
+	port     *LPort     // <port>
 	ival     int64      // <boolean>, <character>
 	fval     float64    //<number>
 	text     string     // <string>, <symbol>, <keyword>, <type>
-	car      *LOB       // non-nil for instances and <list>
-	cdr      *LOB       // non-nil for <list>, nil for everything else
 	elements []*LOB     // <vector>, <struct>
-	function *LFunction // <function>
-	code     *LCode     //<code>
-	port     *LPort     // <port>
-/*
-	pad8_1   *LOB
-	pad8_2   *LOB
-	pad4_1   int32
-*/
 }
 
 func newLOB(variant *LOB) *LOB {
