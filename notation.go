@@ -598,6 +598,7 @@ func writeToString(obj *LOB, options *LOB) string {
 }
 
 const indentSize = "  "
+
 func writeData(obj *LOB, json bool, indent string) (string, error) {
 	//an error is never returned for non-json
 	switch obj.variant {

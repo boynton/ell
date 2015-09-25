@@ -157,7 +157,7 @@ func normalizeKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 	}
 	return newStruct(tmp)
 }
-	
+
 func normalizeKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 	count := length(args)
 	bindings := make([]*LOB, 0, count)
