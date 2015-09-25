@@ -576,23 +576,38 @@ func isDelimiter(b byte) bool {
 }
 
 func write(obj *LOB) string {
+	return writeToString(obj, Null)
+}
+
+func writeToString(obj *LOB, options *LOB) string {
 	if obj == nil {
 		panic("null pointer")
 	}
-	elldn, _ := writeData(obj, false)
+	indent := "-"
+	if isStruct(options) {
+		b, err := get(options, intern("pretty:"))
+		if err == nil && b == True {
+			indent = ""
+		}
+	}
+	elldn, _ := writeData(obj, false, indent)
+	if indent != "-" {
+		return elldn + "\n"
+	}
 	return elldn
 }
 
-func writeData(obj *LOB, json bool) (string, error) {
+const indentSize = "  "
+func writeData(obj *LOB, json bool, indent string) (string, error) {
 	//an error is never returned for non-json
 	switch obj.variant {
 	case typeBoolean, typeNull, typeNumber:
 		return obj.String(), nil
 	case typeList:
 		if json {
-			return writeVector(listToVector(obj), json)
+			return writeVector(listToVector(obj), json, indent)
 		}
-		return writeList(obj), nil
+		return writeList(obj, indent), nil
 	case typeKeyword:
 		if json {
 			return encodeString(unkeywordedString(obj)), nil
@@ -603,9 +618,9 @@ func writeData(obj *LOB, json bool) (string, error) {
 	case typeString:
 		return encodeString(obj.text), nil
 	case typeVector:
-		return writeVector(obj, json)
+		return writeVector(obj, json, indent)
 	case typeStruct:
-		return writeStruct(obj, json)
+		return writeStruct(obj, json, indent)
 	case typeCharacter:
 		switch obj.character {
 		case 0:
@@ -643,7 +658,7 @@ func writeData(obj *LOB, json bool) (string, error) {
 	}
 }
 
-func writeList(lst *LOB) string {
+func writeList(lst *LOB, indent string) string {
 	if lst == EmptyList {
 		return "()"
 	}
@@ -660,34 +675,53 @@ func writeList(lst *LOB) string {
 	}
 	var buf bytes.Buffer
 	buf.WriteString("(")
+	delim := " "
+	nextIndent := indent
+	if indent != "-" {
+		nextIndent = indent + indentSize
+		delim = "\n" + nextIndent
+		buf.WriteString("\n" + nextIndent)
+	}
 	buf.WriteString(write(car(lst)))
 	lst = lst.cdr
 	for lst != EmptyList {
-		buf.WriteString(" ")
-		s, _ := writeData(lst.car, false)
+		buf.WriteString(delim)
+		s, _ := writeData(lst.car, false, nextIndent)
 		buf.WriteString(s)
 		lst = lst.cdr
+	}
+	if indent != "-" {
+		buf.WriteString("\n" + indent)
 	}
 	buf.WriteString(")")
 	return buf.String()
 }
 
-func writeVector(vec *LOB, json bool) (string, error) {
+func writeVector(vec *LOB, json bool, indent string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(vec.elements)
 	if vlen > 0 {
-		s, err := writeData(vec.elements[0], json)
+		delim := ""
+		if json {
+			delim = ","
+		}
+		nextIndent := ""
+		if indent != "-" {
+			nextIndent = indent + indentSize
+			delim = delim + "\n" + nextIndent
+			buf.WriteString("\n" + nextIndent)
+		} else {
+			nextIndent = indent
+			delim = delim + " "
+		}
+		s, err := writeData(vec.elements[0], json, nextIndent)
 		if err != nil {
 			return "", err
 		}
 		buf.WriteString(s)
-		delim := " "
-		if json {
-			delim = ", "
-		}
 		for i := 1; i < vlen; i++ {
-			s, err := writeData(vec.elements[i], json)
+			s, err := writeData(vec.elements[i], json, nextIndent)
 			if err != nil {
 				return "", err
 			}
@@ -695,37 +729,54 @@ func writeVector(vec *LOB, json bool) (string, error) {
 			buf.WriteString(s)
 		}
 	}
+	if indent != "-" {
+		buf.WriteString("\n" + indent)
+	}
 	buf.WriteString("]")
 	return buf.String(), nil
 }
 
-func writeStruct(strct *LOB, json bool) (string, error) {
+func writeStruct(strct *LOB, json bool, indent string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
-	delim := ", "
+	size := len(strct.elements)
+	delim := ""
 	sep := " "
 	if json {
-		delim = ", "
+		delim = ","
 		sep = ": "
 	}
-	size := len(strct.elements)
+	nextIndent := ""
+	if size > 0 {
+		if indent != "-" {
+			nextIndent = indent + indentSize
+			delim = delim + "\n" + nextIndent
+			buf.WriteString("\n" + nextIndent)
+		} else {
+			delim = delim + " "
+			nextIndent = indent
+		}
+	}
 	for i := 0; i < size; i += 2 {
 		k := strct.elements[i]
 		v := strct.elements[i+1]
 		if i != 0 {
 			buf.WriteString(delim)
 		}
-		s, err := writeData(k, json)
+		s, err := writeData(k, json, nextIndent)
 		if err != nil {
 			return "", err
 		}
 		buf.WriteString(s)
 		buf.WriteString(sep)
-		s, err = writeData(v, json)
+		s, err = writeData(v, json, nextIndent)
 		if err != nil {
 			return "", err
 		}
 		buf.WriteString(s)
+	}
+	if indent != "-" {
+		buf.WriteString("\n" + indent)
 	}
 	buf.WriteString("}")
 	return buf.String(), nil
@@ -734,6 +785,13 @@ func writeStruct(strct *LOB, json bool) (string, error) {
 //return a JSON string of the object, or an error if it cannot be expressed in JSON
 //this is very close to EllDn, the standard output format. Exceptions:
 //  1. the only symbols allowed are true, false, null
-func toJSON(obj *LOB) (string, error) {
-	return writeData(obj, true)
+func toJSON(obj *LOB, options *LOB) (string, error) {
+	indent := "-"
+	if isStruct(options) {
+		b, err := get(options, intern("pretty:"))
+		if err == nil && b == True {
+			indent = ""
+		}
+	}
+	return writeData(obj, true, indent)
 }

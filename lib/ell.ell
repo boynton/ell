@@ -116,7 +116,7 @@
                 (loop keys (cdr remaining)))))))
   (let ((keys (extract-keys fields)) (typesym (symbol "<" sym ">")))
     `(do
-       (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-args args ~@keys)))))
+       (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-arg-list args ~@keys)))))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () '~keys)
        (defn ~(symbol "as-" sym) (o)

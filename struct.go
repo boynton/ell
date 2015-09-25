@@ -142,7 +142,23 @@ func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 
 //(normalize-keyword-args '(x: 23) x: y:) -> (x: 23)
 //(normalize-keyword-args '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
+func normalizeKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
+	tmp, err := normalizeKeywordArgBindings(args, keys)
+	if err != nil {
+		return nil, err
+	}
+	return listFromValues(tmp), nil
+}
+
 func normalizeKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
+	tmp, err := normalizeKeywordArgBindings(args, keys)
+	if err != nil {
+		return nil, err
+	}
+	return newStruct(tmp)
+}
+	
+func normalizeKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 	count := length(args)
 	bindings := make([]*LOB, 0, count)
 	for args != EmptyList {
@@ -153,7 +169,7 @@ func normalizeKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 			fallthrough
 		case typeKeyword:
 			if !sliceContains(keys, key) {
-				return nil, Error(key, " bad keyword parameter")
+				return nil, Error(key, " bad keyword parameter. Allowed keys: ", keys)
 			}
 			args = args.cdr
 			if args == EmptyList {
@@ -171,7 +187,7 @@ func normalizeKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 		}
 		args = args.cdr
 	}
-	return listFromValues(bindings), nil
+	return bindings, nil
 }
 
 func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {

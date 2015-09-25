@@ -50,7 +50,8 @@ func initEnvironment() {
 	defineFunction("type", elvariant, "(<any>) <type>")
 	defineFunction("value", ellValue, "<any>) <any>")
 	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
-	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgs, "(<list> <keyword>+) <list>")
+	defineFunction("normalize-keyword-arg-list", ellNormalizeKeywordArgList, "(<list> <keyword>+) <list>")
+	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgList, "(<list> <keyword>+) <struct>")
 
 	defineFunction("type?", elvariantP, "(<any>) <boolean>")
 	defineFunction("type-name", elvariantName, "(<type>) <symbol>")
@@ -268,16 +269,26 @@ func ellInstance(argv []*LOB, argc int) (*LOB, error) {
 	return instance(argv[0], argv[1])
 }
 
+func ellNormalizeKeywordArgList(argv []*LOB, argc int) (*LOB, error) {
+	//(normalize-keyword-arglist '(x: 23) x: y:) -> (x:)
+	//(normalize-keyword-arglist '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
+	if argc < 1 {
+		return nil, ArgcError("normalizeKeywordArgList", "1+", argc)
+	}
+	if isList(argv[0]) {
+		return normalizeKeywordArgList(argv[0], argv[1:argc])
+	}
+	return nil, ArgTypeError("list", 1, argv[0])
+}
+
 func ellNormalizeKeywordArgs(argv []*LOB, argc int) (*LOB, error) {
-	//(normalize-keyword-args '(x: 23) x: y:) -> (x:)
-	//(normalize-keyword-args '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
 	if argc < 1 {
 		return nil, ArgcError("normalizeKeywordArgs", "1+", argc)
 	}
-	if isList(argv[0]) {
-		return normalizeKeywordArgs(argv[0], argv[1:argc])
+	if !isList(argv[0]) {
+		return nil, ArgTypeError("list", 1, argv[0])
 	}
-	return nil, ArgTypeError("list", 1, argv[0])
+	return normalizeKeywordArgs(argv[0], argv[1:argc])
 }
 
 func ellStruct(argv []*LOB, argc int) (*LOB, error) {
@@ -331,11 +342,15 @@ func ellDisplay(argv []*LOB, argc int) (*LOB, error) {
 }
 
 func ellWrite(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		//todo: add the optional output argument like scheme
-		return nil, ArgcError("write", "1", argc)
+	if argc < 1 {
+		return nil, ArgcError("write", "1+", argc)
 	}
-	fmt.Printf("%v", write(argv[0]))
+	validOptions := []*LOB{intern("pretty:")} //to do: a to: argument for an output destination (port, file, url)
+	options, err := normalizeKeywordArgs(list(argv[1:argc]...), validOptions)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("%v", writeToString(argv[0], options))
 	return Null, nil
 }
 
@@ -360,7 +375,7 @@ func ellToString(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 1 {
 		return nil, ArgcError("to-string", "1", argc)
 	}
-	s := write(argv[0])
+	s := writeToString(argv[0], Null)
 	return newString(s), nil
 }
 
@@ -990,10 +1005,15 @@ func ellToList(argv []*LOB, argc int) (*LOB, error) {
 }
 
 func ellJSON(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("json", "1", argc)
+	if argc < 1 {
+		return nil, ArgcError("json", "1+", argc)
 	}
-	s, err := toJSON(argv[0])
+	validOptions := []*LOB{intern("pretty:"), intern("keywords:")}
+	options, err := normalizeKeywordArgs(list(argv[1:argc]...), validOptions)
+	if err != nil {
+		return nil, err
+	}
+	s, err := toJSON(argv[0], options)
 	if err != nil {
 		return nil, err
 	}
