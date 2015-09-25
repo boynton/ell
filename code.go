@@ -42,26 +42,53 @@ const (
 	opcodeVector // 15
 	opcodeStruct
 	opcodeUndefGlobal
-	opcodePrimCall
+	opcodeCount //18
 )
 
-var symOpClosure = intern("closure")
-var symOpFunction = intern("function")
+//all syms for ops should be 7 chars or less
 var symOpLiteral = intern("literal")
 var symOpLocal = intern("local")
-var symOpSetLocal = intern("setlocal")
-var symOpGlobal = intern("global")
+var symOpJumpFalse = intern("fjump")
 var symOpJump = intern("jump")
-var symOpJumpFalse = intern("jumpfalse")
+var symOpTailCall = intern("tcall")
 var symOpCall = intern("call")
-var symOpTailCall = intern("tailcall")
-var symOpPrimCall = intern("primcall")
 var symOpReturn = intern("return")
+var symOpClosure = intern("closure")
 var symOpPop = intern("pop")
-var symOpDefGlobal = intern("defglobal")
-var symOpUndefGlobal = intern("undefglobal")
-var symOpDefMacro = intern("defmacro")
+var symOpGlobal = intern("global")
+var symOpDefGlobal = intern("defglob")
+var symOpSetLocal = intern("setloc")
 var symOpUse = intern("use")
+var symOpDefMacro = intern("defmac")
+var symOpVector = intern("vector")
+var symOpStruct = intern("struct")
+var symOpUndefGlobal = intern("undef")
+
+var symOpFunction = intern("func")
+
+var opsyms = initOpsyms()
+
+func initOpsyms() []*LOB {
+	syms := make([]*LOB, opcodeCount)
+	syms[opcodeLiteral] = symOpLiteral
+	syms[opcodeLocal] = symOpLocal
+	syms[opcodeJumpFalse] = symOpJumpFalse
+	syms[opcodeJump] = symOpJump
+	syms[opcodeTailCall] = symOpTailCall
+	syms[opcodeCall] = symOpCall
+	syms[opcodeReturn] = symOpReturn
+	syms[opcodeClosure] = symOpClosure
+	syms[opcodePop] = symOpPop
+	syms[opcodeGlobal] = symOpGlobal
+	syms[opcodeDefGlobal] = symOpDefGlobal
+	syms[opcodeSetLocal] = symOpSetLocal
+	syms[opcodeUse] = symOpUse
+	syms[opcodeDefMacro] = symOpDefMacro
+	syms[opcodeVector] = symOpVector
+	syms[opcodeStruct] = symOpStruct
+	syms[opcodeUndefGlobal] = symOpUndefGlobal
+	return syms
+}
 
 // LCode - compiled Ell bytecode
 type LCode struct {
@@ -155,30 +182,23 @@ func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 		prefix = "\n" + indent
 	}
 	for offset < max {
-		switch code.ops[offset] {
-		case opcodeLiteral:
-			buf.WriteString(prefix + "(literal " + write(constants[code.ops[offset+1]]) + ")")
+		op := code.ops[offset]
+		s := prefix + "(" + opsyms[op].text
+		switch op {
+		case opcodePop, opcodeReturn:
+			buf.WriteString(s + ")")
+			offset++
+		case opcodeLiteral, opcodeDefGlobal, opcodeUse, opcodeGlobal, opcodeUndefGlobal, opcodeDefMacro:
+			buf.WriteString(s + " " + write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
-		case opcodeDefGlobal:
-			buf.WriteString(prefix + "(defglobal " + write(constants[code.ops[offset+1]]) + ")")
+		case opcodeCall, opcodeTailCall, opcodeJumpFalse, opcodeJump, opcodeVector, opcodeStruct:
+			buf.WriteString(s + " " + strconv.Itoa(code.ops[offset+1]) + ")")
 			offset += 2
-		case opcodeCall:
-			buf.WriteString(prefix + "(call " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2
-		case opcodeTailCall:
-			buf.WriteString(prefix + "(tailcall " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2
-		case opcodePrimCall:
-			buf.WriteString(prefix + "(primcall " + strconv.Itoa(code.ops[offset+1]) + " " + primitives[code.ops[offset+2]].name + ")")
+		case opcodeLocal, opcodeSetLocal:
+			buf.WriteString(s + " " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
-		case opcodePop:
-			buf.WriteString(prefix + "(pop)")
-			offset++
-		case opcodeReturn:
-			buf.WriteString(prefix + "(return)")
-			offset++
 		case opcodeClosure:
-			buf.WriteString(prefix + "(closure")
+			buf.WriteString(s + ")")
 			if pretty {
 				buf.WriteString("\n")
 			} else {
@@ -190,36 +210,6 @@ func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			}
 			constants[code.ops[offset+1]].code.decompileInto(buf, indent2, pretty)
 			buf.WriteString(")")
-			offset += 2
-		case opcodeLocal:
-			buf.WriteString(prefix + "(local " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
-			offset += 3
-		case opcodeGlobal:
-			buf.WriteString(prefix + "(global " + write(constants[code.ops[offset+1]]) + ")")
-			offset += 2
-		case opcodeUndefGlobal:
-			buf.WriteString(prefix + "(undefglobal " + write(constants[code.ops[offset+1]]) + ")")
-			offset += 2
-		case opcodeDefMacro:
-			buf.WriteString(prefix + "(defmacro " + write(constants[code.ops[offset+1]]) + ")")
-			offset += 2
-		case opcodeSetLocal:
-			buf.WriteString(prefix + "(setlocal " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
-			offset += 3
-		case opcodeJumpFalse:
-			buf.WriteString(prefix + "(jumpfalse " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2
-		case opcodeJump:
-			buf.WriteString(prefix + "(jump " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2
-		case opcodeVector:
-			buf.WriteString(prefix + "(vector " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2
-		case opcodeStruct:
-			buf.WriteString(prefix + "(struct " + strconv.Itoa(code.ops[offset+1]) + ")")
-			offset += 2
-		case opcodeUse:
-			buf.WriteString(prefix + "(use " + constants[code.ops[offset+1]].String() + ")")
 			offset += 2
 		default:
 			panic(fmt.Sprintf("Bad instruction: %d", code.ops[offset]))
@@ -380,11 +370,6 @@ func (code *LCode) emitReturn() {
 }
 func (code *LCode) emitTailCall(argc int) {
 	code.ops = append(code.ops, opcodeTailCall)
-	code.ops = append(code.ops, argc)
-}
-func (code *LCode) emitPrimCall(prim *Primitive, argc int) {
-	code.ops = append(code.ops, opcodePrimCall)
-	code.ops = append(code.ops, prim.idx)
 	code.ops = append(code.ops, argc)
 }
 func (code *LCode) emitPop() {

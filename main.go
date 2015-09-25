@@ -66,12 +66,6 @@ func main() {
 			}
 		}
 	}
-	if *pVerbose {
-		verbose = *pVerbose
-	}
-	if *pTrace {
-		setTrace(*pTrace)
-	}
 	initEnvironment()
 	if len(args) < 1 {
 		interactive = true
@@ -84,11 +78,23 @@ func main() {
 				}
 			}
 		}
+		if *pVerbose {
+			verbose = *pVerbose
+		}
+		if *pTrace {
+			setTrace(*pTrace)
+		}
 		interrupts = make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
 		readEvalPrintLoop()
 	} else {
+		if *pVerbose {
+			verbose = *pVerbose
+		}
+		if *pTrace {
+			setTrace(*pTrace)
+		}
 		interactive = false
 		/*
 			if len(os.Args) > 2 {

@@ -75,6 +75,8 @@ func (a *LOB) String() string {
 			return a.function.String()
 		case typePort:
 			return a.port.String()
+		case typeCode:
+			return a.code.String()
 		default:
 			return "#" + a.variant.text + write(a.car)
 		}

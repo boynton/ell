@@ -81,7 +81,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 	if expander.variant == typeFunction {
 		if expander.function.code != nil {
 			if expander.function.code.argc == 1 {
-				expanded, err := exec(expander.function.code, expr)
+				expanded, err := execCompileTime(expander.function.code, expr)
 				if err == nil {
 					if isList(expanded) {
 						return macroexpandObject(expanded)

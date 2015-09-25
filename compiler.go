@@ -382,7 +382,8 @@ func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, igno
 	if err != nil {
 		return err
 	}
-	fval := global(fn)
+	//fval := global(fn)
+	//if the function is defined, we can do some additional compile-time argc check. In a dynamic env, though, not a win
 	err = compileExpr(target, env, fn, false, false, context)
 	if err != nil {
 		return err

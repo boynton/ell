@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 var trace bool
@@ -76,9 +77,16 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
+func execCompileTime(code *LCode, args ...*LOB) (*LOB, error) {
+	prev := verbose
+	verbose = false
+	res, err := exec(code, args...)
+	verbose = prev
+	return res, err
+}
+
 func exec(code *LCode, args ...*LOB) (*LOB, error) {
 	if verbose {
-		println("; begin execution")
 		inExec = true
 		conses = 0
 	}
@@ -86,11 +94,13 @@ func exec(code *LCode, args ...*LOB) (*LOB, error) {
 	if len(args) != code.argc {
 		return nil, Error("Wrong number of arguments")
 	}
+	startTime := time.Now()
 	result, err := vm.exec(code, args)
+	dur := time.Since(startTime)
 	if verbose {
 		inExec = false
-		println("; end execution")
-		println("; total cons cells allocated: ", conses)
+		println("; executed in ", dur)
+		println("; allocated list cells: ", conses)
 	}
 	if err != nil {
 		return nil, err
@@ -293,6 +303,9 @@ func addContext(env *Frame, err error) error {
 }
 
 func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
+	if verbose || trace {
+		return vm.instrumentedExec(code, args)
+	}
 	stack := make([]*LOB, vm.stackSize)
 	sp := vm.stackSize
 	env := new(Frame)
@@ -303,23 +316,81 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 	if len(ops) == 0 {
 		return nil, addContext(env, Error("No code to execute"))
 	}
-	if trace {
-		println("------------------ BEGIN EXECUTION of ", code)
-		println("    stack: ", showStack(stack, sp))
-	}
 	for {
-		switch ops[pc] {
-		case opcodeLiteral:
-			if trace {
-				println(pc, "\tconst\t", constants[ops[pc+1]])
+		op := ops[pc]
+		if op == opcodeCall {
+			fun := stack[sp]
+			sp++
+			argc := ops[pc+1]
+			savedPc := pc + 2
+		opcodeCallAgain:
+			switch fun.variant {
+			case typeFunction:
+				lfun := fun.function
+				if lfun.primitive != nil {
+					val, err := lfun.primitive.fun(stack[sp:sp+argc], argc)
+					if err != nil {
+						//to do: fix to throw an Ell continuation-based error
+						return nil, addContext(env, err)
+					}
+					sp = sp + argc - 1
+					stack[sp] = val
+					pc = savedPc
+				} else if lfun.code != nil {
+					if checkInterrupt() {
+						return nil, addContext(env, Error("Interrupt"))
+					}
+					f, err := buildFrame(env, savedPc, ops, lfun, argc, stack, sp)
+					if err != nil {
+						return nil, addContext(env, err)
+					}
+					sp += argc
+					env = f
+					ops = lfun.code.ops
+					pc = 0
+				} else if fun == Apply {
+					if argc < 2 {
+						err := ArgcError("apply", "2+", argc)
+						return nil, addContext(env, err)
+					}
+					fun = stack[sp]
+					args := stack[sp+argc-1]
+					if !isList(args) {
+						err := ArgTypeError("list", argc, args)
+						return nil, addContext(env, err)
+					}
+					arglist := args
+					for i := argc - 2; i > 0; i-- {
+						arglist = cons(stack[sp+i], arglist)
+					}
+					sp += argc
+					argc = length(arglist)
+					i := 0
+					sp -= argc
+					for arglist != EmptyList {
+						stack[sp+i] = arglist.car
+						i++
+						arglist = arglist.cdr
+					}
+					goto opcodeCallAgain
+				} else {
+					return nil, addContext(env, Error("unsupported instruction", fun))
+				}
+			case typeKeyword:
+				if argc != 1 {
+					err := ArgcError(fun.text, "1", argc)
+					return nil, addContext(env, err)
+				}
+				v, err := get(stack[sp], fun)
+				if err != nil {
+					return nil, addContext(env, err)
+				}
+				stack[sp] = v
+				pc = savedPc
+			default:
+				return nil, addContext(env, Error("Not a function: ", fun))
 			}
-			sp--
-			stack[sp] = constants[ops[pc+1]]
-			pc += 2
-		case opcodeGlobal:
-			if trace {
-				println(pc, "\tglob\t", constants[ops[pc+1]])
-			}
+		} else if op == opcodeGlobal {
 			sym := constants[ops[pc+1]]
 			if sym.car == nil {
 				return nil, addContext(env, Error("Undefined symbol: ", sym))
@@ -327,32 +398,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			sp--
 			stack[sp] = sym.car
 			pc += 2
-		case opcodeDefGlobal:
-			if trace {
-				println(pc, "\tdef\t", constants[ops[pc+1]])
-			}
-			sym := constants[ops[pc+1]]
-			defGlobal(sym, stack[sp])
-			pc += 2
-		case opcodeUndefGlobal:
-			if trace {
-				println(pc, "\tundef\t", constants[ops[pc+1]])
-			}
-			sym := constants[ops[pc+1]]
-			undefGlobal(sym)
-			pc += 2
-		case opcodeDefMacro:
-			if trace {
-				println(pc, "\tdefmacro\t", constants[ops[pc+1]])
-			}
-			sym := constants[ops[pc+1]]
-			defMacro(sym, stack[sp])
-			stack[sp] = sym
-			pc += 2
-		case opcodeLocal:
-			if trace {
-				println(pc, "\tgetloc\t", +ops[pc+1], " ", ops[pc+2])
-			}
+		} else if op == opcodeLocal {
 			tmpEnv := env
 			i := ops[pc+1]
 			for i > 0 {
@@ -364,10 +410,103 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			sp--
 			stack[sp] = val
 			pc += 3
-		case opcodeSetLocal:
-			if trace {
-				println(pc, "\tsetloc\t", +ops[pc+1], " ", ops[pc+2])
+		} else if op == opcodeJumpFalse {
+			b := stack[sp]
+			sp++
+			if b == False {
+				pc += ops[pc+1]
+			} else {
+				pc += 2
 			}
+		} else if op == opcodePop {
+			sp++
+			pc++
+		} else if op == opcodeTailCall {
+			if checkInterrupt() {
+				return nil, addContext(env, Error("Interrupt"))
+			}
+			fun := stack[sp]
+			sp++
+			argc := ops[pc+1]
+		opcodeTailCallAgain:
+			switch fun.variant {
+			case typeFunction:
+				lfun := fun.function
+				if lfun.primitive != nil {
+					val, err := lfun.primitive.fun(stack[sp:sp+argc], argc)
+					if err != nil {
+						return nil, addContext(env, err)
+					}
+					sp = sp + argc - 1
+					stack[sp] = val
+					pc = env.pc
+					ops = env.ops
+					env = env.previous
+					if env == nil {
+						return stack[sp], nil
+					}
+				} else if lfun.code != nil {
+					f, err := buildFrame(env.previous, env.pc, env.ops, lfun, argc, stack, sp)
+					if err != nil {
+						return nil, addContext(env, err)
+					}
+					sp += argc
+					code = lfun.code
+					ops = code.ops
+					pc = 0
+					env = f
+				} else if fun == Apply {
+					if argc < 2 {
+						err := ArgcError("apply", "2+", argc)
+						return nil, addContext(env, err)
+					}
+					fun = stack[sp]
+					args := stack[sp+argc-1]
+					if !isList(args) {
+						err := ArgTypeError("list", argc, args)
+						return nil, addContext(env, err)
+					}
+					arglist := args
+					for i := argc - 2; i > 0; i-- {
+						arglist = cons(stack[sp+i], arglist)
+					}
+					sp += argc
+					argc = length(arglist)
+					i := 0
+					sp -= argc
+					for arglist != EmptyList {
+						stack[sp+i] = arglist.car
+						i++
+						arglist = arglist.cdr
+					}
+					goto opcodeTailCallAgain
+				} else {
+					return nil, addContext(env, Error("unsupported instruction", fun))
+				}
+			case typeKeyword:
+				if argc != 1 {
+					err := ArgcError(fun.text, "1", argc)
+					return nil, addContext(env, err)
+				}
+				v, err := get(stack[sp], fun)
+				if err != nil {
+					return nil, addContext(env, err)
+				}
+				stack[sp] = v
+				pc = env.pc
+				ops = env.ops
+				env = env.previous
+				if env == nil {
+					return stack[sp], nil
+				}
+			default:
+				return nil, addContext(env, Error("Not a function:", fun))
+			}
+		} else if op == opcodeLiteral {
+			sp--
+			stack[sp] = constants[ops[pc+1]]
+			pc += 2
+		} else if op == opcodeSetLocal {
 			tmpEnv := env
 			i := ops[pc+1]
 			for i > 0 {
@@ -377,22 +516,81 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			j := ops[pc+2]
 			tmpEnv.elements[j] = stack[sp]
 			pc += 3
-		case opcodePrimCall:
-			if trace {
-				println(pc, "\tprimcall\t", primitives[ops[pc+2]], " ", ops[pc+1], "\tstack: ", showStack(stack, sp))
+		} else if op == opcodeClosure {
+			sp--
+			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
+			pc = pc + 2
+		} else if op == opcodeReturn {
+			if checkInterrupt() {
+				return nil, addContext(env, Error("Interrupt"))
 			}
-			tfun := primitives[ops[pc+1]]
-			argc := ops[pc+2]
-			val, err := tfun.fun(stack[sp:sp+argc], argc)
+			if env.previous == nil {
+				return stack[sp], nil
+			}
+			ops = env.ops
+			pc = env.pc
+			env = env.previous
+		} else if op == opcodeJump {
+			pc += ops[pc+1]
+		} else if op == opcodeDefGlobal {
+			sym := constants[ops[pc+1]]
+			defGlobal(sym, stack[sp])
+			pc += 2
+		} else if op == opcodeUndefGlobal {
+			sym := constants[ops[pc+1]]
+			undefGlobal(sym)
+			pc += 2
+		} else if op == opcodeDefMacro {
+			sym := constants[ops[pc+1]]
+			defMacro(sym, stack[sp])
+			stack[sp] = sym
+			pc += 2
+		} else if op == opcodeUse {
+			sym := constants[ops[pc+1]]
+			err := use(sym)
 			if err != nil {
 				return nil, addContext(env, err)
 			}
-			sp = sp + argc - 1
-			stack[sp] = val
-			pc += 3
-		case opcodeCall:
+			sp--
+			stack[sp] = sym
+			pc += 2
+		} else if op == opcodeVector {
+			vlen := ops[pc+1]
+			v := vector(stack[sp : sp+vlen]...)
+			sp = sp + vlen - 1
+			stack[sp] = v
+			pc += 2
+		} else if op == opcodeStruct {
+			vlen := ops[pc+1]
+			v, _ := newStruct(stack[sp : sp+vlen])
+			sp = sp + vlen - 1
+			stack[sp] = v
+			pc += 2
+		} else {
+			return nil, addContext(env, Error("Bad instruction: ", strconv.Itoa(ops[pc])))
+		}
+	}
+}
+
+func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
+	stack := make([]*LOB, vm.stackSize)
+	sp := vm.stackSize
+	env := new(Frame)
+	env.elements = make([]*LOB, len(args))
+	copy(env.elements, args)
+	ops := code.ops
+	pc := 0
+	if len(ops) == 0 {
+		return nil, addContext(env, Error("No code to execute"))
+	}
+	if trace {
+		println("------- BEGIN EXECUTION")
+	}
+	for {
+		op := ops[pc]
+		if op == opcodeCall {
 			if trace {
-				println(pc, "\tcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
 			fun := stack[sp]
 			sp++
@@ -465,12 +663,55 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			default:
 				return nil, addContext(env, Error("Not a function: ", fun))
 			}
-		case opcodeTailCall:
+		} else if op == opcodeGlobal {
+			sym := constants[ops[pc+1]]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+			}
+			if sym.car == nil {
+				return nil, addContext(env, Error("Undefined symbol: ", sym))
+			}
+			sp--
+			stack[sp] = sym.car
+			pc += 2
+		} else if op == opcodeLocal {
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", +ops[pc+1], " ", ops[pc+2], "\tstack: ", showStack(stack, sp))
+			}
+			tmpEnv := env
+			i := ops[pc+1]
+			for i > 0 {
+				tmpEnv = tmpEnv.locals
+				i--
+			}
+			j := ops[pc+2]
+			val := tmpEnv.elements[j]
+			sp--
+			stack[sp] = val
+			pc += 3
+		} else if op == opcodeJumpFalse {
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+			}
+			b := stack[sp]
+			sp++
+			if b == False {
+				pc += ops[pc+1]
+			} else {
+				pc += 2
+			}
+		} else if op == opcodePop {
+			if trace {
+				println(pc, "\t", opsyms[op], "\tstack: ", showStack(stack, sp))
+			}
+			sp++
+			pc++
+		} else if op == opcodeTailCall {
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+			}
 			if checkInterrupt() {
 				return nil, addContext(env, Error("Interrupt"))
-			}
-			if trace {
-				println(pc, "\ttcall\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
 			fun := stack[sp]
 			sp++
@@ -490,9 +731,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 					ops = env.ops
 					env = env.previous
 					if env == nil {
-						if trace {
-							println("------------------ END EXECUTION")
-						}
+						println("------- END EXECUTION")
 						return stack[sp], nil
 					}
 				} else if lfun.code != nil {
@@ -547,64 +786,85 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 				ops = env.ops
 				env = env.previous
 				if env == nil {
-					if trace {
-						println("------------------ END EXECUTION")
-					}
+					println("------- END EXECUTION")
 					return stack[sp], nil
 				}
 			default:
 				return nil, addContext(env, Error("Not a function:", fun))
 			}
-		case opcodeReturn:
+		} else if op == opcodeLiteral {
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", constants[ops[pc+1]], "\tstack: ", showStack(stack, sp))
+			}
+			sp--
+			stack[sp] = constants[ops[pc+1]]
+			pc += 2
+		} else if op == opcodeSetLocal {
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", +ops[pc+1], " ", ops[pc+2], "\tstack: ", showStack(stack, sp))
+			}
+			tmpEnv := env
+			i := ops[pc+1]
+			for i > 0 {
+				tmpEnv = tmpEnv.locals
+				i--
+			}
+			j := ops[pc+2]
+			tmpEnv.elements[j] = stack[sp]
+			pc += 3
+		} else if op == opcodeClosure {
+			if trace {
+				println(pc, "\t", opsyms[op], "\tstack: ", showStack(stack, sp))
+			}
+			sp--
+			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
+			pc = pc + 2
+		} else if op == opcodeReturn {
+			if trace {
+				println(pc, "\t", opsyms[op], "\t\tstack: ", showStack(stack, sp))
+			}
 			if checkInterrupt() {
 				return nil, addContext(env, Error("Interrupt"))
 			}
-			if trace {
-				println(pc, "\tret")
-			}
 			if env.previous == nil {
-				if trace {
-					println("------------------ END EXECUTION")
-				}
+				println("------- END EXECUTION")
 				return stack[sp], nil
 			}
 			ops = env.ops
 			pc = env.pc
 			env = env.previous
-		case opcodeJumpFalse:
+		} else if op == opcodeJump {
 			if trace {
-				println(pc, "\tfjmp\t", pc+ops[pc+1])
-			}
-			b := stack[sp]
-			sp++
-			if b == False {
-				pc += ops[pc+1]
-			} else {
-				pc += 2
-			}
-		case opcodeJump:
-			if trace {
-				println(pc, "\tjmp\t", pc+ops[pc+1])
+				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
 			}
 			pc += ops[pc+1]
-		case opcodePop:
-			if trace {
-				println(pc, "\tpop")
-			}
-			sp++
-			pc++
-		case opcodeClosure:
-			if trace {
-				println(pc, "\tclosure\t", constants[ops[pc+1]])
-			}
-			sp--
-			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
-			pc = pc + 2
-		case opcodeUse:
-			if trace {
-				println(pc, "\tuse\t", constants[ops[pc+1]])
-			}
+		} else if op == opcodeDefGlobal {
 			sym := constants[ops[pc+1]]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+			}
+			defGlobal(sym, stack[sp])
+			pc += 2
+		} else if op == opcodeUndefGlobal {
+			sym := constants[ops[pc+1]]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+			}
+			undefGlobal(sym)
+			pc += 2
+		} else if op == opcodeDefMacro {
+			sym := constants[ops[pc+1]]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+			}
+			defMacro(sym, stack[sp])
+			stack[sp] = sym
+			pc += 2
+		} else if op == opcodeUse {
+			sym := constants[ops[pc+1]]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+			}
 			err := use(sym)
 			if err != nil {
 				return nil, addContext(env, err)
@@ -612,25 +872,25 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			sp--
 			stack[sp] = sym
 			pc += 2
-		case opcodeVector:
-			if trace {
-				println(pc, "\tvector\t", ops[pc+1])
-			}
+		} else if op == opcodeVector {
 			vlen := ops[pc+1]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", vlen, "\tstack: ", showStack(stack, sp))
+			}
 			v := vector(stack[sp : sp+vlen]...)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
-		case opcodeStruct:
-			if trace {
-				println(pc, "\tstruct\t", ops[pc+1])
-			}
+		} else if op == opcodeStruct {
 			vlen := ops[pc+1]
+			if trace {
+				println(pc, "\t", opsyms[op], "\t", vlen, "\tstack: ", showStack(stack, sp))
+			}
 			v, _ := newStruct(stack[sp : sp+vlen])
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
-		default:
+		} else {
 			return nil, addContext(env, Error("Bad instruction: ", strconv.Itoa(ops[pc])))
 		}
 	}
