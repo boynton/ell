@@ -20,7 +20,7 @@ import (
 	"bytes"
 )
 
-func vectorEqual(v1 *LAny, v2 *LAny) bool {
+func vectorEqual(v1 *LOB, v2 *LOB) bool {
 	count := len(v1.elements)
 	if count != len(v2.elements) {
 		return false
@@ -33,7 +33,7 @@ func vectorEqual(v1 *LAny, v2 *LAny) bool {
 	return true
 }
 
-func vectorToString(vec *LAny) string {
+func vectorToString(vec *LOB) string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	count := len(vec.elements)
@@ -48,38 +48,35 @@ func vectorToString(vec *LAny) string {
 	return buf.String()
 }
 
-func newVector(size int, init *LAny) *LAny {
-	elements := make([]*LAny, size)
+func newVector(size int, init *LOB) *LOB {
+	elements := make([]*LOB, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	vec := new(LAny)
-	vec.ltype = typeVector
+	return vectorFromElementsNoCopy(elements)
+}
+
+func vector(elements ...*LOB) *LOB {
+	return vectorFromElements(elements, len(elements))
+}
+
+func vectorFromElements(elements []*LOB, count int) *LOB {
+	el := make([]*LOB, count)
+	copy(el, elements[0:count])
+	return vectorFromElementsNoCopy(el)
+}
+
+func vectorFromElementsNoCopy(elements []*LOB) *LOB {
+	vec := newLOB(typeVector)
 	vec.elements = elements
 	return vec
 }
 
-func vector(elements ...*LAny) *LAny {
-	return vectorFromElements(elements, len(elements))
+func copyVector(vec *LOB) *LOB {
+	return vectorFromElements(vec.elements, len(vec.elements))
 }
 
-func vectorFromElements(elements []*LAny, count int) *LAny {
-	el := make([]*LAny, count)
-	copy(el, elements[0:count])
-	vec := new(LAny)
-	vec.ltype = typeVector
-	vec.elements = el
-	return vec
-}
-
-func copyVector(vec *LAny) *LAny {
-	size := len(vec.elements)
-	elements := make([]*LAny, size)
-	copy(elements, vec.elements)
-	return vectorFromElements(elements, size)
-}
-
-func vectorSet(vec *LAny, idx int, obj *LAny) error {
+func vectorSet(vec *LOB, idx int, obj *LOB) error {
 	if isVector(vec) {
 		if idx < 0 || idx >= len(vec.elements) {
 			return Error("Vector index out of range")
@@ -90,7 +87,7 @@ func vectorSet(vec *LAny, idx int, obj *LAny) error {
 	return TypeError(typeVector, vec)
 }
 
-func vectorRef(vec *LAny, idx int) (*LAny, error) {
+func vectorRef(vec *LOB, idx int) (*LOB, error) {
 	if isVector(vec) {
 		if idx < 0 || idx >= len(vec.elements) {
 			return nil, Error("Vector index out of range")
@@ -100,8 +97,8 @@ func vectorRef(vec *LAny, idx int) (*LAny, error) {
 	return nil, TypeError(typeVector, vec)
 }
 
-func toVector(obj *LAny) (*LAny, error) {
-	switch obj.ltype {
+func toVector(obj *LOB) (*LOB, error) {
+	switch obj.variant {
 	case typeVector:
 		return obj, nil
 	case typeList:
@@ -111,33 +108,5 @@ func toVector(obj *LAny) (*LAny, error) {
 	case typeString:
 		return stringToVector(obj), nil
 	}
-	return nil, Error("Cannot convert ", obj.ltype, " to <vector>")
+	return nil, Error("Cannot convert ", obj.variant, " to <vector>")
 }
-
-/*
-func flattenVector(vec *LVector) *LVector {
-	result := EmptyList
-	tail := EmptyList
-	for lst != EmptyList {
-		item := lst.car
-		var fitem *LList
-		lstItem, ok := item.(*LList)
-		if ok {
-			fitem = flatten(lstItem)
-		} else {
-			fitem = list(item)
-		}
-		if tail == EmptyList {
-			result = fitem
-			tail = result
-		} else {
-			tail.cdr = fitem
-		}
-		for tail.cdr != EmptyList {
-			tail = tail.cdr
-		}
-		lst = lst.cdr
-	}
-	return result
-}
-*/

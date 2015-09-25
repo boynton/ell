@@ -21,11 +21,11 @@ import (
 	"strings"
 )
 
-var constantsMap = make(map[*LAny]int, 0)
-var constants = make([]*LAny, 0, 1000)
+var constantsMap = make(map[*LOB]int, 0)
+var constants = make([]*LOB, 0, 1000)
 var globals = make([]*binding, 0, 1000)
-var globalsMap = make(map[*LAny]int, 0)
-var macroMap = make(map[*LAny]*macro, 0)
+var globalsMap = make(map[*LOB]int, 0)
+var macroMap = make(map[*LOB]*macro, 0)
 var primitives = make([]*Primitive, 0, 1000)
 
 func checkInterrupt() bool {
@@ -40,7 +40,7 @@ func checkInterrupt() bool {
 	return false
 }
 
-func define(name string, obj *LAny) {
+func define(name string, obj *LOB) {
 	sym := intern(name)
 	if sym == nil {
 		panic("Cannot define a value for this symbol: " + name)
@@ -69,9 +69,9 @@ func defineMacro(name string, fun PrimCallable) {
 	defMacro(sym, prim)
 }
 
-func getKeywords() []*LAny {
+func getKeywords() []*LOB {
 	//keywords reserved for the base language that Ell compiles
-	keywords := []*LAny{
+	keywords := []*LOB{
 		intern("quote"),
 		intern("fn"),
 		intern("if"),
@@ -86,8 +86,8 @@ func getKeywords() []*LAny {
 	return keywords
 }
 
-func getGlobals() []*LAny {
-	syms := make([]*LAny, 0, symTag)
+func getGlobals() []*LOB {
+	syms := make([]*LOB, 0, symTag)
 	for _, b := range globals {
 		if b != nil {
 			syms = append(syms, b.sym)
@@ -96,7 +96,7 @@ func getGlobals() []*LAny {
 	return syms
 }
 
-func globalValue(tag int) *LAny {
+func globalValue(tag int) *LOB {
 	if tag < len(globals) {
 		tmp := globals[tag]
 		if tmp != nil {
@@ -116,7 +116,7 @@ func globalName(tag int) string {
 	return "?"
 }
 
-func global(sym *LAny) *LAny {
+func global(sym *LOB) *LOB {
 	if !isSymbol(sym) || sym.ival < 0 || sym.ival >= len(globals) {
 		return nil
 	}
@@ -124,11 +124,11 @@ func global(sym *LAny) *LAny {
 }
 
 type binding struct {
-	sym *LAny
-	val *LAny
+	sym *LOB
+	val *LOB
 }
 
-func defGlobal(sym *LAny, val *LAny) {
+func defGlobal(sym *LOB, val *LOB) {
 	if !isSymbol(sym) {
 		panic("defGlobal with a non-symbol first argument")
 	}
@@ -142,20 +142,20 @@ func defGlobal(sym *LAny, val *LAny) {
 	delete(macroMap, sym)
 }
 
-func isDefined(sym *LAny) bool {
+func isDefined(sym *LOB) bool {
 	if sym.ival < len(globals) {
 		return globals[sym.ival] != nil
 	}
 	return false
 }
 
-func undefGlobal(sym *LAny) {
+func undefGlobal(sym *LOB) {
 	if sym.ival < len(globals) {
 		globals[sym.ival] = nil
 	}
 }
 
-func setGlobal(sym *LAny, val *LAny) error {
+func setGlobal(sym *LOB, val *LOB) error {
 	if sym.ival < len(globals) {
 		if globals[sym.ival] != nil {
 			globals[sym.ival].val = val
@@ -167,15 +167,15 @@ func setGlobal(sym *LAny, val *LAny) error {
 	return Error("*** Warning: set on undefined global ", sym)
 }
 
-func macros() []*LAny {
-	keys := make([]*LAny, 0, len(macroMap))
+func macros() []*LOB {
+	keys := make([]*LOB, 0, len(macroMap))
 	for k := range macroMap {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func getMacro(sym *LAny) *macro {
+func getMacro(sym *LOB) *macro {
 	mac, ok := macroMap[sym]
 	if !ok {
 		return nil
@@ -183,13 +183,13 @@ func getMacro(sym *LAny) *macro {
 	return mac
 }
 
-func defMacro(sym *LAny, val *LAny) {
+func defMacro(sym *LOB, val *LOB) {
 	macroMap[sym] = newMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func putConstant(val *LAny) int {
+func putConstant(val *LOB) int {
 	idx, present := constantsMap[val]
 	if !present {
 		idx = len(constants)
@@ -199,11 +199,11 @@ func putConstant(val *LAny) int {
 	return idx
 }
 
-func use(sym *LAny) error {
+func use(sym *LOB) error {
 	return loadModule(sym.text)
 }
 
-func importCode(thunk *LAny) (*LAny, error) {
+func importCode(thunk *LOB) (*LOB, error) {
 	result, err := exec(thunk.code)
 	if err != nil {
 		return nil, err
@@ -273,7 +273,7 @@ func loadFile(file string) error {
 	}
 }
 
-func eval(expr *LAny) (*LAny, error) {
+func eval(expr *LOB) (*LOB, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
@@ -310,7 +310,7 @@ func findModuleFile(name string) (string, error) {
 	return name, nil
 }
 
-func compileObject(expr *LAny) (string, error) {
+func compileObject(expr *LOB) (string, error) {
 	if verbose {
 		println("; compile: ", write(expr))
 	}
@@ -332,7 +332,7 @@ func compileObject(expr *LAny) (string, error) {
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func compileFile(name string) (*LAny, error) {
+func compileFile(name string) (*LOB, error) {
 	file, err := findModuleFile(name)
 	if err != nil {
 		return nil, err

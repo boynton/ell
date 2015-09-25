@@ -17,17 +17,17 @@ package main
 
 var symTag int
 
-func intern(name string) *LAny {
+func intern(name string) *LOB {
 	sym, ok := symtab[name]
 	if !ok {
-		sym = new(LAny)
+		sym = new(LOB)
 		sym.text = name
 		if isValidKeywordName(name) {
-			sym.ltype = typeKeyword
+			sym.variant = typeKeyword
 		} else if isValidTypeName(name) {
-			sym.ltype = typeType
+			sym.variant = typeType
 		} else if isValidSymbolName(name) {
-			sym.ltype = typeSymbol
+			sym.variant = typeSymbol
 			sym.ival = symTag
 			symTag++
 		} else {
@@ -38,7 +38,7 @@ func intern(name string) *LAny {
 	return sym
 }
 
-func symbolTag(sym *LAny) int {
+func symbolTag(sym *LOB) int {
 	return sym.ival
 }
 
@@ -63,21 +63,21 @@ func isValidKeywordName(s string) bool {
 }
 
 // <type> -> <symbol>
-func typeName(t *LAny) (*LAny, error) {
+func typeName(t *LOB) (*LOB, error) {
 	if !isType(t) {
 		return nil, Error("Type error: expected <type>, got ", t)
 	}
 	return intern(t.text[1 : len(t.text)-1]), nil
 }
 
-func unkeywordedString(k *LAny) string {
+func unkeywordedString(k *LOB) string {
 	if isKeyword(k) {
 		return k.text[:len(k.text)-1]
 	}
 	return k.text
 }
 
-func unkeyworded(obj *LAny) (*LAny, error) {
+func unkeyworded(obj *LOB) (*LOB, error) {
 	if isSymbol(obj) {
 		return obj, nil
 	}
@@ -87,7 +87,7 @@ func unkeyworded(obj *LAny) (*LAny, error) {
 	return nil, Error("Type error: expected <keyword> or <symbol>, got ", obj)
 }
 
-func keywordToSymbol(obj *LAny) (*LAny, error) {
+func keywordToSymbol(obj *LOB) (*LOB, error) {
 	if isKeyword(obj) {
 		return intern(obj.text[:len(obj.text)-1]), nil
 	}
@@ -97,30 +97,30 @@ func keywordToSymbol(obj *LAny) (*LAny, error) {
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = initSymbolTable()
 
-func initSymbolTable() map[string]*LAny {
-	syms := make(map[string]*LAny, 0)
-	typeType = &LAny{text: "<type>"}
-	typeType.ltype = typeType //mutate to bootstrap type type
+func initSymbolTable() map[string]*LOB {
+	syms := make(map[string]*LOB, 0)
+	typeType = &LOB{text: "<type>"}
+	typeType.variant = typeType //mutate to bootstrap type type
 	syms[typeType.text] = typeType
 
-	typeKeyword = &LAny{ltype: typeType, text: "<keyword>"}
+	typeKeyword = &LOB{variant: typeType, text: "<keyword>"}
 	syms[typeKeyword.text] = typeKeyword
 
-	typeSymbol = &LAny{ltype: typeType, text: "<symbol>"}
+	typeSymbol = &LOB{variant: typeType, text: "<symbol>"}
 	syms[typeSymbol.text] = typeSymbol
 
 	return syms
 }
 
-func symbols() []*LAny {
-	syms := make([]*LAny, 0, len(symtab))
+func symbols() []*LOB {
+	syms := make([]*LOB, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
 	}
 	return syms
 }
 
-func symbol(names []*LAny) (*LAny, error) {
+func symbol(names []*LOB) (*LOB, error) {
 	size := len(names)
 	if size < 1 {
 		return nil, ArgcError("symbol", "1+", size)
@@ -129,7 +129,7 @@ func symbol(names []*LAny) (*LAny, error) {
 	for i := 0; i < size; i++ {
 		o := names[i]
 		s := ""
-		switch o.ltype {
+		switch o.variant {
 		case typeString, typeSymbol:
 			s = o.text
 		default:

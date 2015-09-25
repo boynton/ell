@@ -15,21 +15,20 @@ limitations under the License.
 */
 package main
 
-func newString(s string) *LAny {
-	str := new(LAny)
-	str.ltype = typeString
+func newString(s string) *LOB {
+	str := newLOB(typeString)
 	str.text = s
 	return str
 }
 
-func asString(obj *LAny) (string, error) {
+func asString(obj *LOB) (string, error) {
 	if !isString(obj) {
 		return "", TypeError(typeString, obj)
 	}
 	return obj.text, nil
 }
 
-func toString(a *LAny) *LAny {
+func toString(a *LOB) *LOB {
 	return newString(a.String())
 }
 
@@ -68,32 +67,31 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
-func newCharacter(c rune) *LAny {
-	char := new(LAny)
-	char.ltype = typeCharacter
+func newCharacter(c rune) *LOB {
+	char := newLOB(typeCharacter)
 	char.character = c
 	return char
 }
 
-func asCharacter(c *LAny) (rune, error) {
+func asCharacter(c *LOB) (rune, error) {
 	if !isCharacter(c) {
 		return 0, TypeError(typeCharacter, c)
 	}
 	return c.character, nil
 }
 
-func stringCharacters(s *LAny) []*LAny {
-	chars := make([]*LAny, len(s.text))
+func stringCharacters(s *LOB) []*LOB {
+	chars := make([]*LOB, len(s.text))
 	for i, c := range s.text {
 		chars[i] = newCharacter(c)
 	}
 	return chars
 }
 
-func stringToVector(s *LAny) *LAny {
+func stringToVector(s *LOB) *LOB {
 	return vector(stringCharacters(s)...)
 }
 
-func stringToList(s *LAny) *LAny {
+func stringToList(s *LOB) *LOB {
 	return list(stringCharacters(s)...)
 }

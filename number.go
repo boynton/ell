@@ -20,29 +20,26 @@ import (
 	"math"
 )
 
-func newFloat64(f float64) *LAny {
-	num := new(LAny)
-	num.ltype = typeNumber
+func newFloat64(f float64) *LOB {
+	num := newLOB(typeNumber)
 	num.fval = f
 	return num
 }
 
-func newInt64(i int64) *LAny {
-	num := new(LAny)
-	num.ltype = typeNumber
+func newInt64(i int64) *LOB {
+	num := newLOB(typeNumber)
 	num.fval = float64(i)
 	return num
 }
 
-func newInt(i int) *LAny {
-	num := new(LAny)
-	num.ltype = typeNumber
+func newInt(i int) *LOB {
+	num := newLOB(typeNumber)
 	num.fval = float64(i)
 	return num
 }
 
-func isInt(obj *LAny) bool {
-	if obj.ltype == typeNumber {
+func isInt(obj *LOB) bool {
+	if obj.variant == typeNumber {
 		f := obj.fval
 		if math.Trunc(f) == f {
 			return true
@@ -51,36 +48,36 @@ func isInt(obj *LAny) bool {
 	return false
 }
 
-func isFloat(obj *LAny) bool {
-	if obj.ltype == typeNumber {
+func isFloat(obj *LOB) bool {
+	if obj.variant == typeNumber {
 		return !isInt(obj)
 	}
 	return false
 }
 
-func floatValue(obj *LAny) (float64, error) {
-	if obj.ltype == typeNumber {
+func floatValue(obj *LOB) (float64, error) {
+	if obj.variant == typeNumber {
 		return obj.fval, nil
 	}
 	return 0, TypeError(typeNumber, obj)
 }
 
-func int64Value(obj *LAny) (int64, error) {
-	if obj.ltype == typeNumber {
+func int64Value(obj *LOB) (int64, error) {
+	if obj.variant == typeNumber {
 		return int64(obj.fval), nil
 	}
 	return 0, TypeError(typeNumber, obj)
 }
 
-func intValue(obj *LAny) (int, error) {
-	if obj.ltype == typeNumber {
+func intValue(obj *LOB) (int, error) {
+	if obj.variant == typeNumber {
 		return int(obj.fval), nil
 	}
 	return 0, TypeError(typeNumber, obj)
 }
 
 // Equal returns true if the object is equal to the argument
-func greaterOrEqual(n1 *LAny, n2 *LAny) (*LAny, error) {
+func greaterOrEqual(n1 *LOB, n2 *LOB) (*LOB, error) {
 	f1, err := floatValue(n1)
 	if err != nil {
 		return nil, err
@@ -95,7 +92,7 @@ func greaterOrEqual(n1 *LAny, n2 *LAny) (*LAny, error) {
 	return False, nil
 }
 
-func lessOrEqual(n1 *LAny, n2 *LAny) (*LAny, error) {
+func lessOrEqual(n1 *LOB, n2 *LOB) (*LOB, error) {
 	f1, err := floatValue(n1)
 	if err != nil {
 		return nil, err
@@ -110,7 +107,7 @@ func lessOrEqual(n1 *LAny, n2 *LAny) (*LAny, error) {
 	return False, nil
 }
 
-func greater(n1 *LAny, n2 *LAny) (*LAny, error) {
+func greater(n1 *LOB, n2 *LOB) (*LOB, error) {
 	f1, err := floatValue(n1)
 	if err != nil {
 		return nil, err
@@ -125,7 +122,7 @@ func greater(n1 *LAny, n2 *LAny) (*LAny, error) {
 	return False, nil
 }
 
-func less(n1 *LAny, n2 *LAny) (*LAny, error) {
+func less(n1 *LOB, n2 *LOB) (*LOB, error) {
 	f1, err := floatValue(n1)
 	if err != nil {
 		return nil, err
@@ -153,7 +150,7 @@ func numberEqual(f1 float64, f2 float64) bool {
 	return false
 }
 
-func numericallyEqual(n1 *LAny, n2 *LAny) (*LAny, error) {
+func numericallyEqual(n1 *LOB, n2 *LOB) (*LOB, error) {
 	f1, err := floatValue(n1)
 	if err != nil {
 		return nil, err
@@ -168,7 +165,7 @@ func numericallyEqual(n1 *LAny, n2 *LAny) (*LAny, error) {
 	return False, nil
 }
 
-func add(num1 *LAny, num2 *LAny) (*LAny, error) {
+func add(num1 *LOB, num2 *LOB) (*LOB, error) {
 	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
@@ -180,7 +177,7 @@ func add(num1 *LAny, num2 *LAny) (*LAny, error) {
 	return newFloat64(n1 + n2), nil
 }
 
-func sum(nums []*LAny, argc int) (*LAny, error) {
+func sum(nums []*LOB, argc int) (*LOB, error) {
 	var sum float64
 	for _, num := range nums {
 		if !isNumber(num) {
@@ -191,7 +188,7 @@ func sum(nums []*LAny, argc int) (*LAny, error) {
 	return newFloat64(sum), nil
 }
 
-func sub(num1 *LAny, num2 *LAny) (*LAny, error) {
+func sub(num1 *LOB, num2 *LOB) (*LOB, error) {
 	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
@@ -203,7 +200,7 @@ func sub(num1 *LAny, num2 *LAny) (*LAny, error) {
 	return newFloat64(n1 - n2), nil
 }
 
-func minus(nums []*LAny, argc int) (*LAny, error) {
+func minus(nums []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("-", "1+", argc)
 	}
@@ -225,7 +222,7 @@ func minus(nums []*LAny, argc int) (*LAny, error) {
 	return newFloat64(fsum), nil
 }
 
-func mul(num1 *LAny, num2 *LAny) (*LAny, error) {
+func mul(num1 *LOB, num2 *LOB) (*LOB, error) {
 	n1, err := floatValue(num1)
 	if err != nil {
 		return nil, err
@@ -237,7 +234,7 @@ func mul(num1 *LAny, num2 *LAny) (*LAny, error) {
 	return newFloat64(n1 * n2), nil
 }
 
-func product(argv []*LAny, argc int) (*LAny, error) {
+func product(argv []*LOB, argc int) (*LOB, error) {
 	prod := 1.0
 	for _, num := range argv {
 		f, err := floatValue(num)
@@ -249,7 +246,7 @@ func product(argv []*LAny, argc int) (*LAny, error) {
 	return newFloat64(prod), nil
 }
 
-func div(argv []*LAny, argc int) (*LAny, error) {
+func div(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("/", "1+", argc)
 	} else if argc == 1 {

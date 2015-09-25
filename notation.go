@@ -44,12 +44,12 @@ type LPort struct {
 	writer *dataWriter
 }
 
-func isInputPort(obj *LAny) bool {
-	return obj.ltype == typePort && obj.port.reader != nil
+func isInputPort(obj *LOB) bool {
+	return obj.variant == typePort && obj.port.reader != nil
 }
 
-func isOutputPort(obj *LAny) bool {
-	return obj.ltype == typePort && obj.port.writer != nil
+func isOutputPort(obj *LOB) bool {
+	return obj.variant == typePort && obj.port.writer != nil
 }
 
 func (port *LPort) String() string {
@@ -62,31 +62,31 @@ func (port *LPort) String() string {
 	return fmt.Sprintf("#[port: CLOSED %s]", port.name)
 }
 
-func inputPortTypeError(fun string, argnum int, obj *LAny) error {
+func inputPortTypeError(fun string, argnum int, obj *LOB) error {
 	return Error("argument ", argnum, " to ", fun, " is not an input port: ", obj)
 }
 
-func outputPortTypeError(fun string, argnum int, obj *LAny) error {
+func outputPortTypeError(fun string, argnum int, obj *LOB) error {
 	return Error("argument ", argnum, " to ", fun, " is not an output port: ", obj)
 }
 
 // --- reader
 
-func readInputPort(in *LAny) (*LAny, error) {
+func readInputPort(in *LOB) (*LOB, error) {
 	if !isInputPort(in) {
 		return nil, inputPortTypeError("read", 1, in)
 	}
 	return in.port.read()
 }
 
-func closeInputPort(in *LAny) error {
+func closeInputPort(in *LOB) error {
 	if !isInputPort(in) {
 		return inputPortTypeError("close-input-port", 1, in)
 	}
 	return in.port.close()
 }
 
-func (port *LPort) read() (*LAny, error) {
+func (port *LPort) read() (*LOB, error) {
 	if port.reader == nil {
 		return nil, Error("Input port is closed: ", port)
 	}
@@ -121,11 +121,11 @@ func fileContents(path string) (string, error) {
 
 //todo: implement Output
 
-func newInputPort(name string, reader *dataReader, fd *os.File) *LAny {
-	return &LAny{ltype: typePort, port: &LPort{file: fd, reader: reader, name: name}}
+func newInputPort(name string, reader *dataReader, fd *os.File) *LOB {
+	return &LOB{variant: typePort, port: &LPort{file: fd, reader: reader, name: name}}
 }
 
-func openInputFile(path string) (*LAny, error) {
+func openInputFile(path string) (*LOB, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -135,17 +135,17 @@ func openInputFile(path string) (*LAny, error) {
 	return newInputPort(path, reader, fd), nil
 }
 
-func openInputString(input string) *LAny {
+func openInputString(input string) *LOB {
 	r := strings.NewReader(input)
 	reader := newDataReader(r)
 	return newInputPort(input, reader, nil)
 }
 
-func readInputString(input string) (*LAny, error) {
+func readInputString(input string) (*LOB, error) {
 	return readInputPort(openInputString(input))
 }
 
-func decode(in io.Reader) (*LAny, error) {
+func decode(in io.Reader) (*LOB, error) {
 	br := bufio.NewReader(in)
 	dr := dataReader{br}
 	return dr.readData()
@@ -168,7 +168,7 @@ func (dr *dataReader) ungetChar() error {
 	return dr.in.UnreadByte()
 }
 
-func (dr *dataReader) readData() (*LAny, error) {
+func (dr *dataReader) readData() (*LOB, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
@@ -246,7 +246,7 @@ func (dr *dataReader) decodeComment() error {
 	return e
 }
 
-func (dr *dataReader) decodeString() (*LAny, error) {
+func (dr *dataReader) decodeString() (*LOB, error) {
 	buf := []byte{}
 	c, e := dr.getChar()
 	escape := false
@@ -300,7 +300,7 @@ func (dr *dataReader) decodeString() (*LAny, error) {
 	return s, e
 }
 
-func (dr *dataReader) decodeList() (*LAny, error) {
+func (dr *dataReader) decodeList() (*LOB, error) {
 	items, err := dr.decodeSequence(')')
 	if err != nil {
 		return nil, err
@@ -308,7 +308,7 @@ func (dr *dataReader) decodeList() (*LAny, error) {
 	return listFromValues(items), nil
 }
 
-func (dr *dataReader) decodeVector() (*LAny, error) {
+func (dr *dataReader) decodeVector() (*LOB, error) {
 	items, err := dr.decodeSequence(']')
 	if err != nil {
 		return nil, err
@@ -335,8 +335,8 @@ func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
 	return 0, err
 }
 
-func (dr *dataReader) decodeStruct() (*LAny, error) {
-	items := []*LAny{}
+func (dr *dataReader) decodeStruct() (*LOB, error) {
+	items := []*LOB{}
 	var err error
 	var c byte
 	for err == nil {
@@ -373,9 +373,9 @@ func (dr *dataReader) decodeStruct() (*LAny, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeSequence(endChar byte) ([]*LAny, error) {
+func (dr *dataReader) decodeSequence(endChar byte) ([]*LOB, error) {
 	c, err := dr.getChar()
-	items := []*LAny{}
+	items := []*LOB{}
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -402,7 +402,7 @@ func (dr *dataReader) decodeSequence(endChar byte) ([]*LAny, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeAtom(firstChar byte) (*LAny, error) {
+func (dr *dataReader) decodeAtom(firstChar byte) (*LOB, error) {
 	s, err := dr.decodeAtomString(firstChar)
 	if err != nil {
 		return nil, err
@@ -505,7 +505,7 @@ func namedChar(name string) (rune, error) {
 	}
 }
 
-func (dr *dataReader) decodeReaderMacro() (*LAny, error) {
+func (dr *dataReader) decodeReaderMacro() (*LOB, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -575,7 +575,7 @@ func isDelimiter(b byte) bool {
 	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';' || b == ':'
 }
 
-func write(obj *LAny) string {
+func write(obj *LOB) string {
 	if obj == nil {
 		panic("null pointer")
 	}
@@ -583,9 +583,9 @@ func write(obj *LAny) string {
 	return elldn
 }
 
-func writeData(obj *LAny, json bool) (string, error) {
+func writeData(obj *LOB, json bool) (string, error) {
 	//an error is never returned for non-json
-	switch obj.ltype {
+	switch obj.variant {
 	case typeBoolean, typeNull, typeNumber:
 		return obj.String(), nil
 	case typeList:
@@ -643,7 +643,7 @@ func writeData(obj *LAny, json bool) (string, error) {
 	}
 }
 
-func writeList(lst *LAny) string {
+func writeList(lst *LOB) string {
 	if lst == EmptyList {
 		return "()"
 	}
@@ -672,7 +672,7 @@ func writeList(lst *LAny) string {
 	return buf.String()
 }
 
-func writeVector(vec *LAny, json bool) (string, error) {
+func writeVector(vec *LOB, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(vec.elements)
@@ -699,7 +699,7 @@ func writeVector(vec *LAny, json bool) (string, error) {
 	return buf.String(), nil
 }
 
-func writeStruct(strct *LAny, json bool) (string, error) {
+func writeStruct(strct *LOB, json bool) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	delim := ", "
@@ -734,6 +734,6 @@ func writeStruct(strct *LAny, json bool) (string, error) {
 //return a JSON string of the object, or an error if it cannot be expressed in JSON
 //this is very close to EllDn, the standard output format. Exceptions:
 //  1. the only symbols allowed are true, false, null
-func toJSON(obj *LAny) (string, error) {
+func toJSON(obj *LOB) (string, error) {
 	return writeData(obj, true)
 }

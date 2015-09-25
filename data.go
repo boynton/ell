@@ -22,34 +22,40 @@ import (
 	"strconv"
 )
 
-// LAny type is a union of all possible primitive types. Which fields are used depends on the variant
+// LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
-type LAny struct {
-	ltype     *LAny      // i.e. <string>
+type LOB struct {
+	variant     *LOB      // i.e. <string>
 	boolean   bool       // <boolean>
 	character rune       // <character>
 	ival      int        // <number>, <symbol>
 	fval      float64    //<number>
 	text      string     // <string>, <symbol>, <keyword>, <type>
-	car       *LAny      // non-nil for instances and <list>
-	cdr       *LAny      // non-nil for <list>, nil for everything else
-	elements  []*LAny    // <vector>, <struct>
+	car       *LOB      // non-nil for instances and <list>
+	cdr       *LOB      // non-nil for <list>, nil for everything else
+	elements  []*LOB    // <vector>, <struct>
 	function  *LFunction // <function>
 	code      *LCode     //<code>
 	port      *LPort     // <port>
 }
 
-func identical(o1 *LAny, o2 *LAny) bool {
+func newLOB(variant *LOB) *LOB {
+	lob := new(LOB)
+	lob.variant = variant
+	return lob
+}
+
+func identical(o1 *LOB, o2 *LOB) bool {
 	return o1 == o2
 }
 
-func (a *LAny) String() string {
+func (a *LOB) String() string {
 	if a == Null {
 		return "null"
 	} else if a == EOF {
 		return "#[eof]"
 	} else {
-		switch a.ltype {
+		switch a.variant {
 		case typeBoolean:
 			return strconv.FormatBool(a.boolean)
 		case typeCharacter:
@@ -69,14 +75,14 @@ func (a *LAny) String() string {
 		case typePort:
 			return a.port.String()
 		default:
-			return "#" + a.ltype.text + write(a.car)
+			return "#" + a.variant.text + write(a.car)
 		}
 	}
 }
 
-var typeType *LAny    // bootstrapped in initSymbolTable => intern("<type>")
-var typeKeyword *LAny // bootstrapped in initSymbolTable => intern("<keyword>")
-var typeSymbol *LAny  // bootstrapped in initSymbolTable = intern("<symbol>")
+var typeType *LOB    // bootstrapped in initSymbolTable => intern("<type>")
+var typeKeyword *LOB // bootstrapped in initSymbolTable => intern("<keyword>")
+var typeSymbol *LOB  // bootstrapped in initSymbolTable = intern("<symbol>")
 
 var typeNull = intern("<null>")
 var typeEOF = intern("<eof>")
@@ -92,79 +98,79 @@ var typeCode = intern("<code>")
 var typePort = intern("<port>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
-var Null = &LAny{ltype: typeNull}
+var Null = &LOB{variant: typeNull}
 
-func isNull(obj *LAny) bool {
+func isNull(obj *LOB) bool {
 	return obj == Null
 }
 
 // EOF is Ell's singleton EOF object
-var EOF = &LAny{ltype: typeEOF}
+var EOF = &LOB{variant: typeEOF}
 
-func isEOF(obj *LAny) bool {
+func isEOF(obj *LOB) bool {
 	return obj == EOF
 }
 
 // True is the singleton boolean true value
-var True = &LAny{ltype: typeBoolean, boolean: true}
+var True = &LOB{variant: typeBoolean, boolean: true}
 
 // False is the singleton boolean false value
-var False = &LAny{ltype: typeBoolean, boolean: false}
+var False = &LOB{variant: typeBoolean, boolean: false}
 
-func isBoolean(obj *LAny) bool {
-	return obj.ltype == typeBoolean
+func isBoolean(obj *LOB) bool {
+	return obj.variant == typeBoolean
 }
 
-func isCharacter(obj *LAny) bool {
-	return obj.ltype == typeCharacter
+func isCharacter(obj *LOB) bool {
+	return obj.variant == typeCharacter
 }
-func isNumber(obj *LAny) bool {
-	return obj.ltype == typeNumber
+func isNumber(obj *LOB) bool {
+	return obj.variant == typeNumber
 }
-func isString(obj *LAny) bool {
-	return obj.ltype == typeString
+func isString(obj *LOB) bool {
+	return obj.variant == typeString
 }
-func isList(obj *LAny) bool {
-	return obj.ltype == typeList
+func isList(obj *LOB) bool {
+	return obj.variant == typeList
 }
-func isVector(obj *LAny) bool {
-	return obj.ltype == typeVector
+func isVector(obj *LOB) bool {
+	return obj.variant == typeVector
 }
-func isStruct(obj *LAny) bool {
-	return obj.ltype == typeStruct
+func isStruct(obj *LOB) bool {
+	return obj.variant == typeStruct
 }
-func isFunction(obj *LAny) bool {
-	return obj.ltype == typeFunction
+func isFunction(obj *LOB) bool {
+	return obj.variant == typeFunction
 }
-func isCode(obj *LAny) bool {
-	return obj.ltype == typeCode
+func isCode(obj *LOB) bool {
+	return obj.variant == typeCode
 }
-func isSymbol(obj *LAny) bool {
-	return obj.ltype == typeSymbol
+func isSymbol(obj *LOB) bool {
+	return obj.variant == typeSymbol
 }
-func isKeyword(obj *LAny) bool {
-	return obj.ltype == typeKeyword
+func isKeyword(obj *LOB) bool {
+	return obj.variant == typeKeyword
 }
-func isType(obj *LAny) bool {
-	return obj.ltype == typeType
+func isType(obj *LOB) bool {
+	return obj.variant == typeType
 }
-func isPort(obj *LAny) bool {
-	return obj.ltype == typePort
+func isPort(obj *LOB) bool {
+	return obj.variant == typePort
 }
 
 //instances have arbitrary variant symbols, all we can check is that the instanceValue is set
-func isInstance(obj *LAny) bool {
+func isInstance(obj *LOB) bool {
 	return obj.car != nil && obj.cdr == nil
 }
 
-func equal(o1 *LAny, o2 *LAny) bool {
+func equal(o1 *LOB, o2 *LOB) bool {
 	if o1 == o2 {
 		return true
 	}
-	if o1.ltype != o2.ltype {
+	if o1.variant != o2.variant {
 		return false
 	}
-	switch o1.ltype {
+	switch o1.variant {
 	case typeBoolean:
 		return o1.boolean == o2.boolean
 	case typeCharacter:
@@ -188,7 +194,7 @@ func equal(o1 *LAny, o2 *LAny) bool {
 	}
 }
 
-func isPrimitiveType(tag *LAny) bool {
+func isPrimitiveType(tag *LOB) bool {
 	switch tag {
 	case typeNull, typeEOF, typeBoolean, typeCharacter, typeNumber, typeString, typeList, typeVector, typeStruct:
 		return true
@@ -199,20 +205,19 @@ func isPrimitiveType(tag *LAny) bool {
 	}
 }
 
-func instance(tag *LAny, val *LAny) (*LAny, error) {
+func instance(tag *LOB, val *LOB) (*LOB, error) {
 	if !isType(tag) {
 		return nil, TypeError(typeType, tag)
 	}
 	if isPrimitiveType(tag) {
 		return val, nil
 	}
-	result := new(LAny)
-	result.ltype = tag
+	result := newLOB(tag)
 	result.car = val
 	return result, nil
 }
 
-func value(obj *LAny) *LAny {
+func value(obj *LOB) *LOB {
 	if obj.cdr == nil && obj.car != nil {
 		return obj.car
 	}
@@ -224,13 +229,13 @@ func value(obj *LAny) *LAny {
 //
 func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
-	if l, ok := arg1.(*LAny); ok {
+	if l, ok := arg1.(*LOB); ok {
 		buf.WriteString(fmt.Sprintf("%v", write(l)))
 	} else {
 		buf.WriteString(fmt.Sprintf("%v", arg1))
 	}
 	for _, o := range args {
-		if l, ok := o.(*LAny); ok {
+		if l, ok := o.(*LOB); ok {
 			buf.WriteString(fmt.Sprintf("%v", write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
@@ -241,7 +246,7 @@ func Error(arg1 interface{}, args ...interface{}) error {
 }
 
 // TypeError - an error indicating expected and actual value for a type mismatch
-func TypeError(typeSym *LAny, obj *LAny) error {
+func TypeError(typeSym *LOB, obj *LOB) error {
 	return Error("Type error: expected ", typeSym, ", got ", obj)
 }
 

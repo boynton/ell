@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-func compile(expr *LAny) (*LAny, error) {
+func compile(expr *LOB) (*LOB, error) {
 	target := newCode(0, nil, nil, "")
 	err := compileExpr(target, EmptyList, expr, false, false, "")
 	if err != nil {
@@ -26,7 +26,7 @@ func compile(expr *LAny) (*LAny, error) {
 	return target, nil
 }
 
-func calculateLocation(sym *LAny, env *LAny) (int, int, bool) {
+func calculateLocation(sym *LOB, env *LOB) (int, int, bool) {
 	i := 0
 	for env != EmptyList {
 		j := 0
@@ -44,7 +44,7 @@ func calculateLocation(sym *LAny, env *LAny) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(target *LAny, env *LAny, expr *LAny, isTail bool, ignoreResult bool, context string) error {
+func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult bool, context string) error {
 	if isKeyword(expr) || isType(expr) {
 		if !ignoreResult {
 			target.code.emitLiteral(expr)
@@ -231,7 +231,7 @@ func compileExpr(target *LAny, env *LAny, expr *LAny, isTail bool, ignoreResult 
 	} else if isStruct(expr) {
 		//struct literal: the elements are evaluated
 		vlen := len(expr.elements)
-		vals := make([]*LAny, 0, vlen)
+		vals := make([]*LOB, 0, vlen)
 		for _, b := range expr.elements {
 			vals = append(vals, b)
 		}
@@ -257,11 +257,11 @@ func compileExpr(target *LAny, env *LAny, expr *LAny, isTail bool, ignoreResult 
 	return nil
 }
 
-func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ignoreResult bool, context string) error {
+func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
-	var syms []*LAny
-	var defaults []*LAny
-	var keys []*LAny
+	var syms []*LOB
+	var defaults []*LOB
+	var keys []*LOB
 	tmp := args
 	rest := false
 	if !isSymbol(args) {
@@ -272,7 +272,7 @@ func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ign
 				if cdr(tmp) != EmptyList {
 					return SyntaxError(tmp)
 				}
-				defaults = make([]*LAny, 0, len(a.elements))
+				defaults = make([]*LOB, 0, len(a.elements))
 				for _, sym := range a.elements {
 					def := Null
 					if isList(sym) {
@@ -294,8 +294,8 @@ func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ign
 				}
 				elen := len(a.elements)
 				slen := elen / 2
-				defaults = make([]*LAny, 0, slen)
-				keys = make([]*LAny, 0, slen)
+				defaults = make([]*LOB, 0, slen)
+				keys = make([]*LOB, 0, slen)
 				for i := 0; i < elen; i += 2 {
 					sym := a.elements[i]
 					defValue := a.elements[i+1]
@@ -326,7 +326,7 @@ func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ign
 			} else {
 				if rest {
 					syms = append(syms, a) //note: added, but argv not incremented
-					defaults = make([]*LAny, 0)
+					defaults = make([]*LOB, 0)
 					tmp = EmptyList
 					break
 				}
@@ -339,7 +339,7 @@ func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ign
 	if tmp != EmptyList { //entire arglist bound to a single variable
 		if isSymbol(tmp) {
 			syms = append(syms, tmp) //note: added, but argv not incremented
-			defaults = make([]*LAny, 0)
+			defaults = make([]*LOB, 0)
 		} else {
 			return SyntaxError(tmp)
 		}
@@ -359,7 +359,7 @@ func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ign
 	return err
 }
 
-func compileSequence(target *LAny, env *LAny, exprs *LAny, isTail bool, ignoreResult bool, context string) error {
+func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResult bool, context string) error {
 	if exprs != EmptyList {
 		for cdr(exprs) != EmptyList {
 			err := compileExpr(target, env, car(exprs), false, true, context)
@@ -373,7 +373,7 @@ func compileSequence(target *LAny, env *LAny, exprs *LAny, isTail bool, ignoreRe
 	return SyntaxError(cons(intern("do"), exprs))
 }
 
-func compileFuncall(target *LAny, env *LAny, fn *LAny, args *LAny, isTail bool, ignoreResult bool, context string) error {
+func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) error {
 	argc := length(args)
 	if argc < 0 {
 		return SyntaxError(cons(fn, args))
@@ -383,7 +383,7 @@ func compileFuncall(target *LAny, env *LAny, fn *LAny, args *LAny, isTail bool, 
 		return err
 	}
 	fval := global(fn)
-	if fval != nil && fval.ltype == typeFunction && fval.function.primitive != nil {
+	if fval != nil && fval.variant == typeFunction && fval.function.primitive != nil {
 		target.code.emitPrimCall(fval.function.primitive, argc)
 		if ignoreResult {
 			target.code.emitPop()
@@ -407,7 +407,7 @@ func compileFuncall(target *LAny, env *LAny, fn *LAny, args *LAny, isTail bool, 
 	return nil
 }
 
-func compileArgs(target *LAny, env *LAny, args *LAny, context string) error {
+func compileArgs(target *LOB, env *LOB, args *LOB, context string) error {
 	if args != EmptyList {
 		err := compileArgs(target, env, cdr(args), context)
 		if err != nil {
@@ -418,7 +418,7 @@ func compileArgs(target *LAny, env *LAny, args *LAny, context string) error {
 	return nil
 }
 
-func compileIfElse(target *LAny, env *LAny, predicate *LAny, consequent *LAny, antecedentOptional *LAny, isTail bool, ignoreResult bool, context string) error {
+func compileIfElse(target *LOB, env *LOB, predicate *LOB, consequent *LOB, antecedentOptional *LOB, isTail bool, ignoreResult bool, context string) error {
 	antecedent := Null
 	if antecedentOptional != EmptyList {
 		antecedent = car(antecedentOptional)
@@ -446,7 +446,7 @@ func compileIfElse(target *LAny, env *LAny, predicate *LAny, consequent *LAny, a
 	return err
 }
 
-func compileUse(target *LAny, rest *LAny) error {
+func compileUse(target *LOB, rest *LOB) error {
 	lstlen := length(rest)
 	if lstlen != 1 {
 		//to do: other options for use.
@@ -461,6 +461,6 @@ func compileUse(target *LAny, rest *LAny) error {
 }
 
 //SyntaxError returns an error indicating that the given expression has bad syntax
-func SyntaxError(expr *LAny) error {
+func SyntaxError(expr *LOB) error {
 	return Error("Syntax error: ", expr)
 }

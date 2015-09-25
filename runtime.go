@@ -50,7 +50,7 @@ func ArgcError(name string, expected string, got int) error {
 }
 
 // ArgTypeError - returns an error describing an argument type mismatch
-func ArgTypeError(expected string, num int, arg *LAny) error {
+func ArgTypeError(expected string, num int, arg *LOB) error {
 	return Error("Argument ", num, " is not of type <", expected, ">: ", arg)
 }
 
@@ -62,9 +62,8 @@ type LFunction struct {
 	primitive   *Primitive
 }
 
-func newClosure(code *LCode, frame *Frame) *LAny {
-	clo := new(LAny)
-	clo.ltype = typeFunction
+func newClosure(code *LCode, frame *Frame) *LOB {
+	clo := newLOB(typeFunction)
 	fun := new(LFunction)
 	fun.code = code
 	fun.frame = frame
@@ -77,7 +76,7 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
-func exec(code *LCode, args ...*LAny) (*LAny, error) {
+func exec(code *LCode, args ...*LOB) (*LOB, error) {
 	if verbose {
 		println("; begin execution")
 		inExec = true
@@ -122,10 +121,10 @@ const instructionApply = 1
 const instructionCallCC = 2
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &LAny{ltype: typeFunction, function: &LFunction{instruction: instructionApply}}
+var Apply = &LOB{variant: typeFunction, function: &LFunction{instruction: instructionApply}}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &LAny{ltype: typeFunction, function: &LFunction{instruction: instructionCallCC}}
+var CallCC = &LOB{variant: typeFunction, function: &LFunction{instruction: instructionCallCC}}
 
 func (f LFunction) String() string {
 	if f.instruction == instructionNone {
@@ -152,7 +151,7 @@ func (f LFunction) String() string {
 }
 
 // PrimCallable is the native go function signature for all Ell primitive functions
-type PrimCallable func(argv []*LAny, argc int) (*LAny, error)
+type PrimCallable func(argv []*LOB, argc int) (*LOB, error)
 
 // Primitive - a primitive function, written in Go, callable by VM
 type Primitive struct { // <function>
@@ -162,11 +161,11 @@ type Primitive struct { // <function>
 	idx       int
 }
 
-func newPrimitive(name string, fun PrimCallable, signature string) *LAny {
+func newPrimitive(name string, fun PrimCallable, signature string) *LOB {
 	idx := len(primitives)
 	prim := &Primitive{name, fun, signature, idx}
 	primitives = append(primitives, prim)
-	return &LAny{ltype: typeFunction, function: &LFunction{primitive: prim}}
+	return &LOB{variant: typeFunction, function: &LFunction{primitive: prim}}
 }
 
 // Frame - a call frame in the VM, as well as en environment frame for lexical closures
@@ -175,8 +174,8 @@ type Frame struct {
 	pc        int
 	ops       []int
 	locals    *Frame
-	elements  []*LAny
-	constants []*LAny
+	elements  []*LOB
+	constants []*LOB
 	code      *LCode
 }
 
@@ -205,7 +204,7 @@ func showEnv(f *Frame) string {
 	return s
 }
 
-func showStack(stack []*LAny, sp int) string {
+func showStack(stack []*LOB, sp int) string {
 	end := len(stack)
 	s := "["
 	for sp < end {
@@ -215,7 +214,7 @@ func showStack(stack []*LAny, sp int) string {
 	return s + " ]"
 }
 
-func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []*LAny, sp int) (*Frame, error) {
+func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []*LOB, sp int) (*Frame, error) {
 	f := new(Frame)
 	f.previous = env
 	f.pc = pc
@@ -228,7 +227,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 		if argc != expectedArgc {
 			return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
-		el := make([]*LAny, argc)
+		el := make([]*LOB, argc)
 		copy(el, stack[sp:sp+argc])
 		f.elements = el
 		return f, nil
@@ -247,7 +246,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 		return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
-	el := make([]*LAny, totalArgc)
+	el := make([]*LOB, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
@@ -296,11 +295,11 @@ func addContext(env *Frame, err error) error {
 	return Error("[", env.code.name, "] ", err.Error())
 }
 
-func (vm *VM) exec(code *LCode, args []*LAny) (*LAny, error) {
-	stack := make([]*LAny, vm.stackSize)
+func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
+	stack := make([]*LOB, vm.stackSize)
 	sp := vm.stackSize
 	env := new(Frame)
-	env.elements = make([]*LAny, len(args))
+	env.elements = make([]*LOB, len(args))
 	copy(env.elements, args)
 	ops := code.ops
 	pc := 0
@@ -403,7 +402,7 @@ func (vm *VM) exec(code *LCode, args []*LAny) (*LAny, error) {
 			argc := ops[pc+1]
 			savedPc := pc + 2
 		opcodeCallAgain:
-			switch fun.ltype {
+			switch fun.variant {
 			case typeFunction:
 				lfun := fun.function
 				if lfun.primitive != nil {
@@ -480,7 +479,7 @@ func (vm *VM) exec(code *LCode, args []*LAny) (*LAny, error) {
 			sp++
 			argc := ops[pc+1]
 		opcodeTailCallAgain:
-			switch fun.ltype {
+			switch fun.variant {
 			case typeFunction:
 				lfun := fun.function
 				if lfun.primitive != nil {

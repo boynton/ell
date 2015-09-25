@@ -20,7 +20,7 @@ import (
 	"bytes"
 )
 
-func cons(car *LAny, cdr *LAny) *LAny {
+func cons(car *LOB, cdr *LOB) *LOB {
 	if true { //for dev. No external code should call into this, internal code should always be correct
 		if car == nil {
 			panic("Assertion failure: don't call cons with nil as car")
@@ -35,28 +35,27 @@ func cons(car *LAny, cdr *LAny) *LAny {
 	if inExec {
 		conses++
 	}
-	result := new(LAny)
-	result.ltype = typeList
+	result := newLOB(typeList)
 	result.car = car
 	result.cdr = cdr
 	return result
 }
 
-func safeCar(lst *LAny) (*LAny, error) {
+func safeCar(lst *LOB) (*LOB, error) {
 	if !isList(lst) {
 		return nil, ArgTypeError("list", 1, lst)
 	}
 	return car(lst), nil
 }
 
-func car(lst *LAny) *LAny {
+func car(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return Null
 	}
 	return lst.car
 }
 
-func setCar(lst *LAny, obj *LAny) error {
+func setCar(lst *LOB, obj *LOB) error {
 	if !isList(lst) {
 		return ArgTypeError("list", 1, lst)
 	}
@@ -67,21 +66,21 @@ func setCar(lst *LAny, obj *LAny) error {
 	return nil
 }
 
-func safeCdr(lst *LAny) (*LAny, error) {
+func safeCdr(lst *LOB) (*LOB, error) {
 	if !isList(lst) {
 		return nil, ArgTypeError("list", 1, lst)
 	}
 	return car(lst), nil
 }
 
-func cdr(lst *LAny) *LAny {
+func cdr(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return lst
 	}
 	return lst.cdr
 }
 
-func setCdr(lst *LAny, obj *LAny) error {
+func setCdr(lst *LOB, obj *LOB) error {
 	if !isList(lst) {
 		return ArgTypeError("list", 1, lst)
 	}
@@ -95,25 +94,25 @@ func setCdr(lst *LAny, obj *LAny) error {
 	return nil
 }
 
-func caar(lst *LAny) *LAny {
+func caar(lst *LOB) *LOB {
 	return car(car(lst))
 }
-func cadr(lst *LAny) *LAny {
+func cadr(lst *LOB) *LOB {
 	return car(cdr(lst))
 }
-func cddr(lst *LAny) *LAny {
+func cddr(lst *LOB) *LOB {
 	return cdr(cdr(lst))
 }
-func caddr(lst *LAny) *LAny {
+func caddr(lst *LOB) *LOB {
 	return car(cdr(cdr(lst)))
 }
-func cdddr(lst *LAny) *LAny {
+func cdddr(lst *LOB) *LOB {
 	return cdr(cdr(cdr(lst)))
 }
-func cadddr(lst *LAny) *LAny {
+func cadddr(lst *LOB) *LOB {
 	return car(cdr(cdr(cdr(lst))))
 }
-func cddddr(lst *LAny) *LAny {
+func cddddr(lst *LOB) *LOB {
 	return cdr(cdr(cdr(cdr(lst))))
 }
 
@@ -126,12 +125,12 @@ var symUnquoteSplicing = intern("unquote-splicing")
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
 
-func initEmpty() *LAny {
-	return &LAny{ltype: typeList} //car and cdr are both nil
+func initEmpty() *LOB {
+	return &LOB{variant: typeList} //car and cdr are both nil
 }
 
 // Equal returns true if the object is equal to the argument
-func listEqual(lst *LAny, a *LAny) bool {
+func listEqual(lst *LOB, a *LOB) bool {
 	for lst != EmptyList {
 		if a == EmptyList {
 			return false
@@ -148,7 +147,7 @@ func listEqual(lst *LAny, a *LAny) bool {
 	return false
 }
 
-func listToString(lst *LAny) string {
+func listToString(lst *LOB) string {
 	var buf bytes.Buffer
 	if lst != EmptyList && lst.cdr != EmptyList && cddr(lst) == EmptyList {
 		if lst.car == symQuote {
@@ -181,7 +180,7 @@ func listToString(lst *LAny) string {
 	return buf.String()
 }
 
-func listLength(lst *LAny) int {
+func listLength(lst *LOB) int {
 	if lst == EmptyList {
 		return 0
 	}
@@ -194,7 +193,7 @@ func listLength(lst *LAny) int {
 	return count
 }
 
-func newList(count int, val *LAny) *LAny {
+func newList(count int, val *LOB) *LOB {
 	result := EmptyList
 	for i := 0; i < count; i++ {
 		result = cons(val, result)
@@ -202,7 +201,7 @@ func newList(count int, val *LAny) *LAny {
 	return result
 }
 
-func listFromValues(values []*LAny) *LAny {
+func listFromValues(values []*LOB) *LOB {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
@@ -211,24 +210,21 @@ func listFromValues(values []*LAny) *LAny {
 	return p
 }
 
-func list(values ...*LAny) *LAny {
+func list(values ...*LOB) *LOB {
 	return listFromValues(values)
 }
 
-func listToVector(lst *LAny) *LAny {
-	var elems []*LAny
+func listToVector(lst *LOB) *LOB {
+	var elems []*LOB
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
 	}
-	vec := new(LAny)
-	vec.ltype = typeVector
-	vec.elements = elems
-	return vec
+	return vectorFromElementsNoCopy(elems)
 }
 
-func toList(obj *LAny) (*LAny, error) {
-	switch obj.ltype {
+func toList(obj *LOB) (*LOB, error) {
+	switch obj.variant {
 	case typeList:
 		return obj, nil
 	case typeVector:
@@ -238,5 +234,5 @@ func toList(obj *LAny) (*LAny, error) {
 	case typeString:
 		return stringToList(obj), nil
 	}
-	return nil, Error("Cannot convert ", obj.ltype, " to <list>")
+	return nil, Error("Cannot convert ", obj.variant, " to <list>")
 }

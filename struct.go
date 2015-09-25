@@ -20,16 +20,15 @@ import (
 	"bytes"
 )
 
-func newStruct(fieldvals []*LAny) (*LAny, error) {
+func newStruct(fieldvals []*LOB) (*LOB, error) {
 	count := len(fieldvals)
-	strct := new(LAny)
-	strct.ltype = typeStruct
-	strct.elements = make([]*LAny, 0, count)
+	strct := newLOB(typeStruct)
+	strct.elements = make([]*LOB, 0, count)
 	i := 0
 	for i < count {
 		o := fieldvals[i]
 		i++
-		switch value(o).ltype {
+		switch value(o).variant {
 		case typeStruct: // not a valid key, just copy bindings from it
 			jmax := len(o.elements) / 2
 			for j := 0; j < jmax; j += 2 {
@@ -48,14 +47,14 @@ func newStruct(fieldvals []*LAny) (*LAny, error) {
 	return strct, nil
 }
 
-func get(obj *LAny, key *LAny) (*LAny, error) {
+func get(obj *LOB, key *LOB) (*LOB, error) {
 	s := value(obj)
-	if s.ltype != typeStruct {
+	if s.variant != typeStruct {
 		return nil, TypeError(typeStruct, obj)
 	}
 	bindings := s.elements
 	slen := len(bindings)
-	switch key.ltype {
+	switch key.variant {
 	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
 		for i := 0; i < slen; i += 2 {
 			if bindings[i] == key {
@@ -64,7 +63,7 @@ func get(obj *LAny, key *LAny) (*LAny, error) {
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
-			if bindings[i].ltype == typeString && bindings[i].text == key.text {
+			if bindings[i].variant == typeString && bindings[i].text == key.text {
 				return bindings[i+1], nil
 			}
 		}
@@ -72,7 +71,7 @@ func get(obj *LAny, key *LAny) (*LAny, error) {
 	return Null, nil
 }
 
-func has(obj *LAny, key *LAny) (bool, error) {
+func has(obj *LOB, key *LOB) (bool, error) {
 	tmp, err := get(obj, key)
 	if err != nil {
 		return false, err
@@ -83,15 +82,15 @@ func has(obj *LAny, key *LAny) (bool, error) {
 	return true, nil
 }
 
-func put(obj *LAny, key *LAny, val *LAny) (*LAny, error) {
+func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
 	//danger! side effects!
 	s := value(obj)
-	if s.ltype != typeStruct {
+	if s.variant != typeStruct {
 		return nil, TypeError(typeStruct, obj)
 	}
 	bindings := s.elements
 	slen := len(bindings)
-	switch key.ltype {
+	switch key.variant {
 	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
 		for i := 0; i < slen; i += 2 {
 			if bindings[i] == key {
@@ -101,7 +100,7 @@ func put(obj *LAny, key *LAny, val *LAny) (*LAny, error) {
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
-			if bindings[i].ltype == typeString && bindings[i].text == key.text {
+			if bindings[i].variant == typeString && bindings[i].text == key.text {
 				bindings[i+1] = val
 				return obj, nil
 			}
@@ -111,7 +110,7 @@ func put(obj *LAny, key *LAny, val *LAny) (*LAny, error) {
 	return obj, nil
 }
 
-func sliceContains(slice []*LAny, obj *LAny) bool {
+func sliceContains(slice []*LOB, obj *LOB) bool {
 	for _, o := range slice {
 		if o == obj {
 			return true
@@ -120,7 +119,7 @@ func sliceContains(slice []*LAny, obj *LAny) bool {
 	return false
 }
 
-func sliceGet(bindings []*LAny, key *LAny) *LAny {
+func sliceGet(bindings []*LOB, key *LOB) *LOB {
 	size := len(bindings)
 	for i := 0; i < size; i += 2 {
 		if key == bindings[i] {
@@ -130,7 +129,7 @@ func sliceGet(bindings []*LAny, key *LAny) *LAny {
 	return Null
 }
 
-func slicePut(bindings []*LAny, key *LAny, val *LAny) []*LAny {
+func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 	size := len(bindings)
 	for i := 0; i < size; i += 2 {
 		if key == bindings[i] {
@@ -143,12 +142,12 @@ func slicePut(bindings []*LAny, key *LAny, val *LAny) []*LAny {
 
 //(normalize-keyword-args '(x: 23) x: y:) -> (x: 23)
 //(normalize-keyword-args '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
-func normalizeKeywordArgs(args *LAny, keys []*LAny) (*LAny, error) {
+func normalizeKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 	count := length(args)
-	bindings := make([]*LAny, 0, count)
+	bindings := make([]*LOB, 0, count)
 	for args != EmptyList {
 		key := car(args)
-		switch value(key).ltype {
+		switch value(key).variant {
 		case typeSymbol:
 			key = intern(key.text + ":")
 			fallthrough
@@ -175,9 +174,9 @@ func normalizeKeywordArgs(args *LAny, keys []*LAny) (*LAny, error) {
 	return listFromValues(bindings), nil
 }
 
-func structAssoc(bindings []*LAny, key *LAny, val *LAny) []*LAny {
+func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 	slen := len(bindings)
-	switch key.ltype {
+	switch key.variant {
 	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
 		for i := 0; i < slen; i += 2 {
 			if bindings[i] == key {
@@ -187,7 +186,7 @@ func structAssoc(bindings []*LAny, key *LAny, val *LAny) []*LAny {
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
-			if bindings[i].ltype == typeString && bindings[i].text == key.text {
+			if bindings[i].variant == typeString && bindings[i].text == key.text {
 				bindings[i+1] = val
 				return bindings
 			}
@@ -197,7 +196,7 @@ func structAssoc(bindings []*LAny, key *LAny, val *LAny) []*LAny {
 }
 
 // Equal returns true if the object is equal to the argument
-func structEqual(s1 *LAny, s2 *LAny) bool {
+func structEqual(s1 *LOB, s2 *LOB) bool {
 	bindings1 := s1.elements
 	size := len(bindings1)
 	if size == len(s2.elements) {
@@ -221,7 +220,7 @@ func structEqual(s1 *LAny, s2 *LAny) bool {
 	return false
 }
 
-func structToString(s *LAny) string {
+func structToString(s *LOB) string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	bindings := s.elements
@@ -238,7 +237,7 @@ func structToString(s *LAny) string {
 	return buf.String()
 }
 
-func structToList(s *LAny) (*LAny, error) {
+func structToList(s *LOB) (*LOB, error) {
 	result := EmptyList
 	tail := EmptyList
 	bindings := s.elements
@@ -256,10 +255,10 @@ func structToList(s *LAny) (*LAny, error) {
 	return result, nil
 }
 
-func structToVector(s *LAny) *LAny {
+func structToVector(s *LOB) *LOB {
 	bindings := s.elements
 	size := len(bindings)
-	el := make([]*LAny, size/2)
+	el := make([]*LOB, size/2)
 	var j int
 	for i := 0; i < size; i += 2 {
 		el[j] = vector(bindings[i], bindings[i+1])

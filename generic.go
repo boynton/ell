@@ -16,9 +16,9 @@ limitations under the License.
 
 package main
 
-func isEmpty(obj *LAny) bool {
+func isEmpty(obj *LOB) bool {
 	seq := value(obj)
-	switch seq.ltype {
+	switch seq.variant {
 	case typeList:
 		return seq == EmptyList
 	case typeString:
@@ -34,9 +34,9 @@ func isEmpty(obj *LAny) bool {
 	}
 }
 
-func length(obj *LAny) int {
+func length(obj *LOB) int {
 	seq := value(obj)
-	switch seq.ltype {
+	switch seq.variant {
 	case typeString:
 		return len(seq.text)
 	case typeVector:
@@ -51,8 +51,8 @@ func length(obj *LAny) int {
 }
 
 /*
-func assoc(seq *LAny, key *LAny, val *LAny) (*LAny, error) {
-	switch seq.ltype {
+func assoc(seq *LOB, key *LOB, val *LOB) (*LOB, error) {
+	switch seq.variant {
 	case typeStruct:
 		s := copyStruct(seq)
 		s.bindings[key] = val
@@ -69,8 +69,8 @@ func assoc(seq *LAny, key *LAny, val *LAny) (*LAny, error) {
 	}
 }
 
-func dissoc(seq *LAny, key *LAny) (*LAny, error) {
-	switch seq.ltype {
+func dissoc(seq *LOB, key *LOB) (*LOB, error) {
+	switch seq.variant {
 	case typeStruct:
 		s := copyStruct(seq)
 		delete(s.bindings, key)
@@ -81,7 +81,7 @@ func dissoc(seq *LAny, key *LAny) (*LAny, error) {
 }
 */
 
-func reverse(lst *LAny) *LAny {
+func reverse(lst *LOB) *LOB {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = cons(lst.car, rev)
@@ -90,12 +90,12 @@ func reverse(lst *LAny) *LAny {
 	return rev
 }
 
-func flatten(lst *LAny) *LAny {
+func flatten(lst *LOB) *LOB {
 	result := EmptyList
 	tail := EmptyList
 	for lst != EmptyList {
 		item := lst.car
-		switch item.ltype {
+		switch item.variant {
 		case typeList:
 			item = flatten(item)
 		case typeVector:
@@ -118,7 +118,7 @@ func flatten(lst *LAny) *LAny {
 	return result
 }
 
-func concat(seq1 *LAny, seq2 *LAny) (*LAny, error) {
+func concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
 	rev := reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil
