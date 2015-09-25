@@ -69,7 +69,7 @@ func encodeString(s string) string {
 
 func newCharacter(c rune) *LOB {
 	char := newLOB(typeCharacter)
-	char.character = c
+	char.ival = int64(c)
 	return char
 }
 
@@ -77,7 +77,7 @@ func asCharacter(c *LOB) (rune, error) {
 	if !isCharacter(c) {
 		return 0, TypeError(typeCharacter, c)
 	}
-	return c.character, nil
+	return rune(c.ival), nil
 }
 
 func stringCharacters(s *LOB) []*LOB {

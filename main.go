@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"unsafe"
 )
 
 var verbose bool
@@ -46,6 +47,9 @@ func main() {
 	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
 	flag.Parse()
 	args := flag.Args()
+
+	println("size of number: ", unsafe.Sizeof(*newFloat64(0)))
+	println("size of bool: ", unsafe.Sizeof(*True))
 
 	EllPath = os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")

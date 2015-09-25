@@ -25,18 +25,21 @@ import (
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
-	variant   *LOB       // i.e. <string>
-	boolean   bool       // <boolean>
-	character rune       // <character>
-	ival      int        // <number>, <symbol>
-	fval      float64    //<number>
-	text      string     // <string>, <symbol>, <keyword>, <type>
-	car       *LOB       // non-nil for instances and <list>
-	cdr       *LOB       // non-nil for <list>, nil for everything else
-	elements  []*LOB     // <vector>, <struct>
-	function  *LFunction // <function>
-	code      *LCode     //<code>
-	port      *LPort     // <port>
+	variant  *LOB       // i.e. <string>
+	ival     int64      // <boolean>, <character>
+	fval     float64    //<number>
+	text     string     // <string>, <symbol>, <keyword>, <type>
+	car      *LOB       // non-nil for instances and <list>
+	cdr      *LOB       // non-nil for <list>, nil for everything else
+	elements []*LOB     // <vector>, <struct>
+	function *LFunction // <function>
+	code     *LCode     //<code>
+	port     *LPort     // <port>
+/*
+	pad8_1   *LOB
+	pad8_2   *LOB
+	pad4_1   int32
+*/
 }
 
 func newLOB(variant *LOB) *LOB {
@@ -57,9 +60,12 @@ func (a *LOB) String() string {
 	} else {
 		switch a.variant {
 		case typeBoolean:
-			return strconv.FormatBool(a.boolean)
+			if a.ival == 0 {
+				return "false"
+			}
+			return "true"
 		case typeCharacter:
-			return string([]rune{a.character})
+			return string([]rune{rune(a.ival)})
 		case typeNumber:
 			return strconv.FormatFloat(a.fval, 'f', -1, 64)
 		case typeString, typeSymbol, typeKeyword, typeType:
@@ -112,10 +118,10 @@ func isEOF(obj *LOB) bool {
 }
 
 // True is the singleton boolean true value
-var True = &LOB{variant: typeBoolean, boolean: true}
+var True = &LOB{variant: typeBoolean, ival: 1}
 
 // False is the singleton boolean false value
-var False = &LOB{variant: typeBoolean, boolean: false}
+var False = &LOB{variant: typeBoolean, ival: 0}
 
 func isBoolean(obj *LOB) bool {
 	return obj.variant == typeBoolean
@@ -171,10 +177,8 @@ func equal(o1 *LOB, o2 *LOB) bool {
 		return false
 	}
 	switch o1.variant {
-	case typeBoolean:
-		return o1.boolean == o2.boolean
-	case typeCharacter:
-		return o1.character == o2.character
+	case typeBoolean, typeCharacter:
+		return o1.ival == o2.ival
 	case typeNumber:
 		return o1.fval == o2.fval
 	case typeString:

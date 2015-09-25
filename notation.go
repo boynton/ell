@@ -653,7 +653,7 @@ func writeData(obj *LOB, json bool, indent string) (string, error) {
 	case typeStruct:
 		return writeStruct(obj, json, indent)
 	case typeCharacter:
-		switch obj.character {
+		switch obj.ival {
 		case 0:
 			return "#\\null", nil
 		case 7:
@@ -673,10 +673,10 @@ func writeData(obj *LOB, json bool, indent string) (string, error) {
 		case 127:
 			return "#\\delete", nil
 		default:
-			if obj.character < 127 {
-				return "#\\" + string(obj.character), nil
+			if obj.ival < 127 {
+				return "#\\" + string(rune(obj.ival)), nil
 			}
-			return fmt.Sprintf("#\\x%04X", int(obj.character)), nil
+			return fmt.Sprintf("#\\x%04X", obj.ival), nil
 		}
 	default:
 		if json {
