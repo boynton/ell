@@ -63,72 +63,30 @@ var symOpUndefGlobal = intern("undefglobal")
 var symOpDefMacro = intern("defmacro")
 var symOpUse = intern("use")
 
-// Code - compiled Ell bytecode
-type Code struct {
+// LCode - compiled Ell bytecode
+type LCode struct {
 	name     string
 	ops      []int
 	argc     int
-	defaults []LAny
-	keys     []LAny
+	defaults []*LOB
+	keys     []*LOB
 }
 
-func newCode(argc int, defaults []LAny, keys []LAny, name string) *Code {
+func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 	var ops []int
-	code := Code{
+	code := &LCode{
 		name,
 		ops,
 		argc,
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
 	}
-	return &code
+	result := newLOB(typeCode)
+	result.code = code
+	return result
 }
 
-var typeCode = intern("<code>")
-
-// Type returns the type of the code
-func (*Code) Type() LAny {
-	return typeCode
-}
-
-// Value returns the object itself for primitive types
-func (code *Code) Value() LAny {
-	return code
-}
-
-// Equal returns true if the object is equal to the argument
-func (code *Code) Equal(another LAny) bool {
-	if c, ok := another.(*Code); ok {
-		return code == c
-	}
-	return false
-}
-
-func copyElements(elements []LAny) []LAny {
-	if elements == nil {
-		return nil
-	}
-	size := len(elements)
-	c := make([]LAny, size)
-	for i := 0; i < size; i++ {
-		c[i] = elements[i].Copy()
-	}
-	return c
-}
-
-func (code *Code) Copy() LAny {
-	ops := make([]int, len(code.ops))
-	copy(ops, code.ops)
-	return &Code{
-		code.name,
-		ops,
-		code.argc,
-		copyElements(code.defaults), //nil for normal procs, empty for rest, and non-empty for optional/keyword
-		copyElements(code.keys),
-	}
-}
-
-func (code *Code) signature() string {
+func (code *LCode) signature() string {
 	//
 	//experimental: external annotations on the functions: *declarations* is a map from symbol to string
 	//
@@ -141,8 +99,8 @@ func (code *Code) signature() string {
 	// (declare cons (<any> <list>) <list>)
 	if code.name != "" {
 		val := global(intern("*declarations*")) //so if this this has not been defined, we'll just skip it
-		if s, ok := val.(*LStruct); ok {
-			sig, _ := get(s, intern(code.name))
+		if val != nil && isStruct(val) {
+			sig, _ := get(val, intern(code.name))
 			if sig != Null {
 				return sig.String()
 			}
@@ -164,14 +122,14 @@ func (code *Code) signature() string {
 	return tmp
 }
 
-func (code *Code) decompile(pretty bool) string {
+func (code *LCode) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
 	return strings.Replace(s, "(function (\"\" 0 [] [])", "(code", 1)
 }
 
-func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
+func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	indentAmount := "   "
 	offset := 0
 	max := len(code.ops)
@@ -230,7 +188,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			if pretty {
 				indent2 = indent + indentAmount
 			}
-			(constants[code.ops[offset+1]].(*Code)).decompileInto(buf, indent2, pretty)
+			constants[code.ops[offset+1]].code.decompileInto(buf, indent2, pretty)
 			buf.WriteString(")")
 			offset += 2
 		case opcodeLocal:
@@ -270,12 +228,12 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	buf.WriteString(")")
 }
 
-func (code *Code) String() string {
+func (code *LCode) String() string {
 	return code.decompile(true)
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *Code) loadOps(lst LAny) error {
+func (code *LCode) loadOps(lst *LOB) error {
 	for lst != EmptyList {
 		instr := car(lst)
 		op := car(instr)
@@ -289,8 +247,8 @@ func (code *Code) loadOps(lst LAny) error {
 			funcParams := car(lstFunc)
 			var argc int
 			var name string
-			var defaults []LAny
-			var keys []LAny
+			var defaults []*LOB
+			var keys []*LOB
 			var err error
 			if isSymbol(funcParams) {
 				//legacy form, just the argc
@@ -300,13 +258,13 @@ func (code *Code) loadOps(lst LAny) error {
 				}
 				if argc < 0 {
 					argc = -argc - 1
-					defaults = make([]LAny, 0)
+					defaults = make([]*LOB, 0)
 				}
 			} else if isList(funcParams) && length(funcParams) == 4 {
 				tmp := funcParams
 				a := car(tmp)
 				tmp = cdr(tmp)
-				name, err = stringValue(a)
+				name, err = asString(a)
 				if err != nil {
 					return Error("Bad code format: ", funcParams)
 				}
@@ -318,18 +276,18 @@ func (code *Code) loadOps(lst LAny) error {
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
-				if ary, ok := a.(*LVector); ok {
-					defaults = ary.elements
+				if isVector(a) {
+					defaults = a.elements
 				}
 				a = car(tmp)
-				if ary, ok := a.(*LVector); ok {
-					keys = ary.elements
+				if isVector(a) {
+					keys = a.elements
 				}
 			} else {
 				return Error("Bad code format: ", funcParams)
 			}
 			fun := newCode(argc, defaults, keys, name)
-			fun.loadOps(cdr(lstFunc))
+			fun.code.loadOps(cdr(lstFunc))
 			code.emitClosure(fun)
 		case symOpLiteral:
 			code.emitLiteral(cadr(instr))
@@ -354,10 +312,11 @@ func (code *Code) loadOps(lst LAny) error {
 			}
 			code.emitSetLocal(i, j)
 		case symOpGlobal:
-			if sym, ok := cadr(instr).(*LSymbol); ok {
+			sym := cadr(instr)
+			if isSymbol(sym) {
 				code.emitGlobal(sym)
 			} else {
-				return Error(symOpGlobal, " argument 1 not a symbol: ", cadr(instr))
+				return Error(symOpGlobal, " argument 1 not a symbol: ", sym)
 			}
 		case symOpUndefGlobal:
 			code.emitUndefGlobal(cadr(instr))
@@ -403,84 +362,84 @@ func (code *Code) loadOps(lst LAny) error {
 	return nil
 }
 
-func (code *Code) emitLiteral(val LAny) {
+func (code *LCode) emitLiteral(val *LOB) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *Code) emitGlobal(sym *LSymbol) {
+func (code *LCode) emitGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeGlobal)
-	code.ops = append(code.ops, sym.tag)
+	code.ops = append(code.ops, int(sym.ival))
 }
-func (code *Code) emitCall(argc int) {
+func (code *LCode) emitCall(argc int) {
 	code.ops = append(code.ops, opcodeCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *Code) emitReturn() {
+func (code *LCode) emitReturn() {
 	code.ops = append(code.ops, opcodeReturn)
 }
-func (code *Code) emitTailCall(argc int) {
+func (code *LCode) emitTailCall(argc int) {
 	code.ops = append(code.ops, opcodeTailCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *Code) emitPrimCall(prim *LPrimitive, argc int) {
+func (code *LCode) emitPrimCall(prim *Primitive, argc int) {
 	code.ops = append(code.ops, opcodePrimCall)
 	code.ops = append(code.ops, prim.idx)
 	code.ops = append(code.ops, argc)
 }
-func (code *Code) emitPop() {
+func (code *LCode) emitPop() {
 	code.ops = append(code.ops, opcodePop)
 }
-func (code *Code) emitLocal(i int, j int) {
+func (code *LCode) emitLocal(i int, j int) {
 	code.ops = append(code.ops, opcodeLocal)
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *Code) emitSetLocal(i int, j int) {
+func (code *LCode) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, opcodeSetLocal)
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *Code) emitDefGlobal(sym LAny) {
+func (code *LCode) emitDefGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitUndefGlobal(sym LAny) {
+func (code *LCode) emitUndefGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitDefMacro(sym LAny) {
+func (code *LCode) emitDefMacro(sym *LOB) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitClosure(newCode *Code) {
+func (code *LCode) emitClosure(newCode *LOB) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, putConstant(newCode))
 }
-func (code *Code) emitJumpFalse(offset int) int {
+func (code *LCode) emitJumpFalse(offset int) int {
 	code.ops = append(code.ops, opcodeJumpFalse)
 	loc := len(code.ops)
 	code.ops = append(code.ops, offset)
 	return loc
 }
-func (code *Code) emitJump(offset int) int {
+func (code *LCode) emitJump(offset int) int {
 	code.ops = append(code.ops, opcodeJump)
 	loc := len(code.ops)
 	code.ops = append(code.ops, offset)
 	return loc
 }
-func (code *Code) setJumpLocation(loc int) {
+func (code *LCode) setJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
 }
-func (code *Code) emitVector(alen int) {
+func (code *LCode) emitVector(alen int) {
 	code.ops = append(code.ops, opcodeVector)
 	code.ops = append(code.ops, alen)
 }
-func (code *Code) emitStruct(slen int) {
+func (code *LCode) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *Code) emitUse(sym LAny) {
+func (code *LCode) emitUse(sym *LOB) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, putConstant(sym))
 }

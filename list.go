@@ -20,12 +20,101 @@ import (
 	"bytes"
 )
 
-type LList struct { // <list>
-	car LAny
-	cdr *LList
+func cons(car *LOB, cdr *LOB) *LOB {
+	if true { //for dev. No external code should call into this, internal code should always be correct
+		if car == nil {
+			panic("Assertion failure: don't call cons with nil as car")
+		}
+		if cdr == nil {
+			panic("Assertion failure: don't call cons with nil as cdr")
+		}
+		if !isList(cdr) {
+			panic("Assertion failure: don't call cons with non-list as cdr")
+		}
+	}
+	if inExec {
+		conses++
+	}
+	result := newLOB(typeList)
+	result.car = car
+	result.cdr = cdr
+	return result
 }
 
-var typeList = intern("<list>")
+func safeCar(lst *LOB) (*LOB, error) {
+	if !isList(lst) {
+		return nil, ArgTypeError("list", 1, lst)
+	}
+	return car(lst), nil
+}
+
+func car(lst *LOB) *LOB {
+	if lst == EmptyList {
+		return Null
+	}
+	return lst.car
+}
+
+func setCar(lst *LOB, obj *LOB) error {
+	if !isList(lst) {
+		return ArgTypeError("list", 1, lst)
+	}
+	if isEmpty(lst) {
+		return Error("argument 1 to set-car! must be a non-empty list: ", lst)
+	}
+	lst.car = obj
+	return nil
+}
+
+func safeCdr(lst *LOB) (*LOB, error) {
+	if !isList(lst) {
+		return nil, ArgTypeError("list", 1, lst)
+	}
+	return car(lst), nil
+}
+
+func cdr(lst *LOB) *LOB {
+	if lst == EmptyList {
+		return lst
+	}
+	return lst.cdr
+}
+
+func setCdr(lst *LOB, obj *LOB) error {
+	if !isList(lst) {
+		return ArgTypeError("list", 1, lst)
+	}
+	if isEmpty(lst) {
+		return Error("argument 1 to set-cdr! must be a non-empty list: ", lst)
+	}
+	if !isList(obj) {
+		return Error("argument 2 to set-cdr! must be a list: ", lst)
+	}
+	lst.cdr = obj
+	return nil
+}
+
+func caar(lst *LOB) *LOB {
+	return car(car(lst))
+}
+func cadr(lst *LOB) *LOB {
+	return car(cdr(lst))
+}
+func cddr(lst *LOB) *LOB {
+	return cdr(cdr(lst))
+}
+func caddr(lst *LOB) *LOB {
+	return car(cdr(cdr(lst)))
+}
+func cdddr(lst *LOB) *LOB {
+	return cdr(cdr(cdr(lst)))
+}
+func cadddr(lst *LOB) *LOB {
+	return car(cdr(cdr(cdr(lst))))
+}
+func cddddr(lst *LOB) *LOB {
+	return cdr(cdr(cdr(cdr(lst))))
+}
 
 var symList = intern("list")
 var symQuote = intern("quote")
@@ -36,64 +125,29 @@ var symUnquoteSplicing = intern("unquote-splicing")
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
 
-func initEmpty() *LList {
-	var lst LList
-	return &lst
-}
-
-func isEmpty(col LAny) bool {
-	switch v := col.(type) {
-	case LNull: //Do I really want this?
-		return true
-	case LString:
-		return len(v) == 0
-	case *LVector:
-		return len(v.elements) == 0
-	case *LList:
-		return v == EmptyList
-	case *LStruct:
-		return len(v.bindings) == 0
-	default:
-		return false
-	}
-}
-
-func isList(obj LAny) bool {
-	_, ok := obj.(*LList)
-	return ok
-}
-
-// Type returns the type of the object
-func (*LList) Type() LAny {
-	return typeList
-}
-
-// Value returns the object itself for primitive types
-func (lst *LList) Value() LAny {
-	return lst
+func initEmpty() *LOB {
+	return &LOB{variant: typeList} //car and cdr are both nil
 }
 
 // Equal returns true if the object is equal to the argument
-func (lst *LList) Equal(another LAny) bool {
-	if a, ok := another.(*LList); ok {
-		for lst != EmptyList {
-			if a == EmptyList {
-				return false
-			}
-			if !equal(lst.car, a.car) {
-				return false
-			}
-			lst = lst.cdr
-			a = a.cdr
+func listEqual(lst *LOB, a *LOB) bool {
+	for lst != EmptyList {
+		if a == EmptyList {
+			return false
 		}
-		if lst == a {
-			return true
+		if !equal(lst.car, a.car) {
+			return false
 		}
+		lst = lst.cdr
+		a = a.cdr
+	}
+	if lst == a {
+		return true
 	}
 	return false
 }
 
-func (lst *LList) String() string {
+func listToString(lst *LOB) string {
 	var buf bytes.Buffer
 	if lst != EmptyList && lst.cdr != EmptyList && cddr(lst) == EmptyList {
 		if lst.car == symQuote {
@@ -126,15 +180,7 @@ func (lst *LList) String() string {
 	return buf.String()
 }
 
-func (lst *LList) Copy() LAny {
-	//deep copy
-	if lst == EmptyList {
-		return lst
-	}
-	return cons(lst.car.Copy(), lst.cdr.Copy().(*LList))
-}
-
-func listLength(lst *LList) int {
+func listLength(lst *LOB) int {
 	if lst == EmptyList {
 		return 0
 	}
@@ -147,7 +193,7 @@ func listLength(lst *LList) int {
 	return count
 }
 
-func newList(count int, val LAny) *LList {
+func newList(count int, val *LOB) *LOB {
 	result := EmptyList
 	for i := 0; i < count; i++ {
 		result = cons(val, result)
@@ -155,110 +201,7 @@ func newList(count int, val LAny) *LList {
 	return result
 }
 
-func cons(car LAny, cdr *LList) *LList {
-	if car == nil {
-		panic("Assertion failure: don't call cons with nil as car")
-	}
-	if cdr == nil {
-		panic("Assertion failure: don't call cons with nil as cdr")
-	}
-	if inExec {
-		conses++
-	}
-	return &LList{car, cdr}
-}
-
-func safeCar(lst LAny) (LAny, error) {
-	switch p := lst.(type) {
-	case *LList:
-		if p == EmptyList {
-			return Null, nil
-		}
-		return p.car, nil
-	default:
-		return nil, ArgTypeError("list", 1, lst)
-	}
-}
-
-func car(lst LAny) LAny {
-	if lst != EmptyList {
-		if p, ok := lst.(*LList); ok {
-			return p.car
-		}
-	}
-	return Null
-}
-
-func setCar(lst LAny, obj LAny) error {
-	switch p := lst.(type) {
-	case *LList:
-		if p == EmptyList {
-			return Error("argument to set-car! must be a non-empty list: ", lst)
-		}
-		p.car = obj
-		return nil
-	default:
-		return ArgTypeError("list", 1, lst)
-	}
-}
-
-func safeCdr(lst LAny) (*LList, error) {
-	switch p := lst.(type) {
-	case *LList:
-		if lst != EmptyList {
-			return p.cdr, nil
-		}
-		return EmptyList, nil
-	default:
-		return nil, ArgTypeError("list", 1, lst)
-	}
-}
-
-func cdr(lst LAny) *LList {
-	if lst != EmptyList {
-		if p, ok := lst.(*LList); ok {
-			return p.cdr
-		}
-	}
-	return EmptyList
-}
-
-func setCdr(lst LAny, obj LAny) error {
-	if p, ok := lst.(*LList); ok {
-		if p != EmptyList {
-			if d, ok := obj.(*LList); ok {
-				p.cdr = d
-				return nil
-			}
-			return Error("argument 2 to set-cdr! must be a list: ", lst)
-		}
-	}
-	return Error("argument 1 to set-cdr! must be a non-empty list: ", lst)
-}
-
-func caar(lst LAny) LAny {
-	return car(car(lst))
-}
-func cadr(lst LAny) LAny {
-	return car(cdr(lst))
-}
-func cddr(lst LAny) *LList {
-	return cdr(cdr(lst))
-}
-func caddr(lst LAny) LAny {
-	return car(cdr(cdr(lst)))
-}
-func cdddr(lst LAny) *LList {
-	return cdr(cdr(cdr(lst)))
-}
-func cadddr(lst LAny) LAny {
-	return car(cdr(cdr(cdr(lst))))
-}
-func cddddr(lst LAny) *LList {
-	return cdr(cdr(cdr(cdr(lst))))
-}
-
-func listFromValues(values []LAny) *LList {
+func listFromValues(values []*LOB) *LOB {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
@@ -267,37 +210,29 @@ func listFromValues(values []LAny) *LList {
 	return p
 }
 
-func list(values ...LAny) *LList {
+func list(values ...*LOB) *LOB {
 	return listFromValues(values)
 }
 
-func listToVector(lst *LList) *LVector {
-	var elems []LAny
+func listToVector(lst *LOB) *LOB {
+	var elems []*LOB
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
 	}
-	return &LVector{elems}
+	return vectorFromElementsNoCopy(elems)
 }
 
-func vectorToList(ary LAny) (LAny, error) {
-	v, ok := ary.(*LVector)
-	if !ok {
-		return nil, TypeError(typeVector, ary)
+func toList(obj *LOB) (*LOB, error) {
+	switch obj.variant {
+	case typeList:
+		return obj, nil
+	case typeVector:
+		return listFromValues(obj.elements), nil
+	case typeStruct:
+		return structToList(obj)
+	case typeString:
+		return stringToList(obj), nil
 	}
-	return listFromValues(v.elements), nil
-}
-
-func toList(obj LAny) (LAny, error) {
-	switch t := obj.(type) {
-	case *LList:
-		return t, nil
-	case *LVector:
-		return listFromValues(t.elements), nil
-	case *LStruct:
-		return structToList(t)
-	case LString:
-		return stringToList(t), nil
-	}
-	return nil, Error("Cannot convert ", obj.Type(), " to <list>")
+	return nil, Error("Cannot convert ", obj.variant, " to <list>")
 }

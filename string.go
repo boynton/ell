@@ -15,44 +15,21 @@ limitations under the License.
 */
 package main
 
-type LString string // <string>
-
-var typeString = intern("<string>")
-
-func isString(obj LAny) bool {
-	_, ok := obj.(LString)
-	return ok
+func newString(s string) *LOB {
+	str := newLOB(typeString)
+	str.text = s
+	return str
 }
 
-func stringValue(obj LAny) (string, error) {
-	switch s := obj.(type) {
-	case LString:
-		return string(s), nil
-	default:
+func asString(obj *LOB) (string, error) {
+	if !isString(obj) {
 		return "", TypeError(typeString, obj)
 	}
+	return obj.text, nil
 }
 
-// Type returns the type of the object
-func (LString) Type() LAny {
-	return typeString
-}
-
-// Value returns the object itself for primitive types
-func (s LString) Value() LAny {
-	return s
-}
-
-// Equal returns true if the object is equal to the argument
-func (s LString) Equal(another LAny) bool {
-	if a, ok := another.(LString); ok {
-		return s == a
-	}
-	return false
-}
-
-func (s LString) Copy() LAny {
-	return s
+func toString(a *LOB) *LOB {
+	return newString(a.String())
 }
 
 func encodeString(s string) string {
@@ -90,69 +67,31 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
-func (s LString) String() string {
-	return string(s)
+func newCharacter(c rune) *LOB {
+	char := newLOB(typeCharacter)
+	char.character = c
+	return char
 }
 
-//
-// LChar - Ell characters
-//
-type LChar rune // <char>
-
-var typeChar = intern("<char>")
-
-func isChar(obj LAny) bool {
-	_, ok := obj.(LChar)
-	if ok {
-		return true
+func asCharacter(c *LOB) (rune, error) {
+	if !isCharacter(c) {
+		return 0, TypeError(typeCharacter, c)
 	}
-	return ok
+	return c.character, nil
 }
 
-func newCharacter(c rune) LChar {
-	v := LChar(c)
-	return v
-}
-
-// Type returns the type of the object
-func (LChar) Type() LAny {
-	return typeChar
-}
-
-// Value returns the object itself for primitive types
-func (i LChar) Value() LAny {
-	return i
-}
-
-// Equal returns true if the object is equal to the argument
-func (i LChar) Equal(another LAny) bool {
-	if a, err := intValue(another); err == nil {
-		return int(i) == a
-	}
-	return false
-}
-
-func (i LChar) String() string {
-	buf := []rune{rune(i)}
-	return string(buf)
-}
-
-func (i LChar) Copy() LAny {
-	return i
-}
-
-func stringChars(s LString) []LAny {
-	chars := make([]LAny, len(s))
-	for i, c := range s {
-		chars[i] = LChar(c)
+func stringCharacters(s *LOB) []*LOB {
+	chars := make([]*LOB, len(s.text))
+	for i, c := range s.text {
+		chars[i] = newCharacter(c)
 	}
 	return chars
 }
 
-func stringToVector(s LString) LAny {
-	return vector(stringChars(s)...)
+func stringToVector(s *LOB) *LOB {
+	return vector(stringCharacters(s)...)
 }
 
-func stringToList(s LString) LAny {
-	return list(stringChars(s)...)
+func stringToList(s *LOB) *LOB {
+	return list(stringCharacters(s)...)
 }

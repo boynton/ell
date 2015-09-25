@@ -14,4 +14,4 @@
 ; error, as string-length must exactly have a string as an arg
 ;(assert (= (string-length s) (string-length b))) ; b can be treated as string?
 
-
+(println "[deftype_test OK]")
