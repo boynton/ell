@@ -50,37 +50,6 @@ func length(obj *LOB) int {
 	}
 }
 
-/*
-func assoc(seq *LOB, key *LOB, val *LOB) (*LOB, error) {
-	switch seq.variant {
-	case typeStruct:
-		s := copyStruct(seq)
-		s.bindings[key] = val
-		return s, nil
-	case typeVector:
-		if isNumber(key) {
-			a := copyVector(seq)
-			a.elements[int(seq.ival)] = val
-			return a, nil
-		}
-		return nil, TypeError(typeNumber, key)
-	default:
-		return nil, Error("Cannot assoc with this value: ", seq)
-	}
-}
-
-func dissoc(seq *LOB, key *LOB) (*LOB, error) {
-	switch seq.variant {
-	case typeStruct:
-		s := copyStruct(seq)
-		delete(s.bindings, key)
-		return s, nil
-	default:
-		return nil, Error("Cannot dissoc with this value: ", seq)
-	}
-}
-*/
-
 func reverse(lst *LOB) *LOB {
 	rev := EmptyList
 	for lst != EmptyList {

@@ -58,8 +58,8 @@ func ArgTypeError(expected string, num int, arg *LOB) error {
 type LFunction struct {
 	code        *LCode // closure
 	frame       *Frame // closure
-	instruction int
 	primitive   *Primitive
+	instruction int
 }
 
 func newClosure(code *LCode, frame *Frame) *LOB {
@@ -112,9 +112,6 @@ type VM struct {
 func newVM(stackSize int) *VM {
 	return &VM{stackSize}
 }
-
-// LInstruction - a primitive instruction for the VM
-type LInstruction int // <function>
 
 const instructionNone = 0
 const instructionApply = 1
@@ -170,13 +167,13 @@ func newPrimitive(name string, fun PrimCallable, signature string) *LOB {
 
 // Frame - a call frame in the VM, as well as en environment frame for lexical closures
 type Frame struct {
-	previous  *Frame
-	pc        int
-	ops       []int
 	locals    *Frame
+	previous  *Frame
+	ops       []int
 	elements  []*LOB
 	constants []*LOB
 	code      *LCode
+	pc        int
 }
 
 func (frame *Frame) String() string {

@@ -380,8 +380,7 @@ func ellToString(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 1 {
 		return nil, ArgcError("to-string", "1", argc)
 	}
-	s := writeToString(argv[0], Null)
-	return newString(s), nil
+	return toString(argv[0]), nil
 }
 
 func ellPrint(argv []*LOB, argc int) (*LOB, error) {

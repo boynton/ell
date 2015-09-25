@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"unsafe"
 )
 
 var verbose bool
