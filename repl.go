@@ -32,7 +32,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		if whole == "" {
 			return "", false, nil
 		}
-		lexpr, err := openInputString(whole).read()
+		lexpr, err := readInputString(whole)
 		ell.buf = ""
 		if err == nil {
 			val, err := eval(lexpr)
@@ -122,7 +122,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 	matches := []string{}
 	addendum := ""
 	prefix, funPosition := ell.completePrefix(expr)
-	candidates := map[LAny]bool{}
+	candidates := map[*LAny]bool{}
 	if funPosition {
 		for _, sym := range getKeywords() {
 			str := sym.String()

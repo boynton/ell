@@ -21,11 +21,11 @@ import (
 )
 
 type macro struct {
-	name     LAny
-	expander LAny //a function of one argument
+	name     *LAny
+	expander *LAny //a function of one argument
 }
 
-func newMacro(name LAny, expander LAny) *macro {
+func newMacro(name *LAny, expander *LAny) *macro {
 	return &macro{name, expander}
 }
 
@@ -33,26 +33,26 @@ func (mac *macro) String() string {
 	return fmt.Sprintf("(macro %v %v)", mac.name, mac.expander)
 }
 
-func macroexpand(expr LAny) (LAny, error) {
+func macroexpand(expr *LAny) (*LAny, error) {
 	return macroexpandObject(expr)
 }
 
-func macroexpandObject(expr LAny) (LAny, error) {
-	if lst, ok := expr.(*LList); ok {
-		if lst != EmptyList {
-			return macroexpandList(lst)
+func macroexpandObject(expr *LAny) (*LAny, error) {
+	if isList(expr) {
+		if expr != EmptyList {
+			return macroexpandList(expr)
 		}
 	}
 	return expr, nil
 }
 
-func macroexpandList(expr *LList) (LAny, error) {
+func macroexpandList(expr *LAny) (*LAny, error) {
 	if expr == EmptyList {
 		return expr, nil
 	}
 	lst := expr
 	fn := car(lst)
-	head := LAny(fn)
+	head := fn
 	if isSymbol(fn) {
 		result, err := expandPrimitive(fn, lst)
 		if err != nil {
@@ -63,7 +63,7 @@ func macroexpandList(expr *LList) (LAny, error) {
 		}
 		head = fn
 	} else if isList(fn) {
-		expanded, err := macroexpandList(fn.(*LList))
+		expanded, err := macroexpandList(fn)
 		if err != nil {
 			return nil, err
 		}
@@ -76,45 +76,46 @@ func macroexpandList(expr *LList) (LAny, error) {
 	return cons(head, tail), nil
 }
 
-func (mac *macro) expand(expr *LList) (LAny, error) {
+func (mac *macro) expand(expr *LAny) (*LAny, error) {
 	expander := mac.expander
-	switch fun := expander.(type) {
-	case *LClosure:
-		if fun.code.argc == 1 {
-			expanded, err := exec(fun.code, expr)
-			if err == nil {
-				if result, ok := expanded.(*LList); ok {
-					return macroexpandObject(result)
+	if expander.ltype == typeFunction {
+		if expander.function.closure != nil {
+			if expander.function.closure.code.argc == 1 {
+				expanded, err := exec(expander.function.closure.code, expr)
+				if err == nil {
+					if isList(expanded) {
+						return macroexpandObject(expanded)
+					}
+					return expanded, err
 				}
-				return expanded, err
+				return nil, Error("macro error in '", mac.name, "': ", err)
 			}
-			return nil, Error("macro error in '", mac.name, "': ", err)
+		} else if expander.function.primitive != nil {
+			args := []*LAny{expr}
+			expanded, err := expander.function.primitive.fun(args, 1)
+			if err == nil {
+				return macroexpandObject(expanded)
+			}
+			return nil, err
 		}
-	case *LPrimitive:
-		args := []LAny{expr}
-		expanded, err := fun.fun(args, 1)
-		if err == nil {
-			return macroexpandObject(expanded)
-		}
-		return nil, err
 	}
 	return nil, Error("Bad macro expander function")
 }
 
-func expandSequence(seq *LList) (*LList, error) {
-	var result []LAny
+func expandSequence(seq *LAny) (*LAny, error) {
+	var result []*LAny
 	if seq == nil {
 		panic("Whoops: should be (), not nil!")
 	}
 	for seq != EmptyList {
-		switch item := car(seq).(type) {
-		case *LList:
+		item := car(seq)
+		if isList(item) {
 			expanded, err := macroexpandList(item)
 			if err != nil {
 				return nil, err
 			}
 			result = append(result, expanded)
-		default:
+		} else {
 			result = append(result, item)
 		}
 		seq = cdr(seq)
@@ -127,7 +128,7 @@ func expandSequence(seq *LList) (*LList, error) {
 	return lst, nil
 }
 
-func expandIf(expr LAny) (*LList, error) {
+func expandIf(expr *LAny) (*LAny, error) {
 	i := length(expr)
 	if i == 4 {
 		tmp, err := expandSequence(cdr(expr))
@@ -147,7 +148,7 @@ func expandIf(expr LAny) (*LList, error) {
 	}
 }
 
-func expandUndef(expr *LList) (*LList, error) {
+func expandUndef(expr *LAny) (*LAny, error) {
 	if length(expr) != 2 || !isSymbol(cadr(expr)) {
 		return nil, SyntaxError(expr)
 	}
@@ -157,7 +158,7 @@ func expandUndef(expr *LList) (*LList, error) {
 // (defn f (x) (+ 1 x))
 //  ->
 // (def f (fn (x) (+ 1 x)))
-func expandDefn(expr *LList) (LAny, error) {
+func expandDefn(expr *LAny) (*LAny, error) {
 	exprLen := length(expr)
 	if exprLen >= 4 {
 		name := cadr(expr)
@@ -177,7 +178,7 @@ func expandDefn(expr *LList) (LAny, error) {
 	return nil, SyntaxError(expr)
 }
 
-func expandDefmacro(expr *LList) (LAny, error) {
+func expandDefmacro(expr *LAny) (*LAny, error) {
 	exprLen := length(expr)
 	if exprLen >= 4 {
 		name := cadr(expr)
@@ -206,7 +207,7 @@ func expandDefmacro(expr *LList) (LAny, error) {
 //(defmacro (defmacro expr)
 //  `(defmacro ~(cadr expr) (fn (expr) (apply (fn ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
 
-func expandDef(expr *LList) (LAny, error) {
+func expandDef(expr *LAny) (*LAny, error) {
 	exprLen := length(expr)
 	if exprLen != 3 {
 		return nil, SyntaxError(expr)
@@ -218,8 +219,8 @@ func expandDef(expr *LList) (LAny, error) {
 	if exprLen > 3 {
 		return nil, SyntaxError(expr)
 	}
-	body, ok := caddr(expr).(*LList)
-	if !ok {
+	body := caddr(expr)
+	if !isList(body) {
 		return expr, nil
 	}
 	val, err := macroexpandList(body)
@@ -229,7 +230,7 @@ func expandDef(expr *LList) (LAny, error) {
 	return list(car(expr), name, val), nil
 }
 
-func expandFn(expr *LList) (*LList, error) {
+func expandFn(expr *LAny) (*LAny, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
 		return nil, SyntaxError(expr)
@@ -247,7 +248,7 @@ func expandFn(expr *LList) (*LList, error) {
 				if caar(tmp) == intern("defmacro") {
 					return nil, Error("macros can only be defined at top level")
 				}
-				def, err := expandDef(car(tmp).(*LList))
+				def, err := expandDef(car(tmp))
 				if err != nil {
 					return nil, err
 				}
@@ -264,15 +265,14 @@ func expandFn(expr *LList) (*LList, error) {
 	return cons(car(expr), cons(args, body)), nil
 }
 
-func expandSetBang(expr *LList) (*LList, error) {
+func expandSetBang(expr *LAny) (*LAny, error) {
 	exprLen := length(expr)
 	if exprLen != 3 {
 		return nil, SyntaxError(expr)
 	}
 	var val = caddr(expr)
-	switch vv := val.(type) {
-	case *LList:
-		v, err := macroexpandList(vv)
+	if isList(val) {
+		v, err := macroexpandList(val)
 		if err != nil {
 			return nil, err
 		}
@@ -281,7 +281,7 @@ func expandSetBang(expr *LList) (*LList, error) {
 	return list(car(expr), cadr(expr), val), nil
 }
 
-func expandPrimitive(fn LAny, expr *LList) (LAny, error) {
+func expandPrimitive(fn *LAny, expr *LAny) (*LAny, error) {
 	switch fn {
 	case intern("quote"):
 		return expr, nil
@@ -315,8 +315,8 @@ func expandPrimitive(fn LAny, expr *LList) (LAny, error) {
 	}
 }
 
-func crackLetrecBindings(bindings *LList, tail *LList) (*LList, *LList, bool) {
-	var names []LAny
+func crackLetrecBindings(bindings *LAny, tail *LAny) (*LAny, *LAny, bool) {
+	var names []*LAny
 	inits := EmptyList
 	for bindings != EmptyList {
 		if isList(bindings) {
@@ -329,7 +329,7 @@ func crackLetrecBindings(bindings *LList, tail *LList) (*LList, *LList, bool) {
 					return nil, nil, false
 				}
 				if isList(cdr(tmp)) {
-					inits = cons(cons(intern("set!"), tmp.(*LList)), inits)
+					inits = cons(cons(intern("set!"), tmp), inits)
 				} else {
 					return nil, nil, false
 				}
@@ -351,7 +351,7 @@ func crackLetrecBindings(bindings *LList, tail *LList) (*LList, *LList, bool) {
 	return listFromValues(names), head, true
 }
 
-func expandLetrec(expr LAny) (LAny, error) {
+func expandLetrec(expr *LAny) (*LAny, error) {
 	// (letrec () expr ...) -> (do expr ...)
 	// (letrec ((x 1) (y 2)) expr ...) -> ((fn (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := cddr(expr)
@@ -359,11 +359,10 @@ func expandLetrec(expr LAny) (LAny, error) {
 		return nil, SyntaxError(expr)
 	}
 	bindings := cadr(expr)
-	lstBindings, ok := bindings.(*LList)
-	if !ok {
+	if !isList(bindings) {
 		return nil, SyntaxError(expr)
 	}
-	names, body, ok := crackLetrecBindings(lstBindings, body)
+	names, body, ok := crackLetrecBindings(bindings, body)
 	if !ok {
 		return nil, SyntaxError(expr)
 	}
@@ -375,9 +374,9 @@ func expandLetrec(expr LAny) (LAny, error) {
 	return cons(code, values), nil
 }
 
-func crackLetBindings(bindings *LList) (*LList, *LList, bool) {
-	var names []LAny
-	var values []LAny
+func crackLetBindings(bindings *LAny) (*LAny, *LAny, bool) {
+	var names []*LAny
+	var values []*LAny
 	for bindings != EmptyList {
 		tmp := car(bindings)
 		if isList(tmp) {
@@ -400,7 +399,7 @@ func crackLetBindings(bindings *LList) (*LList, *LList, bool) {
 	return listFromValues(names), listFromValues(values), true
 }
 
-func expandLet(expr LAny) (LAny, error) {
+func expandLet(expr *LAny) (*LAny, error) {
 	// (let () expr ...) -> (do expr ...)
 	// (let ((x 1) (y 2)) expr ...) -> ((fn (x y) expr ...) 1 2)
 	// (let label ((x 1) (y 2)) expr ...) -> (fn (label) expr
@@ -408,8 +407,8 @@ func expandLet(expr LAny) (LAny, error) {
 		//return ell_expand_named_let(argv, argc)
 		return expandNamedLet(expr)
 	}
-	bindings, ok := cadr(expr).(*LList)
-	if !ok {
+	bindings := cadr(expr)
+	if !isList(bindings) {
 		return nil, SyntaxError(expr)
 	}
 	names, values, ok := crackLetBindings(bindings)
@@ -427,10 +426,10 @@ func expandLet(expr LAny) (LAny, error) {
 	return cons(code, values), nil
 }
 
-func expandNamedLet(expr LAny) (LAny, error) {
+func expandNamedLet(expr *LAny) (*LAny, error) {
 	name := cadr(expr)
-	bindings, ok := caddr(expr).(*LList)
-	if !ok {
+	bindings := caddr(expr)
+	if !isList(bindings) {
 		return nil, SyntaxError(expr)
 	}
 	names, values, ok := crackLetBindings(bindings)
@@ -442,7 +441,7 @@ func expandNamedLet(expr LAny) (LAny, error) {
 	return macroexpandList(tmp)
 }
 
-func crackDoBindings(bindings *LList) (*LList, *LList, *LList, bool) {
+func crackDoBindings(bindings *LAny) (*LAny, *LAny, *LAny, bool) {
 	names := EmptyList
 	inits := EmptyList
 	steps := EmptyList
@@ -467,21 +466,19 @@ func crackDoBindings(bindings *LList) (*LList, *LList, *LList, bool) {
 		bindings = cdr(bindings)
 	}
 	var err error
-	inits2, err := macroexpandList(inits)
+	inits, err = macroexpandList(inits)
 	if err != nil {
 		return nil, nil, nil, false
 	}
-	inits, _ = inits2.(*LList)
-	steps2, err := macroexpandList(steps)
+	steps, err = macroexpandList(steps)
 	if err != nil {
 		return nil, nil, nil, false
 	}
-	steps, _ = steps2.(*LList)
 	return names, inits, steps, true
 }
 
-func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
-	var result LAny
+func nextCondClause(expr *LAny, clauses *LAny, count int) (*LAny, error) {
+	var result *LAny
 	var err error
 	tmpsym := intern("__tmp__")
 	ifsym := intern("if")
@@ -541,7 +538,7 @@ func nextCondClause(expr LAny, clauses LAny, count int) (LAny, error) {
 	return macroexpand(result)
 }
 
-func expandCond(expr LAny) (LAny, error) {
+func expandCond(expr *LAny) (*LAny, error) {
 	i := length(expr)
 	if i < 2 {
 		return nil, SyntaxError(expr)
@@ -559,46 +556,43 @@ func expandCond(expr LAny) (LAny, error) {
 	}
 }
 
-func expandQuasiquote(expr LAny) (LAny, error) {
+func expandQuasiquote(expr *LAny) (*LAny, error) {
 	if length(expr) != 2 {
 		return nil, SyntaxError(expr)
 	}
 	return expandQQ(cadr(expr))
 }
 
-func expandQQ(expr LAny) (LAny, error) {
-	switch v := expr.(type) {
-	case *LList:
-		if v == EmptyList {
-			return v, nil
+func expandQQ(expr *LAny) (*LAny, error) {
+	switch expr.ltype {
+	case typeList:
+		if expr == EmptyList {
+			return expr, nil
 		}
-		if v.cdr != EmptyList {
-			if v.car == symUnquote {
-				if v.cdr.cdr != EmptyList {
-					return nil, SyntaxError(v)
+		if expr.cdr != EmptyList {
+			if expr.car == symUnquote {
+				if expr.cdr.cdr != EmptyList {
+					return nil, SyntaxError(expr)
 				}
-				return macroexpand(v.cdr.car)
-			} else if v.car == symUnquoteSplicing {
+				return macroexpand(expr.cdr.car)
+			} else if expr.car == symUnquoteSplicing {
 				return nil, Error("unquote-splicing can only occur in the context of a list ")
 			}
 		}
-		tmp, err := expandQQList(v)
+		tmp, err := expandQQList(expr)
 		if err != nil {
 			return nil, err
 		}
 		return macroexpand(tmp)
-	case *LSymbol:
-		if isKeyword(v) {
-			return expr, nil
-		}
+	case typeSymbol:
 		return list(intern("quote"), expr), nil
 	default: //all other objects evaluate to themselves
 		return expr, nil
 	}
 }
 
-func expandQQList(lst *LList) (LAny, error) {
-	var tmp LAny
+func expandQQList(lst *LAny) (*LAny, error) {
+	var tmp *LAny
 	var err error
 	result := list(intern("concat"))
 	tail := result
@@ -624,7 +618,7 @@ func expandQQList(lst *LList) (LAny, error) {
 				tail.cdr = list(tmp)
 				tail = tail.cdr
 			} else {
-				tmp, err = expandQQList(item.(*LList))
+				tmp, err = expandQQList(item)
 				if err != nil {
 					return nil, err
 				}

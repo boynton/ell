@@ -22,7 +22,7 @@ import (
 	"strconv"
 )
 
-var trace bool = false
+var trace bool
 
 func setTrace(b bool) {
 	trace = b
@@ -50,17 +50,15 @@ func ArgcError(name string, expected string, got int) error {
 }
 
 // ArgTypeError - returns an error describing an argument type mismatch
-func ArgTypeError(expected string, num int, arg LAny) error {
+func ArgTypeError(expected string, num int, arg *LAny) error {
 	return Error("Argument ", num, " is not of type <", expected, ">: ", arg)
 }
 
-func isFunction(obj LAny) bool {
-	switch obj.(type) {
-	case *LClosure, *LPrimitive, LInstruction:
-		return true
-	default:
-		return false
-	}
+// LFunction - all callable function subtypes are represented here
+type LFunction struct {
+	instruction LInstruction
+	primitive   *LPrimitive
+	closure     *LClosure
 }
 
 const defaultStackSize = 1000
@@ -68,7 +66,7 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
-func exec(code *Code, args ...LAny) (LAny, error) {
+func exec(code *LCode, args ...*LAny) (*LAny, error) {
 	if verbose {
 		println("; begin execution")
 		inExec = true
@@ -109,44 +107,29 @@ func newVM(stackSize int) *VM {
 type LInstruction int // <function>
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = LInstruction(0)
+var Apply = &LAny{ltype: typeFunction, function: &LFunction{instruction: LInstruction(1)}}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = LInstruction(1)
+var CallCC = &LAny{ltype: typeFunction, function: &LFunction{instruction: LInstruction(2)}}
 
-// Type returns the type of the object
-func (LInstruction) Type() LAny {
-	return typeFunction
-}
-
-// Value returns the object itself for primitive types
-func (i LInstruction) Value() LAny {
-	return i
-}
-
-// Equal returns true if the object is equal to the argument
-func (i LInstruction) Equal(another LAny) bool {
-	if a, ok := another.(LInstruction); ok {
-		return i == a
-	}
-	return false
-}
-
-func (i LInstruction) String() string {
-	switch i {
-	case 0:
-		return "#[function apply (<function> <any>* <list>)]"
+func (f LFunction) String() string {
+	switch f.instruction {
 	case 1:
+		return "#[function apply (<function> <any>* <list>)]"
+	case 2:
 		return "#[function callcc (<function>)]"
+	default:
+		if f.primitive != nil {
+			return f.primitive.String()
+		}
+		if f.closure != nil {
+			return f.closure.String()
+		}
 	}
-	return fmt.Sprintf("#[function UNDEFINED]", i)
+	return fmt.Sprintf("#[function UNDEFINED]")
 }
 
-func (i LInstruction) Copy() LAny {
-	return i
-}
-
-type primitive func(argv []LAny, argc int) (LAny, error)
+type primitive func(argv []*LAny, argc int) (*LAny, error)
 
 // LPrimitive - a primitive function, written in Go, callable by VM
 type LPrimitive struct { // <function>
@@ -156,39 +139,15 @@ type LPrimitive struct { // <function>
 	idx       int
 }
 
-func newPrimitive(name string, fun primitive, signature string) *LPrimitive {
+func newPrimitive(name string, fun primitive, signature string) *LAny {
 	idx := len(primitives)
 	prim := &LPrimitive{name, fun, signature, idx}
 	primitives = append(primitives, prim)
-	return prim
-}
-
-var typeFunction = intern("<function>")
-
-// Type returns the type of the object
-func (prim *LPrimitive) Type() LAny {
-	return typeFunction
-}
-
-// Value returns the object itself for primitive types
-func (prim *LPrimitive) Value() LAny {
-	return prim
-}
-
-// Equal returns true if the object is equal to the argument
-func (prim *LPrimitive) Equal(another LAny) bool {
-	if a, ok := another.(*LPrimitive); ok {
-		return prim == a
-	}
-	return false
+	return &LAny{ltype: typeFunction, function: &LFunction{primitive: prim}}
 }
 
 func (prim *LPrimitive) String() string {
-	return "#[function " + prim.name + " " + prim.signature + "]"
-}
-
-func (prim *LPrimitive) Copy() LAny {
-	return prim
+	return "#[primitive-function " + prim.name + " " + prim.signature + "]"
 }
 
 type frame struct {
@@ -196,9 +155,9 @@ type frame struct {
 	pc        int
 	ops       []int
 	locals    *frame
-	elements  []LAny
-	constants []LAny
-	code      *Code
+	elements  []*LAny
+	constants []*LAny
+	code      *LCode
 }
 
 func (frame frame) String() string {
@@ -215,31 +174,8 @@ func (frame frame) String() string {
 
 // LClosure - an Ell closure formed over some compiled code and the current environment
 type LClosure struct { // <function>
-	code  *Code
+	code  *LCode
 	frame *frame
-}
-
-// Type returns the type of the object
-func (LClosure) Type() LAny {
-	return typeFunction
-}
-
-// Value returns the object itself for primitive types
-func (closure *LClosure) Value() LAny {
-	return closure
-}
-
-// Equal returns true if the object is equal to the argument
-func (closure *LClosure) Equal(another LAny) bool {
-	if a, ok := another.(*LClosure); ok {
-		return closure == a
-	}
-	return false
-}
-
-func (closure *LClosure) Copy() LAny {
-	//note: this isn't really a copy! closed-over state can still be mutated
-	return closure
 }
 
 func (closure LClosure) String() string {
@@ -264,7 +200,7 @@ func showEnv(f *frame) string {
 	return s
 }
 
-func showStack(stack []LAny, sp int) string {
+func showStack(stack []*LAny, sp int) string {
 	end := len(stack)
 	s := "["
 	for sp < end {
@@ -274,7 +210,7 @@ func showStack(stack []LAny, sp int) string {
 	return s + " ]"
 }
 
-func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []LAny, sp int) (*frame, error) {
+func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []*LAny, sp int) (*frame, error) {
 	f := new(frame)
 	f.previous = env
 	f.pc = pc
@@ -287,7 +223,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 		if argc != expectedArgc {
 			return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
-		el := make([]LAny, argc)
+		el := make([]*LAny, argc)
 		copy(el, stack[sp:sp+argc])
 		f.elements = el
 		return f, nil
@@ -306,7 +242,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LClosure, argc int, stack []
 		return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
-	el := make([]LAny, totalArgc)
+	el := make([]*LAny, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
@@ -355,11 +291,11 @@ func addContext(env *frame, err error) error {
 	return Error("[", env.code.name, "] ", err.Error())
 }
 
-func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
-	stack := make([]LAny, vm.stackSize)
+func (vm *VM) exec(code *LCode, args []*LAny) (*LAny, error) {
+	stack := make([]*LAny, vm.stackSize)
 	sp := vm.stackSize
 	env := new(frame)
-	env.elements = make([]LAny, len(args))
+	env.elements = make([]*LAny, len(args))
 	copy(env.elements, args)
 	ops := code.ops
 	pc := 0
@@ -462,30 +398,31 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			argc := ops[pc+1]
 			savedPc := pc + 2
 		opcodeCallAgain:
-			switch tfun := fun.(type) {
-			case *LPrimitive:
-				val, err := tfun.fun(stack[sp:sp+argc], argc)
-				if err != nil {
-					//to do: fix to throw an Ell continuation-based error
-					return nil, addContext(env, err)
-				}
-				sp = sp + argc - 1
-				stack[sp] = val
-				pc = savedPc
-			case *LClosure:
-				if checkInterrupt() {
-					return nil, addContext(env, Error("Interrupt"))
-				}
-				f, err := buildFrame(env, savedPc, ops, tfun, argc, stack, sp)
-				if err != nil {
-					return nil, addContext(env, err)
-				}
-				sp += argc
-				env = f
-				ops = tfun.code.ops
-				pc = 0
-			case LInstruction:
-				if tfun == Apply {
+			switch fun.ltype {
+			case typeFunction:
+				lfun := fun.function
+				if lfun.primitive != nil {
+					val, err := lfun.primitive.fun(stack[sp:sp+argc], argc)
+					if err != nil {
+						//to do: fix to throw an Ell continuation-based error
+						return nil, addContext(env, err)
+					}
+					sp = sp + argc - 1
+					stack[sp] = val
+					pc = savedPc
+				} else if lfun.closure != nil {
+					if checkInterrupt() {
+						return nil, addContext(env, Error("Interrupt"))
+					}
+					f, err := buildFrame(env, savedPc, ops, lfun.closure, argc, stack, sp)
+					if err != nil {
+						return nil, addContext(env, err)
+					}
+					sp += argc
+					env = f
+					ops = lfun.closure.code.ops
+					pc = 0
+				} else if fun == Apply {
 					if argc < 2 {
 						err := ArgcError("apply", "2+", argc)
 						return nil, addContext(env, err)
@@ -496,7 +433,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 						err := ArgTypeError("list", argc, args)
 						return nil, addContext(env, err)
 					}
-					arglist := args.(*LList)
+					arglist := args
 					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
@@ -511,25 +448,21 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 					}
 					goto opcodeCallAgain
 				} else {
-					return nil, addContext(env, Error("unsupported instruction", tfun))
+					return nil, addContext(env, Error("unsupported instruction", fun))
 				}
-			case *LSymbol:
-				if isKeyword(tfun) {
-					if argc != 1 {
-						err := ArgcError(tfun.Name, "1", argc)
-						return nil, addContext(env, err)
-					}
-					v, err := get(stack[sp], fun)
-					if err != nil {
-						return nil, addContext(env, err)
-					}
-					stack[sp] = v
-					pc = savedPc
-				} else {
-					return nil, addContext(env, Error("Not a function: ", tfun))
+			case typeKeyword:
+				if argc != 1 {
+					err := ArgcError(fun.text, "1", argc)
+					return nil, addContext(env, err)
 				}
+				v, err := get(stack[sp], fun)
+				if err != nil {
+					return nil, addContext(env, err)
+				}
+				stack[sp] = v
+				pc = savedPc
 			default:
-				return nil, addContext(env, Error("Not a function: ", tfun))
+				return nil, addContext(env, Error("Not a function: ", fun))
 			}
 		case opcodeTailCall:
 			if checkInterrupt() {
@@ -542,35 +475,36 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 			sp++
 			argc := ops[pc+1]
 		opcodeTailCallAgain:
-			switch tfun := fun.(type) {
-			case *LPrimitive:
-				val, err := tfun.fun(stack[sp:sp+argc], argc)
-				if err != nil {
-					return nil, addContext(env, err)
-				}
-				sp = sp + argc - 1
-				stack[sp] = val
-				pc = env.pc
-				ops = env.ops
-				env = env.previous
-				if env == nil {
-					if trace {
-						println("------------------ END EXECUTION")
+			switch fun.ltype {
+			case typeFunction:
+				lfun := fun.function
+				if lfun.primitive != nil {
+					val, err := lfun.primitive.fun(stack[sp:sp+argc], argc)
+					if err != nil {
+						return nil, addContext(env, err)
 					}
-					return stack[sp], nil
-				}
-			case *LClosure:
-				f, err := buildFrame(env.previous, env.pc, env.ops, tfun, argc, stack, sp)
-				if err != nil {
-					return nil, addContext(env, err)
-				}
-				sp += argc
-				ops = tfun.code.ops
-				code = tfun.code
-				pc = 0
-				env = f
-			case LInstruction:
-				if tfun == Apply {
+					sp = sp + argc - 1
+					stack[sp] = val
+					pc = env.pc
+					ops = env.ops
+					env = env.previous
+					if env == nil {
+						if trace {
+							println("------------------ END EXECUTION")
+						}
+						return stack[sp], nil
+					}
+				} else if lfun.closure != nil {
+					f, err := buildFrame(env.previous, env.pc, env.ops, lfun.closure, argc, stack, sp)
+					if err != nil {
+						return nil, addContext(env, err)
+					}
+					sp += argc
+					code = lfun.closure.code
+					ops = code.ops
+					pc = 0
+					env = f
+				} else if fun == Apply {
 					if argc < 2 {
 						err := ArgcError("apply", "2+", argc)
 						return nil, addContext(env, err)
@@ -581,7 +515,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 						err := ArgTypeError("list", argc, args)
 						return nil, addContext(env, err)
 					}
-					arglist := args.(*LList)
+					arglist := args
 					for i := argc - 2; i > 0; i-- {
 						arglist = cons(stack[sp+i], arglist)
 					}
@@ -596,33 +530,29 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 					}
 					goto opcodeTailCallAgain
 				} else {
-					return nil, addContext(env, Error("unsupported instruction", tfun))
+					return nil, addContext(env, Error("unsupported instruction", fun))
 				}
-			case *LSymbol:
-				if isKeyword(tfun) {
-					if argc != 1 {
-						err := ArgcError(tfun.Name, "1", argc)
-						return nil, addContext(env, err)
+			case typeKeyword:
+				if argc != 1 {
+					err := ArgcError(fun.text, "1", argc)
+					return nil, addContext(env, err)
+				}
+				v, err := get(stack[sp], fun)
+				if err != nil {
+					return nil, addContext(env, err)
+				}
+				stack[sp] = v
+				pc = env.pc
+				ops = env.ops
+				env = env.previous
+				if env == nil {
+					if trace {
+						println("------------------ END EXECUTION")
 					}
-					v, err := get(stack[sp], fun)
-					if err != nil {
-						return nil, addContext(env, err)
-					}
-					stack[sp] = v
-					pc = env.pc
-					ops = env.ops
-					env = env.previous
-					if env == nil {
-						if trace {
-							println("------------------ END EXECUTION")
-						}
-						return stack[sp], nil
-					}
-				} else {
-					return nil, addContext(env, Error("Not a function: ", tfun))
+					return stack[sp], nil
 				}
 			default:
-				return nil, addContext(env, Error("Not a function:", tfun))
+				return nil, addContext(env, Error("Not a function:", fun))
 			}
 		case opcodeReturn:
 			if checkInterrupt() {
@@ -667,7 +597,7 @@ func (vm *VM) exec(code *Code, args []LAny) (LAny, error) {
 				println(pc, "\tclosure\t", constants[ops[pc+1]])
 			}
 			sp--
-			stack[sp] = &LClosure{constants[ops[pc+1]].(*Code), env}
+			stack[sp] = &LAny{ltype: typeFunction, function: &LFunction{closure: &LClosure{constants[ops[pc+1]].code, env}}}
 			pc = pc + 2
 		case opcodeUse:
 			if trace {

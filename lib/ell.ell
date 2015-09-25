@@ -146,9 +146,10 @@
              (and (struct? o) ((fn ~args ~@predicate-body) (value: o)) true))
        (defn ~sym ~args
          (if (not ~@predicate-body)
-             (error ~(string "not a valid " typesym ": ") (write-to-string ~arg)))
+             (error ~(string "not a valid " typesym ": ") (to-string ~arg)))
          (instance ~typesym ~(car args)))
        ~typesym)))
+
 
 ;;
 ;; generic functions dispatch to methods based on argument type

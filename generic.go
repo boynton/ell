@@ -16,31 +16,51 @@ limitations under the License.
 
 package main
 
-func length(seq LAny) int {
-	switch v := seq.Value().(type) {
-	case LString:
-		return len(v)
-	case *LVector:
-		return len(v.elements)
-	case *LList:
-		return listLength(v)
-	case *LStruct:
-		return len(v.bindings)
+func isEmpty(obj *LAny) bool {
+	seq := value(obj)
+	switch seq.ltype {
+	case typeList:
+		return seq == EmptyList
+	case typeString:
+		return len(seq.text) == 0
+	case typeVector:
+		return len(seq.elements) == 0
+	case typeStruct:
+		return len(seq.elements) == 0
+	case typeNull: //?
+		return true
+	default:
+		return false
+	}
+}
+
+func length(obj *LAny) int {
+	seq := value(obj)
+	switch seq.ltype {
+	case typeString:
+		return len(seq.text)
+	case typeVector:
+		return len(seq.elements)
+	case typeList:
+		return listLength(seq)
+	case typeStruct:
+		return len(seq.elements) / 2
 	default:
 		return -1
 	}
 }
 
-func assoc(seq LAny, key LAny, val LAny) (LAny, error) {
-	switch s := seq.(type) {
-	case *LStruct:
-		s2 := copyStruct(s)
-		s2.bindings[key] = val
-		return s2, nil
-	case *LVector:
-		if idx, ok := key.(LNumber); ok {
-			a := copyVector(s)
-			a.elements[int(idx)] = val
+/*
+func assoc(seq *LAny, key *LAny, val *LAny) (*LAny, error) {
+	switch seq.ltype {
+	case typeStruct:
+		s := copyStruct(seq)
+		s.bindings[key] = val
+		return s, nil
+	case typeVector:
+		if isNumber(key) {
+			a := copyVector(seq)
+			a.elements[int(seq.ival)] = val
 			return a, nil
 		}
 		return nil, TypeError(typeNumber, key)
@@ -49,18 +69,19 @@ func assoc(seq LAny, key LAny, val LAny) (LAny, error) {
 	}
 }
 
-func dissoc(seq LAny, key LAny) (LAny, error) {
-	switch s := seq.(type) {
-	case *LStruct:
-		s2 := copyStruct(s)
-		delete(s2.bindings, key)
-		return s2, nil
+func dissoc(seq *LAny, key *LAny) (*LAny, error) {
+	switch seq.ltype {
+	case typeStruct:
+		s := copyStruct(seq)
+		delete(s.bindings, key)
+		return s, nil
 	default:
 		return nil, Error("Cannot dissoc with this value: ", seq)
 	}
 }
+*/
 
-func reverse(lst *LList) *LList {
+func reverse(lst *LAny) *LAny {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = cons(lst.car, rev)
@@ -69,26 +90,25 @@ func reverse(lst *LList) *LList {
 	return rev
 }
 
-func flatten(lst *LList) *LList {
+func flatten(lst *LAny) *LAny {
 	result := EmptyList
 	tail := EmptyList
 	for lst != EmptyList {
 		item := lst.car
-		var fitem *LList
-		switch titem := item.(type) {
-		case *LList:
-			fitem = flatten(titem)
-		case *LVector:
-			litem, _ := toList(titem)
-			fitem = flatten(litem.(*LList))
+		switch item.ltype {
+		case typeList:
+			item = flatten(item)
+		case typeVector:
+			litem, _ := toList(item)
+			item = flatten(litem)
 		default:
-			fitem = list(item)
+			item = list(item)
 		}
 		if tail == EmptyList {
-			result = fitem
+			result = item
 			tail = result
 		} else {
-			tail.cdr = fitem
+			tail.cdr = item
 		}
 		for tail.cdr != EmptyList {
 			tail = tail.cdr
@@ -98,7 +118,7 @@ func flatten(lst *LList) *LList {
 	return result
 }
 
-func concat(seq1 *LList, seq2 *LList) (*LList, error) {
+func concat(seq1 *LAny, seq2 *LAny) (*LAny, error) {
 	rev := reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil

@@ -40,6 +40,7 @@
 (test (fun_opt_default 1 2) '(1 2 57) "(fun_opt_default 1 2)")
 (test (fun_opt_default 1 2 3) '(1 2 3) "(fun_opt_default 1 2 3)")
 
+
 (defn fun_keyargs (x {y: 23, z 57}) (list x y z)) ; note that colons are optional, so are commas
 (test (fun_keyargs 1) '(1 23 57) "(fun_keyargs 1)")
 (test (fun_keyargs 1 y: 2) '(1 2 57) "(fun_keyargs 1 y: 2)")
@@ -51,4 +52,5 @@
 (test (fun_keyonly) '(23) "(fun_keyonly)")
 (test (fun_keyonly y: 100) '(100) "(fun_keyonly y: 100)")
 
+(println "[argbinding_test OK]")
 

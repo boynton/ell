@@ -20,26 +20,96 @@ import (
 	"bytes"
 )
 
-//
-// LStruct - Ell structs (objects). They are extensible, having a special type symbol in them.
-//
-type LStruct struct { // <struct>
-	bindings map[LAny]LAny
+func newStruct(fieldvals []*LAny) (*LAny, error) {
+	count := len(fieldvals)
+	strct := &LAny{ltype: typeStruct, elements: make([]*LAny, 0, count)}
+	i := 0
+	for i < count {
+		o := fieldvals[i]
+		i++
+		switch value(o).ltype {
+		case typeStruct: // not a valid key, just copy bindings from it
+			jmax := len(o.elements) / 2
+			for j := 0; j < jmax; j += 2 {
+				put(strct, o.elements[j], o.elements[j+1])
+			}
+		case typeString, typeSymbol, typeKeyword, typeType:
+			if i == count {
+				return nil, Error("mismatched keyword/value in arglist: ", o)
+			}
+			put(strct, o, fieldvals[i])
+			i++
+		default:
+			return nil, Error("bad parameter to struct: ", o)
+		}
+	}
+	return strct, nil
 }
 
-var typeStruct = intern("<struct>")
-
-// Type returns the type of the object
-func (s *LStruct) Type() LAny {
-	return typeStruct
+func get(obj *LAny, key *LAny) (*LAny, error) {
+	s := value(obj)
+	if s.ltype != typeStruct {
+		return nil, TypeError(typeStruct, obj)
+	}
+	bindings := s.elements
+	slen := len(bindings)
+	switch key.ltype {
+	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
+		for i := 0; i < slen; i += 2 {
+			if bindings[i] == key {
+				return bindings[i+1], nil
+			}
+		}
+	case typeString:
+		for i := 0; i < slen; i += 2 {
+			if bindings[i].ltype == typeString && bindings[i].text == key.text {
+				return bindings[i+1], nil
+			}
+		}
+	}
+	return Null, nil
 }
 
-// Value returns the object itself for primitive types
-func (s *LStruct) Value() LAny {
-	return s
+func has(obj *LAny, key *LAny) (bool, error) {
+	tmp, err := get(obj, key)
+	if err != nil {
+		return false, err
+	}
+	if tmp == Null {
+		return false, nil
+	}
+	return true, nil
 }
 
-func sliceContains(slice []LAny, obj LAny) bool {
+func put(obj *LAny, key *LAny, val *LAny) (*LAny, error) {
+	//danger! side effects!
+	s := value(obj)
+	if s.ltype != typeStruct {
+		return nil, TypeError(typeStruct, obj)
+	}
+	bindings := s.elements
+	slen := len(bindings)
+	switch key.ltype {
+	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
+		for i := 0; i < slen; i += 2 {
+			if bindings[i] == key {
+				bindings[i+1] = val
+				return obj, nil
+			}
+		}
+	case typeString:
+		for i := 0; i < slen; i += 2 {
+			if bindings[i].ltype == typeString && bindings[i].text == key.text {
+				bindings[i+1] = val
+				return obj, nil
+			}
+		}
+	}
+	s.elements = append(append(bindings, key), val)
+	return obj, nil
+}
+
+func sliceContains(slice []*LAny, obj *LAny) bool {
 	for _, o := range slice {
 		if o == obj {
 			return true
@@ -48,16 +118,39 @@ func sliceContains(slice []LAny, obj LAny) bool {
 	return false
 }
 
-func normalizeKeywordArgs(args *LList, keys []LAny) (*LList, error) {
+func sliceGet(bindings []*LAny, key *LAny) *LAny {
+	size := len(bindings)
+	for i := 0; i < size; i += 2 {
+		if key == bindings[i] {
+			return bindings[i+1]
+		}
+	}
+	return Null
+}
+
+func slicePut(bindings []*LAny, key *LAny, val *LAny) []*LAny {
+	size := len(bindings)
+	for i := 0; i < size; i += 2 {
+		if key == bindings[i] {
+			bindings[i+1] = val
+			return bindings
+		}
+	}
+	return append(append(bindings, key), val)
+}
+
+//(normalize-keyword-args '(x: 23) x: y:) -> (x: 23)
+//(normalize-keyword-args '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
+func normalizeKeywordArgs(args *LAny, keys []*LAny) (*LAny, error) {
 	count := length(args)
-	bindings := make(map[LAny]LAny, count/2)
+	bindings := make([]*LAny, 0, count)
 	for args != EmptyList {
 		key := car(args)
-		switch t := key.Value().(type) {
-		case *LSymbol:
-			if !isKeyword(key) {
-				key = intern(t.String() + ":")
-			}
+		switch value(key).ltype {
+		case typeSymbol:
+			key = intern(key.text + ":")
+			fallthrough
+		case typeKeyword:
 			if !sliceContains(keys, key) {
 				return nil, Error(key, " bad keyword parameter")
 			}
@@ -65,154 +158,91 @@ func normalizeKeywordArgs(args *LList, keys []LAny) (*LList, error) {
 			if args == EmptyList {
 				return nil, Error(key, " mismatched keyword/value pair in parameter")
 			}
-			bindings[key] = car(args)
-		case *LStruct:
-			for k, v := range t.bindings {
+			bindings = slicePut(bindings, key, car(args))
+		case typeStruct:
+			jmax := len(key.elements)
+			for j := 0; j < jmax; j += 2 {
+				k := key.elements[j]
 				if sliceContains(keys, k) {
-					bindings[k] = v
+					bindings = slicePut(bindings, k, key.elements[j+1])
 				}
 			}
 		}
 		args = args.cdr
 	}
-	count = len(bindings)
-	if count == 0 {
-		return EmptyList, nil
-	}
-	lst := make([]LAny, 0, count*2)
-	for k, v := range bindings {
-		lst = append(lst, k)
-		lst = append(lst, v)
-	}
-	return listFromValues(lst), nil
+	return listFromValues(bindings), nil
 }
 
-func copyStruct(s *LStruct) *LStruct {
-	bindings := make(map[LAny]LAny, len(s.bindings))
-	for k, v := range s.bindings {
-		bindings[k] = v
-	}
-	return &LStruct{bindings}
-}
-
-func (s *LStruct) Copy() LAny {
-	//deep copy
-	bindings := make(map[LAny]LAny, len(s.bindings))
-	for k, v := range s.bindings {
-		bindings[k] = v.Copy()
-	}
-	return &LStruct{bindings}
-}
-
-func newStruct(fieldvals []LAny) (*LStruct, error) {
-	count := len(fieldvals)
-	i := 0
-	bindings := make(map[LAny]LAny, count/2) //optimal if all key/value pairs
-	for i < count {
-		o := fieldvals[i]
-		i++
-		switch t := o.Value().(type) {
-		case LNull:
-			//ignore
-		case LString:
-			if i == count {
-				return nil, Error("mismatched keyword/value in arglist: ", o)
+func structAssoc(bindings []*LAny, key *LAny, val *LAny) []*LAny {
+	slen := len(bindings)
+	switch key.ltype {
+	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
+		for i := 0; i < slen; i += 2 {
+			if bindings[i] == key {
+				bindings[i+1] = val
+				return bindings
 			}
-			bindings[o] = fieldvals[i]
-			i++
-		case *LSymbol:
-			if i == count {
-				return nil, Error("mismatched keyword/value in arglist: ", o)
+		}
+	case typeString:
+		for i := 0; i < slen; i += 2 {
+			if bindings[i].ltype == typeString && bindings[i].text == key.text {
+				bindings[i+1] = val
+				return bindings
 			}
-			bindings[o] = fieldvals[i]
-			i++
-		case *LStruct:
-			for k, v := range t.bindings {
-				bindings[k] = v
-			}
-		default:
-			return nil, Error("bad parameter to struct: ", o)
 		}
 	}
-	return &LStruct{bindings}, nil
-}
-
-func isStruct(obj LAny) bool {
-	_, ok := obj.(*LStruct)
-	return ok
+	return append(append(bindings, key), val)
 }
 
 // Equal returns true if the object is equal to the argument
-func (s *LStruct) Equal(another LAny) bool {
-	if a, ok := another.(*LStruct); ok {
-		slen := len(s.bindings)
-		if slen == len(a.bindings) {
-			for k, v := range s.bindings {
-				if v2, ok := a.bindings[k]; ok {
-					if !equal(v, v2) {
-						return false
-					}
-				} else {
+func structEqual(s1 *LAny, s2 *LAny) bool {
+	bindings1 := s1.elements
+	size := len(bindings1)
+	if size == len(s2.elements) {
+		for i := 0; i < size; i += 2 {
+			k := bindings1[i]
+			v := bindings1[i+1]
+			v2, err := get(s2, k)
+			if err != nil {
+				return false
+			}
+			if v2 != Null {
+				if !equal(v, v2) {
 					return false
 				}
+			} else {
+				return false
 			}
-			return true
 		}
+		return true
 	}
 	return false
 }
 
-func (s *LStruct) String() string {
+func structToString(s *LAny) string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
-	first := true
-	for k, v := range s.bindings {
-		if first {
-			first = false
-		} else {
+	bindings := s.elements
+	size := len(bindings)
+	for i := 0; i < size; i += 2 {
+		if i > 0 {
 			buf.WriteString(" ")
 		}
-		buf.WriteString(k.String())
+		buf.WriteString(bindings[i].String())
 		buf.WriteString(" ")
-		buf.WriteString(v.String())
+		buf.WriteString(bindings[i+1].String())
 	}
 	buf.WriteString("}")
 	return buf.String()
 }
 
-func has(obj LAny, key LAny) (bool, error) {
-	o := obj.Value()
-	if s, ok := o.(*LStruct); ok {
-		_, ok := s.bindings[key]
-		return ok, nil
-	}
-	return false, TypeError(typeStruct, obj)
-}
-
-func get(obj LAny, key LAny) (LAny, error) {
-	o := obj.Value()
-	if s, ok := o.(*LStruct); ok {
-		if val, ok := s.bindings[key]; ok {
-			return val, nil
-		}
-		return Null, nil
-	}
-	return nil, TypeError(typeStruct, obj)
-}
-
-func put(obj LAny, key LAny, value LAny) (LAny, error) {
-	if aStruct, ok := obj.(*LStruct); ok {
-		aStruct.bindings[key] = value
-		return aStruct, nil
-	}
-	return nil, TypeError(typeStruct, obj)
-}
-
-func structToList(aStruct *LStruct) (*LList, error) {
+func structToList(s *LAny) (*LAny, error) {
 	result := EmptyList
 	tail := EmptyList
-	for k, v := range aStruct.bindings {
-		tmp := list(k, v)
+	bindings := s.elements
+	size := len(bindings)
+	for i := 0; i < size; i += 2 {
+		tmp := list(bindings[i], bindings[i+1])
 		if result == EmptyList {
 			result = list(tmp)
 			tail = result
@@ -224,13 +254,26 @@ func structToList(aStruct *LStruct) (*LList, error) {
 	return result, nil
 }
 
-func structToVector(aStruct *LStruct) *LVector {
-	size := len(aStruct.bindings)
-	el := make([]LAny, size)
-	var i int
-	for k, v := range aStruct.bindings {
-		el[i] = vector(k, v)
-		i++
+func structToVector(s *LAny) *LAny {
+	bindings := s.elements
+	size := len(bindings)
+	el := make([]*LAny, size/2)
+	var j int
+	for i := 0; i < size; i += 2 {
+		el[j] = vector(bindings[i], bindings[i+1])
+		j++
 	}
-	return &LVector{el}
+	return vectorFromElements(el, size)
 }
+
+/*
+func copyStruct(s *LAny) *LAny {
+	size := len(s.elements)
+	elements := make([]*LAny, size)
+	for i := 0; i < size; i += 2 {
+		elements[i] = s.elements[i]
+		elements[i+1] = elements[i].copy()
+   }
+   return &LAny{ltype: typeStruct, elements: elements}
+}
+*/

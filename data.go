@@ -22,181 +22,198 @@ import (
 	"strconv"
 )
 
-//
-// LAny is the generic Ell object. It supports querying its symbolic type name at runtime
-//
-type LAny interface { // <any> - the interface all Lxxx types must implement
-	Type() LAny
-	Value() LAny
-	Equal(another LAny) bool
-	String() string
-	Copy() LAny
+// LAny type is a union of all possible primitive types. Which fields are used depends on the variant
+// the variant is a type object i.e. intern("<string>")
+type LAny struct {
+	ltype     *LAny      // i.e. <string>
+	boolean   bool       // <boolean>
+	character rune       // <character>
+	ival      int        // <number>, <symbol>
+	fval      float64    //<number>
+	text      string     // <string>, <symbol>, <keyword>, <type>
+	car       *LAny      // non-nil for instances and <list>
+	cdr       *LAny      // non-nil for <list>, nil for everything else
+	elements  []*LAny    // <vector>, <struct>
+	function  *LFunction // <function>
+	code      *LCode     //<code>
+	port      *LPort     // <port>
 }
 
-func equal(o1 LAny, o2 LAny) bool {
+func identical(o1 *LAny, o2 *LAny) bool {
+	return o1 == o2
+}
+
+func (a *LAny) String() string {
+	if a == Null {
+		return "null"
+	} else if a == EOF {
+		return "#[eof]"
+	} else {
+		switch a.ltype {
+		case typeBoolean:
+			return strconv.FormatBool(a.boolean)
+		case typeCharacter:
+			return string([]rune{a.character})
+		case typeNumber:
+			return strconv.FormatFloat(a.fval, 'f', -1, 64)
+		case typeString, typeSymbol, typeKeyword, typeType:
+			return a.text
+		case typeList:
+			return listToString(a)
+		case typeVector:
+			return vectorToString(a)
+		case typeStruct:
+			return structToString(a)
+		case typeFunction:
+			return a.function.String()
+		case typePort:
+			return a.port.String()
+		default:
+			return "#" + a.ltype.text + write(a.car)
+		}
+	}
+}
+
+var typeType *LAny    // bootstrapped in initSymbolTable => intern("<type>")
+var typeKeyword *LAny // bootstrapped in initSymbolTable => intern("<keyword>")
+var typeSymbol *LAny  // bootstrapped in initSymbolTable = intern("<symbol>")
+
+var typeNull = intern("<null>")
+var typeEOF = intern("<eof>")
+var typeBoolean = intern("<boolean>")
+var typeCharacter = intern("<character>")
+var typeNumber = intern("<number>")
+var typeString = intern("<string>")
+var typeList = intern("<list>")
+var typeVector = intern("<vector>")
+var typeStruct = intern("<struct>")
+var typeFunction = intern("<function>")
+var typeCode = intern("<code>")
+var typePort = intern("<port>")
+
+// Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
+var Null = &LAny{ltype: typeNull}
+
+func isNull(obj *LAny) bool {
+	return obj == Null
+}
+
+// EOF is Ell's singleton EOF object
+var EOF = &LAny{ltype: typeEOF}
+
+func isEOF(obj *LAny) bool {
+	return obj == EOF
+}
+
+// True is the singleton boolean true value
+var True = &LAny{ltype: typeBoolean, boolean: true}
+
+// False is the singleton boolean false value
+var False = &LAny{ltype: typeBoolean, boolean: false}
+
+func isBoolean(obj *LAny) bool {
+	return obj.ltype == typeBoolean
+}
+
+func isCharacter(obj *LAny) bool {
+	return obj.ltype == typeCharacter
+}
+func isNumber(obj *LAny) bool {
+	return obj.ltype == typeNumber
+}
+func isString(obj *LAny) bool {
+	return obj.ltype == typeString
+}
+func isList(obj *LAny) bool {
+	return obj.ltype == typeList
+}
+func isVector(obj *LAny) bool {
+	return obj.ltype == typeVector
+}
+func isStruct(obj *LAny) bool {
+	return obj.ltype == typeStruct
+}
+func isFunction(obj *LAny) bool {
+	return obj.ltype == typeFunction
+}
+func isCode(obj *LAny) bool {
+	return obj.ltype == typeCode
+}
+func isSymbol(obj *LAny) bool {
+	return obj.ltype == typeSymbol
+}
+func isKeyword(obj *LAny) bool {
+	return obj.ltype == typeKeyword
+}
+func isType(obj *LAny) bool {
+	return obj.ltype == typeType
+}
+func isPort(obj *LAny) bool {
+	return obj.ltype == typePort
+}
+
+//instances have arbitrary variant symbols, all we can check is that the instanceValue is set
+func isInstance(obj *LAny) bool {
+	return obj.car != nil && obj.cdr == nil
+}
+
+func equal(o1 *LAny, o2 *LAny) bool {
 	if o1 == o2 {
 		return true
 	}
-	return o1.Equal(o2)
-}
-
-//
-// LNull is the type of the null value
-//
-type LNull int // <null>
-
-var typeNull = intern("<null>")
-
-// Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList
-const Null = LNull(0)
-
-// Type returns the type of the object
-func (LNull) Type() LAny {
-	return typeNull
-}
-
-// Value returns the object itself for primitive types
-func (LNull) Value() LAny {
-	return Null
-}
-
-// Equal returns true if the object is equal to the argument
-func (LNull) Equal(another LAny) bool {
-	return another == Null
-}
-
-func (v LNull) String() string {
-	return "null"
-}
-
-func (v LNull) Copy() LAny {
-	return v
-}
-
-//
-// LEOF is the type of the EOF marker
-//
-type LEOF int // <eof>
-
-// EOF is Ell's EOF object
-const EOF = LEOF(0)
-
-var typeEOF = intern("<eof>")
-
-// Type returns the type of the object
-func (LEOF) Type() LAny {
-	return typeEOF
-}
-
-// Value returns the object itself for primitive types
-func (LEOF) Value() LAny {
-	return EOF
-}
-
-// Equal returns true if the object is equal to the argument
-func (LEOF) Equal(another LAny) bool {
-	return another == EOF
-}
-
-func (LEOF) String() string {
-	return "#[eof]"
-}
-
-func (LEOF) Copy() LAny {
-	return EOF
-}
-
-//
-// LBoolean is the type of true and false
-//
-type LBoolean bool // <boolean>
-
-//True is Ell's true constant
-const True LBoolean = LBoolean(true)
-
-//False is Ell's false constant
-const False LBoolean = LBoolean(false)
-
-var typeBoolean = intern("<boolean>")
-
-func isBoolean(obj LAny) bool {
-	_, ok := obj.(LBoolean)
-	return ok
-}
-
-// Type returns the type of the object
-func (LBoolean) Type() LAny {
-	return typeBoolean
-}
-
-// Value returns the object itself for primitive types
-func (b LBoolean) Value() LAny {
-	return b
-}
-
-// Equal returns true if the object is equal to the argument
-func (b LBoolean) Equal(another LAny) bool {
-	if a, ok := another.(LBoolean); ok {
-		return b == a
+	if o1.ltype != o2.ltype {
+		return false
 	}
-	return false
+	switch o1.ltype {
+	case typeBoolean:
+		return o1.boolean == o2.boolean
+	case typeCharacter:
+		return o1.character == o2.character
+	case typeNumber:
+		return o1.fval == o2.fval
+	case typeString:
+		return o1.text == o2.text
+	case typeList:
+		return listEqual(o1, o2)
+	case typeVector:
+		return vectorEqual(o1, o2)
+	case typeStruct:
+		return structEqual(o1, o2)
+	case typeSymbol, typeKeyword, typeType:
+		return o1 == o2
+	case typeNull, typeEOF:
+		return true // singletons
+	default:
+		return false
+	}
 }
 
-func (b LBoolean) String() string {
-	return strconv.FormatBool(bool(b))
+func isPrimitiveType(tag *LAny) bool {
+	switch tag {
+	case typeNull, typeEOF, typeBoolean, typeCharacter, typeNumber, typeString, typeList, typeVector, typeStruct:
+		return true
+	case typeSymbol, typeKeyword, typeType, typeFunction, typePort:
+		return true
+	default:
+		return false
+	}
 }
 
-func (b LBoolean) Copy() LAny {
-	return b
-}
-
-// LInstance is a typed value
-type LInstance struct { // <user-defined-type>
-	tag   *LSymbol
-	value LAny
-}
-
-func instance(tag LAny, val LAny) (LAny, error) {
-	sym, ok := tag.(*LSymbol)
-	if !ok || !isValidTypeName(sym.Name) {
+func instance(tag *LAny, val *LAny) (*LAny, error) {
+	if !isType(tag) {
 		return nil, TypeError(typeType, tag)
 	}
-	switch sym {
-	case typeString, typeNumber, typeNull, typeBoolean, typeChar, typeEOF:
+	if isPrimitiveType(tag) {
 		return val, nil
-	case typeStruct, typeList, typeVector, typeSymbol, typeFunction, typeInput, typeOutput:
-		return val, nil
-	default:
-		return &LInstance{tag: sym, value: val}, nil
 	}
+	return &LAny{ltype: tag, car: val}, nil
 }
 
-// Type returns the type of the object
-func (s *LInstance) Type() LAny {
-	return s.tag
-}
-
-// Value returns the value of the object
-func (s *LInstance) Value() LAny {
-	return s.value
-}
-
-// Equal returns true if the object is equal to the argument
-func (s *LInstance) Equal(another LAny) bool {
-	if a, ok := another.(*LInstance); ok {
-		return s.tag == a.tag && s.value.Equal(a.value)
+func value(obj *LAny) *LAny {
+	if obj.cdr == nil && obj.car != nil {
+		return obj.car
 	}
-	return false
-}
-
-// String of a instance, i.e. #<point>{x: 1 y: 2} or #<uuid>"0bbbc94a-5e14-11e5-81e6-003ee1be85f9"
-func (s *LInstance) String() string {
-	return "#" + s.tag.String() + write(s.value)
-}
-
-func (i *LInstance) Copy() LAny {
-	c, _ := instance(i.tag, i.value.Copy())
-	return c
+	return obj
 }
 
 //
@@ -204,13 +221,13 @@ func (i *LInstance) Copy() LAny {
 //
 func Error(arg1 interface{}, args ...interface{}) error {
 	var buf bytes.Buffer
-	if l, ok := arg1.(LAny); ok {
+	if l, ok := arg1.(*LAny); ok {
 		buf.WriteString(fmt.Sprintf("%v", write(l)))
 	} else {
 		buf.WriteString(fmt.Sprintf("%v", arg1))
 	}
 	for _, o := range args {
-		if l, ok := o.(LAny); ok {
+		if l, ok := o.(*LAny); ok {
 			buf.WriteString(fmt.Sprintf("%v", write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
@@ -221,7 +238,7 @@ func Error(arg1 interface{}, args ...interface{}) error {
 }
 
 // TypeError - an error indicating expected and actual value for a type mismatch
-func TypeError(typeSym LAny, obj LAny) error {
+func TypeError(typeSym *LAny, obj *LAny) error {
 	return Error("Type error: expected ", typeSym, ", got ", obj)
 }
 

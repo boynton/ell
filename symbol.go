@@ -15,29 +15,18 @@ limitations under the License.
 */
 package main
 
-//
-// LSymbol holds symbols, keywords, and types. Use the tag to distinguish between them
-//
-type LSymbol struct {
-	Name string
-	tag  int //an incrementing sequence number for symbols, -1 for types, and -2 for keywords
-}
+var symTag int
 
-const typeTag = -1
-const keywordTag = -2
-
-var symtag int
-
-func intern(name string) *LSymbol {
+func intern(name string) *LAny {
 	sym, ok := symtab[name]
 	if !ok {
 		if isValidKeywordName(name) {
-			sym = &LSymbol{name, keywordTag}
+			sym = &LAny{ltype: typeKeyword, text: name}
 		} else if isValidTypeName(name) {
-			sym = &LSymbol{name, typeTag}
+			sym = &LAny{ltype: typeType, text: name}
 		} else if isValidSymbolName(name) {
-			sym = &LSymbol{name, symtag}
-			symtag++
+			sym = &LAny{ltype: typeSymbol, text: name, ival: symTag}
+			symTag++
 		}
 		if sym == nil {
 			panic("invalid symbol/type/keyword name passed to intern: " + name)
@@ -45,6 +34,10 @@ func intern(name string) *LSymbol {
 		symtab[name] = sym
 	}
 	return sym
+}
+
+func symbolTag(sym *LAny) int {
+	return sym.ival
 }
 
 func isValidSymbolName(name string) bool {
@@ -67,107 +60,68 @@ func isValidKeywordName(s string) bool {
 	return false
 }
 
-var typeSymbol = intern("<symbol>")
-var typeKeyword = intern("<keyword>")
-var typeType = intern("<type>")
-
-// Type returns the type of the object. Since LSymbol represents keywords, types, and regular
-// symbols, it could return any of those three values
-func (sym *LSymbol) Type() LAny {
-	if sym.tag == keywordTag {
-		return typeKeyword
-	} else if sym.tag == typeTag {
-		return typeType
+// <type> -> <symbol>
+func typeName(t *LAny) (*LAny, error) {
+	if !isType(t) {
+		return nil, Error("Type error: expected <type>, got ", t)
 	}
-	return typeSymbol
+	return intern(t.text[1 : len(t.text)-1]), nil
 }
 
-// Value returns the object itself for primitive types
-func (sym *LSymbol) Value() LAny {
-	return sym
-}
-
-// Equal returns true if the object is equal to the argument
-func (sym *LSymbol) Equal(another LAny) bool {
-	if a, ok := another.(*LSymbol); ok {
-		return sym == a
+func unkeywordedString(k *LAny) string {
+	if isKeyword(k) {
+		return k.text[:len(k.text)-1]
 	}
-	return false
+	return k.text
 }
 
-func (sym *LSymbol) String() string {
-	return sym.Name
-}
-
-func (sym *LSymbol) Copy() LAny {
-	return sym
-}
-
-func isSymbol(obj LAny) bool {
-	sym, ok := obj.(*LSymbol)
-	return ok && sym.tag >= 0
-}
-
-func isType(obj LAny) bool {
-	sym, ok := obj.(*LSymbol)
-	return ok && sym.tag == typeTag
-}
-
-func isKeyword(obj LAny) bool {
-	sym, ok := obj.(*LSymbol)
-	return ok && sym.tag == keywordTag
-}
-
-func typeName(obj LAny) (*LSymbol, error) {
-	sym, ok := obj.(*LSymbol)
-	if ok && sym.tag == typeTag {
-		return intern(sym.Name[1 : len(sym.Name)-1]), nil
+func unkeyworded(obj *LAny) (*LAny, error) {
+	if isSymbol(obj) {
+		return obj, nil
 	}
-	return nil, Error("Type error: expected <type>, got ", obj)
-}
-
-func unkeywordedString(sym *LSymbol) string {
-	if sym.tag == keywordTag {
-		return sym.Name[:len(sym.Name)-1]
-	}
-	return sym.Name
-}
-
-func unkeyworded(obj LAny) (LAny, error) {
-	sym, ok := obj.(*LSymbol)
-	if ok {
-		switch sym.tag {
-		case keywordTag:
-			return intern(sym.Name[:len(sym.Name)-1]), nil
-		case typeTag:
-			//nothing
-		default: //already a regular symbol
-			return obj, nil
-		}
+	if isKeyword(obj) {
+		return intern(obj.text[:len(obj.text)-1]), nil
 	}
 	return nil, Error("Type error: expected <keyword> or <symbol>, got ", obj)
 }
 
-func keywordToSymbol(obj LAny) (LAny, error) {
-	sym, ok := obj.(*LSymbol)
-	if ok && sym.tag == keywordTag {
-		return intern(sym.Name[:len(sym.Name)-1]), nil
+func keywordToSymbol(obj *LAny) (*LAny, error) {
+	if isKeyword(obj) {
+		return intern(obj.text[:len(obj.text)-1]), nil
 	}
 	return nil, Error("Type error: expected <keyword>, got ", obj)
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
-var symtab = map[string]*LSymbol{}
+var symtab = initSymbolTable()
 
-func symbols() []LAny {
-	syms := make([]LAny, 0, len(symtab))
+func initSymbolTable() map[string]*LAny {
+	syms := make(map[string]*LAny, 0)
+	typeType = &LAny{text: "<type>", ival: symTag}
+	symTag++
+	typeType.ltype = typeType //mutate to bootstrap type type
+	syms[typeType.text] = typeType
+
+	typeKeyword = &LAny{ltype: typeType, text: "<keyword>", ival: symTag}
+	symTag++
+	syms[typeKeyword.text] = typeKeyword
+
+	typeSymbol = &LAny{ltype: typeType, text: "<symbol>", ival: symTag}
+	symTag++
+	syms[typeSymbol.text] = typeSymbol
+
+	return syms
+}
+
+func symbols() []*LAny {
+	syms := make([]*LAny, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
 	}
 	return syms
 }
 
-func symbol(names []LAny) (LAny, error) {
+func symbol(names []*LAny) (*LAny, error) {
 	size := len(names)
 	if size < 1 {
 		return nil, ArgcError("symbol", "1+", size)
@@ -176,11 +130,9 @@ func symbol(names []LAny) (LAny, error) {
 	for i := 0; i < size; i++ {
 		o := names[i]
 		s := ""
-		switch t := o.(type) {
-		case LString:
-			s = string(t)
-		case *LSymbol:
-			s = t.Name
+		switch o.ltype {
+		case typeString, typeSymbol:
+			s = o.text
 		default:
 			return nil, Error("symbol name component invalid: ", o)
 		}

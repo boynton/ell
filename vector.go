@@ -20,131 +20,92 @@ import (
 	"bytes"
 )
 
-type LVector struct { // <vector>
-	elements []LAny
-}
-
-var typeVector = intern("<vector>")
-
-func isVector(obj LAny) bool {
-	_, ok := obj.(*LVector)
-	return ok
-}
-
-// Type returns the type of the object
-func (*LVector) Type() LAny {
-	return typeVector
-}
-
-// Value returns the object itself for primitive types
-func (ary *LVector) Value() LAny {
-	return ary
-}
-
-// Equal returns true if the object is equal to the argument
-func (ary *LVector) Equal(another LAny) bool {
-	if a, ok := another.(*LVector); ok {
-		alen := len(ary.elements)
-		if alen == len(a.elements) {
-			for i := 0; i < alen; i++ {
-				if !equal(ary.elements[i], a.elements[i]) {
-					return false
-				}
-			}
-			return true
+func vectorEqual(v1 *LAny, v2 *LAny) bool {
+	count := len(v1.elements)
+	if count != len(v2.elements) {
+		return false
+	}
+	for i := 0; i < count; i++ {
+		if !equal(v1.elements[i], v2.elements[i]) {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
-func (ary *LVector) String() string {
+func vectorToString(vec *LAny) string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
-	count := len(ary.elements)
+	count := len(vec.elements)
 	if count > 0 {
-		buf.WriteString(ary.elements[0].String())
+		buf.WriteString(vec.elements[0].String())
 		for i := 1; i < count; i++ {
 			buf.WriteString(" ")
-			buf.WriteString(ary.elements[i].String())
+			buf.WriteString(vec.elements[i].String())
 		}
 	}
 	buf.WriteString("]")
 	return buf.String()
 }
 
-func (vec *LVector) Copy() LAny {
-	size := len(vec.elements)
-	elements := make([]LAny, size)
-	for i := 0; i < size; i++ {
-		elements[i] = vec.elements[i].Copy()
-	}
-	return &LVector{elements}
-}
-
-func newVector(size int, init LAny) *LVector {
-	elements := make([]LAny, size)
+func newVector(size int, init *LAny) *LAny {
+	elements := make([]*LAny, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	return &LVector{elements}
+	return &LAny{ltype: typeVector, elements: elements}
 }
 
-func vector(elements ...LAny) LAny {
+func vector(elements ...*LAny) *LAny {
 	return vectorFromElements(elements, len(elements))
 }
 
-func vectorFromElements(elements []LAny, count int) LAny {
-	el := make([]LAny, count)
+func vectorFromElements(elements []*LAny, count int) *LAny {
+	el := make([]*LAny, count)
 	copy(el, elements[0:count])
-	return &LVector{el}
+	return &LAny{ltype: typeVector, elements: el}
 }
 
-func copyVector(a *LVector) *LVector {
-	elements := make([]LAny, len(a.elements))
-	copy(elements, a.elements)
-	return &LVector{elements}
+func copyVector(vec *LAny) *LAny {
+	size := len(vec.elements)
+	elements := make([]*LAny, size)
+	copy(elements, vec.elements)
+	return vectorFromElements(elements, size)
 }
 
-func vectorLength(ary LAny) (int, error) {
-	if a, ok := ary.(*LVector); ok {
-		return len(a.elements), nil
-	}
-	return 1, TypeError(typeVector, ary)
-}
-
-func vectorSet(ary LAny, idx int, obj LAny) error {
-	if a, ok := ary.(*LVector); ok {
-		if idx < 0 || idx >= len(a.elements) {
+func vectorSet(vec *LAny, idx int, obj *LAny) error {
+	if isVector(vec) {
+		if idx < 0 || idx >= len(vec.elements) {
 			return Error("Vector index out of range")
 		}
-		a.elements[idx] = obj
+		vec.elements[idx] = obj
 		return nil
 	}
-	return TypeError(typeVector, ary)
+	return TypeError(typeVector, vec)
 }
 
-func vectorRef(ary LAny, idx int) (LAny, error) {
-	if a, ok := ary.(*LVector); ok {
-		if idx < 0 || idx >= len(a.elements) {
+func vectorRef(vec *LAny, idx int) (*LAny, error) {
+	if isVector(vec) {
+		if idx < 0 || idx >= len(vec.elements) {
 			return nil, Error("Vector index out of range")
 		}
-		return a.elements[idx], nil
+		return vec.elements[idx], nil
 	}
-	return nil, TypeError(typeVector, ary)
+	return nil, TypeError(typeVector, vec)
 }
 
-func toVector(obj LAny) (LAny, error) {
-	switch t := obj.(type) {
-	case *LList:
-		return listToVector(t), nil
-	case *LVector:
-		return t, nil
-	case *LStruct:
-		return structToVector(t), nil
-	case LString:
-		return stringToVector(t), nil
+func toVector(obj *LAny) (*LAny, error) {
+	switch obj.ltype {
+	case typeVector:
+		return obj, nil
+	case typeList:
+		return listToVector(obj), nil
+	case typeStruct:
+		return structToVector(obj), nil
+	case typeString:
+		return stringToVector(obj), nil
 	}
-	return nil, Error("Cannot convert ", obj.Type(), " to <vector>")
+	return nil, Error("Cannot convert ", obj.ltype, " to <vector>")
 }
 
 /*
