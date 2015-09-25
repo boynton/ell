@@ -23,8 +23,6 @@ import (
 
 var constantsMap = make(map[*LOB]int, 0)
 var constants = make([]*LOB, 0, 1000)
-var globals = make([]*binding, 0, 1000)
-var globalsMap = make(map[*LOB]int, 0)
 var macroMap = make(map[*LOB]*macro, 0)
 var primitives = make([]*Primitive, 0, 1000)
 
@@ -87,40 +85,20 @@ func getKeywords() []*LOB {
 }
 
 func getGlobals() []*LOB {
-	syms := make([]*LOB, 0, symTag)
-	for _, b := range globals {
-		if b != nil {
-			syms = append(syms, b.sym)
+	var syms []*LOB
+	for _, sym := range symtab {
+		if sym.car != nil {
+			syms = append(syms, sym)
 		}
 	}
 	return syms
 }
 
-func globalValue(tag int) *LOB {
-	if tag < len(globals) {
-		tmp := globals[tag]
-		if tmp != nil {
-			return tmp.val
-		}
+func global(sym *LOB) *LOB {
+	if isSymbol(sym) {
+		return sym.car
 	}
 	return nil
-}
-
-//used to report errors, doesn't need to be fast
-func globalName(tag int) string {
-	for k, v := range symtab {
-		if int(v.ival) == tag {
-			return k
-		}
-	}
-	return "?"
-}
-
-func global(sym *LOB) *LOB {
-	if !isSymbol(sym) || sym.ival < 0 || sym.ival >= len(globals) {
-		return nil
-	}
-	return globalValue(sym.ival)
 }
 
 type binding struct {
@@ -129,42 +107,16 @@ type binding struct {
 }
 
 func defGlobal(sym *LOB, val *LOB) {
-	if !isSymbol(sym) {
-		panic("defGlobal with a non-symbol first argument")
-	}
-	if sym.ival >= len(globals) {
-		glob := make([]*binding, sym.ival+100)
-		copy(glob, globals)
-		globals = glob
-	}
-	b := binding{sym, val}
-	globals[sym.ival] = &b
+	sym.car = val
 	delete(macroMap, sym)
 }
 
 func isDefined(sym *LOB) bool {
-	if sym.ival < len(globals) {
-		return globals[sym.ival] != nil
-	}
-	return false
+	return sym.car != nil
 }
 
 func undefGlobal(sym *LOB) {
-	if sym.ival < len(globals) {
-		globals[sym.ival] = nil
-	}
-}
-
-func setGlobal(sym *LOB, val *LOB) error {
-	if sym.ival < len(globals) {
-		if globals[sym.ival] != nil {
-			globals[sym.ival].val = val
-			delete(macroMap, sym)
-			return nil
-		}
-
-	}
-	return Error("*** Warning: set on undefined global ", sym)
+	sym.car = nil
 }
 
 func macros() []*LOB {

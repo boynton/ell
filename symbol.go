@@ -15,8 +15,6 @@ limitations under the License.
 */
 package main
 
-var symTag int
-
 func intern(name string) *LOB {
 	sym, ok := symtab[name]
 	if !ok {
@@ -28,18 +26,12 @@ func intern(name string) *LOB {
 			sym.variant = typeType
 		} else if isValidSymbolName(name) {
 			sym.variant = typeSymbol
-			sym.ival = symTag
-			symTag++
 		} else {
 			panic("invalid symbol/type/keyword name passed to intern: " + name)
 		}
 		symtab[name] = sym
 	}
 	return sym
-}
-
-func symbolTag(sym *LOB) int {
-	return sym.ival
 }
 
 func isValidSymbolName(name string) bool {

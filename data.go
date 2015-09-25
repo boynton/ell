@@ -25,15 +25,15 @@ import (
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
-	variant     *LOB      // i.e. <string>
+	variant   *LOB       // i.e. <string>
 	boolean   bool       // <boolean>
 	character rune       // <character>
 	ival      int        // <number>, <symbol>
 	fval      float64    //<number>
 	text      string     // <string>, <symbol>, <keyword>, <type>
-	car       *LOB      // non-nil for instances and <list>
-	cdr       *LOB      // non-nil for <list>, nil for everything else
-	elements  []*LOB    // <vector>, <struct>
+	car       *LOB       // non-nil for instances and <list>
+	cdr       *LOB       // non-nil for <list>, nil for everything else
+	elements  []*LOB     // <vector>, <struct>
 	function  *LFunction // <function>
 	code      *LCode     //<code>
 	port      *LPort     // <port>

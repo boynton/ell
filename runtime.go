@@ -323,12 +323,12 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			if trace {
 				println(pc, "\tglob\t", constants[ops[pc+1]])
 			}
-			val := globalValue(ops[pc+1])
-			if val == nil {
-				return nil, addContext(env, Error("Undefined symbol: ", globalName(ops[pc+1])))
+			sym := constants[ops[pc+1]]
+			if sym.car == nil {
+				return nil, addContext(env, Error("Undefined symbol: ", sym))
 			}
 			sp--
-			stack[sp] = val
+			stack[sp] = sym.car
 			pc += 2
 		case opcodeDefGlobal:
 			if trace {

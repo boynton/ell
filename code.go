@@ -369,7 +369,7 @@ func (code *LCode) emitLiteral(val *LOB) {
 
 func (code *LCode) emitGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeGlobal)
-	code.ops = append(code.ops, int(sym.ival))
+	code.ops = append(code.ops, putConstant(sym))
 }
 func (code *LCode) emitCall(argc int) {
 	code.ops = append(code.ops, opcodeCall)
