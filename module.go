@@ -26,7 +26,7 @@ var constants = make([]*LAny, 0, 1000)
 var globals = make([]*binding, 0, 1000)
 var globalsMap = make(map[*LAny]int, 0)
 var macroMap = make(map[*LAny]*macro, 0)
-var primitives = make([]*LPrimitive, 0, 1000)
+var primitives = make([]*Primitive, 0, 1000)
 
 func checkInterrupt() bool {
 	if interrupts != nil {
@@ -50,7 +50,7 @@ func define(name string, obj *LAny) {
 
 //Need to pass a "signature" string to document usage
 // "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
-func defineFunction(name string, fun primitive, signature string) {
+func defineFunction(name string, fun PrimCallable, signature string) {
 	sym := intern(name)
 	if global(sym) != nil {
 		println("*** Warning: redefining ", name, " with a primitive")
@@ -60,7 +60,7 @@ func defineFunction(name string, fun primitive, signature string) {
 	defGlobal(sym, prim)
 }
 
-func defineMacro(name string, fun primitive) {
+func defineMacro(name string, fun PrimCallable) {
 	sym := intern(name)
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
@@ -73,11 +73,11 @@ func getKeywords() []*LAny {
 	//keywords reserved for the base language that Ell compiles
 	keywords := []*LAny{
 		intern("quote"),
-		intern("def"),
-		intern("defn"),
 		intern("fn"),
 		intern("if"),
 		intern("do"),
+		intern("def"),
+		intern("defn"),
 		intern("defmacro"),
 		intern("set!"),
 		intern("lap"),

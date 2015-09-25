@@ -206,7 +206,10 @@ func instance(tag *LAny, val *LAny) (*LAny, error) {
 	if isPrimitiveType(tag) {
 		return val, nil
 	}
-	return &LAny{ltype: tag, car: val}, nil
+	result := new(LAny)
+	result.ltype = tag
+	result.car = val
+	return result, nil
 }
 
 func value(obj *LAny) *LAny {

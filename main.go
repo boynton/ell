@@ -27,7 +27,7 @@ var verbose bool
 var interactive bool
 
 // Version - this version of gell
-const Version = "gell v0.1"
+const Version = "gell v0.2"
 
 // EllPath is the path where the library *.ell files can be found
 var EllPath string

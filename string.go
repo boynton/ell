@@ -16,7 +16,10 @@ limitations under the License.
 package main
 
 func newString(s string) *LAny {
-	return &LAny{ltype: typeString, text: s}
+	str := new(LAny)
+	str.ltype = typeString
+	str.text = s
+	return str
 }
 
 func asString(obj *LAny) (string, error) {
@@ -66,7 +69,10 @@ func encodeString(s string) string {
 }
 
 func newCharacter(c rune) *LAny {
-	return &LAny{ltype: typeCharacter, character: c}
+	char := new(LAny)
+	char.ltype = typeCharacter
+	char.character = c
+	return char
 }
 
 func asCharacter(c *LAny) (rune, error) {

@@ -35,7 +35,11 @@ func cons(car *LAny, cdr *LAny) *LAny {
 	if inExec {
 		conses++
 	}
-	return &LAny{ltype: typeList, car: car, cdr: cdr}
+	result := new(LAny)
+	result.ltype = typeList
+	result.car = car
+	result.cdr = cdr
+	return result
 }
 
 func safeCar(lst *LAny) (*LAny, error) {
@@ -217,7 +221,10 @@ func listToVector(lst *LAny) *LAny {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
 	}
-	return &LAny{ltype: typeVector, elements: elems}
+	vec := new(LAny)
+	vec.ltype = typeVector
+	vec.elements = elems
+	return vec
 }
 
 func toList(obj *LAny) (*LAny, error) {

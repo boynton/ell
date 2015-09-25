@@ -79,9 +79,9 @@ func macroexpandList(expr *LAny) (*LAny, error) {
 func (mac *macro) expand(expr *LAny) (*LAny, error) {
 	expander := mac.expander
 	if expander.ltype == typeFunction {
-		if expander.function.closure != nil {
-			if expander.function.closure.code.argc == 1 {
-				expanded, err := exec(expander.function.closure.code, expr)
+		if expander.function.code != nil {
+			if expander.function.code.argc == 1 {
+				expanded, err := exec(expander.function.code, expr)
 				if err == nil {
 					if isList(expanded) {
 						return macroexpandObject(expanded)

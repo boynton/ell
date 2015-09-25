@@ -20,15 +20,17 @@ var symTag int
 func intern(name string) *LAny {
 	sym, ok := symtab[name]
 	if !ok {
+		sym = new(LAny)
+		sym.text = name
 		if isValidKeywordName(name) {
-			sym = &LAny{ltype: typeKeyword, text: name}
+			sym.ltype = typeKeyword
 		} else if isValidTypeName(name) {
-			sym = &LAny{ltype: typeType, text: name}
+			sym.ltype = typeType
 		} else if isValidSymbolName(name) {
-			sym = &LAny{ltype: typeSymbol, text: name, ival: symTag}
+			sym.ltype = typeSymbol
+			sym.ival = symTag
 			symTag++
-		}
-		if sym == nil {
+		} else {
 			panic("invalid symbol/type/keyword name passed to intern: " + name)
 		}
 		symtab[name] = sym
@@ -97,17 +99,14 @@ var symtab = initSymbolTable()
 
 func initSymbolTable() map[string]*LAny {
 	syms := make(map[string]*LAny, 0)
-	typeType = &LAny{text: "<type>", ival: symTag}
-	symTag++
+	typeType = &LAny{text: "<type>"}
 	typeType.ltype = typeType //mutate to bootstrap type type
 	syms[typeType.text] = typeType
 
-	typeKeyword = &LAny{ltype: typeType, text: "<keyword>", ival: symTag}
-	symTag++
+	typeKeyword = &LAny{ltype: typeType, text: "<keyword>"}
 	syms[typeKeyword.text] = typeKeyword
 
-	typeSymbol = &LAny{ltype: typeType, text: "<symbol>", ival: symTag}
-	symTag++
+	typeSymbol = &LAny{ltype: typeType, text: "<symbol>"}
 	syms[typeSymbol.text] = typeSymbol
 
 	return syms

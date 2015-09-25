@@ -21,15 +21,24 @@ import (
 )
 
 func newFloat64(f float64) *LAny {
-	return &LAny{ltype: typeNumber, fval: f}
+	num := new(LAny)
+	num.ltype = typeNumber
+	num.fval = f
+	return num
 }
 
 func newInt64(i int64) *LAny {
-	return &LAny{ltype: typeNumber, fval: float64(i)}
+	num := new(LAny)
+	num.ltype = typeNumber
+	num.fval = float64(i)
+	return num
 }
 
 func newInt(i int) *LAny {
-	return &LAny{ltype: typeNumber, fval: float64(i)}
+	num := new(LAny)
+	num.ltype = typeNumber
+	num.fval = float64(i)
+	return num
 }
 
 func isInt(obj *LAny) bool {

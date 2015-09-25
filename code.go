@@ -81,7 +81,10 @@ func newCode(argc int, defaults []*LAny, keys []*LAny, name string) *LAny {
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
 	}
-	return &LAny{ltype: typeCode, code: code}
+	result := new(LAny)
+	result.ltype = typeCode
+	result.code = code
+	return result
 }
 
 func (code *LCode) signature() string {
@@ -380,7 +383,7 @@ func (code *LCode) emitTailCall(argc int) {
 	code.ops = append(code.ops, opcodeTailCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *LCode) emitPrimCall(prim *LPrimitive, argc int) {
+func (code *LCode) emitPrimCall(prim *Primitive, argc int) {
 	code.ops = append(code.ops, opcodePrimCall)
 	code.ops = append(code.ops, prim.idx)
 	code.ops = append(code.ops, argc)

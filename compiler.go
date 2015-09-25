@@ -259,7 +259,7 @@ func compileExpr(target *LAny, env *LAny, expr *LAny, isTail bool, ignoreResult 
 
 func compileFn(target *LAny, env *LAny, args *LAny, body *LAny, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
-	syms := []*LAny{}
+	var syms []*LAny
 	var defaults []*LAny
 	var keys []*LAny
 	tmp := args

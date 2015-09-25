@@ -22,7 +22,9 @@ import (
 
 func newStruct(fieldvals []*LAny) (*LAny, error) {
 	count := len(fieldvals)
-	strct := &LAny{ltype: typeStruct, elements: make([]*LAny, 0, count)}
+	strct := new(LAny)
+	strct.ltype = typeStruct
+	strct.elements = make([]*LAny, 0, count)
 	i := 0
 	for i < count {
 		o := fieldvals[i]
@@ -265,15 +267,3 @@ func structToVector(s *LAny) *LAny {
 	}
 	return vectorFromElements(el, size)
 }
-
-/*
-func copyStruct(s *LAny) *LAny {
-	size := len(s.elements)
-	elements := make([]*LAny, size)
-	for i := 0; i < size; i += 2 {
-		elements[i] = s.elements[i]
-		elements[i+1] = elements[i].copy()
-   }
-   return &LAny{ltype: typeStruct, elements: elements}
-}
-*/

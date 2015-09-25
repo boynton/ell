@@ -53,7 +53,10 @@ func newVector(size int, init *LAny) *LAny {
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	return &LAny{ltype: typeVector, elements: elements}
+	vec := new(LAny)
+	vec.ltype = typeVector
+	vec.elements = elements
+	return vec
 }
 
 func vector(elements ...*LAny) *LAny {
@@ -63,7 +66,10 @@ func vector(elements ...*LAny) *LAny {
 func vectorFromElements(elements []*LAny, count int) *LAny {
 	el := make([]*LAny, count)
 	copy(el, elements[0:count])
-	return &LAny{ltype: typeVector, elements: el}
+	vec := new(LAny)
+	vec.ltype = typeVector
+	vec.elements = el
+	return vec
 }
 
 func copyVector(vec *LAny) *LAny {
