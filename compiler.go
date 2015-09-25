@@ -383,15 +383,6 @@ func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, igno
 		return err
 	}
 	fval := global(fn)
-	if fval != nil && fval.variant == typeFunction && fval.function.primitive != nil {
-		target.code.emitPrimCall(fval.function.primitive, argc)
-		if ignoreResult {
-			target.code.emitPop()
-		} else if isTail {
-			target.code.emitReturn()
-		}
-		return nil
-	}
 	err = compileExpr(target, env, fn, false, false, context)
 	if err != nil {
 		return err
