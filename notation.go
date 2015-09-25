@@ -72,11 +72,23 @@ func outputPortTypeError(fun string, argnum int, obj *LOB) error {
 
 // --- reader
 
-func readInputPort(in *LOB) (*LOB, error) {
+func readInputPort(in *LOB, options *LOB) (*LOB, error) {
 	if !isInputPort(in) {
 		return nil, inputPortTypeError("read", 1, in)
 	}
-	return in.port.read()
+	keys := Null
+	if options != nil && isStruct(options) {
+		t, err := get(options, intern("keys:"))
+		if err == nil && isType(t) {
+			switch t {
+			case typeSymbol, typeKeyword, typeString:
+				keys = t
+			default:
+				return nil, Error("Bad option value for keys: ", t)
+			}
+		}
+	}
+	return in.port.read(keys)
 }
 
 func closeInputPort(in *LOB) error {
@@ -86,11 +98,11 @@ func closeInputPort(in *LOB) error {
 	return in.port.close()
 }
 
-func (port *LPort) read() (*LOB, error) {
+func (port *LPort) read(keys *LOB) (*LOB, error) {
 	if port.reader == nil {
 		return nil, Error("Input port is closed: ", port)
 	}
-	obj, err := port.reader.readData()
+	obj, err := port.reader.readData(keys)
 	if err != nil {
 		if err == io.EOF {
 			return EOF, nil
@@ -141,15 +153,17 @@ func openInputString(input string) *LOB {
 	return newInputPort(input, reader, nil)
 }
 
-func readInputString(input string) (*LOB, error) {
-	return readInputPort(openInputString(input))
+func readInputString(input string, options *LOB) (*LOB, error) {
+	return readInputPort(openInputString(input), options)
 }
 
+/*
 func decode(in io.Reader) (*LOB, error) {
 	br := bufio.NewReader(in)
 	dr := dataReader{br}
-	return dr.readData()
+	return dr.readData(options)
 }
+*/
 
 type dataReader struct {
 	in *bufio.Reader
@@ -168,7 +182,7 @@ func (dr *dataReader) ungetChar() error {
 	return dr.in.UnreadByte()
 }
 
-func (dr *dataReader) readData() (*LOB, error) {
+func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
@@ -185,7 +199,7 @@ func (dr *dataReader) readData() (*LOB, error) {
 				c, e = dr.getChar()
 			}
 		case '\'':
-			o, err := dr.readData()
+			o, err := dr.readData(keys)
 			if err != nil {
 				return nil, err
 			}
@@ -194,7 +208,7 @@ func (dr *dataReader) readData() (*LOB, error) {
 			}
 			return list(symQuote, o), nil
 		case '`':
-			o, err := dr.readData()
+			o, err := dr.readData(keys)
 			if err != nil {
 				return nil, err
 			}
@@ -210,19 +224,19 @@ func (dr *dataReader) readData() (*LOB, error) {
 			} else {
 				sym = symUnquoteSplicing
 			}
-			o, err := dr.readData()
+			o, err := dr.readData(keys)
 			if err != nil {
 				return nil, err
 			}
 			return list(sym, o), nil
 		case '#':
-			return dr.decodeReaderMacro()
+			return dr.decodeReaderMacro(keys)
 		case '(':
-			return dr.decodeList()
+			return dr.decodeList(keys)
 		case '[':
-			return dr.decodeVector()
+			return dr.decodeVector(keys)
 		case '{':
-			return dr.decodeStruct()
+			return dr.decodeStruct(keys)
 		case '"':
 			return dr.decodeString()
 		case ')', ']', '}':
@@ -300,16 +314,16 @@ func (dr *dataReader) decodeString() (*LOB, error) {
 	return s, e
 }
 
-func (dr *dataReader) decodeList() (*LOB, error) {
-	items, err := dr.decodeSequence(')')
+func (dr *dataReader) decodeList(keys *LOB) (*LOB, error) {
+	items, err := dr.decodeSequence(')', keys)
 	if err != nil {
 		return nil, err
 	}
 	return listFromValues(items), nil
 }
 
-func (dr *dataReader) decodeVector() (*LOB, error) {
-	items, err := dr.decodeSequence(']')
+func (dr *dataReader) decodeVector(keys *LOB) (*LOB, error) {
+	items, err := dr.decodeSequence(']', keys)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +349,7 @@ func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
 	return 0, err
 }
 
-func (dr *dataReader) decodeStruct() (*LOB, error) {
+func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 	items := []*LOB{}
 	var err error
 	var c byte
@@ -351,9 +365,25 @@ func (dr *dataReader) decodeStruct() (*LOB, error) {
 			return newStruct(items)
 		}
 		dr.ungetChar()
-		element, err := dr.readData()
+		element, err := dr.readData(nil)
 		if err != nil {
 			return nil, err
+		}
+		if keys != nil && keys != Null {
+			switch keys {
+			case typeKeyword:
+				element, err = toKeyword(element)
+				if err != nil {
+					return nil, err
+				}
+			case typeSymbol:
+				element, err = toSymbol(element)
+				if err != nil {
+					return nil, err
+				}
+			case typeString:
+				element = toString(element)
+			}
 		}
 		items = append(items, element)
 		c, err = dr.skipToData(true)
@@ -364,7 +394,7 @@ func (dr *dataReader) decodeStruct() (*LOB, error) {
 			return nil, Error("mismatched key/value in struct")
 		}
 		dr.ungetChar()
-		element, err = dr.readData()
+		element, err = dr.readData(keys)
 		if err != nil {
 			return nil, err
 		}
@@ -373,7 +403,7 @@ func (dr *dataReader) decodeStruct() (*LOB, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeSequence(endChar byte) ([]*LOB, error) {
+func (dr *dataReader) decodeSequence(endChar byte, keys *LOB) ([]*LOB, error) {
 	c, err := dr.getChar()
 	items := []*LOB{}
 	for err == nil {
@@ -392,7 +422,7 @@ func (dr *dataReader) decodeSequence(endChar byte) ([]*LOB, error) {
 			return items, nil
 		}
 		dr.ungetChar()
-		element, err := dr.readData()
+		element, err := dr.readData(keys)
 		if err != nil {
 			return nil, err
 		}
@@ -505,7 +535,7 @@ func namedChar(name string) (rune, error) {
 	}
 }
 
-func (dr *dataReader) decodeReaderMacro() (*LOB, error) {
+func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -557,7 +587,7 @@ func (dr *dataReader) decodeReaderMacro() (*LOB, error) {
 			return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
 		}
 		if isValidTypeName(atom) {
-			val, err := dr.readData()
+			val, err := dr.readData(keys)
 			if err != nil {
 				return nil, Error("Bad reader macro: #", atom, " ...")
 			}

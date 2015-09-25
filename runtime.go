@@ -262,7 +262,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 			el[i] = defaults[i-expectedArgc]
 		}
 		for i := expectedArgc; i < argc; i += 2 {
-			key, err := keywordToSymbol(stack[sp+i])
+			key, err := toSymbol(stack[sp+i])
 			if err != nil {
 				return nil, Error("Bad keyword argument: ", stack[sp+1])
 			}

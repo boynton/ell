@@ -207,7 +207,7 @@ func loadFile(file string) error {
 		return err
 	}
 
-	expr, err := readInputPort(port)
+	expr, err := readInputPort(port, nil)
 	defer closeInputPort(port)
 
 	for {
@@ -221,7 +221,7 @@ func loadFile(file string) error {
 		if err != nil {
 			return err
 		}
-		expr, err = readInputPort(port)
+		expr, err = readInputPort(port, nil)
 	}
 }
 
@@ -297,7 +297,7 @@ func compileFile(name string) (*LOB, error) {
 		return nil, err
 	}
 
-	expr, err := readInputPort(port)
+	expr, err := readInputPort(port, nil)
 	defer closeInputPort(port)
 	result := ";\n; code generated from " + file + "\n;\n"
 	var lap string
@@ -310,7 +310,7 @@ func compileFile(name string) (*LOB, error) {
 			return nil, err
 		}
 		result += lap
-		expr, err = readInputPort(port)
+		expr, err = readInputPort(port, nil)
 	}
 	return nil, err
 }

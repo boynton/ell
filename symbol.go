@@ -54,6 +54,37 @@ func isValidKeywordName(s string) bool {
 	return false
 }
 
+func toKeyword(obj *LOB) (*LOB, error) {
+	switch obj.variant {
+	case typeKeyword:
+		return obj, nil
+	case typeType:
+		return intern(obj.text[1:len(obj.text)-1] + ":"), nil
+	case typeSymbol:
+		return intern(obj.text + ":"), nil
+	case typeString:
+		if isValidKeywordName(obj.text) {
+			return intern(obj.text), nil
+		} else if isValidSymbolName(obj.text) {
+			return intern(obj.text + ":"), nil
+		}
+	}
+	return nil, Error("Type error: Cannot convert to <keyword>: ", obj)
+}
+
+func keywordify(s *LOB) *LOB {
+	switch s.variant {
+	case typeString:
+		if !isValidKeywordName(s.text) {
+			return intern(s.text + ":")
+		}
+		return intern(s.text)
+	case typeSymbol:
+		return intern(s.text + ":")
+	}
+	return s
+}
+
 // <type> -> <symbol>
 func typeName(t *LOB) (*LOB, error) {
 	if !isType(t) {
@@ -79,11 +110,20 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 	return nil, Error("Type error: expected <keyword> or <symbol>, got ", obj)
 }
 
-func keywordToSymbol(obj *LOB) (*LOB, error) {
-	if isKeyword(obj) {
+func toSymbol(obj *LOB) (*LOB, error) {
+	switch obj.variant {
+	case typeKeyword:
 		return intern(obj.text[:len(obj.text)-1]), nil
+	case typeType:
+		return intern(obj.text[1 : len(obj.text)-1]), nil
+	case typeSymbol:
+		return obj, nil
+	case typeString:
+		if isValidSymbolName(obj.text) {
+			return intern(obj.text), nil
+		}
 	}
-	return nil, Error("Type error: expected <keyword>, got ", obj)
+	return nil, Error("Type error: Cannot convert to <symbol>: ", obj)
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached

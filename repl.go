@@ -32,7 +32,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		if whole == "" {
 			return "", false, nil
 		}
-		lexpr, err := readInputString(whole)
+		lexpr, err := readInputString(whole, nil)
 		ell.buf = ""
 		if err == nil {
 			val, err := eval(lexpr)

@@ -218,11 +218,16 @@ func ellOpenInputFile(argv []*LOB, argc int) (*LOB, error) {
 }
 
 func ellRead(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("read", "1", argc)
+	if argc < 1 {
+		return nil, ArgcError("read", "1+", argc)
 	}
-	return readInputPort(argv[0])
+	options, err := getOptions(argv[1:argc], "keys:")
+	if err != nil {
+		return nil, err
+	}
+	return readInputPort(argv[0], options)
 }
+
 func ellCloseInput(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 1 {
 		return nil, ArgcError("read", "1", argc)
@@ -1008,8 +1013,7 @@ func ellJSON(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("json", "1+", argc)
 	}
-	validOptions := []*LOB{intern("pretty:"), intern("keywords:")}
-	options, err := normalizeKeywordArgs(list(argv[1:argc]...), validOptions)
+	options, err := getOptions(argv[1:argc], "pretty:")
 	if err != nil {
 		return nil, err
 	}
@@ -1018,4 +1022,12 @@ func ellJSON(argv []*LOB, argc int) (*LOB, error) {
 		return nil, err
 	}
 	return newString(s), nil
+}
+
+func getOptions(rest []*LOB, keys ...string) (*LOB, error) {
+	var validOptions []*LOB
+	for _, key := range keys {
+		validOptions = append(validOptions, intern(key))
+	}
+	return normalizeKeywordArgs(list(rest...), validOptions)
 }
