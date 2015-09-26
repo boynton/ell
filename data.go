@@ -159,7 +159,7 @@ func equal(o1 *LOB, o2 *LOB) bool {
 	case typeBoolean, typeCharacter:
 		return o1.ival == o2.ival
 	case typeNumber:
-		return o1.fval == o2.fval
+		return numberEqual(o1.fval, o2.fval)
 	case typeString:
 		return o1.text == o2.text
 	case typeList:
