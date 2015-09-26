@@ -41,13 +41,6 @@ func cons(car *LOB, cdr *LOB) *LOB {
 	return result
 }
 
-func safeCar(lst *LOB) (*LOB, error) {
-	if !isList(lst) {
-		return nil, ArgTypeError("list", 1, lst)
-	}
-	return car(lst), nil
-}
-
 func car(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return Null
@@ -64,13 +57,6 @@ func setCar(lst *LOB, obj *LOB) error {
 	}
 	lst.car = obj
 	return nil
-}
-
-func safeCdr(lst *LOB) (*LOB, error) {
-	if !isList(lst) {
-		return nil, ArgTypeError("list", 1, lst)
-	}
-	return car(lst), nil
 }
 
 func cdr(lst *LOB) *LOB {
