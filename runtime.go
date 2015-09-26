@@ -132,26 +132,44 @@ var Apply = &LOB{variant: typeFunction, function: &LFunction{instruction: instru
 // CallCC is a primitive instruction to executable (restore) a continuation
 var CallCC = &LOB{variant: typeFunction, function: &LFunction{instruction: instructionCallCC}}
 
+func (f *LFunction) signature() string {
+	switch f.instruction {
+	case instructionNone:
+		if f.primitive != nil { //primitive
+			return f.primitive.signature
+		}
+      if f.code != nil { // closure
+			return f.code.signature()
+		}
+	case instructionApply:
+		return "(<any>*) <list>"
+	case instructionCallCC:
+		return "(<function>) <any>"
+	default:
+		panic("Bad function")
+	}
+	return ""
+}
+
 func (f LFunction) String() string {
 	if f.instruction == instructionNone {
 		if f.primitive != nil { //primitive
-			return "#[primitive-function " + f.primitive.name + " " + f.primitive.signature + "]"
+			return "#[function " + f.primitive.name + "]"
 		}
 		if f.code != nil { // closure
 			n := f.code.name
-			s := f.code.signature()
 			if n == "" {
-				return fmt.Sprintf("#[function %s]", s)
+				return fmt.Sprintf("#[function]")
 			}
-			return fmt.Sprintf("#[function %s %s]", n, s)
+			return fmt.Sprintf("#[function %s]", n)
 		}
 		panic("Bad function")
 	}
 	if f.instruction == instructionApply {
-		return "#[function apply (<function> <any>* <list>)]"
+		return "#[function apply]"
 	}
 	if f.instruction == instructionCallCC {
-		return "#[function callcc (<function>)]"
+		return "#[function callcc]"
 	}
 	panic("Bad function")
 }
@@ -577,14 +595,55 @@ func leftJustified(s string, width int) string {
 	return s
 }
 
+func truncatedObjectString(s string, limit int) string {
+	if len(s) > limit {
+		s = s[:limit]	// ((defn foo (x) (if (not (stri
+		firstN := s[:limit-3]
+		for i := limit-1; i >= 0; i-- {
+			if isWhitespace(s[i]) {
+				s = s[:i]
+				break
+			}
+		}
+		if s == "" {
+			s = firstN + "..."
+		} else {
+			openParens := 0
+			for _, c := range s {
+				switch c {
+				case '(':
+					openParens++
+				case ')':
+					openParens--
+				}
+			}
+			if openParens > 0 {
+				s += " ..."
+				for i := 0; i < openParens; i++ {
+					s += ")"
+				}
+			} else {
+				s += "..."
+			}
+		}
+	}
+	return s
+}
 func showStack(stack []*LOB, sp int) string {
 	end := len(stack)
 	s := "["
+	limit := 5
+	tail := ""
+	if end - sp > limit {
+		end = sp + limit
+		tail = " ... "
+	}
 	for sp < end {
-		s = s + fmt.Sprintf(" %v", write(stack[sp]))
+		tmp := fmt.Sprintf(" %v", write(stack[sp]))
+		s = s + truncatedObjectString(tmp, 30)
 		sp++
 	}
-	return s + " ]"
+	return s + tail + " ]"
 }
 
 func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
