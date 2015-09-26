@@ -44,7 +44,6 @@ func initEnvironment() {
 	defineFunction("identical?", ellIdenticalP, "(<any> <any>) <boolean>")
 
 	defineFunction("null?", ellNullP, "(<any>) <boolean>")
-	defineFunction("eof?", ellFunctionP, "(<any>) <boolean>")
 
 	defineFunction("def?", ellDefinedP, "(<any>)")
 
@@ -117,12 +116,10 @@ func initEnvironment() {
 	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
 
 	defineFunction("slurp", ellSlurp, "(<string>) <string>")
-	defineFunction("read-all", ellReadAll, "(<string> keys: <type>]) <list>")
-	defineFunction("read", ellRead, "(<string> keys: <type>) <any>")
+	defineFunction("read", ellRead, "(<string> keys: <type>) <list>")
 
 	defineFunction("spit", ellSpit, "(<string> <any>) <null>")
 	defineFunction("write", ellWrite, "(<any> indent: <string>) <string>")
-	defineFunction("write-all", ellWriteAll, "(<list> indent: <string>) <string>")
 	defineFunction("print", ellPrint, "(<any>*) <null>")
 	defineFunction("println", ellPrintln, "(<any>*) <null>")
 
@@ -237,18 +234,6 @@ func ellSpit(argv []*LOB, argc int) (*LOB, error) {
 	return Null, nil
 }
 
-func ellReadAll(argv []*LOB, argc int) (*LOB, error) {
-	if argc < 1 {
-		return nil, ArgcError("read-all", "1+", argc)
-	}
-	input := argv[0]
-	options, err := getOptions(argv[1:argc], "keys:")
-	if err != nil {
-		return nil, err
-	}
-	return readAll(input, options)
-}
-
 func ellRead(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("read", "1+", argc)
@@ -258,7 +243,7 @@ func ellRead(argv []*LOB, argc int) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return read(input, options)
+	return readAll(input, options)
 }
 
 func ellMacroexpand(argv []*LOB, argc int) (*LOB, error) {
@@ -376,8 +361,19 @@ func ellWrite(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("write", "1+", argc)
 	}
-	data := argv[0]
-	options, err := getOptions(argv[1:argc], "indent:")
+	args := argv[:argc]
+	lastNonkey := 0
+	for _, a := range args {
+		if isKeyword(a) {
+			break
+		}
+		lastNonkey++
+	}
+	args = args[:lastNonkey]
+	options, err := getOptions(argv[lastNonkey:argc], "indent:")
+	if err != nil {
+		return nil, err
+	}
 	indent := "" //not indented
 	if err == nil && options != nil {
 		s, _ := get(options, intern("indent:"))
@@ -385,25 +381,18 @@ func ellWrite(argv []*LOB, argc int) (*LOB, error) {
 			indent = s.text
 		}
 	}
-	s := writeIndent(data, indent)
-	return newString(s), nil
-}
-
-func ellWriteAll(argv []*LOB, argc int) (*LOB, error) {
-	if argc < 1 {
-		return nil, ArgcError("write-all", "1+", argc)
-	}
-	data := argv[0]
-	options, err := getOptions(argv[1:argc], "indent:")
-	indent := "" //not indented
-	if err == nil && options != nil {
-		s, _ := get(options, intern("indent:"))
-		if isString(s) {
-			indent = s.text
+	result := ""
+	first := true
+	for _, data := range args {
+		s := writeIndent(data, indent)
+		if first {
+			first = false
+		} else {
+			result += "\n"
 		}
+		result += s
 	}
-	s := writeAllIndent(data, indent)
-	return newString(s), nil
+	return newString(result), nil
 }
 
 func ellFatal(argv []*LOB, argc int) (*LOB, error) {

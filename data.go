@@ -30,7 +30,6 @@ type LOB struct {
 	car      *LOB       // non-nil for instances and <list>
 	cdr      *LOB       // non-nil for <list>, nil for everything else
 	code     *LCode     //<code>
-	port     *LPort     // <port>
 	ival     int64      // <boolean>, <character>
 	fval     float64    //<number>
 	text     string     // <string>, <symbol>, <keyword>, <type>
@@ -50,8 +49,6 @@ func identical(o1 *LOB, o2 *LOB) bool {
 func (a *LOB) String() string {
 	if a == Null {
 		return "null"
-	} else if a == EOF {
-		return "#[eof]"
 	} else {
 		switch a.variant {
 		case typeBoolean:
@@ -73,8 +70,6 @@ func (a *LOB) String() string {
 			return structToString(a)
 		case typeFunction:
 			return a.function.String()
-		case typePort:
-			return a.port.String()
 		case typeCode:
 			return a.code.String()
 		default:
@@ -88,7 +83,6 @@ var typeKeyword *LOB // bootstrapped in initSymbolTable => intern("<keyword>")
 var typeSymbol *LOB  // bootstrapped in initSymbolTable = intern("<symbol>")
 
 var typeNull = intern("<null>")
-var typeEOF = intern("<eof>")
 var typeBoolean = intern("<boolean>")
 var typeCharacter = intern("<character>")
 var typeNumber = intern("<number>")
@@ -98,20 +92,12 @@ var typeVector = intern("<vector>")
 var typeStruct = intern("<struct>")
 var typeFunction = intern("<function>")
 var typeCode = intern("<code>")
-var typePort = intern("<port>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
 var Null = &LOB{variant: typeNull}
 
 func isNull(obj *LOB) bool {
 	return obj == Null
-}
-
-// EOF is Ell's singleton EOF object
-var EOF = &LOB{variant: typeEOF}
-
-func isEOF(obj *LOB) bool {
-	return obj == EOF
 }
 
 // True is the singleton boolean true value
@@ -157,9 +143,6 @@ func isKeyword(obj *LOB) bool {
 func isType(obj *LOB) bool {
 	return obj.variant == typeType
 }
-func isPort(obj *LOB) bool {
-	return obj.variant == typePort
-}
 
 //instances have arbitrary variant symbols, all we can check is that the instanceValue is set
 func isInstance(obj *LOB) bool {
@@ -188,8 +171,8 @@ func equal(o1 *LOB, o2 *LOB) bool {
 		return structEqual(o1, o2)
 	case typeSymbol, typeKeyword, typeType:
 		return o1 == o2
-	case typeNull, typeEOF:
-		return true // singletons
+	case typeNull:
+		return true // singleton
 	default:
 		return false
 	}
@@ -197,9 +180,9 @@ func equal(o1 *LOB, o2 *LOB) bool {
 
 func isPrimitiveType(tag *LOB) bool {
 	switch tag {
-	case typeNull, typeEOF, typeBoolean, typeCharacter, typeNumber, typeString, typeList, typeVector, typeStruct:
+	case typeNull, typeBoolean, typeCharacter, typeNumber, typeString, typeList, typeVector, typeStruct:
 		return true
-	case typeSymbol, typeKeyword, typeType, typeFunction, typePort:
+	case typeSymbol, typeKeyword, typeType, typeFunction:
 		return true
 	default:
 		return false

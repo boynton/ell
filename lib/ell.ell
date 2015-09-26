@@ -66,7 +66,7 @@
   (defn map1 (fun lst)
     (if (empty? lst)
         '()
-        (cons (fun (car lst)) (map1 fun (cdr lst)))))
+        (cons (fun (car lst)) (map1 fun (cdr lst))))) ;;bug: execution order is reversed, but the result is fine
   (defn any-empty? (list-of-lists)
     (if (empty? list-of-lists)
         false

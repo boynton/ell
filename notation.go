@@ -50,40 +50,6 @@ func spitFile(path string, data string) error {
 	return ioutil.WriteFile(path, []byte(data), 0644)
 }
 
-// LPort - readable and writable I/O ports
-type LPort struct {
-	name   string
-	file   *os.File
-	reader *dataReader
-	writer *dataWriter
-}
-
-func isInputPort(obj *LOB) bool {
-	return obj.variant == typePort && obj.port.reader != nil
-}
-
-func isOutputPort(obj *LOB) bool {
-	return obj.variant == typePort && obj.port.writer != nil
-}
-
-func (port *LPort) String() string {
-	if port.reader != nil {
-		return fmt.Sprintf("#[input-port: %s]", port.name)
-	}
-	if port.writer != nil {
-		return fmt.Sprintf("#[output-port: %s]", port.name)
-	}
-	return fmt.Sprintf("#[port: CLOSED %s]", port.name)
-}
-
-func inputPortTypeError(fun string, argnum int, obj *LOB) error {
-	return Error("argument ", argnum, " to ", fun, " is not an input port: ", obj)
-}
-
-func outputPortTypeError(fun string, argnum int, obj *LOB) error {
-	return Error("argument ", argnum, " to ", fun, " is not an output port: ", obj)
-}
-
 // --- reader
 
 func keysOptionValue(options *LOB) (*LOB, error) {
@@ -101,37 +67,41 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 	return Null, nil
 }
 
+//only reads the first item in the input, along with how many characters it read
+// for subsequence calls, you can slice the string to continue
 func read(input *LOB, options *LOB) (*LOB, error) {
-	in := input
-	if isString(in) {
-		in = openInputString(in.text)
-	}
-	if !isInputPort(in) {
-		return nil, Error("read-all: not readable: ", in)
+	if !isString(input) {
+		return nil, Error("read-all: not readable: ", input)
 	}
 	keys, err := keysOptionValue(options)
 	if err != nil {
 		return nil, err
 	}
-	return in.port.read(keys)
+	r := strings.NewReader(input.text)
+	reader := newDataReader(r)
+	obj, err := reader.readData(keys)
+	if err != nil {
+		if err == io.EOF {
+			return Null, nil
+		}
+		return nil, err
+	}
+	return obj, nil
 }
 
 func readAll(input *LOB, options *LOB) (*LOB, error) {
-	in := input
-	if isString(in) {
-		in = openInputString(in.text)
-	}
-	if !isInputPort(in) {
-		return nil, Error("read-all: not readable: ", in)
+	if !isString(input) {
+		return nil, Error("read-all: not readable: ", input)
 	}
 	keys, err := keysOptionValue(options)
 	if err != nil {
 		return nil, err
 	}
+	reader := newDataReader(strings.NewReader(input.text))
 	lst := EmptyList
 	tail := EmptyList
-	val, err := in.port.read(keys)
-	for err == nil && val != EOF {
+	val, err := reader.readData(keys)
+	for err == nil {
 		if lst == EmptyList {
 			lst = list(val)
 			tail = lst
@@ -139,78 +109,38 @@ func readAll(input *LOB, options *LOB) (*LOB, error) {
 			tail.cdr = list(val)
 			tail = tail.cdr
 		}
-		val, err = in.port.read(keys)
+		val, err = reader.readData(keys)
+	}
+	if err != io.EOF {
+		return nil, err
 	}
 	return lst, nil
 }
 
-func closeInputPort(in *LOB) error {
-	if !isInputPort(in) {
-		return inputPortTypeError("close-input-port", 1, in)
-	}
-	return in.port.close()
-}
-
-func (port *LPort) read(keys *LOB) (*LOB, error) {
-	if port.reader == nil {
-		return nil, Error("Input port is closed: ", port)
-	}
-	obj, err := port.reader.readData(keys)
-	if err != nil {
-		if err == io.EOF {
-			return EOF, nil
-		}
-		return nil, err
-	}
-	return obj, nil
-}
-
-func (port *LPort) close() error {
-	var err error
-	if port.file != nil {
-		err = port.file.Close()
-		port.file = nil
-	}
-	port.reader = nil
-	port.writer = nil
-	return err
-}
-
-func newInputPort(name string, reader *dataReader, fd *os.File) *LOB {
-	return &LOB{variant: typePort, port: &LPort{file: fd, reader: reader, name: name}}
-}
-
-func openInputFile(path string) (*LOB, error) {
-	fd, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	r := bufio.NewReader(fd)
-	reader := newDataReader(r)
-	return newInputPort(path, reader, fd), nil
-}
-
-func openInputString(input string) *LOB {
-	r := strings.NewReader(input)
-	reader := newDataReader(r)
-	return newInputPort(input, reader, nil)
-}
-
 type dataReader struct {
-	in *bufio.Reader
+	in  *bufio.Reader
+	pos int
 }
 
 func newDataReader(in io.Reader) *dataReader {
 	br := bufio.NewReader(in)
-	return &dataReader{br}
+	return &dataReader{br, 0}
 }
 
 func (dr *dataReader) getChar() (byte, error) {
-	return dr.in.ReadByte()
+	b, e := dr.in.ReadByte()
+	if e == nil {
+		dr.pos++
+	}
+	return b, e
 }
 
 func (dr *dataReader) ungetChar() error {
-	return dr.in.UnreadByte()
+	e := dr.in.UnreadByte()
+	if e == nil {
+		dr.pos--
+	}
+	return e
 }
 
 func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
@@ -234,7 +164,7 @@ func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
 			if err != nil {
 				return nil, err
 			}
-			if o == EOF {
+			if o == nil {
 				return o, nil
 			}
 			return list(symQuote, o), nil
@@ -277,7 +207,7 @@ func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
 			return atom, err
 		}
 	}
-	return EOF, e
+	return nil, e
 }
 
 func (dr *dataReader) decodeComment() error {
