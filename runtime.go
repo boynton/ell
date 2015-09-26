@@ -106,7 +106,6 @@ func exec(code *LCode, args ...*LOB) (*LOB, error) {
 		return nil, err
 	}
 	if verbose {
-		//Println("; end execution")
 		if err == nil && result != nil {
 			println("; => ", result)
 		}
@@ -209,16 +208,6 @@ func showEnv(f *Frame) string {
 		tmp = tmp.locals
 	}
 	return s
-}
-
-func showStack(stack []*LOB, sp int) string {
-	end := len(stack)
-	s := "["
-	for sp < end {
-		s = s + fmt.Sprintf(" %v", stack[sp])
-		sp++
-	}
-	return s + " ]"
 }
 
 func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []*LOB, sp int) (*Frame, error) {
@@ -572,6 +561,32 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 	}
 }
 
+const stackColumn = 40
+
+func showInstruction(pc int, op int, args string, stack []*LOB, sp int) {
+	var body string
+	body = leftJustified(fmt.Sprintf("%d ", pc), 8) + leftJustified(opsyms[op].text, 10) + args
+	println(leftJustified(body, stackColumn), showStack(stack, sp))
+}
+
+func leftJustified(s string, width int) string {
+	padsize := width - len(s)
+	for i := 0; i < padsize; i++ {
+		s += " "
+	}
+	return s
+}
+
+func showStack(stack []*LOB, sp int) string {
+	end := len(stack)
+	s := "["
+	for sp < end {
+		s = s + fmt.Sprintf(" %v", write(stack[sp]))
+		sp++
+	}
+	return s + " ]"
+}
+
 func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 	stack := make([]*LOB, vm.stackSize)
 	sp := vm.stackSize
@@ -583,14 +598,11 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 	if len(ops) == 0 {
 		return nil, addContext(env, Error("No code to execute"))
 	}
-	if trace {
-		println("------- BEGIN EXECUTION")
-	}
 	for {
 		op := ops[pc]
 		if op == opcodeCall {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			fun := stack[sp]
 			sp++
@@ -666,7 +678,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 		} else if op == opcodeGlobal {
 			sym := constants[ops[pc+1]]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, sym.String(), stack, sp)
 			}
 			if sym.car == nil {
 				return nil, addContext(env, Error("Undefined symbol: ", sym))
@@ -676,7 +688,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			pc += 2
 		} else if op == opcodeLocal {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", +ops[pc+1], " ", ops[pc+2], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d, %d", ops[pc+1], ops[pc+2]), stack, sp)
 			}
 			tmpEnv := env
 			i := ops[pc+1]
@@ -691,7 +703,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			pc += 3
 		} else if op == opcodeJumpFalse {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			b := stack[sp]
 			sp++
@@ -702,13 +714,13 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			}
 		} else if op == opcodePop {
 			if trace {
-				println(pc, "\t", opsyms[op], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, "", stack, sp)
 			}
 			sp++
 			pc++
 		} else if op == opcodeTailCall {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			if checkInterrupt() {
 				return nil, addContext(env, Error("Interrupt"))
@@ -731,7 +743,6 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					ops = env.ops
 					env = env.previous
 					if env == nil {
-						println("------- END EXECUTION")
 						return stack[sp], nil
 					}
 				} else if lfun.code != nil {
@@ -786,7 +797,6 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				ops = env.ops
 				env = env.previous
 				if env == nil {
-					println("------- END EXECUTION")
 					return stack[sp], nil
 				}
 			default:
@@ -794,14 +804,14 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			}
 		} else if op == opcodeLiteral {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", constants[ops[pc+1]], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, write(constants[ops[pc+1]].variant), stack, sp)
 			}
 			sp--
 			stack[sp] = constants[ops[pc+1]]
 			pc += 2
 		} else if op == opcodeSetLocal {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", +ops[pc+1], " ", ops[pc+2], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d, %d", ops[pc+1], ops[pc+2]), stack, sp)
 			}
 			tmpEnv := env
 			i := ops[pc+1]
@@ -814,20 +824,19 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			pc += 3
 		} else if op == opcodeClosure {
 			if trace {
-				println(pc, "\t", opsyms[op], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, "", stack, sp)
 			}
 			sp--
 			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, "", stack, sp)
 			}
 			if checkInterrupt() {
 				return nil, addContext(env, Error("Interrupt"))
 			}
 			if env.previous == nil {
-				println("------- END EXECUTION")
 				return stack[sp], nil
 			}
 			ops = env.ops
@@ -835,27 +844,27 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			env = env.previous
 		} else if op == opcodeJump {
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", ops[pc+1], "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			pc += ops[pc+1]
 		} else if op == opcodeDefGlobal {
 			sym := constants[ops[pc+1]]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, sym.text, stack, sp)
 			}
 			defGlobal(sym, stack[sp])
 			pc += 2
 		} else if op == opcodeUndefGlobal {
 			sym := constants[ops[pc+1]]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, sym.text, stack, sp)
 			}
 			undefGlobal(sym)
 			pc += 2
 		} else if op == opcodeDefMacro {
 			sym := constants[ops[pc+1]]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, sym.text, stack, sp)
 			}
 			defMacro(sym, stack[sp])
 			stack[sp] = sym
@@ -863,7 +872,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 		} else if op == opcodeUse {
 			sym := constants[ops[pc+1]]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", sym, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, sym.text, stack, sp)
 			}
 			err := use(sym)
 			if err != nil {
@@ -875,7 +884,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 		} else if op == opcodeVector {
 			vlen := ops[pc+1]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", vlen, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			v := vector(stack[sp : sp+vlen]...)
 			sp = sp + vlen - 1
@@ -884,7 +893,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 		} else if op == opcodeStruct {
 			vlen := ops[pc+1]
 			if trace {
-				println(pc, "\t", opsyms[op], "\t", vlen, "\tstack: ", showStack(stack, sp))
+				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			v, _ := newStruct(stack[sp : sp+vlen])
 			sp = sp + vlen - 1
