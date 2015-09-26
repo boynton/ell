@@ -35,7 +35,7 @@
 (defn cddddr (p) (cdr (cdr (cdr (cdr p)))))
 
 ;; or returns the first non-false item in the list
-(defmacro or ops
+(defmacro or (& ops)
   (if (empty? ops)
       false
       (let loop ((c (car ops)) (r (cdr ops)))
@@ -44,7 +44,7 @@
             `(let ((tmp ~c)) (if tmp tmp ~(loop (car r) (cdr r))))))))
 
 ;; and returns the first false item in the list, or the last item in the list of all are non-false
-(defmacro and ops
+(defmacro and (& ops)
   (if (empty? ops)
       true
       (let loop ((c (car ops)) (r (cdr ops)))
@@ -85,27 +85,59 @@
       (mapn fun (cons first rest))))
 
 ;;
-;; i.e. (validated-struct {x: 1} '(x: y:))
-(defn validated-struct (val name fields)
-  (if (empty? fields)
-      val
-      (if (null? ((car fields) val))
-          (error "cannot convert to " name ", missing field: " (car fields))
-          (validated-struct val name (cdr fields)))))
+;; Create a type based on some other type, from the predicate
+;; i.e. 
+;;   ? (deftype foo (s) (and (string? s) (< (string-length s) 3)))
+;;   = <foo>
+;;   ? (foo "abc")
+;;    *** not a valid <foo>: "abc"
+;;   ? (foo "ab")
+;;   = #<foo>{value: "ab"}
+;;   ? (foo? (foo "ab"))
+;;   = true
+;;   ? (def s "xy")
+;;   = "xy"
+;;   ? (def f (foo s))
+;;   = #<foo>"xy"
+;;   ? (identical? s (value f))
+;;   = true
+;;
+;; This aggregates the parameter, so the result is a struct, but correctness is determined by the
+;; predicate, instead of matching fields of another struct like defstruct does.
+;;
+(defmacro deftype (sym args & predicate-body)
+  (let ((typesym (symbol "<" sym ">"))
+        (arg (car args)))
+    `(do
+       (defn ~(symbol sym "?") (o) (identical? (type o) ~typesym))
+       (defn ~sym ~args
+         (if (not ~@predicate-body)
+             (error ~(string "not a valid " typesym ": ") (to-string ~arg)))
+         (instance ~typesym ~(car args)))
+       ~typesym)))
+
 
 ;;
-;; Defines a struct type by emitting a constructor and a predicate
+;; Defines a struct type by emitting a constructor and a predicate based on a list of fields
 ;; The fields are a sequence key/value pairs, and the resulting constructor limits
-;; the arguments to those indicated, with the given default values
-;; i.e.
-;;   (defstruct point x: 0 y: 0) ; this defines a struct with an and a y field with default value of 0
-;;   (point) => #point{x: 0, y: 0}
+;; the arguments to those indicated, with the given default values. The values in the field spec
+;; are default values, so make sure you *want* to share that value across instances. The type of the
+;; field is inferred from the default value.
+;; For example:
+;;   (defstruct point x: 0 y: 0) => <point>; this defines a struct type <point> with an x and a y field with default values of 0
+;;   (point) => #<point>{x: 0, y: 0}
 ;;   (point? (point)) => true
-;;   (point x: 23 y: 57) => #point{x: 23, y: 57}
-;;   (point x: 23 y: 57 z: 100) => error("z: bad keyword parameter")
+;;   (point x: 23 y: 57) => #<point>{x: 23, y: 57}
+;;   (point x: 23 y: 57 z: 100) =>  *** [point] z: bad keyword parameter. Allowed keys: [x: y:]
 ;;   (point-fields) -> (x: y:)
-;;You can get the raw struct from it:
-;;   (struct #point{x: 23, y: 57}) => {x: 23, y: 57}
+;;   (point-types) -> {x: <number> y: <number>)
+;;   (point-defaults) -> {x: 0 y: 0}
+;;
+;; You can get the equivalent struct back (but it is a copy)
+;;   (value #<point>{x: 23, y: 57}) => {x: 23, y: 57}
+;;   (def data {x: 1 y: 2}) = {x: 23, y: 57}
+;;   (equal? data (value (point data))) => true
+;;   (identical? data (value (point data))) => false
 ;;
 (defmacro defstruct (sym & fields)
   (defn extract-keys (args)
@@ -118,40 +150,22 @@
                 (loop keys (cdr remaining)))))))
   (let ((keys (extract-keys fields)) (typesym (symbol "<" sym ">")))
     `(do
-       (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-arg-list args ~@keys)))))
+       (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-arg-list args ~@keys))))) ;; this creates a new copy!
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
-       (defn ~(symbol sym "-fields") () '~keys)
-       (defn ~(symbol "as-" sym) (o)
-             (instance '~typesym (validated-struct o '~typesym '~keys)))
+       (defn ~(symbol sym "-fields") () (map (fn (b) {name: (car b) type: (type (cadr b)) default: (cadr b)}) (to-list ~(apply struct fields))))
+       (defn ~(symbol "as-" sym) (o) (instance '~typesym (validated-struct o '~typesym '~keys)))
        '~typesym)))
 
 ;;
-;; create a type based on some other (non-struct) type, by providing the predicate
-;; i.e. 
-;;   ? (deftype foo (s) (and (string? s) (< (string-length s) 3)))
-;;   = <foo>
-;;   ? (foo "abc")
-;;    *** not a valid <foo>: "abc"
-;;   ? (foo "ab")
-;;   = #foo{value: "ab"}
-;;   ? (foo? (foo "ab"))
-;;   = true
-;; 
-;; This aggregates the parameter, so the result is a struct, but correctness is determined by the
-;; predicate, instead of matching fields of another struct like defstruct does.
+;; i.e. (validated-struct {x: 1} '(x: y:))
+;; error if the val has fields not in the list
 ;;
-(defmacro deftype (sym args & predicate-body)
-  (let ((typesym (symbol "<" sym ">"))
-        (arg (car args)))
-    `(do
-       (defn ~(symbol sym "?") (o)
-             (and (struct? o) ((fn ~args ~@predicate-body) (value: o)) true))
-       (defn ~sym ~args
-         (if (not ~@predicate-body)
-             (error ~(string "not a valid " typesym ": ") (to-string ~arg)))
-         (instance ~typesym ~(car args)))
-       ~typesym)))
-
+(defn validated-struct (val name fields)
+  (if (empty? fields)
+      val
+      (if (null? ((car fields) val))
+          (error "cannot convert to " name ", missing field: " (car fields))
+          (validated-struct val name (cdr fields)))))
 
 ;;
 ;; generic functions dispatch to methods based on argument type

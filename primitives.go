@@ -114,6 +114,7 @@ func initEnvironment() {
 	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
 
 	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
+	defineFunction("function-signature", ellFunctionSignature, "(<function>) <string>")
 
 	defineFunction("slurp", ellSlurp, "(<string>) <string>")
 	defineFunction("read", ellRead, "(<string> keys: <type>) <list>")
@@ -832,6 +833,16 @@ func ellFunctionP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("function?", "1", argc)
 }
 
+func ellFunctionSignature(argv []*LOB, argc int) (*LOB, error) {
+	if argc == 1 {
+		if isFunction(argv[0]) {
+			return newString(argv[0].function.signature()), nil
+		}
+		return nil, ArgTypeError("function", 1, argv[0])
+	}
+	return nil, ArgcError("function?", "1", argc)
+}
+
 func ellListP(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		if isList(argv[0]) {
@@ -862,16 +873,22 @@ func ellString(argv []*LOB, argc int) (*LOB, error) {
 
 func ellCar(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
-		//		return safeCar(argv[0])
-		return car(argv[0]), nil
+		lst := argv[0]
+		if lst.variant == typeList {
+			return lst.car, nil
+		}
+		return nil, ArgTypeError("cdr", 1, lst)
 	}
 	return nil, ArgcError("car", "1", argc)
 }
 
 func ellCdr(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
-		//		return safeCdr(argv[0])
-		return cdr(argv[0]), nil
+		lst := argv[0]
+		if lst.variant == typeList {
+			return lst.cdr, nil
+		}
+		return nil, ArgTypeError("cdr", 1, lst)
 	}
 	return nil, ArgcError("cdr", "1", argc)
 }
