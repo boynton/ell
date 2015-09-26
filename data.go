@@ -49,32 +49,31 @@ func identical(o1 *LOB, o2 *LOB) bool {
 func (a *LOB) String() string {
 	if a == Null {
 		return "null"
-	} else {
-		switch a.variant {
-		case typeBoolean:
-			if a.ival == 0 {
-				return "false"
-			}
-			return "true"
-		case typeCharacter:
-			return string([]rune{rune(a.ival)})
-		case typeNumber:
-			return strconv.FormatFloat(a.fval, 'f', -1, 64)
-		case typeString, typeSymbol, typeKeyword, typeType:
-			return a.text
-		case typeList:
-			return listToString(a)
-		case typeVector:
-			return vectorToString(a)
-		case typeStruct:
-			return structToString(a)
-		case typeFunction:
-			return a.function.String()
-		case typeCode:
-			return a.code.String()
-		default:
-			return "#" + a.variant.text + write(a.car)
+	}
+	switch a.variant {
+	case typeBoolean:
+		if a.ival == 0 {
+			return "false"
 		}
+		return "true"
+	case typeCharacter:
+		return string([]rune{rune(a.ival)})
+	case typeNumber:
+		return strconv.FormatFloat(a.fval, 'f', -1, 64)
+	case typeString, typeSymbol, typeKeyword, typeType:
+		return a.text
+	case typeList:
+		return listToString(a)
+	case typeVector:
+		return vectorToString(a)
+	case typeStruct:
+		return structToString(a)
+	case typeFunction:
+		return a.function.String()
+	case typeCode:
+		return a.code.String()
+	default:
+		return "#" + a.variant.text + write(a.car)
 	}
 }
 

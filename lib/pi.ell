@@ -20,12 +20,12 @@
               (let ((s (to-string (+ b (quotient q r)))))
                 (let loop ((l (string-length s)))
                   (if (>= l d)
-                      (display s)
+                      (print s)
                       (do
-                        (display #\0)
+                        (print #\0)
                         (loop (+ 1 l))))))
-              (display (if (zero? (modulo j 10)) #\newline #\ ))
+              (print (if (zero? (modulo j 10)) #\newline #\ ))
               (loop (+ 1 j) q (remainder q r)))))
-      (newline))))
+      (println))))
 
 ;(pi 100 5)
