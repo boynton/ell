@@ -66,7 +66,8 @@
   (defn map1 (fun lst)
     (if (empty? lst)
         '()
-        (cons (fun (car lst)) (map1 fun (cdr lst))))) ;;bug: execution order is reversed, but the result is fine
+        (let ((head (fun (car lst))))
+          (cons head (map1 fun (cdr lst))))))
   (defn any-empty? (list-of-lists)
     (if (empty? list-of-lists)
         false
@@ -77,7 +78,8 @@
     (let loop ((result '()) (args arglist))
       (if (any-empty? args)
           (reverse result)
-          (loop (cons (apply fun (map1 car args)) result) (map1 cdr args)))))
+          (let ((head (apply fun (map1 car args))))
+            (loop (cons head result) (map1 cdr args))))))
   (if (empty? rest)
       (map1 fun first)
       (mapn fun (cons first rest))))
