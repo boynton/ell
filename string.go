@@ -15,6 +15,9 @@ limitations under the License.
 */
 package main
 
+// EmptyString
+var EmptyString = newString("")
+
 func newString(s string) *LOB {
 	str := newLOB(typeString)
 	str.text = s
@@ -28,12 +31,51 @@ func asString(obj *LOB) (string, error) {
 	return obj.text, nil
 }
 
-func toString(a *LOB) *LOB {
-	return newString(a.String())
+func toString(a *LOB) (*LOB, error) {
+	switch a.variant {
+	case typeCharacter:
+		return newString(string([]rune{rune(a.ival)})), nil
+	case typeString:
+		return a, nil
+	case typeSymbol, typeKeyword, typeType:
+		return newString(a.text), nil
+	case typeNumber, typeBoolean:
+		return newString(a.String()), nil
+	case typeVector:
+		var chars []rune
+		for _, c := range a.elements {
+			if !isCharacter(c) {
+				return nil, Error("to-string: vector element is not a <character>: ", c)
+			}
+			chars = append(chars, rune(c.ival))
+		}
+		return newString(string(chars)), nil
+	case typeList:
+		var chars []rune
+		for a != EmptyList {
+			c := car(a)
+			if !isCharacter(c) {
+				return nil, Error("to-string: list element is not a <character>: ", c)
+			}
+			chars = append(chars, rune(c.ival))
+			a = a.cdr
+		}
+		return newString(string(chars)), nil
+	default:
+		return nil, Error("to-string: cannot convert argument to <string>: ", a)
+	}
+}
+
+func stringLength(s string) int {
+	count := 0
+	for range s {
+		count++
+	}
+	return count
 }
 
 func encodeString(s string) string {
-	buf := []byte{}
+	buf := []rune{}
 	buf = append(buf, '"')
 	for _, c := range s {
 		switch c {
@@ -59,8 +101,7 @@ func encodeString(s string) string {
 			buf = append(buf, '\\')
 			buf = append(buf, 'r')
 		default:
-			//to do: handle UTF8 correctly
-			buf = append(buf, byte(c))
+			buf = append(buf, c)
 		}
 	}
 	buf = append(buf, '"')
@@ -81,9 +122,9 @@ func asCharacter(c *LOB) (rune, error) {
 }
 
 func stringCharacters(s *LOB) []*LOB {
-	chars := make([]*LOB, len(s.text))
-	for i, c := range s.text {
-		chars[i] = newCharacter(c)
+	var chars []*LOB
+	for _, c := range s.text {
+		chars = append(chars, newCharacter(c))
 	}
 	return chars
 }

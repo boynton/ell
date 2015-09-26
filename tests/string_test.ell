@@ -1,0 +1,17 @@
+(use assert)
+
+(def s "abc")
+;(println s)
+;(write s)(newline)
+(assert (= 3 (length s)))
+(assert (equal? '(#\a #\b #\c) (to-list s)) "(to-string (to-list s)) failed")
+
+(def u "Hello, 世界")
+;(println u)
+;(write u) (newline)
+(assert (= 9 (length u)))
+(assert (equal? '(#\H #\e #\l #\l #\o #\, #\space #\x4E16 #\x754C) (to-list u)) "(to-string (to-list u)) failed")
+
+
+
+(println "[string_test OK]")

@@ -5,15 +5,8 @@
 ;;(println "ell: " ell-ref)
 ;;(println "json: " json-ref)
 
-(defn read-from-string (s)
-   (let ((in (open-input-string s)))
-      (read in)))
-
-(defn write-to-string (o)
-   (to-string o))
-
-(def j1 (read-from-string json-ref)) ; but we get strings when reading, not keywords. Because JSON has no restrictions on key strings
-(def j2 (read-from-string (string (json j1))))
+(def j1 (read json-ref)) ; but we get strings when reading, not keywords. Because JSON has no restrictions on key strings
+(def j2 (read (string (json j1))))
 (assert-equal j1 j2)
 
 (def jref {"x" 23 "y" 57.5 "z" [1 2 3 true]})

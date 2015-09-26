@@ -38,7 +38,7 @@ func length(obj *LOB) int {
 	seq := value(obj)
 	switch seq.variant {
 	case typeString:
-		return len(seq.text)
+		return stringLength(seq.text)
 	case typeVector:
 		return len(seq.elements)
 	case typeList:

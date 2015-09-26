@@ -202,27 +202,23 @@ func loadFile(file string) error {
 	} else if interactive {
 		println("[loading " + file + "]")
 	}
-	port, err := openInputFile(file)
+	fileText, err := slurpFile(file)
 	if err != nil {
 		return err
 	}
-
-	expr, err := readInputPort(port, nil)
-	defer closeInputPort(port)
-
-	for {
-		if err != nil {
-			return err
-		}
-		if expr == EOF {
-			return nil
-		}
+	exprs, err := readAll(fileText, nil)
+	if err != nil {
+		return err
+	}
+	for exprs != EmptyList {
+		expr := car(exprs)
 		_, err = eval(expr)
 		if err != nil {
 			return err
 		}
-		expr, err = readInputPort(port, nil)
+		exprs = cdr(exprs)
 	}
+	return nil
 }
 
 func eval(expr *LOB) (*LOB, error) {
@@ -293,25 +289,22 @@ func compileFile(name string) (*LOB, error) {
 	if verbose {
 		println("; loadFile: " + file)
 	}
-	port, err := openInputFile(file)
+	fileText, err := slurpFile(file)
 	if err != nil {
 		return nil, err
 	}
 
-	expr, err := readInputPort(port, nil)
-	defer closeInputPort(port)
+	exprs, err := readAll(fileText, nil)
 	result := ";\n; code generated from " + file + "\n;\n"
 	var lap string
-	for err == nil {
-		if expr == EOF {
-			return newString(result), nil
-		}
+	for exprs != EmptyList {
+		expr := car(exprs)
 		lap, err = compileObject(expr)
 		if err != nil {
 			return nil, err
 		}
 		result += lap
-		expr, err = readInputPort(port, nil)
+		exprs = cdr(exprs)
 	}
-	return nil, err
+	return newString(result), nil
 }

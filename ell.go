@@ -18,6 +18,7 @@ package main
 // the primitive functions for the languages
 import (
 	"fmt"
+	"strings"
 )
 
 // defines the global functions/variables/macros for the top level environment
@@ -36,79 +37,38 @@ func initEnvironment() {
 
 	defineFunction("version", ellVersion, "()")
 
+	defineFunction("boolean?", ellBooleanP, "(<any>) <boolean>")
+	defineFunction("not", ellNot, "(<any>) <boolean>")
+
+	defineFunction("equal?", ellEq, "(<any> <any>) <boolean>")
+	defineFunction("identical?", ellIdenticalP, "(<any> <any>) <boolean>")
+
+	defineFunction("null?", ellNullP, "(<any>) <boolean>")
+	defineFunction("eof?", ellFunctionP, "(<any>) <boolean>")
+
 	defineFunction("def?", ellDefinedP, "(<any>)")
 
-	defineFunction("file-contents", ellFileContents, "(<string>) <string>")
-	defineFunction("open-input-string", ellOpenInputString, "(<string>) <input>")
-	defineFunction("open-input-file", ellOpenInputFile, "(<string>) <input>")
-	defineFunction("read", ellRead, "([<input>]) <any>")
-	defineFunction("close-input", ellCloseInput, "(<input>) <null>")
-
-	defineFunction("macroexpand", ellMacroexpand, "(<any>) <any>")
-	defineFunction("compile", ellCompile, "(<any>) <code>")
-
-	defineFunction("type", elvariant, "(<any>) <type>")
+	defineFunction("type", ellType, "(<any>) <type>")
 	defineFunction("value", ellValue, "<any>) <any>")
 	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
 	defineFunction("normalize-keyword-arg-list", ellNormalizeKeywordArgList, "(<list> <keyword>+) <list>")
 	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgList, "(<list> <keyword>+) <struct>")
 
-	defineFunction("type?", elvariantP, "(<any>) <boolean>")
-	defineFunction("type-name", elvariantName, "(<type>) <symbol>")
+	defineFunction("type?", ellTypeP, "(<any>) <boolean>")
+	defineFunction("type-name", ellTypeName, "(<type>) <symbol>")
 
-	defineFunction("struct", ellStruct, "(<any>+) <struct>")
-	defineFunction("equal?", ellEq, "(<any> <any>) <boolean>")
-	defineFunction("identical?", ellIdenticalP, "(<any> <any>) <boolean>")
-	defineFunction("not", ellNot, "(<any>) <boolean>")
+	defineFunction("keyword?", ellKeywordP, "(<any>) <boolean>")
 
-	defineFunction("boolean?", ellBooleanP, "(<any>) <boolean>")
-	defineFunction("null?", ellNullP, "(<any>) <boolean>")
 	defineFunction("symbol?", elLSymbolP, "(<any>) <boolean>")
 	defineFunction("symbol", elLSymbol, "(<any>+) <boolean>")
 
-	defineFunction("keyword?", ellKeywordP, "(<any>) <boolean>")
 	defineFunction("string?", ellStringP, "(<any>) <boolean>")
-	defineFunction("character?", ellCharacterP, "(<any>) <boolean>")
-	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
-	defineFunction("eof?", ellFunctionP, "(<any>) <boolean>")
-
-	defineFunction("list?", ellListP, "(<any>) <boolean>")
-	defineFunction("to-list", ellToList, "(<any>) <list>")
-	defineFunction("cons", ellCons, "(<any> <list>) <list>")
-	defineFunction("car", ellCar, "(<list>) <any>")
-	defineFunction("cdr", ellCdr, "(<list>) <list>")
-	defineFunction("list", ellList, "(<any>*) <list>")
-	defineFunction("concat", ellConcat, "(<list>*) <list>")
-	defineFunction("reverse", ellReverse, "(<list>) <list>")
-	defineFunction("flatten", ellFlatten, "(<list>) <list>")
-	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>")  //mutate!
-	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
-
-	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
-	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
-	defineFunction("vector", ellVector, "(<any>*) <vector>")
-	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
-	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
-	defineFunction("vector-ref", ellVectorRef, "(<vector> <number>) <any>")
-
-	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
-	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
-	defineFunction("get", ellGet, "(<struct> <any>) <any>")
-	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
-	//	defineFunction("assoc", ellAssoc, "(<struct> <any>) <struct")
-	//	defineFunction("dissoc", ellDissoc, "(<struct> <any>) <struct>")
-
-	defineFunction("empty?", ellEmptyP, "(<any>) <boolean>")
-
 	defineFunction("string", ellString, "(<any>*) <string>")
+	//	defineFunction("format", ellFormat, "(<string> <any>*) <string>")
 	defineFunction("string-length", ellStringLength, "(<string>) <number>")
-
-	defineFunction("display", ellDisplay, "(<any>) <null>")
-	defineFunction("write", ellWrite, "(<any>) <null>")
-	defineFunction("newline", ellNewline, "() <null>")
-	defineFunction("print", ellPrint, "(<any>*) <null>")
-	defineFunction("println", ellPrintln, "(<any>*) <null>")
 	defineFunction("to-string", ellToString, "(<any>)  <string>")
+
+	defineFunction("character?", ellCharacterP, "(<any>) <boolean>")
 
 	defineFunction("number?", ellNumberP, "(<any>) <boolean>") // either float or int
 	defineFunction("int?", ellIntP, "(<any>) <boolean>")       //int only
@@ -128,6 +88,52 @@ func initEnvironment() {
 	defineFunction("<", ellLt, "(<number>+) <boolean>")
 	defineFunction("zero?", ellZeroP, "(<number>) <boolean>")
 
+	defineFunction("list?", ellListP, "(<any>) <boolean>")
+	defineFunction("to-list", ellToList, "(<any>) <list>")
+	defineFunction("cons", ellCons, "(<any> <list>) <list>")
+	defineFunction("car", ellCar, "(<list>) <any>")
+	defineFunction("cdr", ellCdr, "(<list>) <list>")
+	defineFunction("list", ellList, "(<any>*) <list>")
+	defineFunction("concat", ellConcat, "(<list>*) <list>")
+	defineFunction("reverse", ellReverse, "(<list>) <list>")
+	defineFunction("flatten", ellFlatten, "(<list>) <list>")
+	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>")  //mutate!
+	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
+
+	defineFunction("struct", ellStruct, "(<any>+) <struct>")
+
+	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
+	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
+	defineFunction("vector", ellVector, "(<any>*) <vector>")
+	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
+	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
+	defineFunction("vector-ref", ellVectorRef, "(<vector> <number>) <any>")
+
+	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
+	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
+	defineFunction("get", ellGet, "(<struct> <any>) <any>")
+	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
+
+	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
+
+	defineFunction("slurp", ellSlurp, "(<string>) <string>")
+	defineFunction("read-all", ellReadAll, "(<string> keys: <type>]) <list>")
+	defineFunction("read", ellRead, "(<string> keys: <type>) <any>")
+
+	defineFunction("spit", ellSpit, "(<string> <any>) <null>")
+	defineFunction("write", ellWrite, "(<any> indent: <string>) <string>")
+	defineFunction("write-all", ellWriteAll, "(<list> indent: <string>) <string>")
+	defineFunction("print", ellPrint, "(<any>*) <null>")
+	defineFunction("println", ellPrintln, "(<any>*) <null>")
+
+	defineFunction("macroexpand", ellMacroexpand, "(<any>) <any>")
+	defineFunction("compile", ellCompile, "(<any>) <code>")
+
+	//	defineFunction("assoc", ellAssoc, "(<struct> <any>) <struct")
+	//	defineFunction("dissoc", ellDissoc, "(<struct> <any>) <struct>")
+
+	defineFunction("empty?", ellEmptyP, "(<any>) <boolean>")
+
 	defineFunction("error", ellFatal, "(<any>+) <null>")
 	defineFunction("length", ellLength, "(<any>) <number>")
 	defineFunction("json", ellJSON, "(<any>) <string>")
@@ -136,6 +142,14 @@ func initEnvironment() {
 	if err != nil {
 		fatal("*** ", err)
 	}
+}
+
+func getOptions(rest []*LOB, keys ...string) (*LOB, error) {
+	var validOptions []*LOB
+	for _, key := range keys {
+		validOptions = append(validOptions, intern(key))
+	}
+	return normalizeKeywordArgs(list(rest...), validOptions)
 }
 
 //
@@ -177,62 +191,74 @@ func ellDefinedP(argv []*LOB, argc int) (*LOB, error) {
 	return False, nil
 }
 
-func ellFileContents(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("file-contents", "1", argc)
+func ellSlurp(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 1 {
+		return nil, ArgcError("slurp", "1+", argc)
 	}
-	if !isString(argv[0]) {
+	url, err := asString(argv[0])
+	if err != nil {
 		return nil, ArgTypeError("string", 1, argv[0])
 	}
-	fname, err := asString(argv[0])
+	options, err := getOptions(argv[1:argc], "headers:")
 	if err != nil {
 		return nil, err
 	}
-	s, err := fileContents(fname)
-	if err != nil {
-		return nil, err
+	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
+		//do an http GET
+		return nil, Error("slurp on URL NYI: ", url, options)
 	}
-	return newString(s), nil
+	return slurpFile(url)
 }
 
-func ellOpenInputString(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("open-input-string", "1", argc)
+func ellSpit(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 2 {
+		return nil, ArgcError("slurp", "2+", argc)
 	}
-	s, err := asString(argv[0])
+	url, err := asString(argv[0])
+	if err != nil {
+		return nil, ArgTypeError("string", 1, argv[0])
+	}
+	data, err := asString(argv[1])
+	if err != nil {
+		return nil, ArgTypeError("string", 2, argv[1])
+	}
+	options, err := getOptions(argv[2:argc], "headers:")
 	if err != nil {
 		return nil, err
 	}
-	return openInputString(s), nil
+	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
+		//do an http GET
+		return nil, Error("slurp on URL NYI: ", url, options, data)
+	}
+	err = spitFile(url, data)
+	if err != nil {
+		return nil, err
+	}
+	return Null, nil
 }
 
-func ellOpenInputFile(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("open-input-file", "1", argc)
+func ellReadAll(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 1 {
+		return nil, ArgcError("read-all", "1+", argc)
 	}
-	s, err := asString(argv[0])
+	input := argv[0]
+	options, err := getOptions(argv[1:argc], "keys:")
 	if err != nil {
 		return nil, err
 	}
-	return openInputFile(s)
+	return readAll(input, options)
 }
 
 func ellRead(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("read", "1+", argc)
 	}
+	input := argv[0]
 	options, err := getOptions(argv[1:argc], "keys:")
 	if err != nil {
 		return nil, err
 	}
-	return readInputPort(argv[0], options)
-}
-
-func ellCloseInput(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("read", "1", argc)
-	}
-	return nil, closeInputPort(argv[0])
+	return read(input, options)
 }
 
 func ellMacroexpand(argv []*LOB, argc int) (*LOB, error) {
@@ -253,7 +279,7 @@ func ellCompile(argv []*LOB, argc int) (*LOB, error) {
 	return compile(expanded)
 }
 
-func elvariant(argv []*LOB, argc int) (*LOB, error) {
+func ellType(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 1 {
 		return nil, ArgcError("type", "1", argc)
 	}
@@ -350,22 +376,34 @@ func ellWrite(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("write", "1+", argc)
 	}
-	validOptions := []*LOB{intern("pretty:")} //to do: a to: argument for an output destination (port, file, url)
-	options, err := normalizeKeywordArgs(list(argv[1:argc]...), validOptions)
-	if err != nil {
-		return nil, err
+	data := argv[0]
+	options, err := getOptions(argv[1:argc], "indent:")
+	indent := "" //not indented
+	if err == nil && options != nil {
+		s, _ := get(options, intern("indent:"))
+		if isString(s) {
+			indent = s.text
+		}
 	}
-	fmt.Printf("%v", writeToString(argv[0], options))
-	return Null, nil
+	s := writeIndent(data, indent)
+	return newString(s), nil
 }
 
-func ellNewline(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 0 {
-		//todo: add the optional output argument like scheme
-		return nil, ArgcError("newline", "0", argc)
+func ellWriteAll(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 1 {
+		return nil, ArgcError("write-all", "1+", argc)
 	}
-	fmt.Println("")
-	return Null, nil
+	data := argv[0]
+	options, err := getOptions(argv[1:argc], "indent:")
+	indent := "" //not indented
+	if err == nil && options != nil {
+		s, _ := get(options, intern("indent:"))
+		if isString(s) {
+			indent = s.text
+		}
+	}
+	s := writeAllIndent(data, indent)
+	return newString(s), nil
 }
 
 func ellFatal(argv []*LOB, argc int) (*LOB, error) {
@@ -380,7 +418,7 @@ func ellToString(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 1 {
 		return nil, ArgcError("to-string", "1", argc)
 	}
-	return toString(argv[0]), nil
+	return toString(argv[0])
 }
 
 func ellPrint(argv []*LOB, argc int) (*LOB, error) {
@@ -755,7 +793,7 @@ func ellKeywordP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("keyword?", "1", argc)
 }
 
-func elvariantP(argv []*LOB, argc int) (*LOB, error) {
+func ellTypeP(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		if isType(argv[0]) {
 			return True, nil
@@ -765,7 +803,7 @@ func elvariantP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("type?", "1", argc)
 }
 
-func elvariantName(argv []*LOB, argc int) (*LOB, error) {
+func ellTypeName(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		if isType(argv[0]) {
 			return typeName(argv[0])
@@ -985,22 +1023,6 @@ func ellPutBang(argv []*LOB, argc int) (*LOB, error) {
 	return put(argv[0], argv[1], argv[2])
 }
 
-/*
-func ellAssoc(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 3 {
-		return nil, ArgcError("assoc", "3", argc)
-	}
-	return assoc(argv[0], argv[1], argv[2])
-}
-
-func ellDissoc(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 3 {
-		return nil, ArgcError("dissoc", "2", argc)
-	}
-	return dissoc(argv[0], argv[1])
-}
-*/
-
 func ellToList(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 1 {
 		return nil, ArgcError("to-list", "1", argc)
@@ -1012,21 +1034,21 @@ func ellJSON(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("json", "1+", argc)
 	}
-	options, err := getOptions(argv[1:argc], "pretty:")
+	data := argv[0]
+	options, err := getOptions(argv[1:argc], "indent:")
 	if err != nil {
 		return nil, err
 	}
-	s, err := toJSON(argv[0], options)
+	indent := ""
+	if err == nil && options != nil {
+		s, _ := get(options, intern("indent:"))
+		if isString(s) {
+			indent = s.text
+		}
+	}
+	s, err := writeToString(data, true, indent)
 	if err != nil {
 		return nil, err
 	}
 	return newString(s), nil
-}
-
-func getOptions(rest []*LOB, keys ...string) (*LOB, error) {
-	var validOptions []*LOB
-	for _, key := range keys {
-		validOptions = append(validOptions, intern(key))
-	}
-	return normalizeKeywordArgs(list(rest...), validOptions)
 }

@@ -27,6 +27,8 @@ import (
 	"strings"
 )
 
+// generic file ops
+
 func fileReadable(path string) bool {
 	if info, err := os.Stat(path); err == nil {
 		if info.Mode().IsRegular() {
@@ -34,6 +36,18 @@ func fileReadable(path string) bool {
 		}
 	}
 	return false
+}
+
+func slurpFile(path string) (*LOB, error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return EmptyString, err
+	}
+	return newString(string(b)), nil
+}
+
+func spitFile(path string, data string) error {
+	return ioutil.WriteFile(path, []byte(data), 0644)
 }
 
 // LPort - readable and writable I/O ports
@@ -72,23 +86,62 @@ func outputPortTypeError(fun string, argnum int, obj *LOB) error {
 
 // --- reader
 
-func readInputPort(in *LOB, options *LOB) (*LOB, error) {
-	if !isInputPort(in) {
-		return nil, inputPortTypeError("read", 1, in)
-	}
-	keys := Null
-	if options != nil && isStruct(options) {
+func keysOptionValue(options *LOB) (*LOB, error) {
+	if options != nil {
 		t, err := get(options, intern("keys:"))
 		if err == nil && isType(t) {
 			switch t {
 			case typeSymbol, typeKeyword, typeString:
-				keys = t
+				return t, nil
 			default:
 				return nil, Error("Bad option value for keys: ", t)
 			}
 		}
 	}
+	return Null, nil
+}
+
+func read(input *LOB, options *LOB) (*LOB, error) {
+	in := input
+	if isString(in) {
+		in = openInputString(in.text)
+	}
+	if !isInputPort(in) {
+		return nil, Error("read-all: not readable: ", in)
+	}
+	keys, err := keysOptionValue(options)
+	if err != nil {
+		return nil, err
+	}
 	return in.port.read(keys)
+}
+
+func readAll(input *LOB, options *LOB) (*LOB, error) {
+	in := input
+	if isString(in) {
+		in = openInputString(in.text)
+	}
+	if !isInputPort(in) {
+		return nil, Error("read-all: not readable: ", in)
+	}
+	keys, err := keysOptionValue(options)
+	if err != nil {
+		return nil, err
+	}
+	lst := EmptyList
+	tail := EmptyList
+	val, err := in.port.read(keys)
+	for err == nil && val != EOF {
+		if lst == EmptyList {
+			lst = list(val)
+			tail = lst
+		} else {
+			tail.cdr = list(val)
+			tail = tail.cdr
+		}
+		val, err = in.port.read(keys)
+	}
+	return lst, nil
 }
 
 func closeInputPort(in *LOB) error {
@@ -123,16 +176,6 @@ func (port *LPort) close() error {
 	return err
 }
 
-func fileContents(path string) (string, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-//todo: implement Output
-
 func newInputPort(name string, reader *dataReader, fd *os.File) *LOB {
 	return &LOB{variant: typePort, port: &LPort{file: fd, reader: reader, name: name}}
 }
@@ -152,18 +195,6 @@ func openInputString(input string) *LOB {
 	reader := newDataReader(r)
 	return newInputPort(input, reader, nil)
 }
-
-func readInputString(input string, options *LOB) (*LOB, error) {
-	return readInputPort(openInputString(input), options)
-}
-
-/*
-func decode(in io.Reader) (*LOB, error) {
-	br := bufio.NewReader(in)
-	dr := dataReader{br}
-	return dr.readData(options)
-}
-*/
 
 type dataReader struct {
 	in *bufio.Reader
@@ -382,7 +413,10 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 					return nil, err
 				}
 			case typeString:
-				element = toString(element)
+				element, err = toString(element)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		items = append(items, element)
@@ -605,40 +639,71 @@ func isDelimiter(b byte) bool {
 	return b == '(' || b == ')' || b == '[' || b == ']' || b == '{' || b == '}' || b == '"' || b == '\'' || b == ';' || b == ':'
 }
 
+//writer
+
+const defaultIndentSize = "    "
+
 func write(obj *LOB) string {
-	return writeToString(obj, Null)
+	return writeIndent(obj, "")
 }
 
-func writeToString(obj *LOB, options *LOB) string {
-	if obj == nil {
-		panic("null pointer")
-	}
-	indent := "-"
-	if isStruct(options) {
-		b, err := get(options, intern("pretty:"))
-		if err == nil && b == True {
-			indent = ""
+func pretty(obj *LOB) string {
+	return writeIndent(obj, defaultIndentSize)
+}
+
+func writeIndent(obj *LOB, indentSize string) string {
+	s, _ := writeToString(obj, false, indentSize)
+	return s
+}
+
+func writeAll(obj *LOB) string {
+	return writeAllIndent(obj, "")
+}
+
+func prettyAll(obj *LOB) string {
+	return writeAllIndent(obj, "    ")
+}
+
+func writeAllIndent(obj *LOB, indent string) string {
+	if isList(obj) {
+		var buf bytes.Buffer
+		for obj != EmptyList {
+			o := car(obj)
+			s, _ := writeToString(o, false, indent)
+			buf.WriteString(s)
+			buf.WriteString("\n")
+			obj = cdr(obj)
 		}
+		return buf.String()
 	}
-	elldn, _ := writeData(obj, false, indent)
-	if indent != "-" {
-		return elldn + "\n"
+	s, _ := writeToString(obj, false, indent)
+	if indent == "" {
+		return s + "\n"
 	}
-	return elldn
+	return s
 }
 
-const indentSize = "  "
+func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
+	elldn, err := writeData(obj, json, "", indentSize)
+	if err != nil {
+		return "", err
+	}
+	if indentSize != "" {
+		return elldn + "\n", nil
+	}
+	return elldn, nil
+}
 
-func writeData(obj *LOB, json bool, indent string) (string, error) {
+func writeData(obj *LOB, json bool, indent string, indentSize string) (string, error) {
 	//an error is never returned for non-json
 	switch obj.variant {
 	case typeBoolean, typeNull, typeNumber:
 		return obj.String(), nil
 	case typeList:
 		if json {
-			return writeVector(listToVector(obj), json, indent)
+			return writeVector(listToVector(obj), json, indent, indentSize)
 		}
-		return writeList(obj, indent), nil
+		return writeList(obj, indent, indentSize), nil
 	case typeKeyword:
 		if json {
 			return encodeString(unkeywordedString(obj)), nil
@@ -649,9 +714,9 @@ func writeData(obj *LOB, json bool, indent string) (string, error) {
 	case typeString:
 		return encodeString(obj.text), nil
 	case typeVector:
-		return writeVector(obj, json, indent)
+		return writeVector(obj, json, indent, indentSize)
 	case typeStruct:
-		return writeStruct(obj, json, indent)
+		return writeStruct(obj, json, indent, indentSize)
 	case typeCharacter:
 		switch obj.ival {
 		case 0:
@@ -689,7 +754,7 @@ func writeData(obj *LOB, json bool, indent string) (string, error) {
 	}
 }
 
-func writeList(lst *LOB, indent string) string {
+func writeList(lst *LOB, indent string, indentSize string) string {
 	if lst == EmptyList {
 		return "()"
 	}
@@ -707,8 +772,8 @@ func writeList(lst *LOB, indent string) string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
 	delim := " "
-	nextIndent := indent
-	if indent != "-" {
+	nextIndent := ""
+	if indentSize != "" {
 		nextIndent = indent + indentSize
 		delim = "\n" + nextIndent
 		buf.WriteString("\n" + nextIndent)
@@ -717,18 +782,18 @@ func writeList(lst *LOB, indent string) string {
 	lst = lst.cdr
 	for lst != EmptyList {
 		buf.WriteString(delim)
-		s, _ := writeData(lst.car, false, nextIndent)
+		s, _ := writeData(lst.car, false, nextIndent, indentSize)
 		buf.WriteString(s)
 		lst = lst.cdr
 	}
-	if indent != "-" {
+	if indentSize != "" {
 		buf.WriteString("\n" + indent)
 	}
 	buf.WriteString(")")
 	return buf.String()
 }
 
-func writeVector(vec *LOB, json bool, indent string) (string, error) {
+func writeVector(vec *LOB, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(vec.elements)
@@ -738,21 +803,20 @@ func writeVector(vec *LOB, json bool, indent string) (string, error) {
 			delim = ","
 		}
 		nextIndent := ""
-		if indent != "-" {
+		if indentSize != "" {
 			nextIndent = indent + indentSize
 			delim = delim + "\n" + nextIndent
 			buf.WriteString("\n" + nextIndent)
 		} else {
-			nextIndent = indent
 			delim = delim + " "
 		}
-		s, err := writeData(vec.elements[0], json, nextIndent)
+		s, err := writeData(vec.elements[0], json, nextIndent, indentSize)
 		if err != nil {
 			return "", err
 		}
 		buf.WriteString(s)
 		for i := 1; i < vlen; i++ {
-			s, err := writeData(vec.elements[i], json, nextIndent)
+			s, err := writeData(vec.elements[i], json, nextIndent, indentSize)
 			if err != nil {
 				return "", err
 			}
@@ -760,14 +824,14 @@ func writeVector(vec *LOB, json bool, indent string) (string, error) {
 			buf.WriteString(s)
 		}
 	}
-	if indent != "-" {
+	if indentSize != "" {
 		buf.WriteString("\n" + indent)
 	}
 	buf.WriteString("]")
 	return buf.String(), nil
 }
 
-func writeStruct(strct *LOB, json bool, indent string) (string, error) {
+func writeStruct(strct *LOB, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	size := len(strct.elements)
@@ -779,13 +843,12 @@ func writeStruct(strct *LOB, json bool, indent string) (string, error) {
 	}
 	nextIndent := ""
 	if size > 0 {
-		if indent != "-" {
+		if indentSize != "" {
 			nextIndent = indent + indentSize
 			delim = delim + "\n" + nextIndent
 			buf.WriteString("\n" + nextIndent)
 		} else {
 			delim = delim + " "
-			nextIndent = indent
 		}
 	}
 	for i := 0; i < size; i += 2 {
@@ -794,35 +857,21 @@ func writeStruct(strct *LOB, json bool, indent string) (string, error) {
 		if i != 0 {
 			buf.WriteString(delim)
 		}
-		s, err := writeData(k, json, nextIndent)
+		s, err := writeData(k, json, nextIndent, indentSize)
 		if err != nil {
 			return "", err
 		}
 		buf.WriteString(s)
 		buf.WriteString(sep)
-		s, err = writeData(v, json, nextIndent)
+		s, err = writeData(v, json, nextIndent, indentSize)
 		if err != nil {
 			return "", err
 		}
 		buf.WriteString(s)
 	}
-	if indent != "-" {
+	if indentSize != "" {
 		buf.WriteString("\n" + indent)
 	}
 	buf.WriteString("}")
 	return buf.String(), nil
-}
-
-//return a JSON string of the object, or an error if it cannot be expressed in JSON
-//this is very close to EllDn, the standard output format. Exceptions:
-//  1. the only symbols allowed are true, false, null
-func toJSON(obj *LOB, options *LOB) (string, error) {
-	indent := "-"
-	if isStruct(options) {
-		b, err := get(options, intern("pretty:"))
-		if err == nil && b == True {
-			indent = ""
-		}
-	}
-	return writeData(obj, true, indent)
 }
