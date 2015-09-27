@@ -313,7 +313,7 @@
       (error "wrong number of args for range: " argc)))))
 
 ;;
-;; execute the body once for each value in the specified range
+;; execute the body once for each value in the specified range.
 ;; i.e.
 ;; (dorange (sym end) ...)
 ;; (dorange (sym start end) ...)
@@ -326,7 +326,37 @@
         `(let loop ((~sym ~(car args))) (if (> ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args)))))))))
 
 ;;
-;; Produces a list representing the range (not lazy!).
+;; execute the body once for each value in the list. This will avoid a check at runtime that the for macro
+;; does to determine that it is a list
+;;
+(defmacro dolist (init & body)
+  (let ((sym (car init)) (lst (cadr init)) (symlst (symbol (car init) "-list")))
+    `(let loop ((~symlst ~lst)) (if (empty? ~symlst) null (let ((~sym (car ~symlst))) ~@body (loop (cdr ~symlst)))))))
+
+;;
+;; Execute the body once for each value in the sequence: range, list, vector, string, or struct
+;; if the init is of the form (var start end) or (var start end step), a ranged loop with var bound to the index is done.
+;; otherwise the init must be of the form (var seq), where seq is a list, vector, string, or struct
+;; vectors and strings themselves iterate over the range of index values, binding var to each element at that position
+;; lists are checked for at runtime, and a named let is used to more efficient iterate over that.
+;; structs are checked for at runtime, and converted first to a list, then handled like a list
+;;
+(defmacro for (init & body)
+  (if (< (length init) 2)
+      (error "syntax error: " (cons 'for (cons init body))))
+  (let ((sym (car init)))
+    (if (> (length init) 2)
+        `(dorange ~init ~@body)
+        (let ((seq (cadr init)) (symlst (symbol sym "-list")))
+          `(let ((doseq-value ~(cadr init)))
+             (if (list? doseq-value)
+                 (dolist ~init ~@body)
+                 (if (struct? doseq-value)
+                     (dolist (~(car init) (to-list ~(cadr init))) ~@body)
+                     (dorange (doseq-index (length doseq-value)) (let ((~sym (get doseq-value doseq-index))) ~@body)))))))))
+  
+;;
+;; Produces a list representing the range (not lazy!). This is somewhat bogus
 ;;
 (defn range args
   (defn range-aux (pred start end step)
