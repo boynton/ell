@@ -122,7 +122,6 @@ func assocVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
 	return assocBangVector(copyVector(vec), fieldvals)
 }
 
-
 func toVector(obj *LOB) (*LOB, error) {
 	switch obj.variant {
 	case typeVector:

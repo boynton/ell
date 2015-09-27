@@ -130,18 +130,6 @@ func assoc(obj *LOB, rest ...*LOB) (*LOB, error) {
 	}
 }
 
-func assocBang(obj *LOB, rest ...*LOB) (*LOB, error) {
-	s := value(obj)
-	switch s.variant {
-	case typeStruct:
-		return assocBangStruct(s, rest)
-	case typeVector:
-		return assocBangVector(s, rest)
-	default:
-		return nil, Error("assoc! cannot work with type ", obj.variant)
-	}
-}
-
 func dissoc(obj *LOB, rest ...*LOB) (*LOB, error) {
 	s := value(obj)
 	switch s.variant {

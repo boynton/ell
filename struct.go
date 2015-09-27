@@ -116,7 +116,6 @@ func dissocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
 	return nil, Error("dissocStruct: NYI")
 }
 
-
 func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
 	//danger! side effects!
 	s := value(obj)

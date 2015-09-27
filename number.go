@@ -20,6 +20,7 @@ import (
 	"math"
 )
 
+// A commonly used constant
 var One = newInt(1)
 
 func newFloat64(f float64) *LOB {

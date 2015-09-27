@@ -211,7 +211,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		default: // a funcall
 			// (<fn>)
 			// (<fn> <arg> ...)
-			fn, args := optimizeFuncall(target, env, fn, cdr(lst),isTail, ignoreResult, context)
+			fn, args := optimizeFuncall(target, env, fn, cdr(lst), isTail, ignoreResult, context)
 			return compileFuncall(target, env, fn, args, isTail, ignoreResult, context)
 		}
 	} else if isVector(expr) {

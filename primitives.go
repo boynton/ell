@@ -135,7 +135,7 @@ func initEnvironment() {
 	defineFunction("get", ellGet, "(<any> <any>) <any>")
 	defineFunction("assoc", ellAssoc, "(<any> <any>) <any>")
 	defineFunction("dissoc", ellDissoc, "(<any> <any>) <any>")
-	defineFunction("assoc!", ellAssocBang, "(<list|struct> <any>) <struct") //mutate!
+	defineFunction("assoc!", ellAssocBang, "(<list|struct> <any>) <struct")    //mutate!
 	defineFunction("dissoc!", ellDissocBang, "(<list|struct> <any>) <struct>") //mutate!
 
 	defineFunction("error", ellFatal, "(<any>+) <null>")
@@ -1116,7 +1116,6 @@ func ellAssocBang(argv []*LOB, argc int) (*LOB, error) {
 	default:
 		return nil, Error("assoc! cannot work with type ", argv[0].variant)
 	}
-	return assocBang(argv[0], argv[1:]...)
 }
 
 func ellDissocBang(argv []*LOB, argc int) (*LOB, error) {
