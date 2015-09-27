@@ -151,13 +151,11 @@
                 (loop keys (cdr remaining)))))))
 
   (defn validate-types (lst)
-    (println "validate type: " (length lst) ", " (car lst))
     (if (empty? lst)
         true
         (and (type? (car lst)) (validate-types (cdr lst)))))
   (let ((fields (apply struct keyargs)) ;; {x: <number> y: <number>}
         (typesym (symbol "<" sym ">")))
-    (println "fields: " (write fields))
     (let ((keywords (keys fields)) (types (values fields)))
       (if (not (validate-types types))
           (error "defstruct: one or more fields has an invalid <type>: " fields))
@@ -165,7 +163,7 @@
        (defn ~sym args (instance ~typesym (validated-struct (apply struct (normalize-keyword-arg-list args ~@keywords)) ~typesym '~keywords '~fields)))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () ~fields)
-       (defn ~(symbol "as-" sym) (o) (instance '~typesym (validated-struct o ~typesym '~keywords)))
+       (defn ~(symbol "as-" sym) (o) (instance '~typesym (validated-struct o ~typesym '~keywords '~fields)))
        ~typesym))))
 
 ;;
