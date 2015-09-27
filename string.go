@@ -118,6 +118,23 @@ func newCharacter(c rune) *LOB {
 	return char
 }
 
+func toCharacter(c *LOB) (*LOB, error) {
+	switch c.variant {
+	case typeCharacter:
+		return c, nil
+	case typeString:
+		if len(c.text) == 1 {
+			for _, r := range c.text {
+				return newCharacter(r), nil
+			}
+		}
+	case typeNumber:
+		r := rune(int(c.fval))
+		return newCharacter(r), nil
+	}
+	return nil, Error("Cannot convert to <character>: ", c)
+}
+
 func asCharacter(c *LOB) (rune, error) {
 	if !isCharacter(c) {
 		return 0, TypeError(typeCharacter, c)
@@ -131,6 +148,16 @@ func stringCharacters(s *LOB) []*LOB {
 		chars = append(chars, newCharacter(c))
 	}
 	return chars
+}
+
+func stringRef(s *LOB, idx int) *LOB {
+	//utf8 requires a scan
+	for i, r := range s.text {
+		if i == idx {
+			return newCharacter(r)
+		}
+	}
+	return Null
 }
 
 func stringToVector(s *LOB) *LOB {

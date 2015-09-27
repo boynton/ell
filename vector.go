@@ -77,25 +77,51 @@ func copyVector(vec *LOB) *LOB {
 }
 
 func vectorSet(vec *LOB, idx int, obj *LOB) error {
-	if isVector(vec) {
-		if idx < 0 || idx >= len(vec.elements) {
-			return Error("Vector index out of range")
-		}
-		vec.elements[idx] = obj
-		return nil
+	if idx < 0 || idx >= len(vec.elements) {
+		return Error("Vector index out of range")
 	}
-	return TypeError(typeVector, vec)
+	vec.elements[idx] = obj
+	return nil
 }
 
-func vectorRef(vec *LOB, idx int) (*LOB, error) {
-	if isVector(vec) {
-		if idx < 0 || idx >= len(vec.elements) {
-			return nil, Error("Vector index out of range")
-		}
-		return vec.elements[idx], nil
+func vectorRef(vec *LOB, idx int) *LOB {
+	if idx < 0 || idx >= len(vec.elements) {
+		return Null
 	}
-	return nil, TypeError(typeVector, vec)
+	return vec.elements[idx]
 }
+
+func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
+	//danger! mutation!
+	max := len(vec.elements)
+	count := len(fieldvals)
+	i := 0
+	for i < count {
+		key := value(fieldvals[i])
+		i++
+		switch key.variant {
+		case typeNumber:
+			idx := int(key.fval)
+			if idx < 0 || idx > max {
+				return nil, Error("Vector index out of range")
+			}
+			if i == count {
+				return nil, Error("mismatched index/value: ", fieldvals)
+			}
+			vec.elements[idx] = fieldvals[i]
+			i++
+		default:
+			return nil, Error("Bad vector index: ", key)
+		}
+	}
+	return vec, nil
+}
+
+func assocVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
+	//optimize this
+	return assocBangVector(copyVector(vec), fieldvals)
+}
+
 
 func toVector(obj *LOB) (*LOB, error) {
 	switch obj.variant {

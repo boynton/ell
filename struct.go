@@ -32,9 +32,13 @@ func newStruct(fieldvals []*LOB) (*LOB, error) {
 	count := len(fieldvals)
 	strct := newLOB(typeStruct)
 	strct.elements = make([]*LOB, 0, count)
+	return initStruct(strct, fieldvals, count)
+}
+
+func initStruct(strct *LOB, fieldvals []*LOB, count int) (*LOB, error) {
 	i := 0
 	for i < count {
-		o := fieldvals[i]
+		o := value(fieldvals[i])
 		i++
 		switch value(o).variant {
 		case typeStruct: // not a valid key, just copy bindings from it
@@ -55,28 +59,33 @@ func newStruct(fieldvals []*LOB) (*LOB, error) {
 	return strct, nil
 }
 
+//called by the VM, when a keyword is used as a function. Optimize!
 func get(obj *LOB, key *LOB) (*LOB, error) {
 	s := value(obj)
 	if s.variant != typeStruct {
 		return nil, TypeError(typeStruct, obj)
 	}
+	return structGet(s, key), nil
+}
+
+func structGet(s *LOB, key *LOB) *LOB {
 	bindings := s.elements
 	slen := len(bindings)
 	switch key.variant {
 	case typeKeyword, typeSymbol, typeType: //these are all intern'ed, so pointer equality works
 		for i := 0; i < slen; i += 2 {
 			if bindings[i] == key {
-				return bindings[i+1], nil
+				return bindings[i+1]
 			}
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
 			if bindings[i].variant == typeString && bindings[i].text == key.text {
-				return bindings[i+1], nil
+				return bindings[i+1]
 			}
 		}
 	}
-	return Null, nil
+	return Null
 }
 
 func has(obj *LOB, key *LOB) (bool, error) {
@@ -89,6 +98,24 @@ func has(obj *LOB, key *LOB) (bool, error) {
 	}
 	return true, nil
 }
+
+func assocStruct(s *LOB, rest []*LOB) (*LOB, error) {
+	//optimize this
+	return newStruct(append(rest, s))
+}
+
+func assocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
+	//optimize this
+	return initStruct(s, rest, len(rest))
+}
+
+func dissocStruct(s *LOB, rest []*LOB) (*LOB, error) {
+	return nil, Error("dissocStruct: NYI")
+}
+func dissocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
+	return nil, Error("dissocStruct: NYI")
+}
+
 
 func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
 	//danger! side effects!
@@ -151,25 +178,23 @@ func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 	return append(append(bindings, key), val)
 }
 
-// (normalize-keyword-args '(x: 23) x: y:) => (x: 23)
-// (normalize-keyword-args '(x: 23 z: 100) x: y:) =>  *** z: bad keyword parameter. Allowed keys: [x: y:]
-func normalizeKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
-	tmp, err := normalizeKeywordArgBindings(args, keys)
+func validateKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
+	tmp, err := validateKeywordArgBindings(args, keys)
 	if err != nil {
 		return nil, err
 	}
 	return listFromValues(tmp), nil
 }
 
-func normalizeKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
-	tmp, err := normalizeKeywordArgBindings(args, keys)
+func validateKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
+	tmp, err := validateKeywordArgBindings(args, keys)
 	if err != nil {
 		return nil, err
 	}
 	return newStruct(tmp)
 }
 
-func normalizeKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
+func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 	count := length(args)
 	bindings := make([]*LOB, 0, count)
 	for args != EmptyList {

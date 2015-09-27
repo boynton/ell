@@ -121,7 +121,7 @@ func (code *LCode) signature() string {
 	// (defmacro declare (name args)
 	//   (or (symbol? name) (error "expected a <symbol> got " name))
 	//   (let ((sig (string args)))
-	//     `(put! *declarations* '~name '~sig)))
+	//     `(assoc! *declarations* '~name '~sig)))
 	//used as:
 	// (declare cons (<any> <list>) <list>)
 	if code.name != "" {

@@ -93,6 +93,14 @@ func typeName(t *LOB) (*LOB, error) {
 	return intern(t.text[1 : len(t.text)-1]), nil
 }
 
+// <keyword> -> <symbol>
+func keywordName(t *LOB) (*LOB, error) {
+	if !isKeyword(t) {
+		return nil, Error("Type error: expected <keyword>, got ", t)
+	}
+	return unkeyworded(t)
+}
+
 func unkeywordedString(k *LOB) string {
 	if isKeyword(k) {
 		return k.text[:len(k.text)-1]

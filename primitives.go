@@ -49,29 +49,34 @@ func initEnvironment() {
 
 	defineFunction("type", ellType, "(<any>) <type>")
 	defineFunction("value", ellValue, "<any>) <any>")
+
 	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
-	defineFunction("normalize-keyword-arg-list", ellNormalizeKeywordArgList, "(<list> <keyword>+) <list>")
-	defineFunction("normalize-keyword-args", ellNormalizeKeywordArgList, "(<list> <keyword>+) <struct>")
+	defineFunction("validate-keyword-arg-list", ellValidateKeywordArgList, "(<list> <keyword>+) <list>") // used by defstruct
 
 	defineFunction("type?", ellTypeP, "(<any>) <boolean>")
 	defineFunction("type-name", ellTypeName, "(<type>) <symbol>")
 
 	defineFunction("keyword?", ellKeywordP, "(<any>) <boolean>")
+	defineFunction("keyword-name", ellKeywordName, "(<keyword>) <symbol>")
 
 	defineFunction("symbol?", elLSymbolP, "(<any>) <boolean>")
 	defineFunction("symbol", elLSymbol, "(<any>+) <boolean>")
 
 	defineFunction("string?", ellStringP, "(<any>) <boolean>")
 	defineFunction("string", ellString, "(<any>*) <string>")
+	defineFunction("to-string", ellToString, "(<any>) <string>")
 	//	defineFunction("format", ellFormat, "(<string> <any>*) <string>")
-	defineFunction("string-length", ellStringLength, "(<string>) <number>")
-	defineFunction("to-string", ellToString, "(<any>)  <string>")
+	defineFunction("split", ellSplit, "(<any>) <sequence>")
+	defineFunction("join", ellJoin, "(<sequence>) <any>")
 
 	defineFunction("character?", ellCharacterP, "(<any>) <boolean>")
+	defineFunction("to-character", ellToCharacter, "(<any>) <character>")
 
 	defineFunction("number?", ellNumberP, "(<any>) <boolean>") // either float or int
 	defineFunction("int?", ellIntP, "(<any>) <boolean>")       //int only
 	defineFunction("float?", ellFloatP, "(<any>) <boolean>")   //float only
+	defineFunction("inc", ellInc, "(<number>) <number>")
+	defineFunction("dec", ellDec, "(<number>) <number>")
 	defineFunction("+", ellPlus, "(<number>*) <number>")
 	defineFunction("-", ellMinus, "(<number>+) <number>")
 	defineFunction("*", ellTimes, "(<number>*) <number>")
@@ -103,15 +108,11 @@ func initEnvironment() {
 	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
 	defineFunction("vector", ellVector, "(<any>*) <vector>")
 	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
-	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
-	defineFunction("vector-ref", ellVectorRef, "(<vector> <number>) <any>")
 
 	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
 	defineFunction("to-struct", ellToStruct, "(<any>) <struct>")
 	defineFunction("struct", ellStruct, "(<any>+) <struct>")
 	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
-	defineFunction("get", ellGet, "(<struct> <any>) <any>")
-	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
 	defineFunction("keys", ellKeys, "(<struct>) <list>")
 	defineFunction("values", ellValues, "(<struct>) <list>")
 
@@ -129,15 +130,15 @@ func initEnvironment() {
 	defineFunction("macroexpand", ellMacroexpand, "(<any>) <any>")
 	defineFunction("compile", ellCompile, "(<any>) <code>")
 
-	//	defineFunction("assoc", ellAssoc, "(<struct> <any>) <struct")
-	//	defineFunction("dissoc", ellDissoc, "(<struct> <any>) <struct>")
-
-	defineFunction("empty?", ellEmptyP, "(<any>) <boolean>")
-	defineFunction("split", ellSplit, "(<any>) <sequence>")
-	defineFunction("join", ellJoin, "(<sequence>) <any>")
+	defineFunction("empty?", ellEmptyP, "(<list|vector|struct|string>) <boolean>")
+	defineFunction("length", ellLength, "(<list|vector|struct|string>) <number>")
+	defineFunction("get", ellGet, "(<any> <any>) <any>")
+	defineFunction("assoc", ellAssoc, "(<any> <any>) <any>")
+	defineFunction("dissoc", ellDissoc, "(<any> <any>) <any>")
+	defineFunction("assoc!", ellAssocBang, "(<list|struct> <any>) <struct") //mutate!
+	defineFunction("dissoc!", ellDissocBang, "(<list|struct> <any>) <struct>") //mutate!
 
 	defineFunction("error", ellFatal, "(<any>+) <null>")
-	defineFunction("length", ellLength, "(<any>) <number>")
 	defineFunction("json", ellJSON, "(<any>) <string>")
 
 	err := loadModule("ell")
@@ -151,7 +152,7 @@ func getOptions(rest []*LOB, keys ...string) (*LOB, error) {
 	for _, key := range keys {
 		validOptions = append(validOptions, intern(key))
 	}
-	return normalizeKeywordArgs(list(rest...), validOptions)
+	return validateKeywordArgs(list(rest...), validOptions)
 }
 
 //
@@ -290,26 +291,16 @@ func ellInstance(argv []*LOB, argc int) (*LOB, error) {
 	return instance(argv[0], argv[1])
 }
 
-func ellNormalizeKeywordArgList(argv []*LOB, argc int) (*LOB, error) {
-	//(normalize-keyword-arglist '(x: 23) x: y:) -> (x:)
-	//(normalize-keyword-arglist '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
+func ellValidateKeywordArgList(argv []*LOB, argc int) (*LOB, error) {
+	//(validate-keyword-arg-list '(x: 23) x: y:) -> (x:)
+	//(validate-keyword-arg-list '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
 	if argc < 1 {
-		return nil, ArgcError("normalizeKeywordArgList", "1+", argc)
+		return nil, ArgcError("validate-keyword-arg-list", "1+", argc)
 	}
 	if isList(argv[0]) {
-		return normalizeKeywordArgList(argv[0], argv[1:argc])
+		return validateKeywordArgList(argv[0], argv[1:argc])
 	}
 	return nil, ArgTypeError("list", 1, argv[0])
-}
-
-func ellNormalizeKeywordArgs(argv []*LOB, argc int) (*LOB, error) {
-	if argc < 1 {
-		return nil, ArgcError("normalizeKeywordArgs", "1+", argc)
-	}
-	if !isList(argv[0]) {
-		return nil, ArgTypeError("list", 1, argv[0])
-	}
-	return normalizeKeywordArgs(argv[0], argv[1:argc])
 }
 
 func ellKeys(argv []*LOB, argc int) (*LOB, error) {
@@ -581,6 +572,20 @@ func ellRemainder(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("remainder", "2", argc)
 }
 
+func ellInc(argv []*LOB, argc int) (*LOB, error) {
+	if argc != 1 {
+		return nil, ArgcError("inc", "1", argc)
+	}
+	return inc(argv[0])
+}
+
+func ellDec(argv []*LOB, argc int) (*LOB, error) {
+	if argc != 1 {
+		return nil, ArgcError("dec", "1", argc)
+	}
+	return dec(argv[0])
+}
+
 func ellPlus(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 2 {
 		return add(argv[0], argv[1])
@@ -642,38 +647,6 @@ func ellVectorP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("vector?", "1", argc)
 }
 
-func ellVectorSetBang(argv []*LOB, argc int) (*LOB, error) {
-	if argc == 3 {
-		a := argv[0]
-		idx, err := intValue(argv[1])
-		if err != nil {
-			return nil, err
-		}
-		err = vectorSet(a, int(idx), argv[2])
-		if err != nil {
-			return nil, err
-		}
-		return a, nil
-	}
-	return nil, ArgcError("vector-set!", "3", argc)
-}
-
-func ellVectorRef(argv []*LOB, argc int) (*LOB, error) {
-	if argc == 2 {
-		a := argv[0]
-		idx, err := intValue(argv[1])
-		if err != nil {
-			return nil, err
-		}
-		val, err := vectorRef(a, int(idx))
-		if err != nil {
-			return nil, err
-		}
-		return val, nil
-	}
-	return nil, ArgcError("vector-ref", "2", argc)
-}
-
 func ellGe(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 2 {
 		b, err := greaterOrEqual(argv[0], argv[1])
@@ -720,14 +693,14 @@ func ellLt(argv []*LOB, argc int) (*LOB, error) {
 
 func ellZeroP(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
-		f, err := floatValue(argv[0])
-		if err != nil {
-			return nil, err
+		n := argv[0]
+		if n.variant == typeNumber {
+			if numberEqual(n.fval, 0.0) {
+				return True, nil
+			}
+			return False, nil
 		}
-		if f == 0 {
-			return True, nil
-		}
-		return False, nil
+		return nil, ArgTypeError("number", 1, n)
 	}
 	return nil, ArgcError("zero?", "1", argc)
 }
@@ -740,17 +713,6 @@ func ellNumberToString(argv []*LOB, argc int) (*LOB, error) {
 		return nil, ArgTypeError("number", 1, argv[0])
 	}
 	return newString(argv[0].String()), nil
-}
-
-func ellStringLength(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 1 {
-		return nil, ArgcError("string-length", "1", argc)
-	}
-	if !isString(argv[0]) {
-		return nil, ArgTypeError("string", 1, argv[0])
-	}
-	i := length(argv[0])
-	return newInt(i), nil
 }
 
 func ellLength(argv []*LOB, argc int) (*LOB, error) {
@@ -817,6 +779,16 @@ func ellKeywordP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("keyword?", "1", argc)
 }
 
+func ellKeywordName(argv []*LOB, argc int) (*LOB, error) {
+	if argc == 1 {
+		if isType(argv[0]) {
+			return keywordName(argv[0])
+		}
+		return False, nil
+	}
+	return nil, ArgcError("type-name", "1", argc)
+}
+
 func ellTypeP(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		if isType(argv[0]) {
@@ -855,6 +827,13 @@ func ellCharacterP(argv []*LOB, argc int) (*LOB, error) {
 		return False, nil
 	}
 	return nil, ArgcError("character?", "1", argc)
+}
+
+func ellToCharacter(argv []*LOB, argc int) (*LOB, error) {
+	if argc != 1 {
+		return nil, ArgcError("to-character", "1", argc)
+	}
+	return toCharacter(argv[0])
 }
 
 func ellFunctionP(argv []*LOB, argc int) (*LOB, error) {
@@ -1039,7 +1018,40 @@ func ellGet(argv []*LOB, argc int) (*LOB, error) {
 	if argc != 2 {
 		return nil, ArgcError("get", "2", argc)
 	}
-	return get(argv[0], argv[1])
+	v := value(argv[0])
+	switch v.variant {
+	case typeStruct:
+		return structGet(v, argv[1]), nil
+	case typeVector:
+		idx, err := intValue(argv[1])
+		if err != nil {
+			return Null, nil
+		}
+		return vectorRef(v, idx), nil
+	case typeList:
+		lst := v
+		idx, err := intValue(argv[1])
+		if err != nil {
+			return Null, nil
+		}
+		i := 0
+		for lst != EmptyList {
+			if i == idx {
+				return lst.car, nil
+			}
+			i++
+			lst = lst.cdr
+		}
+		return Null, nil
+	case typeString:
+		idx, err := intValue(argv[1])
+		if err != nil {
+			return Null, nil
+		}
+		return stringRef(v, idx), nil
+	default:
+		return nil, Error("get cannot work with type ", argv[0].variant)
+	}
 }
 
 func ellHasP(argv []*LOB, argc int) (*LOB, error) {
@@ -1056,11 +1068,52 @@ func ellHasP(argv []*LOB, argc int) (*LOB, error) {
 	return False, nil
 }
 
-func ellPutBang(argv []*LOB, argc int) (*LOB, error) {
-	if argc != 3 {
-		return nil, ArgcError("put!", "3", argc)
+func ellAssoc(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 3 {
+		return nil, ArgcError("assoc", "3+", argc)
 	}
-	return put(argv[0], argv[1], argv[2])
+	return assoc(argv[0], argv[1:]...)
+}
+
+func ellDissoc(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 2 {
+		return nil, ArgcError("assoc", "2+", argc) //clojure takes 1+, i.e. (disassoc s) is valid (and just returns a copy)
+	}
+	return dissoc(argv[0], argv[1:]...)
+}
+
+func ellAssocBang(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 3 {
+		return nil, ArgcError("assoc!", "3+", argc)
+	}
+	s := value(argv[0])
+	switch s.variant {
+	case typeStruct:
+		if argc == 3 {
+			return put(s, argv[1], argv[2])
+		}
+		return assocBangStruct(s, argv[1:argc])
+	case typeVector:
+		if argc == 3 {
+			idx, err := intValue(argv[1])
+			if err != nil {
+				return nil, err
+			}
+			err = vectorSet(s, idx, argv[2])
+			return s, err
+		}
+		return assocBangVector(s, argv[1:argc])
+	default:
+		return nil, Error("assoc! cannot work with type ", argv[0].variant)
+	}
+	return assocBang(argv[0], argv[1:]...)
+}
+
+func ellDissocBang(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 2 {
+		return nil, ArgcError("dissoc!", "2+", argc)
+	}
+	return dissocBang(argv[0], argv[1:]...)
 }
 
 func ellToList(argv []*LOB, argc int) (*LOB, error) {

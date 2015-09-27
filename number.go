@@ -20,6 +20,8 @@ import (
 	"math"
 )
 
+var One = newInt(1)
+
 func newFloat64(f float64) *LOB {
 	num := newLOB(typeNumber)
 	num.fval = f
@@ -163,6 +165,22 @@ func numericallyEqual(n1 *LOB, n2 *LOB) (*LOB, error) {
 		return True, nil
 	}
 	return False, nil
+}
+
+func inc(num *LOB) (*LOB, error) {
+	n, err := floatValue(num)
+	if err != nil {
+		return nil, err
+	}
+	return newFloat64(n + 1), nil
+}
+
+func dec(num *LOB) (*LOB, error) {
+	n, err := floatValue(num)
+	if err != nil {
+		return nil, err
+	}
+	return newFloat64(n - 1), nil
 }
 
 func add(num1 *LOB, num2 *LOB) (*LOB, error) {

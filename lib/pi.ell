@@ -3,7 +3,7 @@
   (let ((m (quotient (* n (* d 3322)) 1000)))
     (let ((r (let looop ((s 1) (i 0)) (if (>= i d) s (looop (* 10 s) (+ 1 i)))))
           (a (make-vector (+ 1 m) 2)))
-      (vector-set! a m 4)
+      (assoc! a m 4)
       (let loop ((j 1) (q 0) (b 2))
         (if (> j n)
             null
@@ -12,13 +12,13 @@
                 (if (zero? k)
                     null
                     (do
-                      (set! q (+ q (* (vector-ref a k) r)))
+                      (set! q (+ q (* (get a k) r)))
                       (let ((t (+ 1 (* 2 k))))
-                        (vector-set! a k (remainder q t))
+                        (assoc! a k (remainder q t))
                         (set! q (* k (quotient q t))))
                       (loop (- k 1)))))
               (let ((s (to-string (+ b (quotient q r)))))
-                (let loop ((l (string-length s)))
+                (let loop ((l (length s)))
                   (if (>= l d)
                       (print s)
                       (do

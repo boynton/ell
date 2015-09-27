@@ -160,7 +160,7 @@
       (if (not (validate-types types))
           (error "defstruct: one or more fields has an invalid <type>: " fields))
     `(do
-       (defn ~sym args (instance ~typesym (validated-struct (apply struct (normalize-keyword-arg-list args ~@keywords)) ~typesym '~keywords '~fields)))
+       (defn ~sym args (instance ~typesym (validated-struct (apply struct (validate-keyword-arg-list args ~@keywords)) ~typesym '~keywords '~fields)))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
        (defn ~(symbol sym "-fields") () ~fields)
        (defn ~(symbol "as-" sym) (o) (instance '~typesym (validated-struct o ~typesym '~keywords '~fields)))

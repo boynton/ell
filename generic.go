@@ -117,3 +117,47 @@ func isValidRange(val int, end int, step int) bool {
 	}
 	return false
 }
+
+func assoc(obj *LOB, rest ...*LOB) (*LOB, error) {
+	s := value(obj)
+	switch s.variant {
+	case typeStruct:
+		return assocStruct(s, rest)
+	case typeVector:
+		return assocVector(s, rest)
+	default:
+		return nil, Error("assoc cannot work with type ", obj.variant)
+	}
+}
+
+func assocBang(obj *LOB, rest ...*LOB) (*LOB, error) {
+	s := value(obj)
+	switch s.variant {
+	case typeStruct:
+		return assocBangStruct(s, rest)
+	case typeVector:
+		return assocBangVector(s, rest)
+	default:
+		return nil, Error("assoc! cannot work with type ", obj.variant)
+	}
+}
+
+func dissoc(obj *LOB, rest ...*LOB) (*LOB, error) {
+	s := value(obj)
+	switch s.variant {
+	case typeStruct:
+		return dissocStruct(s, rest)
+	default:
+		return nil, Error("dissoc cannot work with type ", obj.variant)
+	}
+}
+
+func dissocBang(obj *LOB, rest ...*LOB) (*LOB, error) {
+	s := value(obj)
+	switch s.variant {
+	case typeStruct:
+		return dissocBangStruct(s, rest)
+	default:
+		return nil, Error("dissoc! cannot work with type ", obj.variant)
+	}
+}
