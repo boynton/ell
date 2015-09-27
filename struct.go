@@ -20,6 +20,14 @@ import (
 	"bytes"
 )
 
+func isValidStructKey(o *LOB) bool {
+	switch o.variant {
+	case typeString, typeSymbol, typeKeyword, typeType:
+		return true
+	}
+	return false
+}
+
 func newStruct(fieldvals []*LOB) (*LOB, error) {
 	count := len(fieldvals)
 	strct := newLOB(typeStruct)
@@ -41,7 +49,7 @@ func newStruct(fieldvals []*LOB) (*LOB, error) {
 			put(strct, o, fieldvals[i])
 			i++
 		default:
-			return nil, Error("bad parameter to struct: ", o)
+			return nil, Error("Bad struct key: ", o)
 		}
 	}
 	return strct, nil
@@ -87,6 +95,9 @@ func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
 	s := value(obj)
 	if s.variant != typeStruct {
 		return nil, TypeError(typeStruct, obj)
+	}
+	if !isValidStructKey(key) {
+		return nil, Error("Bad struct key: ", key)
 	}
 	bindings := s.elements
 	slen := len(bindings)
@@ -141,7 +152,7 @@ func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 }
 
 // (normalize-keyword-args '(x: 23) x: y:) => (x: 23)
-// (normalize-keyword-args '(x: 23 z: 100) x: y:) =>  *** z: bad keyword parameter. Allowed keys: [x: y:] 
+// (normalize-keyword-args '(x: 23 z: 100) x: y:) =>  *** z: bad keyword parameter. Allowed keys: [x: y:]
 func normalizeKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
 	tmp, err := normalizeKeywordArgBindings(args, keys)
 	if err != nil {
@@ -317,4 +328,96 @@ func structValueList(s *LOB) *LOB {
 		}
 	}
 	return result
+}
+
+func listToStruct(lst *LOB) (*LOB, error) {
+	strct := newLOB(typeStruct)
+	strct.elements = make([]*LOB, 0, len(lst.elements))
+	for lst != EmptyList {
+		k := lst.car
+		lst = lst.cdr
+		switch k.variant {
+		case typeList:
+			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
+				return nil, Error("Bad struct binding: ", k)
+			}
+			if !isValidStructKey(k.car) {
+				return nil, Error("Bad struct key: ", k.car)
+			}
+			put(strct, k.car, k.cdr.car)
+		case typeVector:
+			n := len(k.elements)
+			if n != 2 {
+				return nil, Error("Bad struct binding: ", k)
+			}
+			if !isValidStructKey(k.elements[0]) {
+				return nil, Error("Bad struct key: ", k.elements[0])
+			}
+			put(strct, k.elements[0], k.elements[1])
+		default:
+			if !isValidStructKey(k) {
+				return nil, Error("Bad struct key: ", k)
+			}
+			if lst == EmptyList {
+				return nil, Error("mismatched keyword/value in list: ", k)
+			}
+			put(strct, k, lst.car)
+			lst = lst.cdr
+		}
+	}
+	return strct, nil
+}
+
+func vectorToStruct(vec *LOB) (*LOB, error) {
+	count := len(vec.elements)
+	strct := newLOB(typeStruct)
+	strct.elements = make([]*LOB, 0, count)
+	i := 0
+	for i < count {
+		k := vec.elements[i]
+		i++
+		switch k.variant {
+		case typeList:
+			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
+				return nil, Error("Bad struct binding: ", k)
+			}
+			if !isValidStructKey(k.car) {
+				return nil, Error("Bad struct key: ", k.car)
+			}
+			put(strct, k.car, k.cdr.car)
+		case typeVector:
+			n := len(k.elements)
+			if n != 2 {
+				return nil, Error("Bad struct binding: ", k)
+			}
+			if !isValidStructKey(k.elements[0]) {
+				return nil, Error("Bad struct key: ", k.elements[0])
+			}
+			put(strct, k.elements[0], k.elements[1])
+		case typeString, typeSymbol, typeKeyword, typeType:
+		default:
+			if !isValidStructKey(k) {
+				return nil, Error("Bad struct key: ", k)
+			}
+			if i == count {
+				return nil, Error("mismatched keyword/value in vector: ", k)
+			}
+			put(strct, k, vec.elements[i])
+			i++
+		}
+	}
+	return strct, nil
+}
+
+func toStruct(obj *LOB) (*LOB, error) {
+	val := value(obj)
+	switch val.variant {
+	case typeStruct:
+		return val, nil
+	case typeList:
+		return listToStruct(val)
+	case typeVector:
+		return vectorToStruct(val)
+	}
+	return nil, Error("Cannot convert ", obj.variant, " to <struct>")
 }

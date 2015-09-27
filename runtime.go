@@ -138,7 +138,7 @@ func (f *LFunction) signature() string {
 		if f.primitive != nil { //primitive
 			return f.primitive.signature
 		}
-      if f.code != nil { // closure
+		if f.code != nil { // closure
 			return f.code.signature()
 		}
 	case instructionApply:
@@ -597,9 +597,9 @@ func leftJustified(s string, width int) string {
 
 func truncatedObjectString(s string, limit int) string {
 	if len(s) > limit {
-		s = s[:limit]	// ((defn foo (x) (if (not (stri
+		s = s[:limit] // ((defn foo (x) (if (not (stri
 		firstN := s[:limit-3]
-		for i := limit-1; i >= 0; i-- {
+		for i := limit - 1; i >= 0; i-- {
 			if isWhitespace(s[i]) {
 				s = s[:i]
 				break
@@ -634,7 +634,7 @@ func showStack(stack []*LOB, sp int) string {
 	s := "["
 	limit := 5
 	tail := ""
-	if end - sp > limit {
+	if end-sp > limit {
 		end = sp + limit
 		tail = " ... "
 	}

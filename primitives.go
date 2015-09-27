@@ -99,7 +99,6 @@ func initEnvironment() {
 	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>")  //mutate!
 	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
 
-
 	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
 	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
 	defineFunction("vector", ellVector, "(<any>*) <vector>")
@@ -107,8 +106,9 @@ func initEnvironment() {
 	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
 	defineFunction("vector-ref", ellVectorRef, "(<vector> <number>) <any>")
 
-	defineFunction("struct", ellStruct, "(<any>+) <struct>")
 	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
+	defineFunction("to-struct", ellToStruct, "(<any>) <struct>")
+	defineFunction("struct", ellStruct, "(<any>+) <struct>")
 	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
 	defineFunction("get", ellGet, "(<struct> <any>) <any>")
 	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
@@ -334,6 +334,14 @@ func ellValues(argv []*LOB, argc int) (*LOB, error) {
 
 func ellStruct(argv []*LOB, argc int) (*LOB, error) {
 	return newStruct(argv[:argc])
+}
+
+func ellToStruct(argv []*LOB, argc int) (*LOB, error) {
+	if argc != 1 {
+		return nil, ArgcError("to-struct", "1", argc)
+	}
+	//how about a keys: keyword argument to force a key type?
+	return toStruct(argv[0])
 }
 
 func ellIdenticalP(argv []*LOB, argc int) (*LOB, error) {
