@@ -140,8 +140,8 @@ func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 	return append(append(bindings, key), val)
 }
 
-//(normalize-keyword-args '(x: 23) x: y:) -> (x: 23)
-//(normalize-keyword-args '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
+// (normalize-keyword-args '(x: 23) x: y:) => (x: 23)
+// (normalize-keyword-args '(x: 23 z: 100) x: y:) =>  *** z: bad keyword parameter. Allowed keys: [x: y:] 
 func normalizeKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
 	tmp, err := normalizeKeywordArgBindings(args, keys)
 	if err != nil {
@@ -281,4 +281,40 @@ func structToVector(s *LOB) *LOB {
 		j++
 	}
 	return vectorFromElements(el, size)
+}
+
+func structKeyList(s *LOB) *LOB {
+	result := EmptyList
+	tail := EmptyList
+	bindings := s.elements
+	size := len(bindings)
+	for i := 0; i < size; i += 2 {
+		tmp := bindings[i]
+		if result == EmptyList {
+			result = list(tmp)
+			tail = result
+		} else {
+			tail.cdr = list(tmp)
+			tail = tail.cdr
+		}
+	}
+	return result
+}
+
+func structValueList(s *LOB) *LOB {
+	result := EmptyList
+	tail := EmptyList
+	bindings := s.elements
+	size := len(bindings)
+	for i := 0; i < size; i += 2 {
+		tmp := bindings[i+1]
+		if result == EmptyList {
+			result = list(tmp)
+			tail = result
+		} else {
+			tail.cdr = list(tmp)
+			tail = tail.cdr
+		}
+	}
+	return result
 }

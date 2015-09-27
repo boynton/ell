@@ -99,7 +99,6 @@ func initEnvironment() {
 	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>")  //mutate!
 	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
 
-	defineFunction("struct", ellStruct, "(<any>+) <struct>")
 
 	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
 	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
@@ -108,10 +107,13 @@ func initEnvironment() {
 	defineFunction("vector-set!", ellVectorSetBang, "(<vector> <number> <any>) <null>") //mutate!
 	defineFunction("vector-ref", ellVectorRef, "(<vector> <number>) <any>")
 
+	defineFunction("struct", ellStruct, "(<any>+) <struct>")
 	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
 	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
 	defineFunction("get", ellGet, "(<struct> <any>) <any>")
 	defineFunction("put!", ellPutBang, "(<struct> <any> <any>) <null>") //mutate!
+	defineFunction("keys", ellKeys, "(<struct>) <list>")
+	defineFunction("values", ellValues, "(<struct>) <list>")
 
 	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
 	defineFunction("function-signature", ellFunctionSignature, "(<function>) <string>")
@@ -306,6 +308,28 @@ func ellNormalizeKeywordArgs(argv []*LOB, argc int) (*LOB, error) {
 		return nil, ArgTypeError("list", 1, argv[0])
 	}
 	return normalizeKeywordArgs(argv[0], argv[1:argc])
+}
+
+func ellKeys(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 1 {
+		return nil, ArgcError("keys", "1", argc)
+	}
+	strct := value(argv[0])
+	if !isStruct(strct) {
+		return nil, ArgTypeError("struct", 1, argv[0])
+	}
+	return structKeyList(strct), nil
+}
+
+func ellValues(argv []*LOB, argc int) (*LOB, error) {
+	if argc < 1 {
+		return nil, ArgcError("values", "1", argc)
+	}
+	strct := value(argv[0])
+	if !isStruct(strct) {
+		return nil, ArgTypeError("struct", 1, argv[0])
+	}
+	return structValueList(strct), nil
 }
 
 func ellStruct(argv []*LOB, argc int) (*LOB, error) {
