@@ -88,7 +88,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 					}
 					return expanded, err
 				}
-				return nil, Error("macro error in '", mac.name, "': ", err)
+				return nil, Error("macro error: ", err)
 			}
 		} else if expander.function.primitive != nil {
 			args := []*LOB{expr}
