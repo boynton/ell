@@ -173,6 +173,11 @@ func equal(o1 *LOB, o2 *LOB) bool {
 	case typeNull:
 		return true // singleton
 	default:
+		o1a := value(o1)
+		if o1a != o1 {
+			o2a := value(o2)
+			return equal(o1a, o2a)
+		}
 		return false
 	}
 }
