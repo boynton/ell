@@ -211,7 +211,8 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		default: // a funcall
 			// (<fn>)
 			// (<fn> <arg> ...)
-			return compileFuncall(target, env, fn, cdr(lst), isTail, ignoreResult, context)
+			fn, args := optimizeFuncall(target, env, fn, cdr(lst),isTail, ignoreResult, context)
+			return compileFuncall(target, env, fn, args, isTail, ignoreResult, context)
 		}
 	} else if isVector(expr) {
 		//vector literal: the elements are evaluated
@@ -371,6 +372,22 @@ func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResul
 		return compileExpr(target, env, car(exprs), isTail, ignoreResult, context)
 	}
 	return SyntaxError(cons(intern("do"), exprs))
+}
+
+func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) (*LOB, *LOB) {
+	size := length(args)
+	if size == 2 {
+		if fn == intern("+") {
+			//(+ 1 x) == (+ x 1) == (1+ x)
+			if equal(One, car(args)) {
+				return intern("inc"), cdr(args)
+			} else if equal(One, cadr(args)) {
+				return intern("inc"), list(car(args))
+			}
+		}
+		//other things to collapse?
+	}
+	return fn, args
 }
 
 func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) error {
