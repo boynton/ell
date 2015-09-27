@@ -133,6 +133,8 @@ func initEnvironment() {
 	//	defineFunction("dissoc", ellDissoc, "(<struct> <any>) <struct>")
 
 	defineFunction("empty?", ellEmptyP, "(<any>) <boolean>")
+	defineFunction("split", ellSplit, "(<any>) <sequence>")
+	defineFunction("join", ellJoin, "(<sequence>) <any>")
 
 	defineFunction("error", ellFatal, "(<any>+) <null>")
 	defineFunction("length", ellLength, "(<any>) <number>")
@@ -1066,6 +1068,20 @@ func ellToList(argv []*LOB, argc int) (*LOB, error) {
 		return nil, ArgcError("to-list", "1", argc)
 	}
 	return toList(argv[0])
+}
+
+func ellSplit(argv []*LOB, argc int) (*LOB, error) {
+	if argc != 2 {
+		return nil, ArgcError("split", "2", argc)
+	}
+	return stringSplit(argv[0], argv[1])
+}
+
+func ellJoin(argv []*LOB, argc int) (*LOB, error) {
+	if argc != 2 {
+		return nil, ArgcError("join", "2", argc)
+	}
+	return stringJoin(argv[0], argv[1])
 }
 
 func ellJSON(argv []*LOB, argc int) (*LOB, error) {

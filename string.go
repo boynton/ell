@@ -15,6 +15,10 @@ limitations under the License.
 */
 package main
 
+import (
+	"strings"
+)
+
 // EmptyString
 var EmptyString = newString("")
 
@@ -135,4 +139,61 @@ func stringToVector(s *LOB) *LOB {
 
 func stringToList(s *LOB) *LOB {
 	return list(stringCharacters(s)...)
+}
+
+func stringSplit(obj *LOB, delims *LOB) (*LOB, error) {
+	if !isString(obj) {
+		return nil, ArgTypeError("string", 1, obj)
+	}
+	if !isString(delims) {
+		return nil, ArgTypeError("string", 2, delims)
+	}
+	lst := EmptyList
+	tail := EmptyList
+	for _, s := range strings.Split(obj.text, delims.text) {
+		if lst == EmptyList {
+			lst = list(newString(s))
+			tail = lst
+		} else {
+			tail.cdr = list(newString(s))
+			tail = tail.cdr
+		}
+	}
+	return lst, nil
+}
+
+func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
+	if !isString(delims) {
+		return nil, ArgTypeError("string", 2, delims)
+	}
+	switch seq.variant {
+	case typeList:
+		result := ""
+		for seq != EmptyList {
+			o := seq.car
+			if o != EmptyString && o != Null {
+				if result != "" {
+					result += delims.text
+				}
+				result += o.String()
+			}
+			seq = seq.cdr
+		}
+		return newString(result), nil
+	case typeVector:
+		result := ""
+		count := len(seq.elements)
+		for i := 0; i < count; i++ {
+			o := seq.elements[i]
+			if o != EmptyString && o != Null {
+				if result != "" {
+					result += delims.text
+				}
+				result += o.String()
+			}
+		}
+		return newString(result), nil
+	default:
+		return nil, ArgTypeError("sequence", 1, seq)
+	}
 }
