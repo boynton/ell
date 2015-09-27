@@ -118,13 +118,14 @@
 
 
 ;;
-;; Defines a struct type by emitting a constructor and a predicate based on a list of fields
-;; The fields are a sequence key/value pairs, and the resulting constructor limits
-;; the arguments to those indicated, with the given default values. The values in the field spec
-;; are default values, so make sure you *want* to share that value across instances. The type of the
-;; field is inferred from the default value.
+;; Defines a struct type by emitting a constructor and a predicate based on a list of fields.
+;; The fields are a sequence key/value pairs, where the value is the type of the field, 
+;; and the resulting constructor limits the arguments to those indicated, with the given
+;; default values. The values in the field spec are default values, so make sure you *want*
+;; to share that value across instances. The type of the field is inferred from the default value.
+;;
 ;; For example:
-;;   (defstruct point x: 0 y: 0) => <point>; this defines a struct type <point> with an x and a y field with default values of 0
+;;   (defstruct point x: <number> y: <number>) => <point>
 ;;   (point) => #<point>{x: 0, y: 0}
 ;;   (point? (point)) => true
 ;;   (point x: 23 y: 57) => #<point>{x: 23, y: 57}
@@ -133,13 +134,13 @@
 ;;   (point-types) -> {x: <number> y: <number>)
 ;;   (point-defaults) -> {x: 0 y: 0}
 ;;
-;; You can get the equivalent struct back (but it is a copy)
+;; You can get the equivalent struct back (it is a copy, since the constructor always makes a new instance):
 ;;   (value #<point>{x: 23, y: 57}) => {x: 23, y: 57}
 ;;   (def data {x: 1 y: 2}) = {x: 23, y: 57}
 ;;   (equal? data (value (point data))) => true
 ;;   (identical? data (value (point data))) => false
 ;;
-(defmacro defstruct (sym & fields)
+(defmacro defstruct (sym & keyargs)
   (defn extract-keys (args)
     (let loop ((keys '()) (remaining args))
       (if (empty? remaining)
@@ -148,29 +149,47 @@
             (if (keyword? sym)
                 (loop (cons sym keys) (cddr remaining))
                 (loop keys (cdr remaining)))))))
-  (let ((keys (extract-keys fields)) (typesym (symbol "<" sym ">")))
+
+  (defn validate-types (lst)
+    (println "validate type: " (length lst) ", " (car lst))
+    (if (empty? lst)
+        true
+        (and (type? (car lst)) (validate-types (cdr lst)))))
+  (let ((fields (apply struct keyargs)) ;; {x: <number> y: <number>}
+        (typesym (symbol "<" sym ">")))
+    (println "fields: " (write fields))
+    (let ((keywords (keys fields)) (types (values fields)))
+      (if (not (validate-types types))
+          (error "defstruct: one or more fields has an invalid <type>: " fields))
     `(do
-       (defn ~sym args (instance ~typesym (apply struct (concat '~fields (normalize-keyword-arg-list args ~@keys))))) ;; this creates a new copy!
+       (defn ~sym args (instance ~typesym (validated-struct (apply struct (normalize-keyword-arg-list args ~@keywords)) ~typesym '~keywords '~fields)))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
-       (defn ~(symbol sym "-fields") () (map (fn (b) {name: (car b) type: (type (cadr b)) default: (cadr b)}) (to-list ~(apply struct fields))))
-       (defn ~(symbol "as-" sym) (o) (instance '~typesym (validated-struct o '~typesym '~keys)))
-       '~typesym)))
+       (defn ~(symbol sym "-fields") () ~fields)
+       (defn ~(symbol "as-" sym) (o) (instance '~typesym (validated-struct o ~typesym '~keywords)))
+       ~typesym))))
 
 ;;
 ;; i.e. (validated-struct {x: 1} '(x: y:))
 ;; error if the val has fields not in the list
 ;;
-(defn validated-struct (val name fields)
-  (if (empty? fields)
+(defn validated-struct (val name names types)
+  (if (empty? names)
       val
-      (if (null? ((car fields) val))
-          (error "cannot convert to " name ", missing field: " (car fields))
-          (validated-struct val name (cdr fields)))))
+      (let ((v ((car names) val)))
+        (if (null? v)
+            (error "type " name " missing field " (car names) " " (write val))
+            (let ((reftype ((car names) types)))
+              (if (and (not (identical? reftype <any>)) (not (identical? (type v) reftype)))
+                (error "type " name " field " (car names) " not a " ((car names) types) ": " (write v))
+                (validated-struct val name (cdr names) types)))))))
 
 ;;
 ;; generic functions dispatch to methods based on argument type
 ;;
-(defstruct generic-function name: "" args: '() methods: {})
+(defstruct generic-function
+  name: <string>
+  args: <list>
+  methods: <struct>)
 
 ;; All generic function definitions are stored in this dynamic variable
 (def *genfns* {})
