@@ -1,0 +1,18 @@
+(use assert)
+
+(assert (identical? <point> (defstruct point x: <number> y: <number>)) "defstruct didn't return the type it defined")
+
+;;error: (point)
+;; *** [validated-struct] type <point> missing field x: {} 
+;;error: (point y: 23) 
+;; *** [validated-struct] type <point> missing field x: {y: 23} 
+
+(def p1 (point x: 23 y: 57))
+(assert (identical? (type p1) <point>) "type of p1 is not <point>")
+(def s {x: 23 y: 57})
+(assert (equal? p1 (point s)) "point constructed from a struct is not the same as a point constructed with keyword args")
+(assert (equal? p1 (as-point s)) "struct as-point should be the same as a point built from that struct")
+(assert (identical? s (value (as-point s))) "value of a struct point cast to point is not the same as the original value")
+
+(println "[defstruct_test OK]")
+
