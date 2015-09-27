@@ -59,8 +59,8 @@ func initEnvironment() {
 	defineFunction("keyword?", ellKeywordP, "(<any>) <boolean>")
 	defineFunction("keyword-name", ellKeywordName, "(<keyword>) <symbol>")
 
-	defineFunction("symbol?", elLSymbolP, "(<any>) <boolean>")
-	defineFunction("symbol", elLSymbol, "(<any>+) <boolean>")
+	defineFunction("symbol?", ellSymbolP, "(<any>) <boolean>")
+	defineFunction("symbol", ellSymbol, "(<any>+) <boolean>")
 
 	defineFunction("string?", ellStringP, "(<any>) <boolean>")
 	defineFunction("string", ellString, "(<any>*) <string>")
@@ -717,7 +717,11 @@ func ellNumberToString(argv []*LOB, argc int) (*LOB, error) {
 
 func ellLength(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
-		return newInt(length(argv[0])), nil
+		n := length(argv[0])
+		if n < 0 {
+			return nil, Error("Cannot take length of ", argv[0].variant)
+		}
+		return newInt(n), nil
 	}
 	return nil, ArgcError("length", "1", argc)
 }
@@ -752,7 +756,7 @@ func ellBooleanP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("boolean?", "1", argc)
 }
 
-func elLSymbolP(argv []*LOB, argc int) (*LOB, error) {
+func ellSymbolP(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		if isSymbol(argv[0]) {
 			return True, nil
@@ -762,7 +766,7 @@ func elLSymbolP(argv []*LOB, argc int) (*LOB, error) {
 	return nil, ArgcError("symbol?", "1", argc)
 }
 
-func elLSymbol(argv []*LOB, argc int) (*LOB, error) {
+func ellSymbol(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
 		return nil, ArgcError("symbol", "1+", argc)
 	}
@@ -888,6 +892,9 @@ func ellCar(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if lst.variant == typeList {
+			if lst == EmptyList {
+				return Null, nil
+			}
 			return lst.car, nil
 		}
 		return nil, ArgTypeError("cdr", 1, lst)
@@ -899,6 +906,9 @@ func ellCdr(argv []*LOB, argc int) (*LOB, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if lst.variant == typeList {
+			if lst == EmptyList {
+				return lst, nil
+			}
 			return lst.cdr, nil
 		}
 		return nil, ArgTypeError("cdr", 1, lst)
