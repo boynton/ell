@@ -462,6 +462,35 @@ func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 	return s, nil
 }
 
+func (dr *dataReader) decodeType(firstChar byte) (string, error) {
+	buf := []byte{}
+	if firstChar != '<' {
+		return "", Error("Invalid type name")
+	}
+	buf = append(buf, firstChar)
+	c, e := dr.getChar()
+	for e == nil {
+		if isWhitespace(c) {
+			break
+		}
+		if c == '>' {
+			buf = append(buf, c)
+			break
+		}
+		if isDelimiter(c) {
+			dr.ungetChar()
+			break
+		}
+		buf = append(buf, c)
+		c, e = dr.getChar()
+	}
+	if e != nil && e != io.EOF {
+		return "", e
+	}
+	s := string(buf)
+	return s, nil
+}
+
 type dataWriter struct {
 	in *bufio.Writer
 }
@@ -546,7 +575,7 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 		err := dr.decodeComment()
 		return Null, err
 	default:
-		atom, err := dr.decodeAtomString(c)
+		atom, err := dr.decodeType(c)
 		if err != nil {
 			return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
 		}
