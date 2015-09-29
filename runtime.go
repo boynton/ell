@@ -762,7 +762,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			pc += 3
 		} else if op == opcodeJumpFalse {
 			if trace {
-				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
+				showInstruction(pc, op, fmt.Sprintf("%d", pc+ops[pc+1]), stack, sp)
 			}
 			b := stack[sp]
 			sp++
@@ -903,7 +903,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			env = env.previous
 		} else if op == opcodeJump {
 			if trace {
-				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
+				showInstruction(pc, op, fmt.Sprintf("%d", pc+ops[pc+1]), stack, sp)
 			}
 			pc += ops[pc+1]
 		} else if op == opcodeDefGlobal {
