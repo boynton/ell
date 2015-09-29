@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-	//	"unsafe"
 )
 
 var trace bool
@@ -231,7 +230,6 @@ func showEnv(f *Frame) string {
 
 func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []*LOB, sp int) (*Frame, error) {
 	f := new(Frame)
-	//	println("frame is of size: ", unsafe.Sizeof(*f))
 	f.previous = env
 	f.pc = pc
 	f.ops = ops
