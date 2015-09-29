@@ -92,7 +92,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 			}
 		} else if expander.function.primitive != nil {
 			args := []*LOB{expr}
-			expanded, err := expander.function.primitive.fun(args, 1)
+			expanded, err := expander.function.primitive.fun(args)
 			if err == nil {
 				return macroexpandObject(expanded)
 			}
