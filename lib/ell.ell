@@ -85,6 +85,15 @@
       (mapn fun (cons first rest))))
 
 ;;
+;; reduce
+;;
+(defn reduce (fun init coll)
+  (let loop ((result init) (remaining coll))
+    (if (empty? remaining)
+        result
+        (loop (fun result (car remaining)) (cdr remaining)))))
+
+;;
 ;; Create a type based on some other type, from the predicate
 ;; i.e. 
 ;;   ? (deftype foo (s) (and (string? s) (< (string-length s) 3)))
