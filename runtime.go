@@ -309,6 +309,74 @@ func addContext(env *Frame, err error) error {
 	return Error("[", env.code.name, "] ", err.Error())
 }
 
+func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+opcodeCallAgain:
+	if fun.variant == typeFunction {
+		lfun := fun.function
+		if lfun.primitive != nil {
+			val, err := lfun.primitive.fun(stack[sp:sp+argc], argc)
+			if err != nil {
+				//to do: fix to throw an Ell continuation-based error
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			sp = sp + argc - 1
+			stack[sp] = val
+			return ops, savedPc, sp, env, err
+		} else if lfun.code != nil {
+			if checkInterrupt() {
+				return nil, 0, 0, nil, addContext(env, Error("Interrupt"))
+			}
+			f, err := buildFrame(env, savedPc, ops, lfun, argc, stack, sp)
+			if err != nil {
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			sp += argc
+			env = f
+			ops = lfun.code.ops
+			return ops, 0, sp, env, err
+		} else if fun == Apply {
+			if argc < 2 {
+				err := ArgcError("apply", "2+", argc)
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			fun = stack[sp]
+			args := stack[sp+argc-1]
+			if !isList(args) {
+				err := ArgTypeError("list", argc, args)
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			arglist := args
+			for i := argc - 2; i > 0; i-- {
+				arglist = cons(stack[sp+i], arglist)
+			}
+			sp += argc
+			argc = length(arglist)
+			i := 0
+			sp -= argc
+			for arglist != EmptyList {
+				stack[sp+i] = arglist.car
+				i++
+				arglist = arglist.cdr
+			}
+			goto opcodeCallAgain
+		} else {
+			return nil, 0, 0, nil, addContext(env, Error("unsupported instruction", fun))
+		}
+	} else if fun.variant == typeKeyword {
+		if argc != 1 {
+			err := ArgcError(fun.text, "1", argc)
+			return nil, 0, 0, nil, addContext(env, err)
+		}
+		v, err := get(stack[sp], fun)
+		if err != nil {
+			return nil, 0, 0, nil, addContext(env, err)
+		}
+		stack[sp] = v
+		return ops, savedPc, sp, env, err
+	}
+	return nil, 0, 0, nil, addContext(env, Error("Not a function: ", fun))
+}
+
 func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 	if verbose || trace {
 		return vm.instrumentedExec(code, args)
@@ -320,84 +388,48 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 	copy(env.elements, args)
 	ops := code.ops
 	pc := 0
+	var err error
 	if len(ops) == 0 {
 		return nil, addContext(env, Error("No code to execute"))
 	}
 	for {
 		op := ops[pc]
-		if op == opcodeCall {
-			fun := stack[sp]
-			sp++
+		if op == opcodeCall { // CALL
 			argc := ops[pc+1]
-			savedPc := pc + 2
-		opcodeCallAgain:
-			switch fun.variant {
-			case typeFunction:
+			fun := stack[sp]
+			if fun.variant == typeFunction {
 				lfun := fun.function
 				if lfun.primitive != nil {
-					val, err := lfun.primitive.fun(stack[sp:sp+argc], argc)
-					if err != nil {
-						//to do: fix to throw an Ell continuation-based error
-						return nil, addContext(env, err)
-					}
-					sp = sp + argc - 1
-					stack[sp] = val
-					pc = savedPc
-				} else if lfun.code != nil {
-					if checkInterrupt() {
-						return nil, addContext(env, Error("Interrupt"))
-					}
-					f, err := buildFrame(env, savedPc, ops, lfun, argc, stack, sp)
+					nextSp := sp + argc
+					val, err := lfun.primitive.fun(stack[sp+1:nextSp+1], argc)
 					if err != nil {
 						return nil, addContext(env, err)
 					}
-					sp += argc
-					env = f
-					ops = lfun.code.ops
-					pc = 0
-				} else if fun == Apply {
-					if argc < 2 {
-						err := ArgcError("apply", "2+", argc)
-						return nil, addContext(env, err)
-					}
-					fun = stack[sp]
-					args := stack[sp+argc-1]
-					if !isList(args) {
-						err := ArgTypeError("list", argc, args)
-						return nil, addContext(env, err)
-					}
-					arglist := args
-					for i := argc - 2; i > 0; i-- {
-						arglist = cons(stack[sp+i], arglist)
-					}
-					sp += argc
-					argc = length(arglist)
-					i := 0
-					sp -= argc
-					for arglist != EmptyList {
-						stack[sp+i] = arglist.car
-						i++
-						arglist = arglist.cdr
-					}
-					goto opcodeCallAgain
+					stack[nextSp] = val
+					pc += 2
+					sp = nextSp
 				} else {
-					return nil, addContext(env, Error("unsupported instruction", fun))
+					ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
+					if err != nil {
+						return nil, err
+					}
 				}
-			case typeKeyword:
+			} else if fun.variant == typeKeyword {
 				if argc != 1 {
 					err := ArgcError(fun.text, "1", argc)
 					return nil, addContext(env, err)
 				}
+				sp++
 				v, err := get(stack[sp], fun)
 				if err != nil {
 					return nil, addContext(env, err)
 				}
 				stack[sp] = v
-				pc = savedPc
-			default:
-				return nil, addContext(env, Error("Not a function: ", fun))
+				pc += 2
+			} else {
+				return nil, addContext(env, Error("Not callable: ", fun))
 			}
-		} else if op == opcodeGlobal {
+		} else if op == opcodeGlobal { //GLOBAL
 			sym := constants[ops[pc+1]]
 			if sym.car == nil {
 				return nil, addContext(env, Error("Undefined symbol: ", sym))
