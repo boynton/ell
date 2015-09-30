@@ -5,8 +5,8 @@
 ;;
 ;; shortcuts for accessing lists
 ;;
-;;(defn caar (p) (car (car p)))
-;;(defn cadr (p) (car (cdr p)))
+(defn caar (p) (car (car p)))
+(defn cadr (p) (car (cdr p)))
 (defn cdar (p) (cdr (car p)))
 (defn cddr (p) (cdr (cdr p)))
 (defn caaar (p) (car (car (car p))))

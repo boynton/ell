@@ -98,8 +98,6 @@ func initEnvironment() {
 	defineFunction("cons", ellCons, "(<any> <list>) <list>")
 	defineFunction("car", ellCar, "(<list>) <any>")
 	defineFunction("cdr", ellCdr, "(<list>) <list>")
-	defineFunction("caar", ellCaar, "(<list>) <any>")
-	defineFunction("cadr", ellCadr, "(<list>) <any>")
 	defineFunction("list", ellList, "(<any>*) <list>")
 	defineFunction("concat", ellConcat, "(<list>*) <list>")
 	defineFunction("reverse", ellReverse, "(<list>) <list>")
@@ -1004,90 +1002,6 @@ func ellSetCdrBang(argv []*LOB) (*LOB, error) {
 		return Null, nil
 	}
 	return nil, Error(ArgumentErrorKey, "set-cdr! expected 2 arguments, got ", argc)
-}
-
-func ellCaar(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return caar(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "caar expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "caar expected 1 argument, got ", argc)
-}
-
-func ellCadr(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return cadr(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "cadr expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "cadr expected 1 argument, got ", argc)
-}
-
-func ellCdar(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return cdar(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "cdar expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "cdar expected 1 argument, got ", argc)
-}
-
-func ellCddr(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return cddr(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "cddr expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "cddr expected 1 argument, got ", argc)
-}
-
-func ellCadar(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return cadar(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "cadar expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "cadar expected 1 argument, got ", argc)
-}
-
-func ellCaddr(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return caddr(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "caddr expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "caddr expected 1 argument, got ", argc)
-}
-
-func ellCdddr(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if isList(lst) {
-			return cdddr(lst), nil
-		}
-		return nil, Error(ArgumentErrorKey, "cdddr expected a <list>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "cdddr expected 1 argument, got ", argc)
 }
 
 func ellCons(argv []*LOB) (*LOB, error) {
