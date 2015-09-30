@@ -62,21 +62,21 @@ func floatValue(obj *LOB) (float64, error) {
 	if obj.variant == typeNumber {
 		return obj.fval, nil
 	}
-	return 0, TypeError(typeNumber, obj)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
 }
 
 func int64Value(obj *LOB) (int64, error) {
 	if obj.variant == typeNumber {
 		return int64(obj.fval), nil
 	}
-	return 0, TypeError(typeNumber, obj)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
 }
 
 func intValue(obj *LOB) (int, error) {
 	if obj.variant == typeNumber {
 		return int(obj.fval), nil
 	}
-	return 0, TypeError(typeNumber, obj)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
 }
 
 // Equal returns true if the object is equal to the argument
@@ -198,9 +198,9 @@ func add(num1 *LOB, num2 *LOB) (*LOB, error) {
 
 func sum(nums []*LOB, argc int) (*LOB, error) {
 	var sum float64
-	for _, num := range nums {
+	for i, num := range nums {
 		if !isNumber(num) {
-			return nil, TypeError(typeNumber, num)
+			return nil, Error(ArgumentErrorKey, "+ expected a <number> for argument ", i+1, ", got a ", num.variant)
 		}
 		sum += float64(num.fval)
 	}
@@ -221,7 +221,7 @@ func sub(num1 *LOB, num2 *LOB) (*LOB, error) {
 
 func minus(nums []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
-		return nil, ArgcError("-", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "- expected at least one argument")
 	}
 	fsum, err := floatValue(nums[0])
 	if err != nil {
@@ -267,7 +267,7 @@ func product(argv []*LOB, argc int) (*LOB, error) {
 
 func div(argv []*LOB, argc int) (*LOB, error) {
 	if argc < 1 {
-		return nil, ArgcError("/", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "/ expected at least one argument")
 	} else if argc == 1 {
 		n1, err := floatValue(argv[0])
 		if err != nil {

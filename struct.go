@@ -48,12 +48,12 @@ func initStruct(strct *LOB, fieldvals []*LOB, count int) (*LOB, error) {
 			}
 		case typeString, typeSymbol, typeKeyword, typeType:
 			if i == count {
-				return nil, Error("mismatched keyword/value in arglist: ", o)
+				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in arglist: ", o)
 			}
 			put(strct, o, fieldvals[i])
 			i++
 		default:
-			return nil, Error("Bad struct key: ", o)
+			return nil, Error(ArgumentErrorKey, "Bad struct key: ", o)
 		}
 	}
 	return strct, nil
@@ -63,7 +63,7 @@ func initStruct(strct *LOB, fieldvals []*LOB, count int) (*LOB, error) {
 func get(obj *LOB, key *LOB) (*LOB, error) {
 	s := value(obj)
 	if s.variant != typeStruct {
-		return nil, TypeError(typeStruct, obj)
+		return nil, Error(ArgumentErrorKey, "get expected a <struct> argument, got a ", obj.variant)
 	}
 	return structGet(s, key), nil
 }
@@ -110,20 +110,20 @@ func assocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
 }
 
 func dissocStruct(s *LOB, rest []*LOB) (*LOB, error) {
-	return nil, Error("dissocStruct: NYI")
+	return nil, Error(ErrorKey, "dissocStruct: NYI")
 }
 func dissocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
-	return nil, Error("dissocStruct: NYI")
+	return nil, Error(ErrorKey, "dissocStruct: NYI")
 }
 
 func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
 	//danger! side effects!
 	s := value(obj)
 	if s.variant != typeStruct {
-		return nil, TypeError(typeStruct, obj)
+		return nil, Error(ArgumentErrorKey, "put expected a <struct> for argument 1, got a ", s.variant)
 	}
 	if !isValidStructKey(key) {
-		return nil, Error("Bad struct key: ", key)
+		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
 	}
 	bindings := s.elements
 	slen := len(bindings)
@@ -363,27 +363,27 @@ func listToStruct(lst *LOB) (*LOB, error) {
 		switch k.variant {
 		case typeList:
 			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
-				return nil, Error("Bad struct binding: ", k)
+				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
 			if !isValidStructKey(k.car) {
-				return nil, Error("Bad struct key: ", k.car)
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.car)
 			}
 			put(strct, k.car, k.cdr.car)
 		case typeVector:
 			n := len(k.elements)
 			if n != 2 {
-				return nil, Error("Bad struct binding: ", k)
+				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
 			if !isValidStructKey(k.elements[0]) {
-				return nil, Error("Bad struct key: ", k.elements[0])
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.elements[0])
 			}
 			put(strct, k.elements[0], k.elements[1])
 		default:
 			if !isValidStructKey(k) {
-				return nil, Error("Bad struct key: ", k)
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k)
 			}
 			if lst == EmptyList {
-				return nil, Error("mismatched keyword/value in list: ", k)
+				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in list: ", k)
 			}
 			put(strct, k, lst.car)
 			lst = lst.cdr
@@ -403,28 +403,28 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 		switch k.variant {
 		case typeList:
 			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
-				return nil, Error("Bad struct binding: ", k)
+				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
 			if !isValidStructKey(k.car) {
-				return nil, Error("Bad struct key: ", k.car)
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.car)
 			}
 			put(strct, k.car, k.cdr.car)
 		case typeVector:
 			n := len(k.elements)
 			if n != 2 {
-				return nil, Error("Bad struct binding: ", k)
+				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
 			if !isValidStructKey(k.elements[0]) {
-				return nil, Error("Bad struct key: ", k.elements[0])
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.elements[0])
 			}
 			put(strct, k.elements[0], k.elements[1])
 		case typeString, typeSymbol, typeKeyword, typeType:
 		default:
 			if !isValidStructKey(k) {
-				return nil, Error("Bad struct key: ", k)
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k)
 			}
 			if i == count {
-				return nil, Error("mismatched keyword/value in vector: ", k)
+				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in vector: ", k)
 			}
 			put(strct, k, vec.elements[i])
 			i++
@@ -443,5 +443,5 @@ func toStruct(obj *LOB) (*LOB, error) {
 	case typeVector:
 		return vectorToStruct(val)
 	}
-	return nil, Error("Cannot convert ", obj.variant, " to <struct>")
+	return nil, Error(ArgumentErrorKey, "to-struct cannot accept argument of type ", obj.variant)
 }

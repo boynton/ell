@@ -34,6 +34,7 @@ func initEnvironment() {
 	define("false", False)
 
 	define("apply", Apply)
+	define("callcc", CallCC)
 
 	defineFunction("version", ellVersion, "()")
 
@@ -97,6 +98,8 @@ func initEnvironment() {
 	defineFunction("cons", ellCons, "(<any> <list>) <list>")
 	defineFunction("car", ellCar, "(<list>) <any>")
 	defineFunction("cdr", ellCdr, "(<list>) <list>")
+	defineFunction("caar", ellCaar, "(<list>) <any>")
+	defineFunction("cadr", ellCadr, "(<list>) <any>")
 	defineFunction("list", ellList, "(<any>*) <list>")
 	defineFunction("concat", ellConcat, "(<list>*) <list>")
 	defineFunction("reverse", ellReverse, "(<list>) <list>")
@@ -138,7 +141,9 @@ func initEnvironment() {
 	defineFunction("assoc!", ellAssocBang, "(<list|struct> <any>) <struct")    //mutate!
 	defineFunction("dissoc!", ellDissocBang, "(<list|struct> <any>) <struct>") //mutate!
 
-	defineFunction("error", ellFatal, "(<any>+) <null>")
+	defineFunction("make-error", ellMakeError, "(<any>+) <error>")
+	defineFunction("error?", ellIsError, "(<any>) <boolean>")
+	defineFunction("uncaught-error", ellUncaughtError, "(<error>) <null>")
 	defineFunction("json", ellJSON, "(<any>) <string>")
 
 	err := loadModule("ell")
@@ -184,10 +189,10 @@ func ellVersion(argv []*LOB) (*LOB, error) {
 func ellDefinedP(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("defined?", "1", argc)
+		return nil, Error(ArgumentErrorKey, "defined? expected 1 argument, got ", argc)
 	}
 	if !isSymbol(argv[0]) {
-		return nil, ArgTypeError("symbol", 1, argv[0])
+		return nil, Error(ArgumentErrorKey, "defined? expected a <symbol>, got a ", argv[0].variant)
 	}
 	if isDefined(argv[0]) {
 		return True, nil
@@ -198,11 +203,11 @@ func ellDefinedP(argv []*LOB) (*LOB, error) {
 func ellSlurp(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("slurp", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "slurp expected at least 1 argument, got none")
 	}
 	url, err := asString(argv[0])
 	if err != nil {
-		return nil, ArgTypeError("string", 1, argv[0])
+		return nil, Error(ArgumentErrorKey, "slurp expected a <string>, got a ", argv[0].variant)
 	}
 	options, err := getOptions(argv[1:argc], "headers:")
 	if err != nil {
@@ -210,7 +215,7 @@ func ellSlurp(argv []*LOB) (*LOB, error) {
 	}
 	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
 		//do an http GET
-		return nil, Error("slurp on URL NYI: ", url, options)
+		return nil, Error(ArgumentErrorKey, "slurp on URL NYI: ", url, options)
 	}
 	return slurpFile(url)
 }
@@ -218,15 +223,15 @@ func ellSlurp(argv []*LOB) (*LOB, error) {
 func ellSpit(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 2 {
-		return nil, ArgcError("slurp", "2+", argc)
+		return nil, Error(ArgumentErrorKey, "spit expected at least 2 arguments, got ", argc)
 	}
 	url, err := asString(argv[0])
 	if err != nil {
-		return nil, ArgTypeError("string", 1, argv[0])
+		return nil, Error(ArgumentErrorKey, "spit expected a <string> for argument 1, got a ", argv[0].variant)
 	}
 	data, err := asString(argv[1])
 	if err != nil {
-		return nil, ArgTypeError("string", 2, argv[1])
+		return nil, Error(ArgumentErrorKey, "spit expected a <string> for argument 2, got a ", argv[1].variant)
 	}
 	options, err := getOptions(argv[2:argc], "headers:")
 	if err != nil {
@@ -234,7 +239,7 @@ func ellSpit(argv []*LOB) (*LOB, error) {
 	}
 	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
 		//do an http GET
-		return nil, Error("slurp on URL NYI: ", url, options, data)
+		return nil, Error(ArgumentErrorKey, "slurp on URL NYI: ", url, options, data)
 	}
 	err = spitFile(url, data)
 	if err != nil {
@@ -246,7 +251,7 @@ func ellSpit(argv []*LOB) (*LOB, error) {
 func ellRead(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("read", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "read expected at least 1 argument, got none")
 	}
 	input := argv[0]
 	options, err := getOptions(argv[1:argc], "keys:")
@@ -259,7 +264,7 @@ func ellRead(argv []*LOB) (*LOB, error) {
 func ellMacroexpand(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("macroexpand", "1", argc)
+		return nil, Error(ArgumentErrorKey, "macroexpand expected 1 argument, got ", argc)
 	}
 	return macroexpand(argv[0])
 }
@@ -267,7 +272,7 @@ func ellMacroexpand(argv []*LOB) (*LOB, error) {
 func ellCompile(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("compile", "1", argc)
+		return nil, Error(ArgumentErrorKey, "compile expected 1 argument, got ", argc)
 	}
 	expanded, err := macroexpand(argv[0])
 	if err != nil {
@@ -279,7 +284,7 @@ func ellCompile(argv []*LOB) (*LOB, error) {
 func ellType(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("type", "1", argc)
+		return nil, Error(ArgumentErrorKey, "type expected 1 argument, got ", argc)
 	}
 	return argv[0].variant, nil
 }
@@ -287,7 +292,7 @@ func ellType(argv []*LOB) (*LOB, error) {
 func ellValue(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("value", "1", argc)
+		return nil, Error(ArgumentErrorKey, "value expected 1 argument, got ", argc)
 	}
 	return value(argv[0]), nil
 }
@@ -295,7 +300,7 @@ func ellValue(argv []*LOB) (*LOB, error) {
 func ellInstance(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 2 {
-		return nil, ArgcError("instance", "2", argc)
+		return nil, Error(ArgumentErrorKey, "instance expected 2 arguments, got ", argc)
 	}
 	return instance(argv[0], argv[1])
 }
@@ -305,34 +310,34 @@ func ellValidateKeywordArgList(argv []*LOB) (*LOB, error) {
 	//(validate-keyword-arg-list '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("validate-keyword-arg-list", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "validate-keyword-arg-list expected at least 1 argument, got none")
 	}
 	if isList(argv[0]) {
 		return validateKeywordArgList(argv[0], argv[1:argc])
 	}
-	return nil, ArgTypeError("list", 1, argv[0])
+	return nil, Error(ArgumentErrorKey, "validate-keyword-arg-list expected a <list>, got a ", argv[0].variant)
 }
 
 func ellKeys(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
-	if argc < 1 {
-		return nil, ArgcError("keys", "1", argc)
+	if argc != 1 {
+		return nil, Error(ArgumentErrorKey, "keys expected 1 argument, got ", argc)
 	}
 	strct := value(argv[0])
 	if !isStruct(strct) {
-		return nil, ArgTypeError("struct", 1, argv[0])
+		return nil, Error(ArgumentErrorKey, "keys expected a <struct>, got a ", argv[0].variant)
 	}
 	return structKeyList(strct), nil
 }
 
 func ellValues(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
-	if argc < 1 {
-		return nil, ArgcError("values", "1", argc)
+	if argc != 1 {
+		return nil, Error(ArgumentErrorKey, "values expected 1 argument, got ", argc)
 	}
 	strct := value(argv[0])
 	if !isStruct(strct) {
-		return nil, ArgTypeError("struct", 1, argv[0])
+		return nil, Error(ArgumentErrorKey, "values expected a <struct>, got a ", argv[0].variant)
 	}
 	return structValueList(strct), nil
 }
@@ -345,7 +350,7 @@ func ellStruct(argv []*LOB) (*LOB, error) {
 func ellToStruct(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("to-struct", "1", argc)
+		return nil, Error(ArgumentErrorKey, "to-struct expected 1 argument, got ", argc)
 	}
 	//how about a keys: keyword argument to force a key type?
 	return toStruct(argv[0])
@@ -360,13 +365,13 @@ func ellIdenticalP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("identical?", "2", argc)
+	return nil, Error(ArgumentErrorKey, "identical? expected 2 arguments, got ", argc)
 }
 
 func ellEq(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("eq?", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "equal? expected at least 1 argument, got ", argc)
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
@@ -380,7 +385,7 @@ func ellEq(argv []*LOB) (*LOB, error) {
 func ellNumeq(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("=", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "= expected at least 1 argument, got ", argc)
 	}
 	obj := argv[0]
 	for i := 1; i < argc; i++ {
@@ -391,20 +396,10 @@ func ellNumeq(argv []*LOB) (*LOB, error) {
 	return True, nil
 }
 
-func ellDisplay(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		//todo: add the optional output argument like scheme
-		return nil, ArgcError("display", "1", argc)
-	}
-	fmt.Printf("%v", argv[0])
-	return Null, nil
-}
-
 func ellWrite(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("write", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "write expected at least 1 argument, got ", argc)
 	}
 	args := argv[:argc]
 	lastNonkey := 0
@@ -440,18 +435,36 @@ func ellWrite(argv []*LOB) (*LOB, error) {
 	return newString(result), nil
 }
 
-func ellFatal(argv []*LOB) (*LOB, error) {
-	s := ""
-	for _, o := range argv {
-		s += fmt.Sprintf("%v", o)
+func ellMakeError(argv []*LOB) (*LOB, error) {
+	return newError(argv...), nil
+}
+
+func ellIsError(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc != 1 {
+		return nil, Error(ArgumentErrorKey, "error? expected 1 argument, got ", argc)
 	}
-	return nil, Error(s)
+	if isError(argv[0]) {
+		return True, nil
+	}
+	return False, nil
+}
+
+func ellUncaughtError(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc != 1 {
+		return nil, Error(ArgumentErrorKey, "uncaught-error expected 1 argument, got ", argc)
+	}
+	if !isError(argv[0]) {
+		return nil, Error(ArgumentErrorKey, "uncaught-error expected an <error>, got a ", argv[0].variant)
+	}
+	return nil, argv[0]
 }
 
 func ellToString(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("to-string", "1", argc)
+		return nil, Error(ArgumentErrorKey, "to-string expected 1 argument, got ", argc)
 	}
 	return toString(argv[0])
 }
@@ -476,7 +489,7 @@ func ellConcat(argv []*LOB) (*LOB, error) {
 	for i := 0; i < argc; i++ {
 		lst := argv[i]
 		if !isList(lst) {
-			return nil, ArgTypeError("list", i+1, lst)
+			return nil, Error(ArgumentErrorKey, "concat expected a <list>, got a ", argv[0].variant)
 		}
 		for lst != EmptyList {
 			if tail == EmptyList {
@@ -495,11 +508,11 @@ func ellConcat(argv []*LOB) (*LOB, error) {
 func ellReverse(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("reverse", "1", argc)
+		return nil, Error(ArgumentErrorKey, "reverse expected 1 argument, got ", argc)
 	}
 	lst := argv[0]
 	if !isList(lst) {
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "reverse expected a <list>, got a ", argv[0].variant)
 	}
 	return reverse(lst), nil
 }
@@ -507,7 +520,7 @@ func ellReverse(argv []*LOB) (*LOB, error) {
 func ellFlatten(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("flatten", "1", argc)
+		return nil, Error(ArgumentErrorKey, "flatten expected 1 argument, got ", argc)
 	}
 	seq := argv[0]
 	switch seq.variant {
@@ -517,7 +530,7 @@ func ellFlatten(argv []*LOB) (*LOB, error) {
 		lst, _ := toList(seq)
 		return flatten(lst), nil
 	default:
-		return nil, ArgTypeError("list", 1, seq)
+		return nil, Error(ArgumentErrorKey, "flatten expected a <list>, got a ", seq.variant)
 	}
 }
 
@@ -538,7 +551,7 @@ func ellNumberP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("number?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "number? expected 1 argument, got ", argc)
 }
 
 func ellIntP(argv []*LOB) (*LOB, error) {
@@ -549,7 +562,7 @@ func ellIntP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("int?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "int? expected 1 argument, got ", argc)
 }
 
 func ellFloatP(argv []*LOB) (*LOB, error) {
@@ -560,7 +573,7 @@ func ellFloatP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("float?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "float? expected 1 argument, got ", argc)
 }
 
 func ellQuotient(argv []*LOB) (*LOB, error) {
@@ -575,11 +588,11 @@ func ellQuotient(argv []*LOB) (*LOB, error) {
 			return nil, err
 		}
 		if n2 == 0 {
-			return nil, Error("Quotient: divide by zero")
+			return nil, Error(ArgumentErrorKey, "Quotient: divide by zero")
 		}
 		return newInt64(n1 / n2), nil
 	}
-	return nil, ArgcError("quotient", "2", argc)
+	return nil, Error(ArgumentErrorKey, "quotient expected 2 arguments, got ", argc)
 }
 
 func ellRemainder(argv []*LOB) (*LOB, error) {
@@ -591,20 +604,20 @@ func ellRemainder(argv []*LOB) (*LOB, error) {
 		}
 		n2, err := int64Value(argv[1])
 		if n2 == 0 {
-			return nil, Error("remainder: divide by zero")
+			return nil, Error(ArgumentErrorKey, "remainder: divide by zero")
 		}
 		if err != nil {
 			return nil, err
 		}
 		return newInt64(n1 % n2), nil
 	}
-	return nil, ArgcError("remainder", "2", argc)
+	return nil, Error(ArgumentErrorKey, "remainder expected 2 arguments, got ", argc)
 }
 
 func ellInc(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("inc", "1", argc)
+		return nil, Error(ArgumentErrorKey, "inc expected 1 argument, got ", argc)
 	}
 	return inc(argv[0])
 }
@@ -612,7 +625,7 @@ func ellInc(argv []*LOB) (*LOB, error) {
 func ellDec(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("dec", "1", argc)
+		return nil, Error(ArgumentErrorKey, "dec expected 1 argument, got ", argc)
 	}
 	return dec(argv[0])
 }
@@ -650,7 +663,7 @@ func ellVector(argv []*LOB) (*LOB, error) {
 func ellToVector(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("to-vector", "1", argc)
+		return nil, Error(ArgumentErrorKey, "to-vector expected 1 argument, got ", argc)
 	}
 	return toVector(argv[0])
 }
@@ -665,13 +678,13 @@ func ellMakeVector(argv []*LOB) (*LOB, error) {
 		}
 		if argc > 1 {
 			if argc != 2 {
-				return nil, ArgcError("make-vector", "1-2", argc)
+				return nil, Error(ArgumentErrorKey, "make-vector expected 1 or 2 arguments, got ", argc)
 			}
 			initVal = argv[1]
 		}
 		return newVector(int(vlen), initVal), nil
 	}
-	return nil, ArgcError("make-vector", "1-2", argc)
+	return nil, Error(ArgumentErrorKey, "make-vector expected 1 or 2 arguments, got ", argc)
 }
 
 func ellVectorP(argv []*LOB) (*LOB, error) {
@@ -682,7 +695,7 @@ func ellVectorP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("vector?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "vector? expected 1 argument, got ", argc)
 }
 
 func ellGe(argv []*LOB) (*LOB, error) {
@@ -694,7 +707,7 @@ func ellGe(argv []*LOB) (*LOB, error) {
 		}
 		return b, nil
 	}
-	return nil, ArgcError(">=", "2", argc)
+	return nil, Error(ArgumentErrorKey, ">= expected 2 arguments, got ", argc)
 }
 
 func ellLe(argv []*LOB) (*LOB, error) {
@@ -706,7 +719,7 @@ func ellLe(argv []*LOB) (*LOB, error) {
 		}
 		return b, nil
 	}
-	return nil, ArgcError("<=", "2", argc)
+	return nil, Error(ArgumentErrorKey, "<= expected 2 arguments, got ", argc)
 }
 
 func ellGt(argv []*LOB) (*LOB, error) {
@@ -718,7 +731,7 @@ func ellGt(argv []*LOB) (*LOB, error) {
 		}
 		return b, nil
 	}
-	return nil, ArgcError(">", "2", argc)
+	return nil, Error(ArgumentErrorKey, "> expected 2 arguments, got ", argc)
 }
 
 func ellLt(argv []*LOB) (*LOB, error) {
@@ -730,7 +743,7 @@ func ellLt(argv []*LOB) (*LOB, error) {
 		}
 		return b, nil
 	}
-	return nil, ArgcError("<", "2", argc)
+	return nil, Error(ArgumentErrorKey, "< expected 2 arguments, got ", argc)
 }
 
 func ellZeroP(argv []*LOB) (*LOB, error) {
@@ -743,20 +756,9 @@ func ellZeroP(argv []*LOB) (*LOB, error) {
 			}
 			return False, nil
 		}
-		return nil, ArgTypeError("number", 1, n)
+		return nil, Error(ArgumentErrorKey, "zero? expected a <number>, got a ", n.variant)
 	}
-	return nil, ArgcError("zero?", "1", argc)
-}
-
-func ellNumberToString(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, ArgcError("number->string", "1", argc)
-	}
-	if !isNumber(argv[0]) {
-		return nil, ArgTypeError("number", 1, argv[0])
-	}
-	return newString(argv[0].String()), nil
+	return nil, Error(ArgumentErrorKey, "zero? expected 1 argument, got ", argc)
 }
 
 func ellLength(argv []*LOB) (*LOB, error) {
@@ -764,11 +766,11 @@ func ellLength(argv []*LOB) (*LOB, error) {
 	if argc == 1 {
 		n := length(argv[0])
 		if n < 0 {
-			return nil, Error("Cannot take length of ", argv[0].variant)
+			return nil, Error(ArgumentErrorKey, "Cannot take length of ", argv[0].variant)
 		}
 		return newInt(n), nil
 	}
-	return nil, ArgcError("length", "1", argc)
+	return nil, Error(ArgumentErrorKey, "length expected 1 argument, got ", argc)
 }
 
 func ellNot(argv []*LOB) (*LOB, error) {
@@ -779,7 +781,7 @@ func ellNot(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("not", "1", argc)
+	return nil, Error(ArgumentErrorKey, "not expected 1 argument, got ", argc)
 }
 
 func ellNullP(argv []*LOB) (*LOB, error) {
@@ -790,7 +792,7 @@ func ellNullP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("nil?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "null? expected 1 argument, got ", argc)
 }
 
 func ellBooleanP(argv []*LOB) (*LOB, error) {
@@ -801,7 +803,7 @@ func ellBooleanP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("boolean?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "boolean? expected 1 argument, got ", argc)
 }
 
 func ellSymbolP(argv []*LOB) (*LOB, error) {
@@ -812,13 +814,13 @@ func ellSymbolP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("symbol?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "symbol? expected 1 argument, got ", argc)
 }
 
 func ellSymbol(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("symbol", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")
 	}
 	return symbol(argv[:argc])
 }
@@ -831,7 +833,7 @@ func ellKeywordP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("keyword?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "keyword? expected 1 argument, got ", argc)
 }
 
 func ellKeywordName(argv []*LOB) (*LOB, error) {
@@ -842,7 +844,7 @@ func ellKeywordName(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("type-name", "1", argc)
+	return nil, Error(ArgumentErrorKey, "keyword-name expected 1 argument, got ", argc)
 }
 
 func ellTypeP(argv []*LOB) (*LOB, error) {
@@ -853,7 +855,7 @@ func ellTypeP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("type?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "type? expected 1 argument, got ", argc)
 }
 
 func ellTypeName(argv []*LOB) (*LOB, error) {
@@ -864,7 +866,7 @@ func ellTypeName(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("type-name", "1", argc)
+	return nil, Error(ArgumentErrorKey, "type-name expected 1 argument, got ", argc)
 }
 
 func ellStringP(argv []*LOB) (*LOB, error) {
@@ -875,7 +877,7 @@ func ellStringP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("string?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "string? expected 1 argument, got ", argc)
 }
 
 func ellCharacterP(argv []*LOB) (*LOB, error) {
@@ -886,13 +888,13 @@ func ellCharacterP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("character?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "character? expected 1 argument, got ", argc)
 }
 
 func ellToCharacter(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("to-character", "1", argc)
+		return nil, Error(ArgumentErrorKey, "to-character expected 1 argument, got ", argc)
 	}
 	return toCharacter(argv[0])
 }
@@ -905,7 +907,7 @@ func ellFunctionP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("function?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "function? expected 1 argument, got ", argc)
 }
 
 func ellFunctionSignature(argv []*LOB) (*LOB, error) {
@@ -914,9 +916,9 @@ func ellFunctionSignature(argv []*LOB) (*LOB, error) {
 		if isFunction(argv[0]) {
 			return newString(argv[0].function.signature()), nil
 		}
-		return nil, ArgTypeError("function", 1, argv[0])
+		return nil, Error(ArgumentErrorKey, "function-signature expected a <function>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("function?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "function-signature expected 1 argument, got ", argc)
 }
 
 func ellListP(argv []*LOB) (*LOB, error) {
@@ -927,13 +929,13 @@ func ellListP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("list?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "list? expected 1 argument, got ", argc)
 }
 
 func ellEmptyP(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("empty?", "1", argc)
+		return nil, Error(ArgumentErrorKey, "empty? expected 1 argument, got ", argc)
 	}
 	if isEmpty(argv[0]) {
 		return True, nil
@@ -960,9 +962,9 @@ func ellCar(argv []*LOB) (*LOB, error) {
 			}
 			return lst.car, nil
 		}
-		return nil, ArgTypeError("cdr", 1, lst)
+		return nil, Error(ArgumentErrorKey, "car expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("car", "1", argc)
+	return nil, Error(ArgumentErrorKey, "car expected 1 argument, got ", argc)
 }
 
 func ellCdr(argv []*LOB) (*LOB, error) {
@@ -975,9 +977,9 @@ func ellCdr(argv []*LOB) (*LOB, error) {
 			}
 			return lst.cdr, nil
 		}
-		return nil, ArgTypeError("cdr", 1, lst)
+		return nil, Error(ArgumentErrorKey, "cdr expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("cdr", "1", argc)
+	return nil, Error(ArgumentErrorKey, "cdr expected 1 argument, got ", argc)
 }
 
 func ellSetCarBang(argv []*LOB) (*LOB, error) {
@@ -989,7 +991,7 @@ func ellSetCarBang(argv []*LOB) (*LOB, error) {
 		}
 		return Null, nil
 	}
-	return nil, ArgcError("set-car!", "2", argc)
+	return nil, Error(ArgumentErrorKey, "set-car! expected 2 arguments, got ", argc)
 }
 
 func ellSetCdrBang(argv []*LOB) (*LOB, error) {
@@ -1001,7 +1003,7 @@ func ellSetCdrBang(argv []*LOB) (*LOB, error) {
 		}
 		return Null, nil
 	}
-	return nil, ArgcError("set-cdr!", "2", argc)
+	return nil, Error(ArgumentErrorKey, "set-cdr! expected 2 arguments, got ", argc)
 }
 
 func ellCaar(argv []*LOB) (*LOB, error) {
@@ -1011,9 +1013,9 @@ func ellCaar(argv []*LOB) (*LOB, error) {
 		if isList(lst) {
 			return caar(lst), nil
 		}
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "caar expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("caar", "1", argc)
+	return nil, Error(ArgumentErrorKey, "caar expected 1 argument, got ", argc)
 }
 
 func ellCadr(argv []*LOB) (*LOB, error) {
@@ -1023,9 +1025,21 @@ func ellCadr(argv []*LOB) (*LOB, error) {
 		if isList(lst) {
 			return cadr(lst), nil
 		}
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "cadr expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("cadr", "1", argc)
+	return nil, Error(ArgumentErrorKey, "cadr expected 1 argument, got ", argc)
+}
+
+func ellCdar(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc == 1 {
+		lst := argv[0]
+		if isList(lst) {
+			return cdar(lst), nil
+		}
+		return nil, Error(ArgumentErrorKey, "cdar expected a <list>, got a ", argv[0].variant)
+	}
+	return nil, Error(ArgumentErrorKey, "cdar expected 1 argument, got ", argc)
 }
 
 func ellCddr(argv []*LOB) (*LOB, error) {
@@ -1035,9 +1049,9 @@ func ellCddr(argv []*LOB) (*LOB, error) {
 		if isList(lst) {
 			return cddr(lst), nil
 		}
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "cddr expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("cddr", "1", argc)
+	return nil, Error(ArgumentErrorKey, "cddr expected 1 argument, got ", argc)
 }
 
 func ellCadar(argv []*LOB) (*LOB, error) {
@@ -1045,11 +1059,11 @@ func ellCadar(argv []*LOB) (*LOB, error) {
 	if argc == 1 {
 		lst := argv[0]
 		if isList(lst) {
-			return car(cdr(car(lst))), nil
+			return cadar(lst), nil
 		}
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "cadar expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("cadar", "1", argc)
+	return nil, Error(ArgumentErrorKey, "cadar expected 1 argument, got ", argc)
 }
 
 func ellCaddr(argv []*LOB) (*LOB, error) {
@@ -1059,10 +1073,11 @@ func ellCaddr(argv []*LOB) (*LOB, error) {
 		if isList(lst) {
 			return caddr(lst), nil
 		}
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "caddr expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("caddr", "1", argc)
+	return nil, Error(ArgumentErrorKey, "caddr expected 1 argument, got ", argc)
 }
+
 func ellCdddr(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc == 1 {
@@ -1070,9 +1085,9 @@ func ellCdddr(argv []*LOB) (*LOB, error) {
 		if isList(lst) {
 			return cdddr(lst), nil
 		}
-		return nil, ArgTypeError("list", 1, lst)
+		return nil, Error(ArgumentErrorKey, "cdddr expected a <list>, got a ", argv[0].variant)
 	}
-	return nil, ArgcError("cdddr", "1", argc)
+	return nil, Error(ArgumentErrorKey, "cdddr expected 1 argument, got ", argc)
 }
 
 func ellCons(argv []*LOB) (*LOB, error) {
@@ -1080,11 +1095,11 @@ func ellCons(argv []*LOB) (*LOB, error) {
 	if argc == 2 {
 		lst := argv[1]
 		if !isList(lst) {
-			return nil, ArgTypeError("list", 2, lst)
+			return nil, Error(ArgumentErrorKey, "cons expected a <list> for argument 2, got a ", argv[1].variant)
 		}
 		return cons(argv[0], lst), nil
 	}
-	return nil, ArgcError("cons", "2", argc)
+	return nil, Error(ArgumentErrorKey, "cons expected 2 arguments, got ", argc)
 }
 
 func ellStructP(argv []*LOB) (*LOB, error) {
@@ -1095,13 +1110,13 @@ func ellStructP(argv []*LOB) (*LOB, error) {
 		}
 		return False, nil
 	}
-	return nil, ArgcError("struct?", "1", argc)
+	return nil, Error(ArgumentErrorKey, "struct? expected 1 argument, got ", argc)
 }
 
 func ellGet(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 2 {
-		return nil, ArgcError("get", "2", argc)
+		return nil, Error(ArgumentErrorKey, "get expected 2 arguments, got ", argc)
 	}
 	v := value(argv[0])
 	switch v.variant {
@@ -1135,14 +1150,14 @@ func ellGet(argv []*LOB) (*LOB, error) {
 		}
 		return stringRef(v, idx), nil
 	default:
-		return nil, Error("get cannot work with type ", argv[0].variant)
+		return nil, Error(ArgumentErrorKey, "get cannot work with type ", argv[0].variant)
 	}
 }
 
 func ellHasP(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 2 {
-		return nil, ArgcError("has?", "2", argc)
+		return nil, Error(ArgumentErrorKey, "has? expected 2 arguments, got ", argc)
 	}
 	b, err := has(argv[0], argv[1])
 	if err != nil {
@@ -1157,7 +1172,7 @@ func ellHasP(argv []*LOB) (*LOB, error) {
 func ellAssoc(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 3 {
-		return nil, ArgcError("assoc", "3+", argc)
+		return nil, Error(ArgumentErrorKey, "assoc expected at least 3 arguments, got ", argc)
 	}
 	return assoc(argv[0], argv[1:]...)
 }
@@ -1165,7 +1180,7 @@ func ellAssoc(argv []*LOB) (*LOB, error) {
 func ellDissoc(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 2 {
-		return nil, ArgcError("assoc", "2+", argc) //clojure takes 1+, i.e. (disassoc s) is valid (and just returns a copy)
+		return nil, Error(ArgumentErrorKey, "assoc expected at least 2 arguments, got ", argc)
 	}
 	return dissoc(argv[0], argv[1:]...)
 }
@@ -1173,7 +1188,7 @@ func ellDissoc(argv []*LOB) (*LOB, error) {
 func ellAssocBang(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 3 {
-		return nil, ArgcError("assoc!", "3+", argc)
+		return nil, Error(ArgumentErrorKey, "assoc! expected at least 3 arguments, got ", argc)
 	}
 	s := value(argv[0])
 	switch s.variant {
@@ -1193,14 +1208,14 @@ func ellAssocBang(argv []*LOB) (*LOB, error) {
 		}
 		return assocBangVector(s, argv[1:argc])
 	default:
-		return nil, Error("assoc! cannot work with type ", argv[0].variant)
+		return nil, Error(ArgumentErrorKey, "assoc! cannot work with type ", argv[0].variant)
 	}
 }
 
 func ellDissocBang(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 2 {
-		return nil, ArgcError("dissoc!", "2+", argc)
+		return nil, Error(ArgumentErrorKey, "dissoc! expected at least 2 arguments, got ", argc)
 	}
 	return dissocBang(argv[0], argv[1:]...)
 }
@@ -1208,7 +1223,7 @@ func ellDissocBang(argv []*LOB) (*LOB, error) {
 func ellToList(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
-		return nil, ArgcError("to-list", "1", argc)
+		return nil, Error(ArgumentErrorKey, "to-list expected 1 argument, got ", argc)
 	}
 	return toList(argv[0])
 }
@@ -1216,7 +1231,7 @@ func ellToList(argv []*LOB) (*LOB, error) {
 func ellSplit(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 2 {
-		return nil, ArgcError("split", "2", argc)
+		return nil, Error(ArgumentErrorKey, "split expected 2 arguments, got ", argc)
 	}
 	return stringSplit(argv[0], argv[1])
 }
@@ -1224,7 +1239,7 @@ func ellSplit(argv []*LOB) (*LOB, error) {
 func ellJoin(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 2 {
-		return nil, ArgcError("join", "2", argc)
+		return nil, Error(ArgumentErrorKey, "join expected 2 arguments, got ", argc)
 	}
 	return stringJoin(argv[0], argv[1])
 }
@@ -1232,7 +1247,7 @@ func ellJoin(argv []*LOB) (*LOB, error) {
 func ellJSON(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc < 1 {
-		return nil, ArgcError("json", "1+", argc)
+		return nil, Error(ArgumentErrorKey, "json expected at least 1 argument, got none")
 	}
 	data := argv[0]
 	options, err := getOptions(argv[1:argc], "indent:")

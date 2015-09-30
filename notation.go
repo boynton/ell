@@ -60,7 +60,7 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 			case typeSymbol, typeKeyword, typeString:
 				return t, nil
 			default:
-				return nil, Error("Bad option value for keys: ", t)
+				return nil, Error(ArgumentErrorKey, "Bad option value for keys: ", t)
 			}
 		}
 	}
@@ -71,7 +71,7 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 // for subsequence calls, you can slice the string to continue
 func read(input *LOB, options *LOB) (*LOB, error) {
 	if !isString(input) {
-		return nil, Error("read-all: not readable: ", input)
+		return nil, Error(ArgumentErrorKey, "read invalid input: ", input)
 	}
 	keys, err := keysOptionValue(options)
 	if err != nil {
@@ -91,7 +91,7 @@ func read(input *LOB, options *LOB) (*LOB, error) {
 
 func readAll(input *LOB, options *LOB) (*LOB, error) {
 	if !isString(input) {
-		return nil, Error("read-all: not readable: ", input)
+		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)
 	}
 	keys, err := keysOptionValue(options)
 	if err != nil {
@@ -201,7 +201,7 @@ func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
 		case '"':
 			return dr.decodeString()
 		case ')', ']', '}':
-			return nil, Error("Unexpected '", string(c), "'")
+			return nil, Error(SyntaxErrorKey, "Unexpected '", string(c), "'")
 		default:
 			atom, err := dr.decodeAtom(c)
 			return atom, err
@@ -320,7 +320,7 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 			return nil, err
 		}
 		if c == ':' {
-			return nil, Error("Bad syntax, unexpected ':' in struct")
+			return nil, Error(SyntaxErrorKey, "Unexpected ':' in struct")
 		}
 		if c == '}' {
 			return newStruct(items)
@@ -355,7 +355,7 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 			return nil, err
 		}
 		if c == '}' {
-			return nil, Error("mismatched key/value in struct")
+			return nil, Error(SyntaxErrorKey, "mismatched key/value in struct")
 		}
 		dr.ungetChar()
 		element, err = dr.readData(keys)
@@ -420,7 +420,7 @@ func (dr *dataReader) decodeAtom(firstChar byte) (*LOB, error) {
 	f, err := strconv.ParseFloat(s, 64)
 	if err == nil {
 		if keyword {
-			return nil, Error("Keyword cannot have a name that looks like a number: ", s, ":")
+			return nil, Error(SyntaxErrorKey, "Keyword cannot have a name that looks like a number: ", s, ":")
 		}
 		return newFloat64(f), nil
 	}
@@ -435,7 +435,7 @@ func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 	buf := []byte{}
 	if firstChar != 0 {
 		if firstChar == ':' {
-			return "", Error("Invalid keyword: colons go at the end of symbols, not at the beginning")
+			return "", Error(SyntaxErrorKey, "Invalid keyword: colons go at the end of symbols, not at the beginning")
 		}
 		buf = append(buf, firstChar)
 	}
@@ -465,7 +465,7 @@ func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 func (dr *dataReader) decodeType(firstChar byte) (string, error) {
 	buf := []byte{}
 	if firstChar != '<' {
-		return "", Error("Invalid type name")
+		return "", Error(SyntaxErrorKey, "Invalid type name")
 	}
 	buf = append(buf, firstChar)
 	c, e := dr.getChar()
@@ -524,7 +524,7 @@ func namedChar(name string) (rune, error) {
 			}
 			return rune(i), nil
 		}
-		return 0, Error("bad named character: #\\", name)
+		return 0, Error(SyntaxErrorKey, "Bad named character: #\\", name)
 	}
 }
 
@@ -577,16 +577,16 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 	default:
 		atom, err := dr.decodeType(c)
 		if err != nil {
-			return nil, Error("Bad reader macro: #", string([]byte{c}), " ...")
+			return nil, Error(SyntaxErrorKey, "Bad reader macro: #", string([]byte{c}), " ...")
 		}
 		if isValidTypeName(atom) {
 			val, err := dr.readData(keys)
 			if err != nil {
-				return nil, Error("Bad reader macro: #", atom, " ...")
+				return nil, Error(SyntaxErrorKey, "Bad reader macro: #", atom, " ...")
 			}
 			return instance(intern(atom), val)
 		}
-		return nil, Error("Bad reader macro: #", atom, " ...")
+		return nil, Error(SyntaxErrorKey, "Bad reader macro: #", atom, " ...")
 	}
 }
 
@@ -704,7 +704,7 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 		}
 	default:
 		if json {
-			return "", Error("data cannot be described in JSON: ", obj)
+			return "", Error(ArgumentErrorKey, "Data cannot be described in JSON: ", obj)
 		}
 		if obj == nil {
 			panic("whoops: nil not allowed here!")

@@ -231,7 +231,7 @@ func (code *LCode) loadOps(lst *LOB) error {
 		case symOpClosure:
 			lstFunc := cadr(instr)
 			if car(lstFunc) != symOpFunction {
-				return Error("Bad argument for a closure: ", lstFunc)
+				return Error(SyntaxErrorKey, instr)
 			}
 			lstFunc = cdr(lstFunc)
 			funcParams := car(lstFunc)
@@ -256,13 +256,13 @@ func (code *LCode) loadOps(lst *LOB) error {
 				tmp = cdr(tmp)
 				name, err = asString(a)
 				if err != nil {
-					return Error("Bad code format: ", funcParams)
+					return Error(SyntaxErrorKey, funcParams)
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
 				argc, err = intValue(a)
 				if err != nil {
-					return Error("Bad code format: ", funcParams)
+					return Error(SyntaxErrorKey, funcParams)
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
@@ -274,7 +274,7 @@ func (code *LCode) loadOps(lst *LOB) error {
 					keys = a.elements
 				}
 			} else {
-				return Error("Bad code format: ", funcParams)
+				return Error(SyntaxErrorKey, funcParams)
 			}
 			fun := newCode(argc, defaults, keys, name)
 			fun.code.loadOps(cdr(lstFunc))

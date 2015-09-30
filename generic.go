@@ -126,7 +126,7 @@ func assoc(obj *LOB, rest ...*LOB) (*LOB, error) {
 	case typeVector:
 		return assocVector(s, rest)
 	default:
-		return nil, Error("assoc cannot work with type ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.variant)
 	}
 }
 
@@ -136,7 +136,7 @@ func dissoc(obj *LOB, rest ...*LOB) (*LOB, error) {
 	case typeStruct:
 		return dissocStruct(s, rest)
 	default:
-		return nil, Error("dissoc cannot work with type ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.variant)
 	}
 }
 
@@ -146,6 +146,6 @@ func dissocBang(obj *LOB, rest ...*LOB) (*LOB, error) {
 	case typeStruct:
 		return dissocBangStruct(s, rest)
 	default:
-		return nil, Error("dissoc! cannot work with type ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.variant)
 	}
 }

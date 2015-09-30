@@ -181,7 +181,7 @@ func findModuleByName(moduleName string) (string, error) {
 			return filename, nil
 		}
 	}
-	return "", Error("Module not found: ", moduleName)
+	return "", Error(IOErrorKey, "Module not found: ", moduleName)
 }
 
 func loadModule(name string) error {
@@ -254,7 +254,7 @@ func findModuleFile(name string) (string, error) {
 		return file, nil
 	}
 	if !fileReadable(name) {
-		return "", Error("Cannot read file: ", name)
+		return "", Error(IOErrorKey, "Cannot read file: ", name)
 	}
 	return name, nil
 }

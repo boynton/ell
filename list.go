@@ -50,10 +50,10 @@ func car(lst *LOB) *LOB {
 
 func setCar(lst *LOB, obj *LOB) error {
 	if !isList(lst) {
-		return ArgTypeError("list", 1, lst)
+		return Error(ArgumentErrorKey, "set-car! expected a <list> for argument 1, got a ", lst.variant)
 	}
 	if isEmpty(lst) {
-		return Error("argument 1 to set-car! must be a non-empty list: ", lst)
+		return Error(ArgumentErrorKey, "set-car! expected a non-empty <list>")
 	}
 	lst.car = obj
 	return nil
@@ -68,13 +68,13 @@ func cdr(lst *LOB) *LOB {
 
 func setCdr(lst *LOB, obj *LOB) error {
 	if !isList(lst) {
-		return ArgTypeError("list", 1, lst)
+		return Error(ArgumentErrorKey, "set-cdr! expected a <list> for argument 1, got a ", lst.variant)
 	}
 	if isEmpty(lst) {
-		return Error("argument 1 to set-cdr! must be a non-empty list: ", lst)
+		return Error(ArgumentErrorKey, "set-cdr! expected a non-empty <list>")
 	}
 	if !isList(obj) {
-		return Error("argument 2 to set-cdr! must be a list: ", lst)
+		return Error(ArgumentErrorKey, "set-cdr! expected a <list> for argument 2, got a ", obj.variant)
 	}
 	lst.cdr = obj
 	return nil
@@ -86,8 +86,14 @@ func caar(lst *LOB) *LOB {
 func cadr(lst *LOB) *LOB {
 	return car(cdr(lst))
 }
+func cdar(lst *LOB) *LOB {
+	return car(cdr(lst))
+}
 func cddr(lst *LOB) *LOB {
 	return cdr(cdr(lst))
+}
+func cadar(lst *LOB) *LOB {
+	return car(cdr(car(lst)))
 }
 func caddr(lst *LOB) *LOB {
 	return car(cdr(cdr(lst)))
@@ -220,5 +226,5 @@ func toList(obj *LOB) (*LOB, error) {
 	case typeString:
 		return stringToList(obj), nil
 	}
-	return nil, Error("Cannot convert ", obj.variant, " to <list>")
+	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.variant)
 }

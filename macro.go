@@ -88,7 +88,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 					}
 					return expanded, err
 				}
-				return nil, Error("macro error: ", err)
+				return nil, err
 			}
 		} else if expander.function.primitive != nil {
 			args := []*LOB{expr}
@@ -99,7 +99,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 			return nil, err
 		}
 	}
-	return nil, Error("Bad macro expander function")
+	return nil, Error(MacroErrorKey, "Bad macro expander function: ", expander)
 }
 
 func expandSequence(seq *LOB) (*LOB, error) {
@@ -144,13 +144,13 @@ func expandIf(expr *LOB) (*LOB, error) {
 		}
 		return cons(car(expr), tmp), nil
 	} else {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 }
 
 func expandUndef(expr *LOB) (*LOB, error) {
 	if length(expr) != 2 || !isSymbol(cadr(expr)) {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	return expr, nil
 }
@@ -175,7 +175,7 @@ func expandDefn(expr *LOB) (*LOB, error) {
 			return list(intern("def"), name, tmp), nil
 		}
 	}
-	return nil, SyntaxError(expr)
+	return nil, Error(SyntaxErrorKey, expr)
 }
 
 func expandDefmacro(expr *LOB) (*LOB, error) {
@@ -201,7 +201,7 @@ func expandDefmacro(expr *LOB) (*LOB, error) {
 			return list(intern("defmacro"), name, tmp), nil
 		}
 	}
-	return nil, SyntaxError(expr)
+	return nil, Error(SyntaxErrorKey, expr)
 }
 
 //(defmacro (defmacro expr)
@@ -210,14 +210,14 @@ func expandDefmacro(expr *LOB) (*LOB, error) {
 func expandDef(expr *LOB) (*LOB, error) {
 	exprLen := length(expr)
 	if exprLen != 3 {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	name := cadr(expr)
 	if !isSymbol(name) {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	if exprLen > 3 {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	body := caddr(expr)
 	if !isList(body) {
@@ -233,7 +233,7 @@ func expandDef(expr *LOB) (*LOB, error) {
 func expandFn(expr *LOB) (*LOB, error) {
 	exprLen := length(expr)
 	if exprLen < 3 {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	body, err := expandSequence(cddr(expr))
 	if err != nil {
@@ -246,7 +246,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 			bindings := EmptyList
 			for caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
 				if caar(tmp) == intern("defmacro") {
-					return nil, Error("macros can only be defined at top level")
+					return nil, Error(MacroErrorKey, "macros can only be defined at top level")
 				}
 				def, err := expandDef(car(tmp))
 				if err != nil {
@@ -268,7 +268,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 func expandSetBang(expr *LOB) (*LOB, error) {
 	exprLen := length(expr)
 	if exprLen != 3 {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	var val = caddr(expr)
 	if isList(val) {
@@ -356,15 +356,15 @@ func expandLetrec(expr *LOB) (*LOB, error) {
 	// (letrec ((x 1) (y 2)) expr ...) -> ((fn (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := cddr(expr)
 	if body == EmptyList {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	bindings := cadr(expr)
 	if !isList(bindings) {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	names, body, ok := crackLetrecBindings(bindings, body)
 	if !ok {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	code, err := macroexpandList(cons(intern("fn"), cons(names, body)))
 	if err != nil {
@@ -409,15 +409,15 @@ func expandLet(expr *LOB) (*LOB, error) {
 	}
 	bindings := cadr(expr)
 	if !isList(bindings) {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	names, values, ok := crackLetBindings(bindings)
 	if !ok {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	body := cddr(expr)
 	if body == EmptyList {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	code, err := macroexpandList(cons(intern("fn"), cons(names, body)))
 	if err != nil {
@@ -430,11 +430,11 @@ func expandNamedLet(expr *LOB) (*LOB, error) {
 	name := cadr(expr)
 	bindings := caddr(expr)
 	if !isList(bindings) {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	names, values, ok := crackLetBindings(bindings)
 	if !ok {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	body := cdddr(expr)
 	tmp := list(intern("letrec"), list(list(name, cons(intern("fn"), cons(names, body)))), cons(name, values))
@@ -492,12 +492,12 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 
 	if count == 2 {
 		if !isList(clause1) {
-			return nil, SyntaxError(expr)
+			return nil, Error(SyntaxErrorKey, expr)
 		}
 		if elsesym == car(clause1) {
 			if cadr(clause0) == intern("=>") {
 				if length(clause0) != 3 {
-					return nil, SyntaxError(expr)
+					return nil, Error(SyntaxErrorKey, expr)
 				}
 				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), cons(dosym, cdr(clause1))))
 			} else {
@@ -506,7 +506,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 		} else {
 			if cadr(clause1) == intern("=>") {
 				if length(clause1) != 3 {
-					return nil, SyntaxError(expr)
+					return nil, Error(SyntaxErrorKey, expr)
 				}
 				result = list(letsym, list(list(tmpsym, car(clause1))), list(ifsym, tmpsym, list(caddr(clause1), tmpsym), clause1))
 			} else {
@@ -514,7 +514,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 			}
 			if cadr(clause0) == intern("=>") {
 				if length(clause0) != 3 {
-					return nil, SyntaxError(expr)
+					return nil, Error(SyntaxErrorKey, expr)
 				}
 				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
 			} else {
@@ -528,7 +528,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 		}
 		if cadr(clause0) == intern("=>") {
 			if length(clause0) != 3 {
-				return nil, SyntaxError(expr)
+				return nil, Error(SyntaxErrorKey, expr)
 			}
 			result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
 		} else {
@@ -541,7 +541,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 func expandCond(expr *LOB) (*LOB, error) {
 	i := length(expr)
 	if i < 2 {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	} else if i == 2 {
 		tmp := cadr(expr)
 		if car(tmp) == intern("else") {
@@ -558,7 +558,7 @@ func expandCond(expr *LOB) (*LOB, error) {
 
 func expandQuasiquote(expr *LOB) (*LOB, error) {
 	if length(expr) != 2 {
-		return nil, SyntaxError(expr)
+		return nil, Error(SyntaxErrorKey, expr)
 	}
 	return expandQQ(cadr(expr))
 }
@@ -572,11 +572,11 @@ func expandQQ(expr *LOB) (*LOB, error) {
 		if expr.cdr != EmptyList {
 			if expr.car == symUnquote {
 				if expr.cdr.cdr != EmptyList {
-					return nil, SyntaxError(expr)
+					return nil, Error(SyntaxErrorKey, expr)
 				}
 				return macroexpand(expr.cdr.car)
 			} else if expr.car == symUnquoteSplicing {
-				return nil, Error("unquote-splicing can only occur in the context of a list ")
+				return nil, Error(MacroErrorKey, "unquote-splicing can only occur in the context of a list ")
 			}
 		}
 		tmp, err := expandQQList(expr)
@@ -600,7 +600,7 @@ func expandQQList(lst *LOB) (*LOB, error) {
 		item := car(lst)
 		if isList(item) && item != EmptyList {
 			if car(item) == symQuasiquote {
-				return nil, Error("nested quasiquote not supported")
+				return nil, Error(MacroErrorKey, "nested quasiquote not supported")
 			}
 			if car(item) == symUnquote && length(item) == 2 {
 				tmp, err = macroexpand(cadr(item))

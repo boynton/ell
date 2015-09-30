@@ -69,7 +69,7 @@ func toKeyword(obj *LOB) (*LOB, error) {
 			return intern(obj.text + ":"), nil
 		}
 	}
-	return nil, Error("Type error: Cannot convert to <keyword>: ", obj)
+	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.variant)
 }
 
 func keywordify(s *LOB) *LOB {
@@ -88,7 +88,7 @@ func keywordify(s *LOB) *LOB {
 // <type> -> <symbol>
 func typeName(t *LOB) (*LOB, error) {
 	if !isType(t) {
-		return nil, Error("Type error: expected <type>, got ", t)
+		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.variant)
 	}
 	return intern(t.text[1 : len(t.text)-1]), nil
 }
@@ -96,7 +96,7 @@ func typeName(t *LOB) (*LOB, error) {
 // <keyword> -> <symbol>
 func keywordName(t *LOB) (*LOB, error) {
 	if !isKeyword(t) {
-		return nil, Error("Type error: expected <keyword>, got ", t)
+		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.variant)
 	}
 	return unkeyworded(t)
 }
@@ -115,7 +115,7 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 	if isKeyword(obj) {
 		return intern(obj.text[:len(obj.text)-1]), nil
 	}
-	return nil, Error("Type error: expected <keyword> or <symbol>, got ", obj)
+	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.variant)
 }
 
 func toSymbol(obj *LOB) (*LOB, error) {
@@ -131,7 +131,7 @@ func toSymbol(obj *LOB) (*LOB, error) {
 			return intern(obj.text), nil
 		}
 	}
-	return nil, Error("Type error: Cannot convert to <symbol>: ", obj)
+	return nil, Error(ArgumentErrorKey, "to-symbol expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.variant)
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
@@ -163,7 +163,7 @@ func symbols() []*LOB {
 func symbol(names []*LOB) (*LOB, error) {
 	size := len(names)
 	if size < 1 {
-		return nil, ArgcError("symbol", "1+", size)
+		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")
 	}
 	name := ""
 	for i := 0; i < size; i++ {
@@ -173,7 +173,7 @@ func symbol(names []*LOB) (*LOB, error) {
 		case typeString, typeSymbol:
 			s = o.text
 		default:
-			return nil, Error("symbol name component invalid: ", o)
+			return nil, Error(ArgumentErrorKey, "symbol name component invalid: ", o)
 		}
 		name += s
 	}

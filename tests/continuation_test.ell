@@ -1,0 +1,69 @@
+(use assert)
+
+(assert-equal 23
+              (callcc (fn (cont)
+                        (println "continuation is " cont ", call it")
+                        (cont 23)
+                        57))
+              "continuation called value wasn't seen")
+
+(assert-equal 57
+              (callcc (fn (cont)
+                        (println "continuation is " cont ", skip it")
+                        '(cont 23) 57))
+              "continuation skip, final value not seen")
+
+(defn search (wanted? lst) 
+  (callcc 
+   (fn (return) 
+     (for (element lst)
+       (if (wanted? element)
+           (return element)))
+     false)))
+
+(assert-false (search zero? '(1 2 3 4 5)) "failed search should have returned false")
+(assert-equal 0 (search zero? '(1 2 0 4 5)) "search value was not zero")
+
+(def return false)
+(def normal-value
+    (+ 1 (callcc 
+          (fn (cont) 
+            (set! return cont)
+            1))))
+
+(assert-equal 2 normal-value ": normal execution saved the continuation, but returned the last value of 1 + 1 = 2")
+
+(assert-type return <function> ": the value of return is now set to the continuation, which is a function")
+
+(assert-equal 23 (return 22) ": calling the continuation with an argument of 22 results in 22 + 1 = 23")
+
+;; test the catch/error macros
+
+(println "catch without throw: " (catch 23))
+(println "catch with throw: " (catch (error foo: 57) 23))
+
+(defn catch-test1 (key)
+  (try
+   (if (equal? safe: key)
+       "This means no error"
+       (error key 57))
+   (catch (foo: err)
+          (println "caught a foo: " err))
+   (catch (bar: err)
+          (println "caught a bar: " err))
+   (else
+    (println "caught something else: " err))))
+
+(defn catch-test (key)
+  (let ((tmp (catch (if (equal? safe: key) 23 (error key 57)))))
+    (if (error? tmp)
+        (println "caught this error: " tmp)
+        (println "no error: " tmp))
+    tmp))
+ 
+(assert (error? (catch-test foo:)) " foo: error did not get caught")
+(assert (error? (catch-test bar:)) " bar: error did not get caught")
+(assert (not (error? (catch-test safe:))) " safe: produces an error when it shouldn't")
+  
+(println "[continuation_test OK]")
+

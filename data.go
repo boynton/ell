@@ -46,34 +46,36 @@ func identical(o1 *LOB, o2 *LOB) bool {
 	return o1 == o2
 }
 
-func (a *LOB) String() string {
-	if a == Null {
+func (lob *LOB) String() string {
+	if lob == Null {
 		return "null"
 	}
-	switch a.variant {
+	switch lob.variant {
 	case typeBoolean:
-		if a.ival == 0 {
+		if lob.ival == 0 {
 			return "false"
 		}
 		return "true"
 	case typeCharacter:
-		return string([]rune{rune(a.ival)})
+		return string([]rune{rune(lob.ival)})
 	case typeNumber:
-		return strconv.FormatFloat(a.fval, 'f', -1, 64)
+		return strconv.FormatFloat(lob.fval, 'f', -1, 64)
 	case typeString, typeSymbol, typeKeyword, typeType:
-		return a.text
+		return lob.text
 	case typeList:
-		return listToString(a)
+		return listToString(lob)
 	case typeVector:
-		return vectorToString(a)
+		return vectorToString(lob)
 	case typeStruct:
-		return structToString(a)
+		return structToString(lob)
 	case typeFunction:
-		return a.function.String()
+		return lob.function.String()
 	case typeCode:
-		return a.code.String()
+		return lob.code.String()
+	case typeError:
+		return "#<error>" + write(lob.car)
 	default:
-		return "#" + a.variant.text + write(a.car)
+		return "#" + lob.variant.text + write(lob.car)
 	}
 }
 
@@ -91,6 +93,7 @@ var typeVector = intern("<vector>")
 var typeStruct = intern("<struct>")
 var typeFunction = intern("<function>")
 var typeCode = intern("<code>")
+var typeError = intern("<error>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
 var Null = &LOB{variant: typeNull}
@@ -195,7 +198,7 @@ func isPrimitiveType(tag *LOB) bool {
 
 func instance(tag *LOB, val *LOB) (*LOB, error) {
 	if !isType(tag) {
-		return nil, TypeError(typeType, tag)
+		return nil, Error(ArgumentErrorKey, typeType.text, tag)
 	}
 	if isPrimitiveType(tag) {
 		return val, nil
@@ -213,15 +216,10 @@ func value(obj *LOB) *LOB {
 }
 
 //
-// Error - creates a new Error from the arguments
+// Error - creates a new Error from the arguments. The first is an actual Ell object, the rest are interpreted as/converted to strings
 //
-func Error(arg1 interface{}, args ...interface{}) error {
+func Error(errkey *LOB, args ...interface{}) error {
 	var buf bytes.Buffer
-	if l, ok := arg1.(*LOB); ok {
-		buf.WriteString(fmt.Sprintf("%v", write(l)))
-	} else {
-		buf.WriteString(fmt.Sprintf("%v", arg1))
-	}
 	for _, o := range args {
 		if l, ok := o.(*LOB); ok {
 			buf.WriteString(fmt.Sprintf("%v", write(l)))
@@ -229,24 +227,65 @@ func Error(arg1 interface{}, args ...interface{}) error {
 			buf.WriteString(fmt.Sprintf("%v", o))
 		}
 	}
-	err := GenericError{buf.String()}
-	return &err
+	if errkey.variant != typeKeyword {
+		errkey = ErrorKey
+	}
+	return newError(errkey, newString(buf.String()))
 }
 
-// TypeError - an error indicating expected and actual value for a type mismatch
-func TypeError(typeSym *LOB, obj *LOB) error {
-	return Error("Type error: expected ", typeSym, ", got ", obj)
+func newError(elements ...*LOB) *LOB {
+	data := vector(elements...)
+	return &LOB{variant: typeError, car: data}
 }
 
-// GenericError - most Ell errors are one of these
-type GenericError struct {
-	msg string
+func theError(o interface{}) (*LOB, bool) {
+	if o == nil {
+		return nil, false
+	}
+	if err, ok := o.(*LOB); ok {
+		if err.variant == typeError {
+			return err, true
+		}
+	}
+	return nil, false
+
 }
 
-func (e *GenericError) Error() string {
-	return e.msg
+func isError(o interface{}) bool {
+	_, ok := theError(o)
+	return ok
 }
 
-func (e *GenericError) String() string {
-	return fmt.Sprintf("<Error: %s>", e.msg)
+func errorData(err *LOB) *LOB {
+	return err.car
 }
+
+// Error
+func (lob *LOB) Error() string {
+	if lob.variant == typeError {
+		s := lob.car.String()
+		if lob.text != "" {
+			s += " [in " + lob.text + "]"
+		}
+		return s
+	}
+	return lob.String()
+}
+
+// ErrorKey - used to generic errors
+var ErrorKey = intern("error:")
+
+// ArgumentErrorKey
+var ArgumentErrorKey = intern("argument-error:")
+
+// SyntaxErrorKey
+var SyntaxErrorKey = intern("syntax-error:")
+
+// MacroErrorKey
+var MacroErrorKey = intern("macro-error:")
+
+// IOErrorKey
+var IOErrorKey = intern("io-error:")
+
+// InterruptKey
+var InterruptKey = intern("interrupt:")

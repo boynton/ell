@@ -118,7 +118,7 @@ func main() {
 				//this executes the file
 				err := loadModule(filename)
 				if err != nil {
-					fatal("*** ", err)
+					fatal("*** ", err.Error())
 				}
 			}
 		}

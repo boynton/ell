@@ -78,7 +78,7 @@ func copyVector(vec *LOB) *LOB {
 
 func vectorSet(vec *LOB, idx int, obj *LOB) error {
 	if idx < 0 || idx >= len(vec.elements) {
-		return Error("Vector index out of range")
+		return Error(ArgumentErrorKey, "vector-set! index out of range: ", idx)
 	}
 	vec.elements[idx] = obj
 	return nil
@@ -103,15 +103,15 @@ func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
 		case typeNumber:
 			idx := int(key.fval)
 			if idx < 0 || idx > max {
-				return nil, Error("Vector index out of range")
+				return nil, Error(ArgumentErrorKey, "assoc! index out of range: ", idx)
 			}
 			if i == count {
-				return nil, Error("mismatched index/value: ", fieldvals)
+				return nil, Error(ArgumentErrorKey, "assoc! mismatched index/value: ", fieldvals)
 			}
 			vec.elements[idx] = fieldvals[i]
 			i++
 		default:
-			return nil, Error("Bad vector index: ", key)
+			return nil, Error(ArgumentErrorKey, "assoc! bad vector index: ", key)
 		}
 	}
 	return vec, nil
@@ -133,5 +133,5 @@ func toVector(obj *LOB) (*LOB, error) {
 	case typeString:
 		return stringToVector(obj), nil
 	}
-	return nil, Error("Cannot convert ", obj.variant, " to <vector>")
+	return nil, Error(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.variant)
 }

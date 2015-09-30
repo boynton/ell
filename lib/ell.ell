@@ -5,8 +5,8 @@
 ;;
 ;; shortcuts for accessing lists
 ;;
-(defn caar (p) (car (car p)))
-(defn cadr (p) (car (cdr p)))
+;;(defn caar (p) (car (car p)))
+;;(defn cadr (p) (car (cdr p)))
 (defn cdar (p) (cdr (car p)))
 (defn cddr (p) (cdr (cdr p)))
 (defn caaar (p) (car (car (car p))))
@@ -352,7 +352,7 @@
 ;;
 (defmacro for (init & body)
   (if (< (length init) 2)
-      (error "syntax error: " (cons 'for (cons init body))))
+      (error syntax-error: (cons 'for (cons init body))))
   (let ((sym (car init)))
     (if (> (length init) 2)
         `(dorange ~init ~@body)
@@ -377,3 +377,30 @@
     (if (>= (caddr rargs) 0)
         (apply range-aux (cons >= rargs))
         (apply range-aux (cons <= rargs)))))
+
+
+;;
+;; Simple error handling. An error object is defined with a keyword and a data item
+;;
+(def *top-handler* null)
+
+(defn throw (err)
+  (if (null? *top-handler*)
+      (uncaught-error err)
+      (*top-handler* err)))
+
+(defn error (& data)
+  (throw (apply make-error data)))
+
+;; and catch simply is callcc that defines throw in the lexical scope of your code.
+(defmacro catch (& body)
+  `(callcc
+    (fn (_handler_)
+      (let ((_prev_handler_ *top-handler*))
+        (set! *top-handler*
+            (fn (err)
+              (set! *top-handler* _prev_handler_)
+              (_handler_ err)))
+        ~@body))))
+
+

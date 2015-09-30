@@ -40,6 +40,6 @@
    (for (i "abc") (set! x (cons i x)))
    (assert-equal '(#\c #\b #\a) x (string "for loop over a string: " x)))
 
-;;error: (assert-equal '() (for () '()))
+;(println "!! " (catch (for () '())))
 
 (println "[for_range_test OK]")

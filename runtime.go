@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -29,38 +28,43 @@ func setTrace(b bool) {
 	trace = b
 }
 
+func str(o interface{}) string {
+	if lob, ok := o.(*LOB); ok {
+		return lob.String()
+	}
+	return fmt.Sprintf("%v", o)
+}
+
 func print(args ...interface{}) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
-		fmt.Print(args[i])
+		fmt.Print(str(args[i]))
 	}
-	fmt.Print(args[max])
+	fmt.Print(str(args[max]))
 }
 
 func println(args ...interface{}) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
-		fmt.Print(args[i])
+		fmt.Print(str(args[i]))
 	}
-	fmt.Println(args[max])
+	fmt.Println(str(args[max]))
 }
 
-// ArgcError - returns an error describing an argument count mismatch.
-func ArgcError(name string, expected string, got int) error {
-	return Error("Wrong number of arguments to ", name, " (expected ", expected, ", got ", got, ")")
-}
-
-// ArgTypeError - returns an error describing an argument type mismatch
-func ArgTypeError(expected string, num int, arg *LOB) error {
-	return Error("Argument ", num, " is not of type <", expected, ">: ", arg)
+// Continuation - a substructure of LFunction for continuations
+type Continuation struct {
+	ops   []int
+	stack []*LOB
+	pc    int
 }
 
 // LFunction - all callable function subtypes are represented here
 type LFunction struct {
-	code        *LCode // closure
-	frame       *Frame // closure
-	primitive   *Primitive
-	instruction int
+	code         *LCode // closure
+	frame        *Frame // closure
+	primitive    *Primitive
+	continuation *Continuation
+	instruction  int
 }
 
 func newClosure(code *LCode, frame *Frame) *LOB {
@@ -70,6 +74,20 @@ func newClosure(code *LCode, frame *Frame) *LOB {
 	fun.frame = frame
 	clo.function = fun
 	return clo
+}
+
+func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
+	lob := newLOB(typeFunction)
+	cont := new(Continuation)
+	cont.ops = ops
+	cont.stack = make([]*LOB, len(stack))
+	copy(cont.stack, stack)
+	cont.pc = pc
+	fun := new(LFunction)
+	fun.frame = frame
+	fun.continuation = cont
+	lob.function = fun
+	return lob
 }
 
 const defaultStackSize = 1000
@@ -92,7 +110,7 @@ func exec(code *LCode, args ...*LOB) (*LOB, error) {
 	}
 	vm := newVM(defaultStackSize)
 	if len(args) != code.argc {
-		return nil, Error("Wrong number of arguments")
+		return nil, Error(ArgumentErrorKey, "Wrong number of arguments")
 	}
 	startTime := time.Now()
 	result, err := vm.exec(code, args)
@@ -162,6 +180,9 @@ func (f LFunction) String() string {
 				return fmt.Sprintf("#[function]")
 			}
 			return fmt.Sprintf("#[function %s]", n)
+		}
+		if f.continuation != nil { //continuation
+			return "#[continuation]"
 		}
 		panic("Bad function")
 	}
@@ -239,7 +260,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 	defaults := fun.code.defaults
 	if defaults == nil {
 		if argc != expectedArgc {
-			return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+			return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
 		if argc <= 5 {
 			f.elements = f.firstfive[:]
@@ -258,9 +279,9 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 	}
 	if argc < expectedArgc {
 		if extra > 0 {
-			return nil, Error("Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
+			return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
 		}
-		return nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+		return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
 	if totalArgc > 4 {
@@ -275,7 +296,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
-			return nil, Error("Bad keyword argument(s): ", bindings)
+			return nil, Error(ArgumentErrorKey, "Bad keyword argument(s): ", bindings)
 		}
 		copy(el, stack[sp:sp+expectedArgc]) //the required ones
 		for i := expectedArgc; i < totalArgc; i++ {
@@ -284,7 +305,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 		for i := expectedArgc; i < argc; i += 2 {
 			key, err := toSymbol(stack[sp+i])
 			if err != nil {
-				return nil, Error("Bad keyword argument: ", stack[sp+1])
+				return nil, Error(ArgumentErrorKey, "Bad keyword argument: ", stack[sp+1])
 			}
 			gotit := false
 			for j := 0; j < extra; j++ {
@@ -295,7 +316,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 				}
 			}
 			if !gotit {
-				return nil, Error("Undefined keyword argument: ", key)
+				return nil, Error(ArgumentErrorKey, "Undefined keyword argument: ", key)
 			}
 		}
 	} else {
@@ -309,10 +330,16 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 }
 
 func addContext(env *Frame, err error) error {
-	if env.code == nil || env.code.name == "" {
-		return err
+	if e, ok := err.(*LOB); ok {
+		if env.code != nil {
+			if env.code.name != "throw" {
+				e.text = env.code.name
+			} else {
+				e.text = env.previous.code.name
+			}
+		}
 	}
-	return Error("[", env.code.name, "] ", err.Error())
+	return err
 }
 
 func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
@@ -321,7 +348,7 @@ opcodeCallAgain:
 		lfun := fun.function
 		if lfun.code != nil {
 			if checkInterrupt() {
-				return nil, 0, 0, nil, addContext(env, Error("Interrupt"))
+				return nil, 0, 0, nil, addContext(env, Error(InterruptKey))
 			}
 			if lfun.code.defaults == nil {
 				f := new(Frame)
@@ -332,7 +359,7 @@ opcodeCallAgain:
 				f.code = lfun.code
 				expectedArgc := lfun.code.argc
 				if argc != expectedArgc {
-					return nil, 0, 0, nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+					return nil, 0, 0, nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 				}
 				if argc <= 5 {
 					f.elements = f.firstfive[:argc]
@@ -364,13 +391,13 @@ opcodeCallAgain:
 		}
 		if fun == Apply {
 			if argc < 2 {
-				err := ArgcError("apply", "2+", argc)
+				err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			fun = stack[sp]
 			args := stack[sp+argc-1]
 			if !isList(args) {
-				err := ArgTypeError("list", argc, args)
+				err := Error(ArgumentErrorKey, "apply expected a <list> as its final argument")
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			arglist := args
@@ -388,11 +415,33 @@ opcodeCallAgain:
 			}
 			goto opcodeCallAgain
 		}
-		return nil, 0, 0, nil, addContext(env, Error("unsupported instruction", fun))
+		if fun == CallCC {
+			if argc != 1 {
+				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			fun = stack[sp]
+			stack[sp] = newContinuation(env, ops, savedPc, stack[sp+1:])
+			goto opcodeCallAgain
+		}
+		if lfun.continuation != nil {
+			println("funcall cont")
+			if argc != 1 {
+				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
+			}
+			arg := stack[sp]
+			sp = len(stack) - len(lfun.continuation.stack)
+			segment := stack[sp:]
+			copy(segment, lfun.continuation.stack)
+			sp--
+			stack[sp] = arg
+			return lfun.continuation.ops, lfun.continuation.pc, sp, lfun.frame, nil
+		}
+		panic("unsupported instruction")
 	}
 	if fun.variant == typeKeyword {
 		if argc != 1 {
-			err := ArgcError(fun.text, "1", argc)
+			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 			return nil, 0, 0, nil, addContext(env, err)
 		}
 		v, err := get(stack[sp], fun)
@@ -402,7 +451,7 @@ opcodeCallAgain:
 		stack[sp] = v
 		return ops, savedPc, sp, env, err
 	}
-	return nil, 0, 0, nil, addContext(env, Error("Not a function: ", fun))
+	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function: ", fun))
 }
 
 func (vm *VM) tailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
@@ -413,7 +462,7 @@ opcodeTailCallAgain:
 			if lfun.code.defaults == nil && lfun.code == env.code { //self-tail-call - we can reuse the frame.
 				expectedArgc := lfun.code.argc
 				if argc != expectedArgc {
-					return nil, 0, 0, nil, Error("Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+					return nil, 0, 0, nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 				}
 				endSp := sp + argc
 				copy(env.elements, stack[sp:endSp])
@@ -437,13 +486,13 @@ opcodeTailCallAgain:
 		}
 		if fun == Apply {
 			if argc < 2 {
-				err := ArgcError("apply", "2+", argc)
+				err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			fun = stack[sp]
 			args := stack[sp+argc-1]
 			if !isList(args) {
-				err := ArgTypeError("list", argc, args)
+				err := Error(ArgumentErrorKey, "apply expected its last argument to be a <list>")
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			arglist := args
@@ -461,11 +510,32 @@ opcodeTailCallAgain:
 			}
 			goto opcodeTailCallAgain
 		}
-		return nil, 0, 0, nil, addContext(env, Error("unsupported instruction", fun))
+		if fun == CallCC {
+			if argc != 1 {
+				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			fun = stack[sp]
+			stack[sp] = newContinuation(env.previous, env.ops, env.pc, stack[sp:])
+			goto opcodeTailCallAgain
+		}
+		if lfun.continuation != nil {
+			if argc != 1 {
+				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
+			}
+			arg := stack[sp]
+			sp = len(stack) - len(lfun.continuation.stack)
+			segment := stack[sp:]
+			copy(segment, lfun.continuation.stack)
+			sp--
+			stack[sp] = arg
+			return lfun.continuation.ops, lfun.continuation.pc, sp, lfun.frame, nil
+		}
+		panic("unsupported instruction")
 	}
 	if fun.variant == typeKeyword {
 		if argc != 1 {
-			err := ArgcError(fun.text, "1", argc)
+			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 			return nil, 0, 0, nil, addContext(env, err)
 		}
 		v, err := get(stack[sp], fun)
@@ -475,7 +545,7 @@ opcodeTailCallAgain:
 		stack[sp] = v
 		return env.ops, env.pc, sp, env.previous, nil
 	}
-	return nil, 0, 0, nil, addContext(env, Error("Not a function:", fun))
+	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function:", fun))
 }
 
 func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
@@ -490,9 +560,6 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 	ops := code.ops
 	pc := 0
 	var err error
-	if len(ops) == 0 {
-		return nil, addContext(env, Error("No code to execute"))
-	}
 	for {
 		op := ops[pc]
 		if op == opcodeCall { // CALL
@@ -516,7 +583,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 				}
 			} else if fun.variant == typeKeyword {
 				if argc != 1 {
-					err := ArgcError(fun.text, "1", argc)
+					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 					return nil, addContext(env, err)
 				}
 				sp++
@@ -527,12 +594,12 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 				stack[sp] = v
 				pc += 2
 			} else {
-				return nil, addContext(env, Error("Not callable: ", fun))
+				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
 			}
 		} else if op == opcodeGlobal { //GLOBAL
 			sym := constants[ops[pc+1]]
 			if sym.car == nil {
-				return nil, addContext(env, Error("Undefined symbol: ", sym))
+				return nil, addContext(env, Error(ErrorKey, "Undefined symbol: ", sym))
 			}
 			sp--
 			stack[sp] = sym.car
@@ -562,7 +629,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			pc++
 		} else if op == opcodeTailCall {
 			if checkInterrupt() {
-				return nil, addContext(env, Error("Interrupt"))
+				return nil, addContext(env, Error(InterruptKey))
 			}
 			fun := stack[sp]
 			argc := ops[pc+1]
@@ -592,7 +659,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 				}
 			} else if fun.variant == typeKeyword {
 				if argc != 1 {
-					err := ArgcError(fun.text, "1", argc)
+					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 					return nil, addContext(env, err)
 				}
 				sp++
@@ -608,7 +675,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 					return stack[sp], nil
 				}
 			} else {
-				return nil, addContext(env, Error("Not callable: ", fun))
+				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
 			}
 		} else if op == opcodeLiteral {
 			sp--
@@ -630,7 +697,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if checkInterrupt() {
-				return nil, addContext(env, Error("Interrupt"))
+				return nil, addContext(env, Error(InterruptKey))
 			}
 			if env.previous == nil {
 				return stack[sp], nil
@@ -675,7 +742,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			stack[sp] = v
 			pc += 2
 		} else {
-			return nil, addContext(env, Error("Bad instruction: ", strconv.Itoa(ops[pc])))
+			panic("Bad instruction")
 		}
 	}
 }
@@ -755,9 +822,6 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 	copy(env.elements, args)
 	ops := code.ops
 	pc := 0
-	if len(ops) == 0 {
-		return nil, addContext(env, Error("No code to execute"))
-	}
 	for {
 		op := ops[pc]
 		if op == opcodeCall {
@@ -783,7 +847,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					pc = savedPc
 				} else if lfun.code != nil {
 					if checkInterrupt() {
-						return nil, addContext(env, Error("Interrupt"))
+						return nil, addContext(env, Error(InterruptKey))
 					}
 
 					f, err := buildFrame(env, savedPc, ops, lfun, argc, stack, sp)
@@ -796,13 +860,13 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					pc = 0
 				} else if fun == Apply {
 					if argc < 2 {
-						err := ArgcError("apply", "2+", argc)
+						err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
 						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						err := ArgTypeError("list", argc, args)
+						err := Error(ArgumentErrorKey, "apply expected its last argument to be a list")
 						return nil, addContext(env, err)
 					}
 					arglist := args
@@ -819,12 +883,33 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 						arglist = arglist.cdr
 					}
 					goto opcodeCallAgain
+				} else if fun == CallCC {
+					if argc != 1 {
+						err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+						return nil, addContext(env, err)
+					}
+					fun = stack[sp]
+					stack[sp] = newContinuation(env, ops, savedPc, stack[sp+1:])
+					goto opcodeCallAgain
+				} else if lfun.continuation != nil {
+					if argc != 1 {
+						return nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
+					}
+					arg := stack[sp]
+					sp = len(stack) - len(lfun.continuation.stack)
+					segment := stack[sp:]
+					copy(segment, lfun.continuation.stack)
+					env = lfun.frame
+					sp--
+					stack[sp] = arg
+					pc = lfun.continuation.pc
+					ops = lfun.continuation.ops
 				} else {
-					return nil, addContext(env, Error("unsupported instruction", fun))
+					panic("bad instruction")
 				}
 			case typeKeyword:
 				if argc != 1 {
-					err := ArgcError(fun.text, "1", argc)
+					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 					return nil, addContext(env, err)
 				}
 				v, err := get(stack[sp], fun)
@@ -834,7 +919,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				stack[sp] = v
 				pc = savedPc
 			default:
-				return nil, addContext(env, Error("Not a function: ", fun))
+				return nil, addContext(env, Error(ArgumentErrorKey, "Not a function: ", fun))
 			}
 		} else if op == opcodeGlobal {
 			sym := constants[ops[pc+1]]
@@ -842,7 +927,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				showInstruction(pc, op, sym.String(), stack, sp)
 			}
 			if sym.car == nil {
-				return nil, addContext(env, Error("Undefined symbol: ", sym))
+				return nil, addContext(env, Error(ErrorKey, "Undefined symbol: ", sym))
 			}
 			sp--
 			stack[sp] = sym.car
@@ -884,7 +969,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			if checkInterrupt() {
-				return nil, addContext(env, Error("Interrupt"))
+				return nil, addContext(env, Error(InterruptKey))
 			}
 			fun := stack[sp]
 			sp++
@@ -918,13 +1003,13 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					env = f
 				} else if fun == Apply {
 					if argc < 2 {
-						err := ArgcError("apply", "2+", argc)
+						err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
 						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
 					args := stack[sp+argc-1]
 					if !isList(args) {
-						err := ArgTypeError("list", argc, args)
+						err := Error(ArgumentErrorKey, "apply expected its last argument to be a list")
 						return nil, addContext(env, err)
 					}
 					arglist := args
@@ -941,12 +1026,33 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 						arglist = arglist.cdr
 					}
 					goto opcodeTailCallAgain
+				} else if fun == CallCC {
+					if argc != 1 {
+						err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+						return nil, addContext(env, err)
+					}
+					fun = stack[sp]
+					stack[sp] = newContinuation(env.previous, env.ops, env.pc, stack[sp:])
+					goto opcodeTailCallAgain
+				} else if lfun.continuation != nil {
+					if argc != 1 {
+						return nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
+					}
+					arg := stack[sp]
+					sp = len(stack) - len(lfun.continuation.stack)
+					segment := stack[sp:]
+					copy(segment, lfun.continuation.stack)
+					env = lfun.frame
+					sp--
+					stack[sp] = arg
+					pc = lfun.continuation.pc
+					ops = lfun.continuation.ops
 				} else {
-					return nil, addContext(env, Error("unsupported instruction", fun))
+					panic("Bad instruction")
 				}
 			case typeKeyword:
 				if argc != 1 {
-					err := ArgcError(fun.text, "1", argc)
+					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 					return nil, addContext(env, err)
 				}
 				v, err := get(stack[sp], fun)
@@ -961,7 +1067,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					return stack[sp], nil
 				}
 			default:
-				return nil, addContext(env, Error("Not a function:", fun))
+				return nil, addContext(env, Error(ArgumentErrorKey, "Not a function:", fun))
 			}
 		} else if op == opcodeLiteral {
 			if trace {
@@ -995,7 +1101,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				showInstruction(pc, op, "", stack, sp)
 			}
 			if checkInterrupt() {
-				return nil, addContext(env, Error("Interrupt"))
+				return nil, addContext(env, Error(InterruptKey))
 			}
 			if env.previous == nil {
 				return stack[sp], nil
@@ -1061,7 +1167,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			stack[sp] = v
 			pc += 2
 		} else {
-			return nil, addContext(env, Error("Bad instruction: ", strconv.Itoa(ops[pc])))
+			panic("Bad instruction")
 		}
 	}
 }

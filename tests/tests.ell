@@ -4,5 +4,6 @@
 (use argbinding_test)
 (use deftype_test)
 (use defstruct_test)
+(use continuation_test)
 
 (println "[all tests passed]")

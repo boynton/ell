@@ -55,7 +55,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		return nil
 	} else if isSymbol(expr) {
 		if getMacro(expr) != nil {
-			return Error("Cannot use macro as a value: ", expr)
+			return Error(intern("macro-error"), "Cannot use macro as a value: ", expr)
 		}
 		if i, j, ok := calculateLocation(expr, env); ok {
 			target.code.emitLocal(i, j)
@@ -81,14 +81,14 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		lst := expr
 		lstlen := length(lst)
 		if lstlen == 0 {
-			return SyntaxError(lst)
+			return Error(SyntaxErrorKey, lst)
 		}
 		fn := car(lst)
 		switch fn {
 		case intern("quote"):
 			// (quote <datum>)
 			if lstlen != 2 {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			if !ignoreResult {
 				target.code.emitLiteral(cadr(lst))
@@ -106,11 +106,11 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			if lstlen == 3 || lstlen == 4 {
 				return compileIfElse(target, env, cadr(expr), caddr(expr), cdddr(expr), isTail, ignoreResult, context)
 			}
-			return SyntaxError(expr)
+			return Error(SyntaxErrorKey, expr)
 		case intern("def"):
 			// (def <name> <val>)
 			if lstlen < 3 {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			sym := cadr(lst)
 			val := caddr(lst)
@@ -126,11 +126,11 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			return err
 		case intern("undef"):
 			if lstlen != 2 {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			sym := cadr(lst)
 			if !isSymbol(sym) {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			target.code.emitUndefGlobal(sym)
 			if ignoreResult {
@@ -144,11 +144,11 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		case intern("defmacro"):
 			// (defmacro <name> (fn args & body))
 			if lstlen != 3 {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			var sym = cadr(lst)
 			if !isSymbol(sym) {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			err := compileExpr(target, env, caddr(expr), false, false, sym.String())
 			if err != nil {
@@ -173,7 +173,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			// (fn (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
 			// (fn sym <expr> ...) ;; all args in a list, bound to sym
 			if lstlen < 3 {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			body := cddr(lst)
 			args := cadr(lst)
@@ -181,11 +181,11 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		case intern("set!"):
 			// (set! <sym> <val>)
 			if lstlen != 3 {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			var sym = cadr(lst)
 			if !isSymbol(sym) {
-				return SyntaxError(expr)
+				return Error(SyntaxErrorKey, expr)
 			}
 			err := compileExpr(target, env, caddr(lst), false, false, context)
 			if err != nil {
@@ -271,7 +271,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 			if isVector(a) {
 				//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
 				if cdr(tmp) != EmptyList {
-					return SyntaxError(tmp)
+					return Error(SyntaxErrorKey, tmp)
 				}
 				defaults = make([]*LOB, 0, len(a.elements))
 				for _, sym := range a.elements {
@@ -281,7 +281,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 						sym = car(sym)
 					}
 					if !isSymbol(sym) {
-						return SyntaxError(tmp)
+						return Error(SyntaxErrorKey, tmp)
 					}
 					syms = append(syms, sym)
 					defaults = append(defaults, def)
@@ -291,7 +291,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 			} else if isStruct(a) {
 				//i.e. (x {y: 23, z: 57}]) is for optional y and z, keyword args, with defaults
 				if cdr(tmp) != EmptyList {
-					return SyntaxError(tmp)
+					return Error(SyntaxErrorKey, tmp)
 				}
 				elen := len(a.elements)
 				slen := elen / 2
@@ -306,11 +306,11 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 						var err error
 						sym, err = unkeyworded(sym) //returns sym itself if not a keyword, otherwise strips the colon
 						if err != nil {             //not a symbol or keyword
-							return SyntaxError(tmp)
+							return Error(SyntaxErrorKey, tmp)
 						}
 					}
 					if !isSymbol(sym) {
-						return SyntaxError(tmp)
+						return Error(SyntaxErrorKey, tmp)
 					}
 					syms = append(syms, sym)
 					keys = append(keys, sym)
@@ -319,7 +319,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				tmp = EmptyList
 				break
 			} else if !isSymbol(a) {
-				return SyntaxError(tmp)
+				return Error(SyntaxErrorKey, tmp)
 			}
 			if a == intern("&") { //the rest of the arglist is bound to a single variable
 				//note that the & annotation is optional if  what follows is a struct or vector
@@ -342,7 +342,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 			syms = append(syms, tmp) //note: added, but argv not incremented
 			defaults = make([]*LOB, 0)
 		} else {
-			return SyntaxError(tmp)
+			return Error(SyntaxErrorKey, tmp)
 		}
 	}
 	args = listFromValues(syms) //why not just use the vector format in general?
@@ -371,7 +371,7 @@ func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResul
 		}
 		return compileExpr(target, env, car(exprs), isTail, ignoreResult, context)
 	}
-	return SyntaxError(cons(intern("do"), exprs))
+	return Error(SyntaxErrorKey, cons(intern("do"), exprs))
 }
 
 func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) (*LOB, *LOB) {
@@ -393,7 +393,7 @@ func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ign
 func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) error {
 	argc := length(args)
 	if argc < 0 {
-		return SyntaxError(cons(fn, args))
+		return Error(SyntaxErrorKey, cons(fn, args))
 	}
 	err := compileArgs(target, env, args, context)
 	if err != nil {
@@ -459,17 +459,12 @@ func compileUse(target *LOB, rest *LOB) error {
 	lstlen := length(rest)
 	if lstlen != 1 {
 		//to do: other options for use.
-		return SyntaxError(cons(intern("use"), rest))
+		return Error(SyntaxErrorKey, cons(intern("use"), rest))
 	}
 	sym := car(rest)
 	if !isSymbol(sym) {
-		return SyntaxError(rest)
+		return Error(SyntaxErrorKey, rest)
 	}
 	target.code.emitUse(sym)
 	return nil
-}
-
-//SyntaxError returns an error indicating that the given expression has bad syntax
-func SyntaxError(expr *LOB) error {
-	return Error("Syntax error: ", expr)
 }

@@ -1,6 +1,9 @@
 (defmacro assert (b & msg)
    `(if (not ~b) (error "Assertion failure: " ~@msg) true))
 
+(defmacro assert-false (b & msg)
+   `(if ~b (error "Assertion failure: " ~@msg) true))
+
 (defmacro assert-equal (o1 o2 & msg)
    `(assert (equal? ~o1 ~o2) "Not equal" ~@msg))
 
