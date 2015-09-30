@@ -64,7 +64,6 @@ type LFunction struct {
 	frame        *Frame // closure
 	primitive    *Primitive
 	continuation *Continuation
-	instruction  int
 }
 
 func newClosure(code *LCode, frame *Frame) *LOB {
@@ -140,56 +139,49 @@ func newVM(stackSize int) *VM {
 	return &VM{stackSize}
 }
 
-const instructionNone = 0
-const instructionApply = 1
-const instructionCallCC = 2
-
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &LOB{variant: typeFunction, function: &LFunction{instruction: instructionApply}}
+var Apply = &LOB{variant: typeFunction, function: new(LFunction)}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &LOB{variant: typeFunction, function: &LFunction{instruction: instructionCallCC}}
+var CallCC = &LOB{variant: typeFunction, function: new(LFunction)}
 
 func (f *LFunction) signature() string {
-	switch f.instruction {
-	case instructionNone:
-		if f.primitive != nil { //primitive
-			return f.primitive.signature
-		}
-		if f.code != nil { // closure
-			return f.code.signature()
-		}
-	case instructionApply:
-		return "(<any>*) <list>"
-	case instructionCallCC:
-		return "(<function>) <any>"
-	default:
-		panic("Bad function")
+	if f.primitive != nil {
+		return f.primitive.signature
 	}
-	return ""
+	if f.code != nil {
+		return f.code.signature()
+	}
+	if f.continuation != nil {
+		return "(<function>) <any>"
+	}
+	if f == Apply.function {
+		return "(<any>*) <list>"
+	}
+	if f == CallCC.function {
+		return "(<function>) <any>"
+	}
+	panic("Bad function")
 }
 
-func (f LFunction) String() string {
-	if f.instruction == instructionNone {
-		if f.primitive != nil { //primitive
-			return "#[function " + f.primitive.name + "]"
-		}
-		if f.code != nil { // closure
-			n := f.code.name
-			if n == "" {
-				return fmt.Sprintf("#[function]")
-			}
-			return fmt.Sprintf("#[function %s]", n)
-		}
-		if f.continuation != nil { //continuation
-			return "#[continuation]"
-		}
-		panic("Bad function")
+func (f *LFunction) String() string {
+	if f.primitive != nil {
+		return "#[function " + f.primitive.name + "]"
 	}
-	if f.instruction == instructionApply {
+	if f.code != nil {
+		n := f.code.name
+		if n == "" {
+			return fmt.Sprintf("#[function]")
+		}
+		return fmt.Sprintf("#[function %s]", n)
+	}
+	if f.continuation != nil {
+		return "#[continuation]"
+	}
+	if f == Apply.function {
 		return "#[function apply]"
 	}
-	if f.instruction == instructionCallCC {
+	if f == CallCC.function {
 		return "#[function callcc]"
 	}
 	panic("Bad function")
@@ -340,6 +332,18 @@ func addContext(env *Frame, err error) error {
 		}
 	}
 	return err
+}
+
+func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int, int, error) {
+	if argc != 1 {
+		return 0, 0, Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+	}
+	v, err := get(stack[sp], fun)
+	if err != nil {
+		return 0, 0, err
+	}
+	stack[sp] = v
+	return pc, sp, nil
 }
 
 func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
@@ -510,15 +514,6 @@ opcodeTailCallAgain:
 			}
 			goto opcodeTailCallAgain
 		}
-		if fun == CallCC {
-			if argc != 1 {
-				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
-				return nil, 0, 0, nil, addContext(env, err)
-			}
-			fun = stack[sp]
-			stack[sp] = newContinuation(env.previous, env.ops, env.pc, stack[sp:])
-			goto opcodeTailCallAgain
-		}
 		if lfun.continuation != nil {
 			if argc != 1 {
 				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
@@ -531,7 +526,16 @@ opcodeTailCallAgain:
 			stack[sp] = arg
 			return lfun.continuation.ops, lfun.continuation.pc, sp, lfun.frame, nil
 		}
-		panic("unsupported instruction")
+		if fun == CallCC {
+			if argc != 1 {
+				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+				return nil, 0, 0, nil, addContext(env, err)
+			}
+			fun = stack[sp]
+			stack[sp] = newContinuation(env.previous, env.ops, env.pc, stack[sp:])
+			goto opcodeTailCallAgain
+		}
+		panic("Bad function")
 	}
 	if fun.variant == typeKeyword {
 		if argc != 1 {
@@ -546,6 +550,19 @@ opcodeTailCallAgain:
 		return env.ops, env.pc, sp, env.previous, nil
 	}
 	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function:", fun))
+}
+
+func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+	if argc != 1 {
+		err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+		return nil, 0, 0, nil, addContext(env, err)
+	}
+	v, err := get(stack[sp], fun)
+	if err != nil {
+		return nil, 0, 0, nil, addContext(env, err)
+	}
+	stack[sp] = v
+	return env.ops, env.pc, sp, env.previous, nil
 }
 
 func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
@@ -582,17 +599,10 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 					}
 				}
 			} else if fun.variant == typeKeyword {
-				if argc != 1 {
-					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
-					return nil, addContext(env, err)
-				}
-				sp++
-				v, err := get(stack[sp], fun)
+				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
 				if err != nil {
 					return nil, addContext(env, err)
 				}
-				stack[sp] = v
-				pc += 2
 			} else {
 				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
 			}
@@ -658,19 +668,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 					}
 				}
 			} else if fun.variant == typeKeyword {
-				if argc != 1 {
-					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
-					return nil, addContext(env, err)
-				}
-				sp++
-				v, err := get(stack[sp], fun)
-				if err != nil {
-					return nil, addContext(env, err)
-				}
-				stack[sp] = v
-				ops = env.ops
-				pc = env.pc
-				env = env.previous
+				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
 				if env == nil {
 					return stack[sp], nil
 				}
