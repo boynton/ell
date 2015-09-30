@@ -143,6 +143,9 @@ func initEnvironment() {
 	defineFunction("error?", ellIsError, "(<any>) <boolean>")
 	defineFunction("uncaught-error", ellUncaughtError, "(<error>) <null>")
 	defineFunction("json", ellJSON, "(<any>) <string>")
+	defineFunction("getfn", ellGetFn, "(<symbol> <list>) <any>")
+	defineFunction("method-signature", ellMethodSignature, "(<list>) <symbol>")
+	defineFunction("arglist-signature", ellArglistSignature, "(<list>) <symbol>")
 
 	err := loadModule("ell")
 	if err != nil {
@@ -1180,4 +1183,33 @@ func ellJSON(argv []*LOB) (*LOB, error) {
 		return nil, err
 	}
 	return newString(s), nil
+}
+
+func ellGetFn(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc < 1 {
+		return nil, Error(ArgumentErrorKey, "getfn expected at least 1 argument, got none")
+	}
+	sym := argv[0]
+	if sym.variant != typeSymbol {
+		return nil, Error(ArgumentErrorKey, "getfn expected a <symbol> for argument 1, got ", sym)
+	}
+	sig := arglistSignature(argv[1:])
+	return getfn(sym, sig)
+}
+
+func ellMethodSignature(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc != 1 {
+		return nil, Error(ArgumentErrorKey, "method-signature expected 1 argument, got ", argc)
+	}
+	formalArgs := argv[0]
+	if formalArgs.variant != typeList {
+		return nil, Error(ArgumentErrorKey, "method-signature expected a <list>, got ", formalArgs)
+	}
+	return methodSignature(formalArgs)
+}
+
+func ellArglistSignature(argv []*LOB) (*LOB, error) {
+	return arglistSignature(argv), nil
 }

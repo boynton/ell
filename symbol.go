@@ -85,12 +85,16 @@ func keywordify(s *LOB) *LOB {
 	return s
 }
 
+func typeNameString(s string) string {
+	return s[1 : len(s)-1]
+}
+
 // <type> -> <symbol>
 func typeName(t *LOB) (*LOB, error) {
 	if !isType(t) {
 		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.variant)
 	}
-	return intern(t.text[1 : len(t.text)-1]), nil
+	return intern(typeNameString(t.text)), nil
 }
 
 // <keyword> -> <symbol>
@@ -101,9 +105,13 @@ func keywordName(t *LOB) (*LOB, error) {
 	return unkeyworded(t)
 }
 
+func keywordNameString(s string) string {
+	return s[:len(s)-1]
+}
+
 func unkeywordedString(k *LOB) string {
 	if isKeyword(k) {
-		return k.text[:len(k.text)-1]
+		return keywordNameString(k.text)
 	}
 	return k.text
 }
@@ -113,7 +121,7 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 		return obj, nil
 	}
 	if isKeyword(obj) {
-		return intern(obj.text[:len(obj.text)-1]), nil
+		return intern(keywordNameString(obj.text)), nil
 	}
 	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.variant)
 }
@@ -121,9 +129,9 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 func toSymbol(obj *LOB) (*LOB, error) {
 	switch obj.variant {
 	case typeKeyword:
-		return intern(obj.text[:len(obj.text)-1]), nil
+		return intern(keywordNameString(obj.text)), nil
 	case typeType:
-		return intern(obj.text[1 : len(obj.text)-1]), nil
+		return intern(typeNameString(obj.text)), nil
 	case typeSymbol:
 		return obj, nil
 	case typeString:

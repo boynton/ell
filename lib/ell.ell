@@ -121,7 +121,7 @@
        (defn ~(symbol sym "?") (o) (identical? (type o) ~typesym))
        (defn ~sym ~args
          (if (not ~@predicate-body)
-             (error ~(string "not a valid " typesym ": ") (to-string ~arg)))
+             (error syntax-error: ~(string "not a valid " typesym ": ") (to-string ~arg)))
          (instance ~typesym ~(car args)))
        ~typesym)))
 
@@ -167,7 +167,7 @@
         (typesym (symbol "<" sym ">")))
     (let ((keywords (keys fields)) (types (values fields)))
       (if (not (validate-types types))
-          (error "defstruct: one or more fields has an invalid <type>: " fields))
+          (error syntax-error: "defstruct: one or more fields has an invalid <type>: " fields))
     `(do
        (defn ~sym args (instance ~typesym (validated-struct (apply struct (validate-keyword-arg-list args ~@keywords)) ~typesym '~keywords '~fields)))
        (defn ~(symbol sym "?") (o) (equal? (type o) ~typesym))
@@ -184,17 +184,17 @@
       val
       (let ((v ((car names) val)))
         (if (null? v)
-            (error "type " name " missing field " (car names) " " (write val))
+            (error validation-error: (string "type " name " missing field " (car names) " " (write val)))
             (let ((reftype ((car names) types)))
               (if (and (not (identical? reftype <any>)) (not (identical? (type v) reftype)))
-                (error "type " name " field " (car names) " not a " ((car names) types) ": " (write v))
+                (error validation-error: (string "type " name " field " (car names) " not a " ((car names) types) ": " (write v)))
                 (validated-struct val name (cdr names) types)))))))
 
 ;;
 ;; generic functions dispatch to methods based on argument type
 ;;
 (defstruct generic-function
-  name: <string>
+  name: <symbol>
   args: <list>
   methods: <struct>)
 
@@ -205,41 +205,9 @@
 ;; declares the specified symbol to be a generic dispatch function for the given arguments
 ;;
 (defmacro defgeneric (name args)
-  (let ((gf (generic-function name: name args: args)))
-    (put! *genfns* name gf)
-    `(def ~name (fn ~args ((get-method '~name (list ~@args)) ~@args)))))
-
-;;
-;; Called by the generic function.
-;; Given the generic function symbol and an actual argument list, return the metching method
-;; This does not do any inheritance, just exact type matching.
-;; This function needs optimizing!
-;;
-;; BUG: doesn't work with either rest (&) or keyword args
-;;
-(defn get-method (sym args)
-  (defn combos (lst)
-    (if (empty? lst)
-        (list '())
-        (let ((first (car lst))
-              (rest (combos (cdr lst))))
-          (concat
-           (map (fn (r) (cons first r)) rest)
-           (map (fn (r) (cons <any> r)) rest)))))
-  (defn combos-as-strings (lst) (map (fn (x) (apply string x)) (combos lst)))
-  (def gf (get *genfns* sym))
-  (if (null? gf)
-      (error "Not a generic function: " sym))
-  (let ((methods (methods: gf)) (arg-types (map type args)))
-    ;;to do: memoize the result based on arg-types
-    (let loop ((keys (combos-as-strings arg-types)))
-      (if (empty? keys)
-          (error "Generic function " sym " has no matching method for: " arg-types)
-          (let ((key (string (car keys))))
-            (let ((meth (get methods key)))
-              (if (function? meth)
-                  meth
-                  (loop (cdr keys)))))))))
+  (let ((gf (generic-function name: name args: args methods: {})))
+    (set! *genfns* (assoc *genfns* name gf))
+    `(def ~name (fn ~args ((getfn '~name ~@args) ~@args)))))
 
 ;; show the methods for the generic function
 (defn methods (sym)
@@ -249,23 +217,17 @@
 
 ;;
 ;; Adds a method for the specialized args to the generic function
+;;
 (defn add-method (sym specialized-args fun)
-  (defn method-arg-types (args)
-    (let loop ((remaining args) (result '()))
-      (if (empty? remaining)
-          (reverse result)
-          (let ((item (car remaining)))
-            (loop (cdr remaining) (if (symbol? item) (cons <any> result) (cons (cadr item) result)))))))
   (defn method-arg-names (args)
     (map (fn (item) (if (symbol? item) item (car item))) args))
   (let ((gf (get *genfns* sym)))
     (if (null? gf)
-        (error "Not a generic function: " sym))
+        (error argument-error: "Not a generic function: " sym))
     (letrec ((methods (methods: gf))
-             (types (method-arg-types specialized-args))
              (names (method-arg-names specialized-args))
-             (key (apply string types)))
-      (put! methods key fun)
+             (key (method-signature specialized-args)))
+      (assoc! methods key fun)
       sym)))
 
 ;;
@@ -276,8 +238,8 @@
         (gf (get *genfns* sym)))
     (if (def? sym)
         (if (not (generic-function? gf))
-            (error sym " is already defined to something other than a generic function"))
-        (error sym " is is not defined as a generic function"))
+            (error argument-error: sym " is already defined to something other than a generic function"))
+        (error argument-error: sym " is is not defined as a generic function"))
     `(add-method '~sym '~specialized-args (fn ~names ~@body))))
 
 ;;
@@ -311,7 +273,7 @@
   (let ((argc (length args)))
     (cond
      ((= argc 0)
-      (error "infinite ranges not supported"))
+      (error argument-error: "infinite ranges not supported"))
      ((= argc 1)
       (list 0 (car args) 1))
      ((= argc 2)
@@ -319,7 +281,7 @@
      ((= argc 3)
       (list (car args) (cadr args) (caddr args)))
      (else
-      (error "wrong number of args for range: " argc)))))
+      (error argument-error: "wrong number of args for range: " argc)))))
 
 ;;
 ;; execute the body once for each value in the specified range.

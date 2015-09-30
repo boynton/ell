@@ -16,6 +16,58 @@ limitations under the License.
 
 package main
 
+func methodSignature(formalArgs *LOB) (*LOB, error) {
+	sig := ""
+	for formalArgs != EmptyList {
+		s := formalArgs.car //might be a symbol, might be a list
+		tname := ""
+		if s.variant == typeList { //specialized
+			t := cadr(s)
+			if t.variant != typeType {
+				return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
+			}
+			tname = t.text
+		} else if s.variant == typeSymbol { //unspecialized
+			tname = "<any>"
+		} else {
+			return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
+		}
+		sig += tname
+		formalArgs = formalArgs.cdr
+	}
+	return intern(sig), nil
+}
+
+func arglistSignature(args []*LOB) *LOB {
+	sig := ""
+	for _, arg := range args {
+		sig += arg.variant.text
+	}
+	return intern(sig)
+}
+
+var symGenfns = intern("*genfns*")
+var keyMethods = intern("methods:")
+
+func getfn(sym *LOB, sig *LOB) (*LOB, error) {
+	gfs := global(symGenfns)
+	if gfs != nil && gfs.variant == typeStruct {
+		gf := structGet(gfs, sym)
+		if gf == Null {
+			return nil, Error(ErrorKey, "Not a generic function: ", sym)
+		}
+		gf = value(gf)
+		methods := structGet(gf, keyMethods)
+		if methods.variant == typeStruct {
+			fun := structGet(methods, sig)
+			if fun != Null {
+				return fun, nil
+			}
+		}
+	}
+	return nil, Error(ErrorKey, "Generic function ", sym, ", has no matching method for: ", sig)
+}
+
 func isEmpty(obj *LOB) bool {
 	seq := value(obj)
 	switch seq.variant {
