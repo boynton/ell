@@ -15,26 +15,146 @@ limitations under the License.
 */
 package main
 
-func intern(name string) *LOB {
-	sym, ok := symtab[name]
+var SymbolType *LType // <symbol>
+
+type LSymbol struct {
+	text string
+	binding LOB
+}
+
+func (sym *LSymbol) Type() LOB {
+	return SymbolType
+}
+
+func (sym *LSymbol) Value() LOB {
+	return sym
+}
+
+func (sym *LSymbol) String() string {
+	return sym.text
+}
+
+func (sym *LSymbol) Equal(another LOB) bool {
+	return LOB(sym) ==  another
+}
+
+func isSymbol(obj LOB) bool {
+	return obj.Type() == SymbolType
+}
+
+var KeywordType *LType // <keyword>
+
+type LKeyword struct {
+	text string
+}
+
+func (key *LKeyword) Type() LOB {
+	return KeywordType
+}
+
+func (key *LKeyword) String() string {
+	return key.text
+}
+
+func (key *LKeyword) Equal(another LOB) bool {
+	return LOB(key) == another
+}
+
+func (key *LKeyword) Value() LOB {
+	return key
+}
+
+func isKeyword(obj LOB) bool {
+	return obj.Type() == KeywordType
+}
+
+var TypeType *LType // <type>
+
+type LType struct {
+	text string
+}
+
+func (variant *LType) String() string {
+	return variant.text
+}
+
+func (variant *LType) Type() LOB {
+	return TypeType
+}
+
+func (variant *LType) Value() LOB {
+	return variant
+}
+
+func (variant *LType) Equal(another LOB) bool {
+	return LOB(variant) == another
+}
+
+func isType(obj LOB) bool {
+	return obj.Type() == TypeType
+}
+
+
+//the global symbol table. symbols for the basic types defined in this file are precached
+var symtab = initSymbolTable()
+
+func initSymbolTable() map[string]LOB {
+	syms := make(map[string]LOB, 0)
+	TypeType = &LType{"<type>"}
+	syms[TypeType.text] = TypeType
+	KeywordType = &LType{"<keyword>"}
+	syms[KeywordType.text] = KeywordType
+	SymbolType = &LType{"<symbol>"}
+	syms[SymbolType.text] = SymbolType
+	return syms
+}
+
+func internSymbol(name string) *LSymbol {
+	entry := intern(name)
+	sym, ok := entry.(*LSymbol)
 	if !ok {
-		sym = new(LOB)
-		sym.text = name
-		if isValidKeywordName(name) {
-			sym.variant = typeKeyword
-		} else if isValidTypeName(name) {
-			sym.variant = typeType
-		} else if isValidSymbolName(name) {
-			sym.variant = typeSymbol
-		} else {
-			panic("invalid symbol/type/keyword name passed to intern: " + name)
-		}
-		symtab[name] = sym
+		panic("internSymbol: not a symbol")
 	}
 	return sym
 }
 
+func internKeyword(name string) *LKeyword {
+	entry := intern(name)
+	sym, ok := entry.(*LKeyword)
+	if !ok {
+		panic("internKeyword: not a keyword")
+	}
+	return sym
+}
+
+func internType(name string) *LType {
+	entry := intern(name)
+	sym, ok := entry.(*LType)
+	if !ok {
+		panic("internType: not a type")
+	}
+	return sym
+}
+
+func intern(name string) LOB {
+	entry, ok := symtab[name]
+	if !ok {
+		if isValidKeywordName(name) {
+			entry = &LKeyword{name}
+		} else if isValidTypeName(name) {
+			entry = &LType{name}
+		} else if isValidSymbolName(name) {
+			entry = &LSymbol{name, nil}
+		} else {
+			panic("invalid symbol/type/keyword name passed to intern: " + name)
+		}
+		symtab[name] = entry
+	}
+	return entry
+}
+
 func isValidSymbolName(name string) bool {
+	//and not a type or keyword?
 	return len(name) > 0
 }
 
@@ -54,33 +174,33 @@ func isValidKeywordName(s string) bool {
 	return false
 }
 
-func toKeyword(obj *LOB) (*LOB, error) {
-	switch obj.variant {
-	case typeKeyword:
-		return obj, nil
-	case typeType:
-		return intern(obj.text[1:len(obj.text)-1] + ":"), nil
-	case typeSymbol:
-		return intern(obj.text + ":"), nil
-	case typeString:
-		if isValidKeywordName(obj.text) {
-			return intern(obj.text), nil
-		} else if isValidSymbolName(obj.text) {
-			return intern(obj.text + ":"), nil
+func toKeyword(obj LOB) (*LKeyword, error) {
+	switch t := obj.(type) {
+	case *LKeyword:
+		return t, nil
+	case *LType:
+		return internKeyword(t.text[1:len(t.text)-1] + ":"), nil
+	case *LSymbol:
+		return internKeyword(t.text + ":"), nil
+	case *LString:
+		if isValidKeywordName(t.value) {
+			return internKeyword(t.value), nil
+		} else if isValidSymbolName(t.value) {
+			return internKeyword(t.value + ":"), nil
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type())
 }
 
-func keywordify(s *LOB) *LOB {
-	switch s.variant {
-	case typeString:
-		if !isValidKeywordName(s.text) {
-			return intern(s.text + ":")
+func keywordify(s LOB) LOB {
+	switch t := s.(type) {
+	case *LString:
+		if !isValidKeywordName(t.value) {
+			return intern(t.value + ":")
 		}
-		return intern(s.text)
-	case typeSymbol:
-		return intern(s.text + ":")
+		return intern(t.value)
+	case *LSymbol:
+		return intern(t.text + ":")
 	}
 	return s
 }
@@ -90,17 +210,19 @@ func typeNameString(s string) string {
 }
 
 // <type> -> <symbol>
-func typeName(t *LOB) (*LOB, error) {
-	if !isType(t) {
-		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.variant)
+func typeName(obj LOB) (LOB, error) {
+	t, ok := obj.(*LType)
+	if !ok {
+		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", obj.Type())
 	}
 	return intern(typeNameString(t.text)), nil
 }
 
 // <keyword> -> <symbol>
-func keywordName(t *LOB) (*LOB, error) {
-	if !isKeyword(t) {
-		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.variant)
+func keywordName(obj LOB) (LOB, error) {
+	t, ok := obj.(*LKeyword)
+	if !ok {
+		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", obj.Type())
 	}
 	return unkeyworded(t)
 }
@@ -109,66 +231,52 @@ func keywordNameString(s string) string {
 	return s[:len(s)-1]
 }
 
-func unkeywordedString(k *LOB) string {
-	if isKeyword(k) {
+func unkeywordedString(obj LOB) string {
+	switch k := obj.(type) {
+	case *LKeyword:
 		return keywordNameString(k.text)
+	case *LString:
+		return keywordNameString(k.value)
+	default:
+		panic("unkeywordedString expected a <keyword> or <string>, got neither")
 	}
-	return k.text
 }
 
-func unkeyworded(obj *LOB) (*LOB, error) {
-	if isSymbol(obj) {
-		return obj, nil
+func unkeyworded(obj LOB) (*LSymbol, error) {
+	switch t := obj.(type) {
+	case *LSymbol:
+		return t, nil
+	case *LKeyword:
+		return internSymbol(keywordNameString(t.text)), nil
 	}
-	if isKeyword(obj) {
-		return intern(keywordNameString(obj.text)), nil
-	}
-	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.Type())
 }
 
-func toSymbol(obj *LOB) (*LOB, error) {
-	switch obj.variant {
-	case typeKeyword:
-		return intern(keywordNameString(obj.text)), nil
-	case typeType:
-		return intern(typeNameString(obj.text)), nil
-	case typeSymbol:
-		return obj, nil
-	case typeString:
-		if isValidSymbolName(obj.text) {
-			return intern(obj.text), nil
+func toSymbol(obj LOB) (*LSymbol, error) {
+	switch t := obj.(type) {
+	case *LKeyword:
+		return internSymbol(keywordNameString(t.text)), nil
+	case *LType:
+		return internSymbol(typeNameString(t.text)), nil
+	case *LSymbol:
+		return t, nil
+	case *LString:
+		if isValidSymbolName(t.value) {
+			return internSymbol(t.value), nil
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "to-symbol expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-symbol expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type())
 }
 
-//the global symbol table. symbols for the basic types defined in this file are precached
-var symtab = initSymbolTable()
-
-func initSymbolTable() map[string]*LOB {
-	syms := make(map[string]*LOB, 0)
-	typeType = &LOB{text: "<type>"}
-	typeType.variant = typeType //mutate to bootstrap type type
-	syms[typeType.text] = typeType
-
-	typeKeyword = &LOB{variant: typeType, text: "<keyword>"}
-	syms[typeKeyword.text] = typeKeyword
-
-	typeSymbol = &LOB{variant: typeType, text: "<symbol>"}
-	syms[typeSymbol.text] = typeSymbol
-
-	return syms
-}
-
-func symbols() []*LOB {
-	syms := make([]*LOB, 0, len(symtab))
-	for _, sym := range symtab {
-		syms = append(syms, sym)
+func symbols() []LOB {
+	syms := make([]LOB, 0, len(symtab))
+	for _, entry := range symtab {
+		syms = append(syms, LOB(entry))
 	}
 	return syms
 }
 
-func symbol(names []*LOB) (*LOB, error) {
+func symbol(names []LOB) (LOB, error) {
 	size := len(names)
 	if size < 1 {
 		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")
@@ -177,9 +285,11 @@ func symbol(names []*LOB) (*LOB, error) {
 	for i := 0; i < size; i++ {
 		o := names[i]
 		s := ""
-		switch o.variant {
-		case typeString, typeSymbol:
-			s = o.text
+		switch t := o.(type) {
+		case *LString:
+			s = t.value
+		case *LSymbol:
+			s = t.text
 		default:
 			return nil, Error(ArgumentErrorKey, "symbol name component invalid: ", o)
 		}

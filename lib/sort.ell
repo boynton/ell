@@ -254,6 +254,6 @@
 
 (defn sort (seq less?)
     (if (vector? seq)
-        (list->vector (sort! (vector->list seq) less?))
+        (to-vector (sort! (to-list seq) less?))
         (sort! (concat seq '()) less?)))
 

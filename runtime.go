@@ -29,7 +29,7 @@ func setTrace(b bool) {
 }
 
 func str(o interface{}) string {
-	if lob, ok := o.(*LOB); ok {
+	if lob, ok := o.(LOB); ok {
 		return lob.String()
 	}
 	return fmt.Sprintf("%v", o)
@@ -54,7 +54,7 @@ func println(args ...interface{}) {
 // Continuation - a substructure of LFunction for continuations
 type Continuation struct {
 	ops   []int
-	stack []*LOB
+	stack []LOB
 	pc    int
 }
 
@@ -66,27 +66,64 @@ type LFunction struct {
 	continuation *Continuation
 }
 
-func newClosure(code *LCode, frame *Frame) *LOB {
-	clo := newLOB(typeFunction)
-	fun := new(LFunction)
-	fun.code = code
-	fun.frame = frame
-	clo.function = fun
-	return clo
+var FunctionType = intern("<function>")
+
+func isFunction(obj LOB) bool {
+	return obj.Type() == FunctionType
 }
 
-func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
-	lob := newLOB(typeFunction)
+// Type returns the type of the object
+func (*LFunction) Type() LOB {
+	return FunctionType
+}
+
+// Value returns the object itself for primitive types
+func (fun *LFunction) Value() LOB {
+	return fun
+}
+
+// Equal returns true if the object is equal to the argument
+func (fun *LFunction) Equal(another LOB) bool {
+	return LOB(fun) == another
+}
+
+// String returns the string representation of the object
+func (f *LFunction) String() string {
+	if f.primitive != nil {
+		return "#[function " + f.primitive.name + "]"
+	}
+	if f.code != nil {
+		n := f.code.name
+		if n == "" {
+			return fmt.Sprintf("#[function]")
+		}
+		return fmt.Sprintf("#[function %s]", n)
+	}
+	if f.continuation != nil {
+		return "#[continuation]"
+	}
+	if f == Apply {
+		return "#[function apply]"
+	}
+	if f == CallCC {
+		return "#[function callcc]"
+	}
+	panic("Bad function")
+}
+
+//xxx
+
+func newClosure(code *LCode, frame *Frame) *LFunction {
+	return &LFunction{code: code, frame: frame}
+}
+
+func newContinuation(frame *Frame, ops []int, pc int, stack []LOB) *LFunction {
 	cont := new(Continuation)
 	cont.ops = ops
-	cont.stack = make([]*LOB, len(stack))
+	cont.stack = make([]LOB, len(stack))
 	copy(cont.stack, stack)
 	cont.pc = pc
-	fun := new(LFunction)
-	fun.frame = frame
-	fun.continuation = cont
-	lob.function = fun
-	return lob
+	return &LFunction{frame: frame, continuation: cont}
 }
 
 const defaultStackSize = 1000
@@ -94,7 +131,7 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
-func execCompileTime(code *LCode, args ...*LOB) (*LOB, error) {
+func execCompileTime(code *LCode, args ...LOB) (LOB, error) {
 	prev := verbose
 	verbose = false
 	res, err := exec(code, args...)
@@ -102,7 +139,7 @@ func execCompileTime(code *LCode, args ...*LOB) (*LOB, error) {
 	return res, err
 }
 
-func exec(code *LCode, args ...*LOB) (*LOB, error) {
+func exec(code *LCode, args ...LOB) (LOB, error) {
 	if verbose {
 		inExec = true
 		conses = 0
@@ -140,10 +177,10 @@ func newVM(stackSize int) *VM {
 }
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &LOB{variant: typeFunction, function: new(LFunction)}
+var Apply = &LFunction{}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &LOB{variant: typeFunction, function: new(LFunction)}
+var CallCC = &LFunction{}
 
 func (f *LFunction) signature() string {
 	if f.primitive != nil {
@@ -155,40 +192,17 @@ func (f *LFunction) signature() string {
 	if f.continuation != nil {
 		return "(<function>) <any>"
 	}
-	if f == Apply.function {
+	if f == Apply {
 		return "(<any>*) <list>"
 	}
-	if f == CallCC.function {
+	if f == CallCC {
 		return "(<function>) <any>"
 	}
 	panic("Bad function")
 }
 
-func (f *LFunction) String() string {
-	if f.primitive != nil {
-		return "#[function " + f.primitive.name + "]"
-	}
-	if f.code != nil {
-		n := f.code.name
-		if n == "" {
-			return fmt.Sprintf("#[function]")
-		}
-		return fmt.Sprintf("#[function %s]", n)
-	}
-	if f.continuation != nil {
-		return "#[continuation]"
-	}
-	if f == Apply.function {
-		return "#[function apply]"
-	}
-	if f == CallCC.function {
-		return "#[function callcc]"
-	}
-	panic("Bad function")
-}
-
 // PrimCallable is the native go function signature for all Ell primitive functions
-type PrimCallable func(argv []*LOB) (*LOB, error)
+type PrimCallable func(argv []LOB) (LOB, error)
 
 // Primitive - a primitive function, written in Go, callable by VM
 type Primitive struct { // <function>
@@ -198,11 +212,11 @@ type Primitive struct { // <function>
 	idx       int
 }
 
-func newPrimitive(name string, fun PrimCallable, signature string) *LOB {
+func newPrimitive(name string, fun PrimCallable, signature string) LOB {
 	idx := len(primitives)
 	prim := &Primitive{name, fun, signature, idx}
 	primitives = append(primitives, prim)
-	return &LOB{variant: typeFunction, function: &LFunction{primitive: prim}}
+	return &LFunction{primitive: prim}
 }
 
 // Frame - a call frame in the VM, as well as en environment frame for lexical closures
@@ -211,8 +225,8 @@ type Frame struct {
 	previous  *Frame
 	code      *LCode
 	ops       []int
-	elements  []*LOB
-	firstfive [5]*LOB
+	elements  []LOB
+	firstfive [5]LOB
 	pc        int
 }
 
@@ -241,7 +255,7 @@ func showEnv(f *Frame) string {
 	return s
 }
 
-func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []*LOB, sp int) (*Frame, error) {
+func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []LOB, sp int) (*Frame, error) {
 	f := new(Frame)
 	f.previous = env
 	f.pc = pc
@@ -257,7 +271,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 		if argc <= 5 {
 			f.elements = f.firstfive[:]
 		} else {
-			f.elements = make([]*LOB, argc)
+			f.elements = make([]LOB, argc)
 		}
 		copy(f.elements, stack[sp:sp+argc])
 		return f, nil
@@ -279,7 +293,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 	if totalArgc > 4 {
 		panic("> 4 args")
 	}
-	el := make([]*LOB, totalArgc)
+	el := make([]LOB, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
@@ -322,7 +336,7 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack [
 }
 
 func addContext(env *Frame, err error) error {
-	if e, ok := err.(*LOB); ok {
+	if e, ok := err.(*LError); ok {
 		if env.code != nil {
 			if env.code.name != "throw" {
 				e.text = env.code.name
@@ -334,7 +348,7 @@ func addContext(env *Frame, err error) error {
 	return err
 }
 
-func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int, int, error) {
+func (vm *VM) keywordCall(fun *LKeyword, argc int, pc int, stack []LOB, sp int) (int, int, error) {
 	if argc != 1 {
 		return 0, 0, Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 	}
@@ -346,10 +360,10 @@ func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int
 	return pc, sp, nil
 }
 
-func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+func (vm *VM) funcall(fun LOB, argc int, ops []int, savedPc int, stack []LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeCallAgain:
-	if fun.variant == typeFunction {
-		lfun := fun.function
+	switch lfun := fun.(type) {
+	case *LFunction:
 		if lfun.code != nil {
 			if checkInterrupt() {
 				return nil, 0, 0, nil, addContext(env, Error(InterruptKey))
@@ -368,7 +382,7 @@ opcodeCallAgain:
 				if argc <= 5 {
 					f.elements = f.firstfive[:argc]
 				} else {
-					f.elements = make([]*LOB, argc)
+					f.elements = make([]LOB, argc)
 				}
 				endSp := sp + argc
 				copy(f.elements, stack[sp:endSp])
@@ -399,8 +413,8 @@ opcodeCallAgain:
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			fun = stack[sp]
-			args := stack[sp+argc-1]
-			if !isList(args) {
+			args, ok := stack[sp+argc-1].(*LList)
+			if !ok {
 				err := Error(ArgumentErrorKey, "apply expected a <list> as its final argument")
 				return nil, 0, 0, nil, addContext(env, err)
 			}
@@ -442,10 +456,9 @@ opcodeCallAgain:
 			return lfun.continuation.ops, lfun.continuation.pc, sp, lfun.frame, nil
 		}
 		panic("unsupported instruction")
-	}
-	if fun.variant == typeKeyword {
+	case *LKeyword:
 		if argc != 1 {
-			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+			err := Error(ArgumentErrorKey, lfun.text, " expected 1 argument, got ", argc)
 			return nil, 0, 0, nil, addContext(env, err)
 		}
 		v, err := get(stack[sp], fun)
@@ -458,10 +471,10 @@ opcodeCallAgain:
 	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function: ", fun))
 }
 
-func (vm *VM) tailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+func (vm *VM) tailcall(fun LOB, argc int, ops []int, stack []LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeTailCallAgain:
-	if fun.variant == typeFunction {
-		lfun := fun.function
+	switch lfun := fun.(type) {
+	case *LFunction:
 		if lfun.code != nil {
 			if lfun.code.defaults == nil && lfun.code == env.code { //self-tail-call - we can reuse the frame.
 				expectedArgc := lfun.code.argc
@@ -494,8 +507,8 @@ opcodeTailCallAgain:
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			fun = stack[sp]
-			args := stack[sp+argc-1]
-			if !isList(args) {
+			args, ok := stack[sp+argc-1].(*LList)
+			if !ok {
 				err := Error(ArgumentErrorKey, "apply expected its last argument to be a <list>")
 				return nil, 0, 0, nil, addContext(env, err)
 			}
@@ -536,10 +549,9 @@ opcodeTailCallAgain:
 			goto opcodeTailCallAgain
 		}
 		panic("Bad function")
-	}
-	if fun.variant == typeKeyword {
+	case *LKeyword:
 		if argc != 1 {
-			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+			err := Error(ArgumentErrorKey, lfun.text, " expected 1 argument, got ", argc)
 			return nil, 0, 0, nil, addContext(env, err)
 		}
 		v, err := get(stack[sp], fun)
@@ -548,11 +560,12 @@ opcodeTailCallAgain:
 		}
 		stack[sp] = v
 		return env.ops, env.pc, sp, env.previous, nil
+	default:
+		return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function:", fun))
 	}
-	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function:", fun))
 }
 
-func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+func (vm *VM) keywordTailcall(fun *LKeyword, argc int, ops []int, stack []LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 	if argc != 1 {
 		err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 		return nil, 0, 0, nil, addContext(env, err)
@@ -565,14 +578,14 @@ func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp in
 	return env.ops, env.pc, sp, env.previous, nil
 }
 
-func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
+func (vm *VM) exec(code *LCode, args []LOB) (LOB, error) {
 	if verbose || trace {
 		return vm.instrumentedExec(code, args)
 	}
-	stack := make([]*LOB, vm.stackSize)
+	stack := make([]LOB, vm.stackSize)
 	sp := vm.stackSize
 	env := new(Frame)
-	env.elements = make([]*LOB, len(args))
+	env.elements = make([]LOB, len(args))
 	copy(env.elements, args)
 	ops := code.ops
 	pc := 0
@@ -581,11 +594,11 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 		op := ops[pc]
 		if op == opcodeCall { // CALL
 			argc := ops[pc+1]
-			fun := stack[sp]
-			if fun.variant == typeFunction {
-				if fun.function.primitive != nil {
+			switch fun := stack[sp].(type) {
+			case *LFunction:
+				if fun.primitive != nil {
 					nextSp := sp + argc
-					val, err := fun.function.primitive.fun(stack[sp+1 : nextSp+1])
+					val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
 					if err != nil {
 						return nil, addContext(env, err)
 					}
@@ -598,21 +611,21 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 						return nil, err
 					}
 				}
-			} else if fun.variant == typeKeyword {
+			case *LKeyword:
 				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
 				if err != nil {
 					return nil, addContext(env, err)
 				}
-			} else {
+			default:
 				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
 			}
 		} else if op == opcodeGlobal { //GLOBAL
-			sym := constants[ops[pc+1]]
-			if sym.car == nil {
+			sym, _ := constants[ops[pc+1]].(*LSymbol)
+			if sym.binding == nil {
 				return nil, addContext(env, Error(ErrorKey, "Undefined symbol: ", sym))
 			}
 			sp--
-			stack[sp] = sym.car
+			stack[sp] = sym.binding
 			pc += 2
 		} else if op == opcodeLocal {
 			tmpEnv := env
@@ -641,12 +654,12 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			if checkInterrupt() {
 				return nil, addContext(env, Error(InterruptKey))
 			}
-			fun := stack[sp]
 			argc := ops[pc+1]
-			if fun.variant == fun.variant {
-				if fun.function.primitive != nil {
+			switch fun := stack[sp].(type) {
+			case *LFunction:
+				if fun.primitive != nil {
 					nextSp := sp + argc
-					val, err := fun.function.primitive.fun(stack[sp+1 : nextSp+1])
+					val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
 					if err != nil {
 						return nil, addContext(env, err)
 					}
@@ -667,12 +680,12 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 						return nil, err
 					}
 				}
-			} else if fun.variant == typeKeyword {
+			case *LKeyword:
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
 				if env == nil {
 					return stack[sp], nil
 				}
-			} else {
+			default:
 				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
 			}
 		} else if op == opcodeLiteral {
@@ -691,7 +704,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			pc += 3
 		} else if op == opcodeClosure {
 			sp--
-			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
+			stack[sp] = newClosure(constants[ops[pc+1]].(*LCode), env)
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if checkInterrupt() {
@@ -706,11 +719,11 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 		} else if op == opcodeJump {
 			pc += ops[pc+1]
 		} else if op == opcodeDefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*LSymbol)
 			defGlobal(sym, stack[sp])
 			pc += 2
 		} else if op == opcodeUndefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*LSymbol)
 			undefGlobal(sym)
 			pc += 2
 		} else if op == opcodeDefMacro {
@@ -747,7 +760,7 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 
 const stackColumn = 40
 
-func showInstruction(pc int, op int, args string, stack []*LOB, sp int) {
+func showInstruction(pc int, op int, args string, stack []LOB, sp int) {
 	var body string
 	body = leftJustified(fmt.Sprintf("%d ", pc), 8) + leftJustified(opsyms[op].text, 10) + args
 	println(leftJustified(body, stackColumn), showStack(stack, sp))
@@ -795,7 +808,7 @@ func truncatedObjectString(s string, limit int) string {
 	}
 	return s
 }
-func showStack(stack []*LOB, sp int) string {
+func showStack(stack []LOB, sp int) string {
 	end := len(stack)
 	s := "["
 	limit := 5
@@ -812,11 +825,11 @@ func showStack(stack []*LOB, sp int) string {
 	return s + tail + " ]"
 }
 
-func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
-	stack := make([]*LOB, vm.stackSize)
+func (vm *VM) instrumentedExec(code *LCode, args []LOB) (LOB, error) {
+	stack := make([]LOB, vm.stackSize)
 	sp := vm.stackSize
 	env := new(Frame)
-	env.elements = make([]*LOB, len(args))
+	env.elements = make([]LOB, len(args))
 	copy(env.elements, args)
 	ops := code.ops
 	pc := 0
@@ -831,9 +844,8 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			argc := ops[pc+1]
 			savedPc := pc + 2
 		opcodeCallAgain:
-			switch fun.variant {
-			case typeFunction:
-				lfun := fun.function
+			switch lfun := fun.(type) {
+			case *LFunction:
 				if lfun.primitive != nil {
 					val, err := lfun.primitive.fun(stack[sp : sp+argc])
 					if err != nil {
@@ -862,8 +874,8 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
-					args := stack[sp+argc-1]
-					if !isList(args) {
+					args, ok := stack[sp+argc-1].(*LList)
+					if !ok {
 						err := Error(ArgumentErrorKey, "apply expected its last argument to be a list")
 						return nil, addContext(env, err)
 					}
@@ -905,9 +917,9 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				} else {
 					panic("bad instruction")
 				}
-			case typeKeyword:
+			case *LKeyword:
 				if argc != 1 {
-					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+					err := Error(ArgumentErrorKey, lfun.text, " expected 1 argument, got ", argc)
 					return nil, addContext(env, err)
 				}
 				v, err := get(stack[sp], fun)
@@ -917,18 +929,18 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				stack[sp] = v
 				pc = savedPc
 			default:
-				return nil, addContext(env, Error(ArgumentErrorKey, "Not a function: ", fun))
+				return nil, addContext(env, Error(ArgumentErrorKey, "Not a function: ", stack[sp]))
 			}
 		} else if op == opcodeGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*LSymbol)
 			if trace {
 				showInstruction(pc, op, sym.String(), stack, sp)
 			}
-			if sym.car == nil {
+			if sym.binding == nil {
 				return nil, addContext(env, Error(ErrorKey, "Undefined symbol: ", sym))
 			}
 			sp--
-			stack[sp] = sym.car
+			stack[sp] = sym.binding
 			pc += 2
 		} else if op == opcodeLocal {
 			if trace {
@@ -973,9 +985,8 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			sp++
 			argc := ops[pc+1]
 		opcodeTailCallAgain:
-			switch fun.variant {
-			case typeFunction:
-				lfun := fun.function
+			switch lfun := fun.(type) {
+			case *LFunction:
 				if lfun.primitive != nil {
 					val, err := lfun.primitive.fun(stack[sp : sp+argc])
 					if err != nil {
@@ -1005,8 +1016,8 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 						return nil, addContext(env, err)
 					}
 					fun = stack[sp]
-					args := stack[sp+argc-1]
-					if !isList(args) {
+					args, ok := stack[sp+argc-1].(*LList)
+					if !ok {
 						err := Error(ArgumentErrorKey, "apply expected its last argument to be a list")
 						return nil, addContext(env, err)
 					}
@@ -1024,7 +1035,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 						arglist = arglist.cdr
 					}
 					goto opcodeTailCallAgain
-				} else if fun == CallCC {
+				} else if lfun == CallCC {
 					if argc != 1 {
 						err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
 						return nil, addContext(env, err)
@@ -1048,12 +1059,12 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				} else {
 					panic("Bad instruction")
 				}
-			case typeKeyword:
+			case *LKeyword:
 				if argc != 1 {
-					err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+					err := Error(ArgumentErrorKey, lfun.text, " expected 1 argument, got ", argc)
 					return nil, addContext(env, err)
 				}
-				v, err := get(stack[sp], fun)
+				v, err := get(stack[sp], lfun)
 				if err != nil {
 					return nil, addContext(env, err)
 				}
@@ -1069,7 +1080,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			}
 		} else if op == opcodeLiteral {
 			if trace {
-				showInstruction(pc, op, write(constants[ops[pc+1]].variant), stack, sp)
+				showInstruction(pc, op, write(constants[ops[pc+1]].Type()), stack, sp)
 			}
 			sp--
 			stack[sp] = constants[ops[pc+1]]
@@ -1092,7 +1103,7 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 				showInstruction(pc, op, "", stack, sp)
 			}
 			sp--
-			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
+			stack[sp] = newClosure(constants[ops[pc+1]].(*LCode), env)
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if trace {
@@ -1113,21 +1124,21 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			}
 			pc += ops[pc+1]
 		} else if op == opcodeDefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*LSymbol)
 			if trace {
 				showInstruction(pc, op, sym.text, stack, sp)
 			}
 			defGlobal(sym, stack[sp])
 			pc += 2
 		} else if op == opcodeUndefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*LSymbol)
 			if trace {
 				showInstruction(pc, op, sym.text, stack, sp)
 			}
 			undefGlobal(sym)
 			pc += 2
 		} else if op == opcodeDefMacro {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*LSymbol)
 			if trace {
 				showInstruction(pc, op, sym.text, stack, sp)
 			}
@@ -1135,16 +1146,16 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 			stack[sp] = sym
 			pc += 2
 		} else if op == opcodeUse {
-			sym := constants[ops[pc+1]]
+			s := constants[ops[pc+1]].(*LString)
 			if trace {
-				showInstruction(pc, op, sym.text, stack, sp)
+				showInstruction(pc, op, s.value, stack, sp)
 			}
-			err := use(sym)
+			err := use(s)
 			if err != nil {
 				return nil, addContext(env, err)
 			}
 			sp--
-			stack[sp] = sym
+			stack[sp] = s
 			pc += 2
 		} else if op == opcodeVector {
 			vlen := ops[pc+1]

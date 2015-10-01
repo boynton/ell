@@ -46,30 +46,30 @@ const (
 )
 
 //all syms for ops should be 7 chars or less
-var symOpLiteral = intern("literal")
-var symOpLocal = intern("local")
-var symOpJumpFalse = intern("jumpfalse")
-var symOpJump = intern("jump")
-var symOpTailCall = intern("tailcall")
-var symOpCall = intern("call")
-var symOpReturn = intern("return")
-var symOpClosure = intern("closure")
-var symOpPop = intern("pop")
-var symOpGlobal = intern("global")
-var symOpDefGlobal = intern("defglobal")
-var symOpSetLocal = intern("setlocal")
-var symOpUse = intern("use")
-var symOpDefMacro = intern("defmacro")
-var symOpVector = intern("vector")
-var symOpStruct = intern("struct")
-var symOpUndefGlobal = intern("undefine")
+var symOpLiteral = intern("literal").(*LSymbol)
+var symOpLocal = intern("local").(*LSymbol)
+var symOpJumpFalse = intern("jumpfalse").(*LSymbol)
+var symOpJump = intern("jump").(*LSymbol)
+var symOpTailCall = intern("tailcall").(*LSymbol)
+var symOpCall = intern("call").(*LSymbol)
+var symOpReturn = intern("return").(*LSymbol)
+var symOpClosure = intern("closure").(*LSymbol)
+var symOpPop = intern("pop").(*LSymbol)
+var symOpGlobal = intern("global").(*LSymbol)
+var symOpDefGlobal = intern("defglobal").(*LSymbol)
+var symOpSetLocal = intern("setlocal").(*LSymbol)
+var symOpUse = intern("use").(*LSymbol)
+var symOpDefMacro = intern("defmacro").(*LSymbol)
+var symOpVector = intern("vector").(*LSymbol)
+var symOpStruct = intern("struct").(*LSymbol)
+var symOpUndefGlobal = intern("undefine").(*LSymbol)
 
-var symOpFunction = intern("func")
+var symOpFunction = intern("func").(*LSymbol)
 
 var opsyms = initOpsyms()
 
-func initOpsyms() []*LOB {
-	syms := make([]*LOB, opcodeCount)
+func initOpsyms() []*LSymbol {
+	syms := make([]*LSymbol, opcodeCount)
 	syms[opcodeLiteral] = symOpLiteral
 	syms[opcodeLocal] = symOpLocal
 	syms[opcodeJumpFalse] = symOpJumpFalse
@@ -91,26 +91,40 @@ func initOpsyms() []*LOB {
 }
 
 // LCode - compiled Ell bytecode
-type LCode struct {
+type LCode struct { // <code>
 	name     string
 	ops      []int
 	argc     int
-	defaults []*LOB
-	keys     []*LOB
+	defaults []LOB
+	keys     []LOB
 }
 
-func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
+var CodeType = intern("<code>")
+
+// Type returns the type of the object
+func (*LCode) Type() LOB {
+	return CodeType
+}
+
+// Value returns the object itself for primitive types
+func (code *LCode) Value() LOB {
+	return code
+}
+
+// Equal returns true if the object is equal to the argument
+func (code *LCode) Equal(another LOB) bool {
+	return another == code
+}
+
+// String returns the string representation of the object
+func (code *LCode) String() string {
+	return code.decompile(true)
+}
+
+func newCode(argc int, defaults []LOB, keys []LOB, name string) *LCode {
 	var ops []int
-	code := &LCode{
-		name,
-		ops,
-		argc,
-		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
-		keys,
-	}
-	result := newLOB(typeCode)
-	result.code = code
-	return result
+	//defaults == nil for normal procs, empty for rest, and non-empty for optional/keyword
+	return &LCode{name, ops, argc, defaults, keys}
 }
 
 func (code *LCode) signature() string {
@@ -125,11 +139,15 @@ func (code *LCode) signature() string {
 	//used as:
 	// (declare cons (<any> <list>) <list>)
 	if code.name != "" {
-		val := global(intern("*declarations*")) //so if this this has not been defined, we'll just skip it
-		if val != nil && isStruct(val) {
-			sig, _ := get(val, intern(code.name))
-			if sig != Null {
-				return sig.String()
+		sym, _ := intern("*declarations*").(*LSymbol)
+		val := global(sym) //so if this this has not been defined, we'll just skip it
+		if val != nil {
+			strct, ok := val.(*LStruct)
+			if ok {
+				sig, _ := get(strct, intern(code.name))
+				if sig != Null {
+					return sig.String()
+				}
 			}
 		}
 	}
@@ -183,7 +201,7 @@ func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 	}
 	for offset < max {
 		op := code.ops[offset]
-		s := prefix + "(" + opsyms[op].text
+		s := prefix + "(" + opsyms[op].String()
 		switch op {
 		case opcodePop, opcodeReturn:
 			buf.WriteString(s + ")")
@@ -208,7 +226,8 @@ func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 			if pretty {
 				indent2 = indent + indentAmount
 			}
-			constants[code.ops[offset+1]].code.decompileInto(buf, indent2, pretty)
+			c, _ := constants[code.ops[offset+1]].(*LCode)
+			c.decompileInto(buf, indent2, pretty)
 			buf.WriteString(")")
 			offset += 2
 		default:
@@ -218,18 +237,20 @@ func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 	buf.WriteString(")")
 }
 
-func (code *LCode) String() string {
-	return code.decompile(true)
-	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
-}
-
-func (code *LCode) loadOps(lst *LOB) error {
+func (code *LCode) loadOps(lst *LList) error {
 	for lst != EmptyList {
-		instr := car(lst)
+		o := car(lst)
+		instr, ok := o.(*LList)
+		if !ok {
+			return Error(SyntaxErrorKey, o)
+		}
 		op := car(instr)
 		switch op {
 		case symOpClosure:
-			lstFunc := cadr(instr)
+			lstFunc, ok := cadr(instr).(*LList)
+			if !ok {
+				return Error(SyntaxErrorKey, o)
+			}
 			if car(lstFunc) != symOpFunction {
 				return Error(SyntaxErrorKey, instr)
 			}
@@ -237,21 +258,11 @@ func (code *LCode) loadOps(lst *LOB) error {
 			funcParams := car(lstFunc)
 			var argc int
 			var name string
-			var defaults []*LOB
-			var keys []*LOB
+			var defaults []LOB
+			var keys []LOB
 			var err error
-			if isSymbol(funcParams) {
-				//legacy form, just the argc
-				argc, err = intValue(funcParams)
-				if err != nil {
-					return err
-				}
-				if argc < 0 {
-					argc = -argc - 1
-					defaults = make([]*LOB, 0)
-				}
-			} else if isList(funcParams) && length(funcParams) == 4 {
-				tmp := funcParams
+			tmp, ok := funcParams.(*LList)
+			if ok && listLength(tmp) == 4 {
 				a := car(tmp)
 				tmp = cdr(tmp)
 				name, err = asString(a)
@@ -266,18 +277,18 @@ func (code *LCode) loadOps(lst *LOB) error {
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
-				if isVector(a) {
-					defaults = a.elements
+				if vec, ok := a.(*LVector); ok {
+					defaults = vec.elements
 				}
 				a = car(tmp)
-				if isVector(a) {
-					keys = a.elements
+				if vec, ok := a.(*LVector); ok {
+					keys = vec.elements
 				}
 			} else {
 				return Error(SyntaxErrorKey, funcParams)
 			}
 			fun := newCode(argc, defaults, keys, name)
-			fun.code.loadOps(cdr(lstFunc))
+			fun.loadOps(cdr(lstFunc))
 			code.emitClosure(fun)
 		case symOpLiteral:
 			code.emitLiteral(cadr(instr))
@@ -302,11 +313,11 @@ func (code *LCode) loadOps(lst *LOB) error {
 			}
 			code.emitSetLocal(i, j)
 		case symOpGlobal:
-			sym := cadr(instr)
-			if isSymbol(sym) {
+			tmp := cadr(instr)
+			if sym, ok := tmp.(*LSymbol); ok {
 				code.emitGlobal(sym)
 			} else {
-				return Error(symOpGlobal, " argument 1 not a symbol: ", sym)
+				return Error(symOpGlobal, " argument 1 not a symbol: ", tmp)
 			}
 		case symOpUndefGlobal:
 			code.emitUndefGlobal(cadr(instr))
@@ -352,12 +363,12 @@ func (code *LCode) loadOps(lst *LOB) error {
 	return nil
 }
 
-func (code *LCode) emitLiteral(val *LOB) {
+func (code *LCode) emitLiteral(val LOB) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *LCode) emitGlobal(sym *LOB) {
+func (code *LCode) emitGlobal(sym LOB) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
@@ -385,19 +396,19 @@ func (code *LCode) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *LCode) emitDefGlobal(sym *LOB) {
+func (code *LCode) emitDefGlobal(sym LOB) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitUndefGlobal(sym *LOB) {
+func (code *LCode) emitUndefGlobal(sym LOB) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitDefMacro(sym *LOB) {
+func (code *LCode) emitDefMacro(sym LOB) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitClosure(newCode *LOB) {
+func (code *LCode) emitClosure(newCode *LCode) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, putConstant(newCode))
 }
@@ -424,7 +435,7 @@ func (code *LCode) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *LCode) emitUse(sym *LOB) {
+func (code *LCode) emitUse(name LOB) {
 	code.ops = append(code.ops, opcodeUse)
-	code.ops = append(code.ops, putConstant(sym))
+	code.ops = append(code.ops, putConstant(name))
 }

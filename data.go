@@ -19,11 +19,113 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 )
+
+type LOB interface { // <any> - the interface all *Lxxx types must implement
+	Type() LOB
+	Value() LOB
+	Equal(another LOB) bool
+	String() string
+}
+
+func isIdentical(o1 LOB, o2 LOB) bool {
+	return o1 == o2
+}
+
+func isEqual(o1 LOB, o2 LOB) bool {
+	if o1 == o2 {
+		return true
+	}
+	return o1.Equal(o2)
+}
+
+func value(obj LOB) LOB {
+	return obj.Value()
+}
+
+
+// --- Null
+
+type LNull struct {  // <null>
+}
+
+var NullType = intern("<null>")
+
+// Null is Ell's version of nil. It means "nothing" and is not used for anything else (it is different than EmptyList)
+var Null = LOB(&LNull{})
+
+// Type returns the type of the object
+func (*LNull) Type() LOB {
+	return NullType
+}
+
+// Value returns the object itself for primitive types
+func (*LNull) Value() LOB {
+	return Null
+}
+
+// Equal returns true if the object is equal to the argument
+func (*LNull) Equal(another LOB) bool {
+	return another == Null
+}
+
+// String returns the string representation of the object
+func (*LNull) String() string {
+	return "null"
+}
+
+func isNull(obj LOB) bool {
+	return obj == Null
+}
+
+
+
+// --- Boolean
+
+var BooleanType = intern("<boolean>")
+
+type LBoolean struct {
+	value bool
+}
+
+// Type returns the type of the object
+func (*LBoolean) Type() LOB {
+	return BooleanType
+}
+
+// Value returns the object itself for primitive types
+func (b *LBoolean) Value() LOB {
+	return b
+}
+
+// Equal returns true if the object is equal to the argument
+func (b *LBoolean) Equal(another LOB) bool {
+	return another == b
+}
+
+// String returns the string representation of the object
+func (b *LBoolean) String() string {
+	if b.value {
+		return "true"
+	}
+	return "false"
+}
+
+// True is the singleton boolean true value
+var True = &LBoolean{value: true}
+
+// False is the singleton boolean false value
+var False = &LBoolean{value: false}
+
+func isBoolean(obj LOB) bool {
+	_, ok := obj.(*LBoolean)
+	return ok
+}
+
 
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
+/*
 type LOB struct {
 	variant  *LOB       // i.e. <string>
 	function *LFunction // <function>
@@ -36,216 +138,135 @@ type LOB struct {
 	elements []*LOB     // <vector>, <struct>
 }
 
+
 func newLOB(variant *LOB) *LOB {
 	lob := new(LOB)
 	lob.variant = variant
 	return lob
 }
+*/
 
-func identical(o1 *LOB, o2 *LOB) bool {
-	return o1 == o2
+type LInstance struct {
+	variant *LType
+	value LOB
 }
 
-func (lob *LOB) String() string {
-	if lob == Null {
-		return "null"
-	}
-	switch lob.variant {
-	case typeBoolean:
-		if lob.ival == 0 {
-			return "false"
+func (inst *LInstance) Type() LOB {
+	return inst.variant
+}
+
+func (inst *LInstance) Value() LOB {
+	return inst.value
+}
+
+func (inst *LInstance) Equal(another LOB) bool {
+	if i2, ok := another.(*LInstance); ok {
+		if isEqual(inst.variant, i2.variant) {
+			return isEqual(inst.value, i2.value)
 		}
-		return "true"
-	case typeCharacter:
-		return string([]rune{rune(lob.ival)})
-	case typeNumber:
-		return strconv.FormatFloat(lob.fval, 'f', -1, 64)
-	case typeString, typeSymbol, typeKeyword, typeType:
-		return lob.text
-	case typeList:
-		return listToString(lob)
-	case typeVector:
-		return vectorToString(lob)
-	case typeStruct:
-		return structToString(lob)
-	case typeFunction:
-		return lob.function.String()
-	case typeCode:
-		return lob.code.String()
-	case typeError:
-		return "#<error>" + write(lob.car)
-	default:
-		return "#" + lob.variant.text + write(lob.car)
 	}
+	return false
 }
 
-var typeType *LOB    // bootstrapped in initSymbolTable => intern("<type>")
-var typeKeyword *LOB // bootstrapped in initSymbolTable => intern("<keyword>")
-var typeSymbol *LOB  // bootstrapped in initSymbolTable = intern("<symbol>")
-
-var typeNull = intern("<null>")
-var typeBoolean = intern("<boolean>")
-var typeCharacter = intern("<character>")
-var typeNumber = intern("<number>")
-var typeString = intern("<string>")
-var typeList = intern("<list>")
-var typeVector = intern("<vector>")
-var typeStruct = intern("<struct>")
-var typeFunction = intern("<function>")
-var typeCode = intern("<code>")
-var typeError = intern("<error>")
-
-// Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
-var Null = &LOB{variant: typeNull}
-
-func isNull(obj *LOB) bool {
-	return obj == Null
-}
-
-// True is the singleton boolean true value
-var True = &LOB{variant: typeBoolean, ival: 1}
-
-// False is the singleton boolean false value
-var False = &LOB{variant: typeBoolean, ival: 0}
-
-func isBoolean(obj *LOB) bool {
-	return obj.variant == typeBoolean
-}
-
-func isCharacter(obj *LOB) bool {
-	return obj.variant == typeCharacter
-}
-func isNumber(obj *LOB) bool {
-	return obj.variant == typeNumber
-}
-func isString(obj *LOB) bool {
-	return obj.variant == typeString
-}
-func isList(obj *LOB) bool {
-	return obj.variant == typeList
-}
-func isVector(obj *LOB) bool {
-	return obj.variant == typeVector
-}
-func isStruct(obj *LOB) bool {
-	return obj.variant == typeStruct
-}
-func isFunction(obj *LOB) bool {
-	return obj.variant == typeFunction
-}
-func isCode(obj *LOB) bool {
-	return obj.variant == typeCode
-}
-func isSymbol(obj *LOB) bool {
-	return obj.variant == typeSymbol
-}
-func isKeyword(obj *LOB) bool {
-	return obj.variant == typeKeyword
-}
-func isType(obj *LOB) bool {
-	return obj.variant == typeType
+func (inst *LInstance) String() string {
+	return "#" + inst.variant.text + write(inst.value)
 }
 
 //instances have arbitrary variant symbols, all we can check is that the instanceValue is set
-func isInstance(obj *LOB) bool {
-	return obj.car != nil && obj.cdr == nil
+func isInstance(obj LOB) bool {
+	_, ok := obj.(*LInstance)
+	return ok
 }
 
-func equal(o1 *LOB, o2 *LOB) bool {
-	if o1 == o2 {
+func isPrimitiveType(variant *LType) bool {
+	switch variant {
+	case NullType, BooleanType, CharacterType, NumberType, StringType, ListType, VectorType, StructType:
 		return true
-	}
-	if o1.variant != o2.variant {
-		return false
-	}
-	switch o1.variant {
-	case typeBoolean, typeCharacter:
-		return o1.ival == o2.ival
-	case typeNumber:
-		return numberEqual(o1.fval, o2.fval)
-	case typeString:
-		return o1.text == o2.text
-	case typeList:
-		return listEqual(o1, o2)
-	case typeVector:
-		return vectorEqual(o1, o2)
-	case typeStruct:
-		return structEqual(o1, o2)
-	case typeSymbol, typeKeyword, typeType:
-		return o1 == o2
-	case typeNull:
-		return true // singleton
-	default:
-		o1a := value(o1)
-		if o1a != o1 {
-			o2a := value(o2)
-			return equal(o1a, o2a)
-		}
-		return false
-	}
-}
-
-func isPrimitiveType(tag *LOB) bool {
-	switch tag {
-	case typeNull, typeBoolean, typeCharacter, typeNumber, typeString, typeList, typeVector, typeStruct:
-		return true
-	case typeSymbol, typeKeyword, typeType, typeFunction:
+	case SymbolType, KeywordType, TypeType, FunctionType:
 		return true
 	default:
 		return false
 	}
 }
 
-func instance(tag *LOB, val *LOB) (*LOB, error) {
-	if !isType(tag) {
-		return nil, Error(ArgumentErrorKey, typeType.text, tag)
+func instance(variant LOB, val LOB) (LOB, error) {
+	v, ok := variant.(*LType)
+	if !ok {
+		return nil, Error(ArgumentErrorKey, TypeType.text, variant)
 	}
-	if isPrimitiveType(tag) {
+	if isPrimitiveType(v) {
 		return val, nil
 	}
-	result := newLOB(tag)
-	result.car = val
-	return result, nil
+	return &LInstance{v, val}, nil
 }
 
-func value(obj *LOB) *LOB {
-	if obj.cdr == nil && obj.car != nil {
-		return obj.car
-	}
-	return obj
+
+var ErrorType = intern("<error>")
+
+type LError struct {
+	data LOB
+	text string
 }
+
+// Type returns the type of the object
+func (*LError) Type() LOB {
+	return ErrorType
+}
+
+// Value returns the object itself for primitive types
+func (err *LError) Value() LOB {
+	return err
+}
+
+// Equal returns true if the object is equal to the argument
+func (err *LError) Equal(another LOB) bool {
+	return LOB(err) == another
+}
+
+// String returns the string representation of the object
+func (err *LError) String() string {
+	return "#<error>" + write(err.data)
+}
+
+func (err *LError) Error() string {
+	s := err.String()
+	if err.text != "" {
+		s += " [in " + err.text + "]"
+	}
+	return s
+}
+
+
+func newError(elements ...LOB) *LError {
+	data := vector(elements...)
+	return &LError{data, ""}
+}
+
 
 //
 // Error - creates a new Error from the arguments. The first is an actual Ell object, the rest are interpreted as/converted to strings
 //
-func Error(errkey *LOB, args ...interface{}) error {
+func Error(errkey LOB, args ...interface{}) error {
 	var buf bytes.Buffer
 	for _, o := range args {
-		if l, ok := o.(*LOB); ok {
+		if l, ok := o.(LOB); ok {
 			buf.WriteString(fmt.Sprintf("%v", write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
 		}
 	}
-	if errkey.variant != typeKeyword {
+	if !isKeyword(errkey) {
 		errkey = ErrorKey
 	}
-	return newError(errkey, newString(buf.String()))
+	return newError(errkey, LOB(newString(buf.String())))
 }
 
-func newError(elements ...*LOB) *LOB {
-	data := vector(elements...)
-	return &LOB{variant: typeError, car: data}
-}
-
-func theError(o interface{}) (*LOB, bool) {
+func theError(o interface{}) (*LError, bool) {
 	if o == nil {
 		return nil, false
 	}
-	if err, ok := o.(*LOB); ok {
-		if err.variant == typeError {
-			return err, true
-		}
+	if err, ok := o.(*LError); ok {
+		return err, true
 	}
 	return nil, false
 
@@ -256,22 +277,11 @@ func isError(o interface{}) bool {
 	return ok
 }
 
-func errorData(err *LOB) *LOB {
-	return err.car
+func errorData(err *LError) LOB {
+	return err.data
 }
 
 // Error
-func (lob *LOB) Error() string {
-	if lob.variant == typeError {
-		s := lob.car.String()
-		if lob.text != "" {
-			s += " [in " + lob.text + "]"
-		}
-		return s
-	}
-	return lob.String()
-}
-
 // ErrorKey - used to generic errors
 var ErrorKey = intern("error:")
 

@@ -21,9 +21,9 @@ import (
 	"strings"
 )
 
-var constantsMap = make(map[*LOB]int, 0)
-var constants = make([]*LOB, 0, 1000)
-var macroMap = make(map[*LOB]*macro, 0)
+var constantsMap = make(map[LOB]int, 0)
+var constants = make([]LOB, 0, 1000)
+var macroMap = make(map[LOB]*macro, 0)
 var primitives = make([]*Primitive, 0, 1000)
 
 func checkInterrupt() bool {
@@ -38,10 +38,10 @@ func checkInterrupt() bool {
 	return false
 }
 
-func define(name string, obj *LOB) {
-	sym := intern(name)
-	if sym == nil {
-		panic("Cannot define a value for this symbol: " + name)
+func define(name string, obj LOB) {
+	sym, ok := intern(name).(*LSymbol)
+	if !ok {
+		panic("Cannot define a value for this name: " + name)
 	}
 	defGlobal(sym, obj)
 }
@@ -49,7 +49,10 @@ func define(name string, obj *LOB) {
 //Need to pass a "signature" string to document usage
 // "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
 func defineFunction(name string, fun PrimCallable, signature string) {
-	sym := intern(name)
+	sym, ok := intern(name).(*LSymbol)
+	if !ok {
+		panic("Cannot define a function for this name: " + name)
+	}
 	if global(sym) != nil {
 		println("*** Warning: redefining ", name, " with a primitive")
 	}
@@ -67,9 +70,9 @@ func defineMacro(name string, fun PrimCallable) {
 	defMacro(sym, prim)
 }
 
-func getKeywords() []*LOB {
+func getKeywords() []LOB {
 	//keywords reserved for the base language that Ell compiles
-	keywords := []*LOB{
+	keywords := []LOB{
 		intern("quote"),
 		intern("fn"),
 		intern("if"),
@@ -84,50 +87,47 @@ func getKeywords() []*LOB {
 	return keywords
 }
 
-func getGlobals() []*LOB {
-	var syms []*LOB
-	for _, sym := range symtab {
-		if sym.car != nil {
+func getGlobals() []*LSymbol {
+	var syms []*LSymbol
+	for _, entry := range symtab {
+		if sym, ok := entry.(*LSymbol); ok && sym.binding != nil {
 			syms = append(syms, sym)
 		}
 	}
 	return syms
 }
 
-func global(sym *LOB) *LOB {
-	if isSymbol(sym) {
-		return sym.car
-	}
-	return nil
+func global(sym *LSymbol) LOB {
+	return sym.binding
 }
 
 type binding struct {
-	sym *LOB
-	val *LOB
+	sym LOB
+	val LOB
 }
 
-func defGlobal(sym *LOB, val *LOB) {
-	sym.car = val
+func defGlobal(sym *LSymbol, val LOB) {
+	sym.binding = val
 	delete(macroMap, sym)
 }
 
-func isDefined(sym *LOB) bool {
-	return sym.car != nil
+func isDefined(sym *LSymbol) bool {
+	return sym.binding != nil
 }
 
-func undefGlobal(sym *LOB) {
-	sym.car = nil
+func undefGlobal(sym *LSymbol) {
+	sym.binding = nil
 }
 
-func macros() []*LOB {
-	keys := make([]*LOB, 0, len(macroMap))
+func macros() []LOB {
+	keys := make([]LOB, 0, len(macroMap))
 	for k := range macroMap {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func getMacro(sym *LOB) *macro {
+func getMacro(sym LOB) *macro {
 	mac, ok := macroMap[sym]
 	if !ok {
 		return nil
@@ -135,13 +135,13 @@ func getMacro(sym *LOB) *macro {
 	return mac
 }
 
-func defMacro(sym *LOB, val *LOB) {
+func defMacro(sym LOB, val LOB) {
 	macroMap[sym] = newMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func putConstant(val *LOB) int {
+func putConstant(val LOB) int {
 	idx, present := constantsMap[val]
 	if !present {
 		idx = len(constants)
@@ -151,12 +151,16 @@ func putConstant(val *LOB) int {
 	return idx
 }
 
-func use(sym *LOB) error {
-	return loadModule(sym.text)
+func use(name LOB) error {
+	s, err := asString(name)
+	if err == nil {
+		err = loadModule(s)
+	}
+	return err
 }
 
-func importCode(thunk *LOB) (*LOB, error) {
-	result, err := exec(thunk.code)
+func importCode(thunk *LCode) (LOB, error) {
+	result, err := exec(thunk)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +225,7 @@ func loadFile(file string) error {
 	return nil
 }
 
-func eval(expr *LOB) (*LOB, error) {
+func eval(expr LOB) (LOB, error) {
 	if verbose {
 		println("; eval: ", write(expr))
 	}
@@ -259,7 +263,7 @@ func findModuleFile(name string) (string, error) {
 	return name, nil
 }
 
-func compileObject(expr *LOB) (string, error) {
+func compileObject(expr LOB) (string, error) {
 	if verbose {
 		println("; compile: ", write(expr))
 	}
@@ -277,11 +281,11 @@ func compileObject(expr *LOB) (string, error) {
 	if verbose {
 		println("; compiled to: ", write(thunk))
 	}
-	return thunk.code.decompile(true) + "\n", nil
+	return thunk.decompile(true) + "\n", nil
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func compileFile(name string) (*LOB, error) {
+func compileFile(name string) (LOB, error) {
 	file, err := findModuleFile(name)
 	if err != nil {
 		return nil, err

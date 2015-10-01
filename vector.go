@@ -20,20 +20,54 @@ import (
 	"bytes"
 )
 
-func vectorEqual(v1 *LOB, v2 *LOB) bool {
+type LVector struct {
+	elements []LOB
+}
+
+var VectorType = intern("<vector>")
+
+// Type returns the type of the object
+func (*LVector) Type() LOB {
+	return VectorType
+}
+
+// Value returns the object itself for primitive types
+func (vec *LVector) Value() LOB {
+	return vec
+}
+
+// Equal returns true if the object is equal to the argument
+func (vec *LVector) Equal(another LOB) bool {
+	vec2, ok := another.(*LVector)
+	if ok {
+		return vectorEqual(vec, vec2)
+	}
+	return false
+}
+
+// String returns the string representation of the object
+func (vec *LVector) String() string {
+	return vectorToString(vec)
+}
+
+func isVector(obj LOB) bool {
+	return obj.Type() == VectorType
+}
+
+func vectorEqual(v1 *LVector, v2 *LVector) bool {
 	count := len(v1.elements)
 	if count != len(v2.elements) {
 		return false
 	}
 	for i := 0; i < count; i++ {
-		if !equal(v1.elements[i], v2.elements[i]) {
+		if !isEqual(v1.elements[i], v2.elements[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-func vectorToString(vec *LOB) string {
+func vectorToString(vec *LVector) string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	count := len(vec.elements)
@@ -48,35 +82,33 @@ func vectorToString(vec *LOB) string {
 	return buf.String()
 }
 
-func newVector(size int, init *LOB) *LOB {
-	elements := make([]*LOB, size)
+func newVector(size int, init LOB) *LVector {
+	elements := make([]LOB, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
 	return vectorFromElementsNoCopy(elements)
 }
 
-func vector(elements ...*LOB) *LOB {
+func vector(elements ...LOB) *LVector {
 	return vectorFromElements(elements, len(elements))
 }
 
-func vectorFromElements(elements []*LOB, count int) *LOB {
-	el := make([]*LOB, count)
+func vectorFromElements(elements []LOB, count int) *LVector {
+	el := make([]LOB, count)
 	copy(el, elements[0:count])
 	return vectorFromElementsNoCopy(el)
 }
 
-func vectorFromElementsNoCopy(elements []*LOB) *LOB {
-	vec := newLOB(typeVector)
-	vec.elements = elements
-	return vec
+func vectorFromElementsNoCopy(elements []LOB) *LVector {
+	return &LVector{elements}
 }
 
-func copyVector(vec *LOB) *LOB {
+func copyVector(vec *LVector) *LVector {
 	return vectorFromElements(vec.elements, len(vec.elements))
 }
 
-func vectorSet(vec *LOB, idx int, obj *LOB) error {
+func vectorSet(vec *LVector, idx int, obj LOB) error {
 	if idx < 0 || idx >= len(vec.elements) {
 		return Error(ArgumentErrorKey, "vector-set! index out of range: ", idx)
 	}
@@ -84,14 +116,14 @@ func vectorSet(vec *LOB, idx int, obj *LOB) error {
 	return nil
 }
 
-func vectorRef(vec *LOB, idx int) *LOB {
+func vectorRef(vec *LVector, idx int) LOB {
 	if idx < 0 || idx >= len(vec.elements) {
 		return Null
 	}
 	return vec.elements[idx]
 }
 
-func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
+func assocBangVector(vec *LVector, fieldvals []LOB) (*LVector, error) {
 	//danger! mutation!
 	max := len(vec.elements)
 	count := len(fieldvals)
@@ -99,9 +131,9 @@ func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
 	for i < count {
 		key := value(fieldvals[i])
 		i++
-		switch key.variant {
-		case typeNumber:
-			idx := int(key.fval)
+		switch k := key.(type) {
+		case *LNumber:
+			idx := int(k.value)
 			if idx < 0 || idx > max {
 				return nil, Error(ArgumentErrorKey, "assoc! index out of range: ", idx)
 			}
@@ -117,21 +149,21 @@ func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
 	return vec, nil
 }
 
-func assocVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
+func assocVector(vec *LVector, fieldvals []LOB) (*LVector, error) {
 	//optimize this
 	return assocBangVector(copyVector(vec), fieldvals)
 }
 
-func toVector(obj *LOB) (*LOB, error) {
-	switch obj.variant {
-	case typeVector:
-		return obj, nil
-	case typeList:
-		return listToVector(obj), nil
-	case typeStruct:
-		return structToVector(obj), nil
-	case typeString:
-		return stringToVector(obj), nil
+func toVector(obj LOB) (*LVector, error) {
+	switch t := obj.(type) {
+	case *LVector:
+		return t, nil
+	case *LList:
+		return listToVector(t), nil
+	case *LStruct:
+		return structToVector(t), nil
+	case *LString:
+		return stringToVector(t), nil
 	}
-	return nil, Error(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.Type())
 }

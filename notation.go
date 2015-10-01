@@ -38,7 +38,7 @@ func fileReadable(path string) bool {
 	return false
 }
 
-func slurpFile(path string) (*LOB, error) {
+func slurpFile(path string) (LOB, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return EmptyString, err
@@ -52,12 +52,12 @@ func spitFile(path string, data string) error {
 
 // --- reader
 
-func keysOptionValue(options *LOB) (*LOB, error) {
+func keysOptionValue(options LOB) (LOB, error) {
 	if options != nil {
 		t, err := get(options, intern("keys:"))
 		if err == nil && isType(t) {
 			switch t {
-			case typeSymbol, typeKeyword, typeString:
+			case SymbolType, KeywordType, StringType:
 				return t, nil
 			default:
 				return nil, Error(ArgumentErrorKey, "Bad option value for keys: ", t)
@@ -69,15 +69,12 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 
 //only reads the first item in the input, along with how many characters it read
 // for subsequence calls, you can slice the string to continue
-func read(input *LOB, options *LOB) (*LOB, error) {
-	if !isString(input) {
-		return nil, Error(ArgumentErrorKey, "read invalid input: ", input)
-	}
+func read(input string, options LOB) (LOB, error) {
 	keys, err := keysOptionValue(options)
 	if err != nil {
 		return nil, err
 	}
-	r := strings.NewReader(input.text)
+	r := strings.NewReader(input)
 	reader := newDataReader(r)
 	obj, err := reader.readData(keys)
 	if err != nil {
@@ -89,15 +86,16 @@ func read(input *LOB, options *LOB) (*LOB, error) {
 	return obj, nil
 }
 
-func readAll(input *LOB, options *LOB) (*LOB, error) {
-	if !isString(input) {
-		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)
+func readAll(obj LOB, options LOB) (*LList, error) {
+	input, ok := obj.(*LString)
+	if !ok {
+		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", obj)
 	}
 	keys, err := keysOptionValue(options)
 	if err != nil {
 		return nil, err
 	}
-	reader := newDataReader(strings.NewReader(input.text))
+	reader := newDataReader(strings.NewReader(input.value))
 	lst := EmptyList
 	tail := EmptyList
 	val, err := reader.readData(keys)
@@ -143,7 +141,7 @@ func (dr *dataReader) ungetChar() error {
 	return e
 }
 
-func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
+func (dr *dataReader) readData(keys LOB) (LOB, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
@@ -221,7 +219,7 @@ func (dr *dataReader) decodeComment() error {
 	return e
 }
 
-func (dr *dataReader) decodeString() (*LOB, error) {
+func (dr *dataReader) decodeString() (LOB, error) {
 	buf := []byte{}
 	c, e := dr.getChar()
 	escape := false
@@ -275,7 +273,7 @@ func (dr *dataReader) decodeString() (*LOB, error) {
 	return s, e
 }
 
-func (dr *dataReader) decodeList(keys *LOB) (*LOB, error) {
+func (dr *dataReader) decodeList(keys LOB) (LOB, error) {
 	items, err := dr.decodeSequence(')', keys)
 	if err != nil {
 		return nil, err
@@ -283,7 +281,7 @@ func (dr *dataReader) decodeList(keys *LOB) (*LOB, error) {
 	return listFromValues(items), nil
 }
 
-func (dr *dataReader) decodeVector(keys *LOB) (*LOB, error) {
+func (dr *dataReader) decodeVector(keys LOB) (LOB, error) {
 	items, err := dr.decodeSequence(']', keys)
 	if err != nil {
 		return nil, err
@@ -310,8 +308,8 @@ func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
 	return 0, err
 }
 
-func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
-	items := []*LOB{}
+func (dr *dataReader) decodeStruct(keys LOB) (LOB, error) {
+	items := []LOB{}
 	var err error
 	var c byte
 	for err == nil {
@@ -332,21 +330,24 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 		}
 		if keys != nil && keys != Null {
 			switch keys {
-			case typeKeyword:
-				element, err = toKeyword(element)
+			case KeywordType:
+				keyword, err := toKeyword(element)
 				if err != nil {
 					return nil, err
 				}
-			case typeSymbol:
-				element, err = toSymbol(element)
+				element = keyword
+			case SymbolType:
+				sym, err := toSymbol(element)
 				if err != nil {
 					return nil, err
 				}
-			case typeString:
-				element, err = toString(element)
+				element = sym
+			case StringType:
+				strng, err := toString(element)
 				if err != nil {
 					return nil, err
 				}
+				element = strng
 			}
 		}
 		items = append(items, element)
@@ -367,9 +368,9 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeSequence(endChar byte, keys *LOB) ([]*LOB, error) {
+func (dr *dataReader) decodeSequence(endChar byte, keys LOB) ([]LOB, error) {
 	c, err := dr.getChar()
-	items := []*LOB{}
+	items := []LOB{}
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -396,7 +397,7 @@ func (dr *dataReader) decodeSequence(endChar byte, keys *LOB) ([]*LOB, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeAtom(firstChar byte) (*LOB, error) {
+func (dr *dataReader) decodeAtom(firstChar byte) (LOB, error) {
 	s, err := dr.decodeAtomString(firstChar)
 	if err != nil {
 		return nil, err
@@ -528,7 +529,7 @@ func namedChar(name string) (rune, error) {
 	}
 }
 
-func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
+func (dr *dataReader) decodeReaderMacro(keys LOB) (LOB, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -602,28 +603,28 @@ func isDelimiter(b byte) bool {
 
 const defaultIndentSize = "    "
 
-func write(obj *LOB) string {
+func write(obj LOB) string {
 	return writeIndent(obj, "")
 }
 
-func pretty(obj *LOB) string {
+func pretty(obj LOB) string {
 	return writeIndent(obj, defaultIndentSize)
 }
 
-func writeIndent(obj *LOB, indentSize string) string {
+func writeIndent(obj LOB, indentSize string) string {
 	s, _ := writeToString(obj, false, indentSize)
 	return s
 }
 
-func writeAll(obj *LOB) string {
+func writeAll(obj *LList) string {
 	return writeAllIndent(obj, "")
 }
 
-func prettyAll(obj *LOB) string {
+func prettyAll(obj *LList) string {
 	return writeAllIndent(obj, "    ")
 }
 
-func writeAllIndent(obj *LOB, indent string) string {
+func writeAllIndent(obj *LList, indent string) string {
 	if isList(obj) {
 		var buf bytes.Buffer
 		for obj != EmptyList {
@@ -642,7 +643,7 @@ func writeAllIndent(obj *LOB, indent string) string {
 	return s
 }
 
-func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
+func writeToString(obj LOB, json bool, indentSize string) (string, error) {
 	elldn, err := writeData(obj, json, "", indentSize)
 	if err != nil {
 		return "", err
@@ -653,31 +654,43 @@ func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
 	return elldn, nil
 }
 
-func writeData(obj *LOB, json bool, indent string, indentSize string) (string, error) {
+func writeData(obj LOB, json bool, indent string, indentSize string) (string, error) {
 	//an error is never returned for non-json
-	switch obj.variant {
-	case typeBoolean, typeNull, typeNumber:
-		return obj.String(), nil
-	case typeList:
+	switch t := obj.(type) {
+	case *LBoolean:
+		return t.String(), nil
+	case *LNull:
+		return t.String(), nil
+	case *LNumber:
+		return t.String(), nil
+	case *LList:
 		if json {
-			return writeVector(listToVector(obj), json, indent, indentSize)
+			return writeVector(listToVector(t), json, indent, indentSize)
 		}
-		return writeList(obj, indent, indentSize), nil
-	case typeKeyword:
+		return writeList(t, indent, indentSize), nil
+	case *LKeyword:
 		if json {
-			return encodeString(unkeywordedString(obj)), nil
+			return encodeString(unkeywordedString(t)), nil
 		}
 		return obj.String(), nil
-	case typeSymbol, typeType:
-		return obj.String(), nil
-	case typeString:
-		return encodeString(obj.text), nil
-	case typeVector:
-		return writeVector(obj, json, indent, indentSize)
-	case typeStruct:
-		return writeStruct(obj, json, indent, indentSize)
-	case typeCharacter:
-		switch obj.ival {
+	case *LSymbol:
+		if json {
+			return encodeString(t.text), nil
+		}
+		return t.text, nil
+	case *LType:
+		if json {
+			return encodeString(t.text), nil
+		}
+		return t.text, nil
+	case *LString:
+		return encodeString(t.value), nil
+	case *LVector:
+		return writeVector(t, json, indent, indentSize)
+	case *LStruct:
+		return writeStruct(t, json, indent, indentSize)
+	case *LCharacter:
+		switch t.value {
 		case 0:
 			return "#\\null", nil
 		case 7:
@@ -697,10 +710,10 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 		case 127:
 			return "#\\delete", nil
 		default:
-			if obj.ival < 127 {
-				return "#\\" + string(rune(obj.ival)), nil
+			if t.value < 127 {
+				return "#\\" + string(t.value), nil
 			}
-			return fmt.Sprintf("#\\x%04X", obj.ival), nil
+			return fmt.Sprintf("#\\x%04X", t.value), nil
 		}
 	default:
 		if json {
@@ -713,9 +726,12 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 	}
 }
 
-func writeList(lst *LOB, indent string, indentSize string) string {
+func writeList(lst *LList, indent string, indentSize string) string {
 	if lst == EmptyList {
 		return "()"
+	}
+	if lst == nil {
+		panic("lst is nil")
 	}
 	if lst.cdr != EmptyList {
 		if lst.car == symQuote {
@@ -752,7 +768,7 @@ func writeList(lst *LOB, indent string, indentSize string) string {
 	return buf.String()
 }
 
-func writeVector(vec *LOB, json bool, indent string, indentSize string) (string, error) {
+func writeVector(vec *LVector, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(vec.elements)
@@ -790,7 +806,7 @@ func writeVector(vec *LOB, json bool, indent string, indentSize string) (string,
 	return buf.String(), nil
 }
 
-func writeStruct(strct *LOB, json bool, indent string, indentSize string) (string, error) {
+func writeStruct(strct *LStruct, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	size := len(strct.elements)

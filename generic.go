@@ -16,18 +16,19 @@ limitations under the License.
 
 package main
 
-func methodSignature(formalArgs *LOB) (*LOB, error) {
+func methodSignature(formalArgs *LList) (LOB, error) {
 	sig := ""
 	for formalArgs != EmptyList {
 		s := formalArgs.car //might be a symbol, might be a list
 		tname := ""
-		if s.variant == typeList { //specialized
-			t := cadr(s)
-			if t.variant != typeType {
+		if lst, ok := s.(*LList); ok { //specialized
+			t := cadr(lst)
+			if ty, ok := t.(*LType); ok {
+				tname = ty.text
+			} else {
 				return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
 			}
-			tname = t.text
-		} else if s.variant == typeSymbol { //unspecialized
+		} else if _, ok := s.(*LSymbol); ok { //unspecialized
 			tname = "<any>"
 		} else {
 			return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
@@ -38,71 +39,74 @@ func methodSignature(formalArgs *LOB) (*LOB, error) {
 	return intern(sig), nil
 }
 
-func arglistSignature(args []*LOB) *LOB {
+func arglistSignature(args []LOB) LOB {
 	sig := ""
 	for _, arg := range args {
-		sig += arg.variant.text
+		sig += arg.Type().String()
 	}
 	return intern(sig)
 }
 
-var symGenfns = intern("*genfns*")
+var symGenfns = internSymbol("*genfns*")
 var keyMethods = intern("methods:")
 
-func getfn(sym *LOB, sig *LOB) (*LOB, error) {
+func getfn(sym *LSymbol, sig LOB) (LOB, error) {
 	gfs := global(symGenfns)
-	if gfs != nil && gfs.variant == typeStruct {
-		gf := structGet(gfs, sym)
-		if gf == Null {
-			return nil, Error(ErrorKey, "Not a generic function: ", sym)
-		}
-		gf = value(gf)
-		methods := structGet(gf, keyMethods)
-		if methods.variant == typeStruct {
-			fun := structGet(methods, sig)
-			if fun != Null {
-				return fun, nil
+	if gfs != nil {
+		if strct, ok := gfs.(*LStruct); ok {
+			gf := strct.get(sym)
+			if gf == Null {
+				return nil, Error(ErrorKey, "Not a generic function: ", sym)
+			}
+			if strct2, ok := value(gf).(*LStruct); ok {
+				methods := strct2.get(keyMethods)
+				if strct3, ok := methods.(*LStruct); ok {
+					fun := strct3.get(sig)
+					if fun != Null {
+						return fun, nil
+					}
+				}
 			}
 		}
 	}
 	return nil, Error(ErrorKey, "Generic function ", sym, ", has no matching method for: ", sig)
 }
 
-func isEmpty(obj *LOB) bool {
+func isEmpty(obj LOB) bool {
 	seq := value(obj)
-	switch seq.variant {
-	case typeList:
-		return seq == EmptyList
-	case typeString:
-		return len(seq.text) == 0
-	case typeVector:
-		return len(seq.elements) == 0
-	case typeStruct:
-		return len(seq.elements) == 0
-	case typeNull: //?
+	switch t := seq.(type) {
+	case *LList:
+		return t == EmptyList
+	case *LString:
+		return len(t.value) == 0
+	case *LVector:
+		return len(t.elements) == 0
+	case *LStruct:
+		return len(t.elements) == 0
+	case *LNull: //?
 		return true
 	default:
 		return false
 	}
 }
 
-func length(obj *LOB) int {
+func length(obj LOB) int {
 	seq := value(obj)
-	switch seq.variant {
-	case typeString:
-		return stringLength(seq.text)
-	case typeVector:
-		return len(seq.elements)
-	case typeList:
-		return listLength(seq)
-	case typeStruct:
-		return len(seq.elements) / 2
+	switch t := seq.(type) {
+	case *LString:
+		return stringLength(t.value)
+	case *LVector:
+		return len(t.elements)
+	case *LList:
+		return listLength(t)
+	case *LStruct:
+		return len(t.elements) / 2
 	default:
 		return -1
 	}
 }
 
-func reverse(lst *LOB) *LOB {
+func reverse(lst *LList) *LList {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = cons(lst.car, rev)
@@ -111,16 +115,16 @@ func reverse(lst *LOB) *LOB {
 	return rev
 }
 
-func flatten(lst *LOB) *LOB {
+func flatten(lst *LList) *LList {
 	result := EmptyList
 	tail := EmptyList
 	for lst != EmptyList {
-		item := lst.car
-		switch item.variant {
-		case typeList:
-			item = flatten(item)
-		case typeVector:
-			litem, _ := toList(item)
+		var item *LList
+		switch t := lst.car.(type) {
+		case *LList:
+			item = flatten(t)
+		case *LVector:
+			litem, _ := toList(t)
 			item = flatten(litem)
 		default:
 			item = list(item)
@@ -139,7 +143,7 @@ func flatten(lst *LOB) *LOB {
 	return result
 }
 
-func concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
+func concat(seq1 *LList, seq2 *LList) (*LList, error) {
 	rev := reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil
@@ -170,34 +174,34 @@ func isValidRange(val int, end int, step int) bool {
 	return false
 }
 
-func assoc(obj *LOB, rest ...*LOB) (*LOB, error) {
+func assoc(obj LOB, rest ...LOB) (LOB, error) {
 	s := value(obj)
-	switch s.variant {
-	case typeStruct:
-		return assocStruct(s, rest)
-	case typeVector:
-		return assocVector(s, rest)
+	switch t := s.(type) {
+	case *LStruct:
+		return assocStruct(t, rest)
+	case *LVector:
+		return assocVector(t, rest)
 	default:
-		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.Type())
 	}
 }
 
-func dissoc(obj *LOB, rest ...*LOB) (*LOB, error) {
+func dissoc(obj LOB, rest ...LOB) (LOB, error) {
 	s := value(obj)
-	switch s.variant {
-	case typeStruct:
-		return dissocStruct(s, rest)
+	switch t := s.(type) {
+	case *LStruct:
+		return dissocStruct(t, rest)
 	default:
-		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.Type())
 	}
 }
 
-func dissocBang(obj *LOB, rest ...*LOB) (*LOB, error) {
+func dissocBang(obj LOB, rest ...LOB) (LOB, error) {
 	s := value(obj)
-	switch s.variant {
-	case typeStruct:
-		return dissocBangStruct(s, rest)
+	switch t := s.(type) {
+	case *LStruct:
+		return dissocBangStruct(t, rest)
 	default:
-		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "Expected a <struct>|<vector>, got a ", obj.Type())
 	}
 }

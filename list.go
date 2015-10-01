@@ -20,7 +20,43 @@ import (
 	"bytes"
 )
 
-func cons(car *LOB, cdr *LOB) *LOB {
+type LList struct {
+	car LOB
+	cdr *LList
+}
+
+var ListType = intern("<list>")
+
+// Type returns the type of the object
+func (*LList) Type() LOB {
+	return ListType
+}
+
+// Value returns the object itself for primitive types
+func (lst *LList) Value() LOB {
+	return lst
+}
+
+// Equal returns true if the object is equal to the argument
+func (lst *LList) Equal(another LOB) bool {
+	lst2, ok := another.(*LList)
+	if ok {
+		return listEqual(lst, lst2)
+	}
+	return false
+}
+
+// String returns the string representation of the object
+func (lst *LList) String() string {
+	return listToString(lst)
+}
+
+
+func isList(obj LOB) bool {
+	return obj.Type() == ListType
+}
+
+func cons(car LOB, cdr *LList) *LList {
 	if true { //for dev. No external code should call into this, internal code should always be correct
 		if car == nil {
 			panic("Assertion failure: don't call cons with nil as car")
@@ -28,83 +64,78 @@ func cons(car *LOB, cdr *LOB) *LOB {
 		if cdr == nil {
 			panic("Assertion failure: don't call cons with nil as cdr")
 		}
-		if !isList(cdr) {
-			panic("Assertion failure: don't call cons with non-list as cdr")
-		}
 	}
 	if inExec {
 		conses++
 	}
-	result := newLOB(typeList)
-	result.car = car
-	result.cdr = cdr
-	return result
+	return &LList{car, cdr}
 }
 
-func car(lst *LOB) *LOB {
+func car(lst *LList) LOB {
 	if lst == EmptyList {
 		return Null
 	}
 	return lst.car
 }
 
-func setCar(lst *LOB, obj *LOB) error {
-	if !isList(lst) {
-		return Error(ArgumentErrorKey, "set-car! expected a <list> for argument 1, got a ", lst.variant)
-	}
-	if isEmpty(lst) {
+func setCar(lst *LList, obj LOB) error {
+	if lst == EmptyList {
 		return Error(ArgumentErrorKey, "set-car! expected a non-empty <list>")
 	}
 	lst.car = obj
 	return nil
 }
 
-func cdr(lst *LOB) *LOB {
+func cdr(lst *LList) *LList {
 	if lst == EmptyList {
 		return lst
 	}
 	return lst.cdr
 }
 
-func setCdr(lst *LOB, obj *LOB) error {
-	if !isList(lst) {
-		return Error(ArgumentErrorKey, "set-cdr! expected a <list> for argument 1, got a ", lst.variant)
-	}
+func setCdr(lst *LList, obj *LList) error {
 	if isEmpty(lst) {
 		return Error(ArgumentErrorKey, "set-cdr! expected a non-empty <list>")
-	}
-	if !isList(obj) {
-		return Error(ArgumentErrorKey, "set-cdr! expected a <list> for argument 2, got a ", obj.variant)
 	}
 	lst.cdr = obj
 	return nil
 }
 
-func caar(lst *LOB) *LOB {
-	return car(car(lst))
+func caar(lst *LList) LOB {
+	if lst != EmptyList {
+		if tmp, ok := lst.car.(*LList); ok {
+			return tmp.car
+		}
+	}
+	return Null
 }
-func cadr(lst *LOB) *LOB {
+func cadr(lst *LList) LOB {
 	return car(cdr(lst))
 }
-func cdar(lst *LOB) *LOB {
-	return car(cdr(lst))
+func cdar(lst *LList) *LList {
+	if lst != EmptyList {
+		if tmp, ok := lst.car.(*LList); ok {
+			return tmp.cdr
+		}
+	}
+	return EmptyList
 }
-func cddr(lst *LOB) *LOB {
+func cddr(lst *LList) *LList {
 	return cdr(cdr(lst))
 }
-func cadar(lst *LOB) *LOB {
-	return car(cdr(car(lst)))
-}
-func caddr(lst *LOB) *LOB {
+//func cadar(lst *LList) *LList {
+//	return car(cdr(car(lst)))
+//}
+func caddr(lst *LList) LOB {
 	return car(cdr(cdr(lst)))
 }
-func cdddr(lst *LOB) *LOB {
+func cdddr(lst *LList) *LList {
 	return cdr(cdr(cdr(lst)))
 }
-func cadddr(lst *LOB) *LOB {
+func cadddr(lst *LList) LOB {
 	return car(cdr(cdr(cdr(lst))))
 }
-func cddddr(lst *LOB) *LOB {
+func cddddr(lst *LList) *LList {
 	return cdr(cdr(cdr(cdr(lst))))
 }
 
@@ -117,17 +148,17 @@ var symUnquoteSplicing = intern("unquote-splicing")
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
 
-func initEmpty() *LOB {
-	return &LOB{variant: typeList} //car and cdr are both nil
+func initEmpty() *LList {
+	return &LList{nil, nil}
 }
 
 // Equal returns true if the object is equal to the argument
-func listEqual(lst *LOB, a *LOB) bool {
+func listEqual(lst *LList, a *LList) bool {
 	for lst != EmptyList {
 		if a == EmptyList {
 			return false
 		}
-		if !equal(lst.car, a.car) {
+		if !isEqual(lst.car, a.car) {
 			return false
 		}
 		lst = lst.cdr
@@ -139,8 +170,11 @@ func listEqual(lst *LOB, a *LOB) bool {
 	return false
 }
 
-func listToString(lst *LOB) string {
+func listToString(lst *LList) string {
 	var buf bytes.Buffer
+	if lst == nil {
+		panic("nil list!")
+	}
 	if lst != EmptyList && lst.cdr != EmptyList && cddr(lst) == EmptyList {
 		if lst.car == symQuote {
 			buf.WriteString("'")
@@ -172,7 +206,7 @@ func listToString(lst *LOB) string {
 	return buf.String()
 }
 
-func listLength(lst *LOB) int {
+func listLength(lst *LList) int {
 	if lst == EmptyList {
 		return 0
 	}
@@ -185,7 +219,7 @@ func listLength(lst *LOB) int {
 	return count
 }
 
-func newList(count int, val *LOB) *LOB {
+func newList(count int, val LOB) *LList {
 	result := EmptyList
 	for i := 0; i < count; i++ {
 		result = cons(val, result)
@@ -193,7 +227,7 @@ func newList(count int, val *LOB) *LOB {
 	return result
 }
 
-func listFromValues(values []*LOB) *LOB {
+func listFromValues(values []LOB) *LList {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
@@ -202,12 +236,12 @@ func listFromValues(values []*LOB) *LOB {
 	return p
 }
 
-func list(values ...*LOB) *LOB {
+func list(values ...LOB) *LList {
 	return listFromValues(values)
 }
 
-func listToVector(lst *LOB) *LOB {
-	var elems []*LOB
+func listToVector(lst *LList) *LVector {
+	var elems []LOB
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
@@ -215,16 +249,16 @@ func listToVector(lst *LOB) *LOB {
 	return vectorFromElementsNoCopy(elems)
 }
 
-func toList(obj *LOB) (*LOB, error) {
-	switch obj.variant {
-	case typeList:
-		return obj, nil
-	case typeVector:
-		return listFromValues(obj.elements), nil
-	case typeStruct:
-		return structToList(obj)
-	case typeString:
-		return stringToList(obj), nil
+func toList(obj LOB) (*LList, error) {
+	switch t := obj.(type) {
+	case *LList:
+		return t, nil
+	case *LVector:
+		return listFromValues(t.elements), nil
+	case *LStruct:
+		return structToList(t)
+	case *LString:
+		return stringToList(t), nil
 	}
-	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.Type())
 }

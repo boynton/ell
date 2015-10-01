@@ -1,12 +1,5 @@
 (use assert)
 
-;; ranges. These ar not lazy, and thus of limited use
-(assert-equal '(0 1 2 3 4 5 6 7 8 9) (range 10))
-(assert-equal '(1 2 3 4 5 6 7 8 9) (range 1 10))
-(assert-equal '(1 3 5 7 9) (range 1 10 2))
-(assert-equal '(-4 -3 -2 -1 0 1 2 3 4) (range -4 5))
-(assert-equal '(4 3 2 1 0 -1 -2 -3 -4) (range 4 -5 -1))
-
 (let ((x '()))
    (dorange (i 5) (set! x (cons i x)))
    (assert-equal '(4 3 2 1 0) x " dorange"))
@@ -31,7 +24,6 @@
    (for (i [0 1 2 3 4]) (set! x (cons i x)))
    (assert-equal '(4 3 2 1 0) x (string "for loop over a vector: " x)))
 
-
 (let ((x '()))
    (for (i {x: 1 y: 2 z: 3}) (set! x (cons i x)))
    (assert-equal '((z: 3) (y: 2) (x: 1)) x (string "for loop over a struct: " x)))
@@ -41,5 +33,14 @@
    (assert-equal '(#\c #\b #\a) x (string "for loop over a string: " x)))
 
 ;(println "!! " (catch (for () '())))
+
+
+;; ranges. These ar not lazy, and thus of limited use
+(assert-equal '(0 1 2 3 4 5 6 7 8 9) (range 10))
+(assert-equal '(1 2 3 4 5 6 7 8 9) (range 1 10))
+(assert-equal '(1 3 5 7 9) (range 1 10 2))
+(assert-equal '(-4 -3 -2 -1 0 1 2 3 4) (range -4 5))
+(assert-equal '(4 3 2 1 0 -1 -2 -3 -4) (range 4 -5 -1))
+
 
 (println "[for_range_test OK]")
