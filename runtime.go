@@ -66,6 +66,7 @@ type LFunction struct {
 	continuation *Continuation
 }
 
+// FunctionType - the Type object for this kind of value
 var FunctionType = intern("<function>")
 
 func isFunction(obj LOB) bool {
@@ -88,30 +89,28 @@ func (fun *LFunction) Equal(another LOB) bool {
 }
 
 // String returns the string representation of the object
-func (f *LFunction) String() string {
-	if f.primitive != nil {
-		return "#[function " + f.primitive.name + "]"
+func (fun *LFunction) String() string {
+	if fun.primitive != nil {
+		return "#[function " + fun.primitive.name + "]"
 	}
-	if f.code != nil {
-		n := f.code.name
+	if fun.code != nil {
+		n := fun.code.name
 		if n == "" {
 			return fmt.Sprintf("#[function]")
 		}
 		return fmt.Sprintf("#[function %s]", n)
 	}
-	if f.continuation != nil {
+	if fun.continuation != nil {
 		return "#[continuation]"
 	}
-	if f == Apply {
+	if fun == Apply {
 		return "#[function apply]"
 	}
-	if f == CallCC {
+	if fun == CallCC {
 		return "#[function callcc]"
 	}
 	panic("Bad function")
 }
-
-//xxx
 
 func newClosure(code *LCode, frame *Frame) *LFunction {
 	return &LFunction{code: code, frame: frame}
@@ -182,20 +181,20 @@ var Apply = &LFunction{}
 // CallCC is a primitive instruction to executable (restore) a continuation
 var CallCC = &LFunction{}
 
-func (f *LFunction) signature() string {
-	if f.primitive != nil {
-		return f.primitive.signature
+func (fun *LFunction) signature() string {
+	if fun.primitive != nil {
+		return fun.primitive.signature
 	}
-	if f.code != nil {
-		return f.code.signature()
+	if fun.code != nil {
+		return fun.code.signature()
 	}
-	if f.continuation != nil {
+	if fun.continuation != nil {
 		return "(<function>) <any>"
 	}
-	if f == Apply {
+	if fun == Apply {
 		return "(<any>*) <list>"
 	}
-	if f == CallCC {
+	if fun == CallCC {
 		return "(<function>) <any>"
 	}
 	panic("Bad function")

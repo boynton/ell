@@ -99,6 +99,7 @@ type LCode struct { // <code>
 	keys     []LOB
 }
 
+// CodeType - the Type object for this kind of value
 var CodeType = intern("<code>")
 
 // Type returns the type of the object

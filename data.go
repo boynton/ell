@@ -21,10 +21,18 @@ import (
 	"fmt"
 )
 
+// LOB - the generic Ell Object
 type LOB interface { // <any> - the interface all *Lxxx types must implement
+
+	// Type returns the type of the object
 	Type() LOB
+
+	// Value returns the object itself for primitive types
 	Value() LOB
+
+	// Equal returns true if the object is equal to the argument
 	Equal(another LOB) bool
+
 	String() string
 }
 
@@ -43,12 +51,13 @@ func value(obj LOB) LOB {
 	return obj.Value()
 }
 
-
 // --- Null
 
-type LNull struct {  // <null>
+// LNull - the concrete type for the Nullobject
+type LNull struct { // <null>
 }
 
+// NullType - the Type object for this kind of value
 var NullType = intern("<null>")
 
 // Null is Ell's version of nil. It means "nothing" and is not used for anything else (it is different than EmptyList)
@@ -78,12 +87,12 @@ func isNull(obj LOB) bool {
 	return obj == Null
 }
 
-
-
 // --- Boolean
 
+// BooleanType - the Type object for this kind of value
 var BooleanType = intern("<boolean>")
 
+// LBoolean - the concrete type for True and False
 type LBoolean struct {
 	value bool
 }
@@ -122,43 +131,23 @@ func isBoolean(obj LOB) bool {
 	return ok
 }
 
-
-// LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
-// the variant is a type object i.e. intern("<string>")
-/*
-type LOB struct {
-	variant  *LOB       // i.e. <string>
-	function *LFunction // <function>
-	car      *LOB       // non-nil for instances and <list>
-	cdr      *LOB       // non-nil for <list>, nil for everything else
-	code     *LCode     //<code>
-	ival     int64      // <boolean>, <character>
-	fval     float64    //<number>
-	text     string     // <string>, <symbol>, <keyword>, <type>
-	elements []*LOB     // <vector>, <struct>
-}
-
-
-func newLOB(variant *LOB) *LOB {
-	lob := new(LOB)
-	lob.variant = variant
-	return lob
-}
-*/
-
+// LInstance - the concrete type for user-defined types
 type LInstance struct {
 	variant *LType
-	value LOB
+	value   LOB
 }
 
+// Type returns the type of the object
 func (inst *LInstance) Type() LOB {
 	return inst.variant
 }
 
+// Value returns the object itself for primitive types
 func (inst *LInstance) Value() LOB {
 	return inst.value
 }
 
+// Equal returns true if the object is equal to the argument
 func (inst *LInstance) Equal(another LOB) bool {
 	if i2, ok := another.(*LInstance); ok {
 		if isEqual(inst.variant, i2.variant) {
@@ -200,9 +189,10 @@ func instance(variant LOB, val LOB) (LOB, error) {
 	return &LInstance{v, val}, nil
 }
 
-
+// ErrorType - the Type object for this kind of value
 var ErrorType = intern("<error>")
 
+// LError - the concrete type for errors (can be used as Go errors)
 type LError struct {
 	data LOB
 	text string
@@ -236,12 +226,10 @@ func (err *LError) Error() string {
 	return s
 }
 
-
 func newError(elements ...LOB) *LError {
 	data := vector(elements...)
 	return &LError{data, ""}
 }
-
 
 //
 // Error - creates a new Error from the arguments. The first is an actual Ell object, the rest are interpreted as/converted to strings

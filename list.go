@@ -20,11 +20,13 @@ import (
 	"bytes"
 )
 
+// LList - the concrete type for lists
 type LList struct {
 	car LOB
 	cdr *LList
 }
 
+// ListType - the Type object for this kind of value
 var ListType = intern("<list>")
 
 // Type returns the type of the object
@@ -50,7 +52,6 @@ func (lst *LList) Equal(another LOB) bool {
 func (lst *LList) String() string {
 	return listToString(lst)
 }
-
 
 func isList(obj LOB) bool {
 	return obj.Type() == ListType
@@ -123,6 +124,7 @@ func cdar(lst *LList) *LList {
 func cddr(lst *LList) *LList {
 	return cdr(cdr(lst))
 }
+
 //func cadar(lst *LList) *LList {
 //	return car(cdr(car(lst)))
 //}

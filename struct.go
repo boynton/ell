@@ -20,10 +20,12 @@ import (
 	"bytes"
 )
 
+// LStruct - the concrete type for lists
 type LStruct struct {
 	elements []LOB
 }
 
+// StructType - the Type object for LStructs
 var StructType = intern("<struct>")
 
 // Type returns the type of the object

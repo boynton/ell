@@ -21,8 +21,10 @@ import (
 	"strconv"
 )
 
+// NumberType - the Type object for this kind of value
 var NumberType = intern("<number>")
 
+// LNumber - the concrete type for numbers
 type LNumber struct { // <number>
 	value float64
 }
@@ -31,14 +33,17 @@ func (n *LNumber) String() string {
 	return strconv.FormatFloat(n.value, 'f', -1, 64)
 }
 
+// Type returns the type of the object
 func (n *LNumber) Type() LOB {
 	return NumberType
 }
 
+// Value returns the object itself for primitive types
 func (n *LNumber) Value() LOB {
 	return n
 }
 
+// Equal returns true if the object is equal to the argument
 func (n *LNumber) Equal(another LOB) bool {
 	n2, ok := another.(*LNumber)
 	if ok {

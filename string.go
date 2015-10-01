@@ -19,10 +19,12 @@ import (
 	"strings"
 )
 
+// LString - the concrete type for lists
 type LString struct {
 	value string
 }
 
+// StringType - the Type object for this kind of value
 var StringType = intern("<string>")
 
 // Type returns the type of the object
@@ -52,7 +54,6 @@ func (s *LString) String() string {
 func isString(obj LOB) bool {
 	return obj.Type() == StringType
 }
-
 
 // EmptyString
 var EmptyString = newString("")
@@ -143,10 +144,12 @@ func encodeString(s string) string {
 	return string(buf)
 }
 
+// LCharacter - the concrete type for characters
 type LCharacter struct { // <character>
 	value rune
 }
 
+// CHaracterType - the Type object for this kind of value
 var CharacterType = intern("<character>")
 
 func isCharacter(obj LOB) bool {

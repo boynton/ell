@@ -15,17 +15,21 @@ limitations under the License.
 */
 package main
 
+// SymbolType - the Type object for symbols
 var SymbolType *LType // <symbol>
 
+// LSymbol - the concrete type for symbols
 type LSymbol struct {
-	text string
+	text    string
 	binding LOB
 }
 
+// Type returns the type of the object
 func (sym *LSymbol) Type() LOB {
 	return SymbolType
 }
 
+// Value returns the object itself for primitive types
 func (sym *LSymbol) Value() LOB {
 	return sym
 }
@@ -34,42 +38,50 @@ func (sym *LSymbol) String() string {
 	return sym.text
 }
 
+// Equal returns true if the object is equal to the argument
 func (sym *LSymbol) Equal(another LOB) bool {
-	return LOB(sym) ==  another
+	return LOB(sym) == another
 }
 
 func isSymbol(obj LOB) bool {
 	return obj.Type() == SymbolType
 }
 
+// KeywordType - the Type object for keywords
 var KeywordType *LType // <keyword>
 
+// LKeyword - the concrete type for keywords
 type LKeyword struct {
 	text string
 }
 
+// Type returns the type of the object
 func (key *LKeyword) Type() LOB {
 	return KeywordType
+}
+
+// Value returns the object itself for primitive types
+func (key *LKeyword) Value() LOB {
+	return key
 }
 
 func (key *LKeyword) String() string {
 	return key.text
 }
 
+// Equal returns true if the object is equal to the argument
 func (key *LKeyword) Equal(another LOB) bool {
 	return LOB(key) == another
-}
-
-func (key *LKeyword) Value() LOB {
-	return key
 }
 
 func isKeyword(obj LOB) bool {
 	return obj.Type() == KeywordType
 }
 
+// TypeType - the Type object for types
 var TypeType *LType // <type>
 
+// LType - the concrete type for types
 type LType struct {
 	text string
 }
@@ -78,14 +90,17 @@ func (variant *LType) String() string {
 	return variant.text
 }
 
+// Type returns the type of the object
 func (variant *LType) Type() LOB {
 	return TypeType
 }
 
+// Value returns the object itself for primitive types
 func (variant *LType) Value() LOB {
 	return variant
 }
 
+// Equal returns true if the object is equal to the argument
 func (variant *LType) Equal(another LOB) bool {
 	return LOB(variant) == another
 }
@@ -93,7 +108,6 @@ func (variant *LType) Equal(another LOB) bool {
 func isType(obj LOB) bool {
 	return obj.Type() == TypeType
 }
-
 
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = initSymbolTable()

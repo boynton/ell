@@ -20,10 +20,12 @@ import (
 	"bytes"
 )
 
+// LVector - the concrete type for vectors
 type LVector struct {
 	elements []LOB
 }
 
+// VectorType - the Type object for vectors
 var VectorType = intern("<vector>")
 
 // Type returns the type of the object
