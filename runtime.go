@@ -51,42 +51,30 @@ func println(args ...interface{}) {
 	fmt.Println(str(args[max]))
 }
 
-// Continuation - a substructure of LFunction for continuations
+// Continuation -
 type Continuation struct {
 	ops   []int
 	stack []*LOB
 	pc    int
 }
 
-// LFunction - all callable function subtypes are represented here
-type LFunction struct {
-	code         *LCode // closure
-	frame        *Frame // closure
-	primitive    *Primitive
-	continuation *Continuation
-}
-
-func newClosure(code *LCode, frame *Frame) *LOB {
-	clo := newLOB(typeFunction)
-	fun := new(LFunction)
+func newClosure(code *Code, frame *Frame) *LOB {
+	fun := newLOB(typeFunction)
 	fun.code = code
 	fun.frame = frame
-	clo.function = fun
-	return clo
+	return fun
 }
 
 func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
-	lob := newLOB(typeFunction)
+	fun := newLOB(typeFunction)
 	cont := new(Continuation)
 	cont.ops = ops
 	cont.stack = make([]*LOB, len(stack))
 	copy(cont.stack, stack)
 	cont.pc = pc
-	fun := new(LFunction)
 	fun.frame = frame
 	fun.continuation = cont
-	lob.function = fun
-	return lob
+	return fun
 }
 
 const defaultStackSize = 1000
@@ -94,7 +82,7 @@ const defaultStackSize = 1000
 var inExec = false
 var conses = 0
 
-func execCompileTime(code *LCode, args ...*LOB) (*LOB, error) {
+func execCompileTime(code *Code, args ...*LOB) (*LOB, error) {
 	prev := verbose
 	verbose = false
 	res, err := exec(code, args...)
@@ -102,7 +90,7 @@ func execCompileTime(code *LCode, args ...*LOB) (*LOB, error) {
 	return res, err
 }
 
-func exec(code *LCode, args ...*LOB) (*LOB, error) {
+func exec(code *Code, args ...*LOB) (*LOB, error) {
 	if verbose {
 		inExec = true
 		conses = 0
@@ -140,12 +128,12 @@ func newVM(stackSize int) *VM {
 }
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &LOB{variant: typeFunction, function: new(LFunction)}
+var Apply = &LOB{variant: typeFunction}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &LOB{variant: typeFunction, function: new(LFunction)}
+var CallCC = &LOB{variant: typeFunction}
 
-func (f *LFunction) signature() string {
+func functionSignature(f *LOB) string {
 	if f.primitive != nil {
 		return f.primitive.signature
 	}
@@ -155,16 +143,16 @@ func (f *LFunction) signature() string {
 	if f.continuation != nil {
 		return "(<function>) <any>"
 	}
-	if f == Apply.function {
+	if f == Apply {
 		return "(<any>*) <list>"
 	}
-	if f == CallCC.function {
+	if f == CallCC {
 		return "(<function>) <any>"
 	}
 	panic("Bad function")
 }
 
-func (f *LFunction) String() string {
+func functionToString(f *LOB) string {
 	if f.primitive != nil {
 		return "#[function " + f.primitive.name + "]"
 	}
@@ -178,10 +166,10 @@ func (f *LFunction) String() string {
 	if f.continuation != nil {
 		return "#[continuation]"
 	}
-	if f == Apply.function {
+	if f == Apply {
 		return "#[function apply]"
 	}
-	if f == CallCC.function {
+	if f == CallCC {
 		return "#[function callcc]"
 	}
 	panic("Bad function")
@@ -202,14 +190,14 @@ func newPrimitive(name string, fun PrimCallable, signature string) *LOB {
 	idx := len(primitives)
 	prim := &Primitive{name, fun, signature, idx}
 	primitives = append(primitives, prim)
-	return &LOB{variant: typeFunction, function: &LFunction{primitive: prim}}
+	return &LOB{variant: typeFunction, primitive: prim}
 }
 
 // Frame - a call frame in the VM, as well as en environment frame for lexical closures
 type Frame struct {
 	locals    *Frame
 	previous  *Frame
-	code      *LCode
+	code      *Code
 	ops       []int
 	elements  []*LOB
 	firstfive [5]*LOB
@@ -241,7 +229,7 @@ func showEnv(f *Frame) string {
 	return s
 }
 
-func buildFrame(env *Frame, pc int, ops []int, fun *LFunction, argc int, stack []*LOB, sp int) (*Frame, error) {
+func buildFrame(env *Frame, pc int, ops []int, fun *LOB, argc int, stack []*LOB, sp int) (*Frame, error) {
 	f := new(Frame)
 	f.previous = env
 	f.pc = pc
@@ -349,19 +337,18 @@ func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int
 func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeCallAgain:
 	if fun.variant == typeFunction {
-		lfun := fun.function
-		if lfun.code != nil {
+		if fun.code != nil {
 			if checkInterrupt() {
 				return nil, 0, 0, nil, addContext(env, Error(InterruptKey))
 			}
-			if lfun.code.defaults == nil {
+			if fun.code.defaults == nil {
 				f := new(Frame)
 				f.previous = env
 				f.pc = savedPc
 				f.ops = ops
-				f.locals = lfun.frame
-				f.code = lfun.code
-				expectedArgc := lfun.code.argc
+				f.locals = fun.frame
+				f.code = fun.code
+				expectedArgc := fun.code.argc
 				if argc != expectedArgc {
 					return nil, 0, 0, nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 				}
@@ -372,21 +359,20 @@ opcodeCallAgain:
 				}
 				endSp := sp + argc
 				copy(f.elements, stack[sp:endSp])
-				return lfun.code.ops, 0, endSp, f, nil
+				return fun.code.ops, 0, endSp, f, nil
 			}
-			f, err := buildFrame(env, savedPc, ops, lfun, argc, stack, sp)
+			f, err := buildFrame(env, savedPc, ops, fun, argc, stack, sp)
 			if err != nil {
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			sp += argc
 			env = f
-			ops = lfun.code.ops
+			ops = fun.code.ops
 			return ops, 0, sp, env, err
 		}
-		if lfun.primitive != nil {
-			val, err := lfun.primitive.fun(stack[sp : sp+argc])
+		if fun.primitive != nil {
+			val, err := fun.primitive.fun(stack[sp : sp+argc])
 			if err != nil {
-				//to do: fix to throw an Ell continuation-based error
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			sp = sp + argc - 1
@@ -428,18 +414,18 @@ opcodeCallAgain:
 			stack[sp] = newContinuation(env, ops, savedPc, stack[sp+1:])
 			goto opcodeCallAgain
 		}
-		if lfun.continuation != nil {
+		if fun.continuation != nil {
 			println("funcall cont")
 			if argc != 1 {
 				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
 			}
 			arg := stack[sp]
-			sp = len(stack) - len(lfun.continuation.stack)
+			sp = len(stack) - len(fun.continuation.stack)
 			segment := stack[sp:]
-			copy(segment, lfun.continuation.stack)
+			copy(segment, fun.continuation.stack)
 			sp--
 			stack[sp] = arg
-			return lfun.continuation.ops, lfun.continuation.pc, sp, lfun.frame, nil
+			return fun.continuation.ops, fun.continuation.pc, sp, fun.frame, nil
 		}
 		panic("unsupported instruction")
 	}
@@ -461,26 +447,25 @@ opcodeCallAgain:
 func (vm *VM) tailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeTailCallAgain:
 	if fun.variant == typeFunction {
-		lfun := fun.function
-		if lfun.code != nil {
-			if lfun.code.defaults == nil && lfun.code == env.code { //self-tail-call - we can reuse the frame.
-				expectedArgc := lfun.code.argc
+		if fun.code != nil {
+			if fun.code.defaults == nil && fun.code == env.code { //self-tail-call - we can reuse the frame.
+				expectedArgc := fun.code.argc
 				if argc != expectedArgc {
 					return nil, 0, 0, nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 				}
 				endSp := sp + argc
 				copy(env.elements, stack[sp:endSp])
-				return lfun.code.ops, 0, endSp, env, nil
+				return fun.code.ops, 0, endSp, env, nil
 			}
-			f, err := buildFrame(env.previous, env.pc, env.ops, lfun, argc, stack, sp)
+			f, err := buildFrame(env.previous, env.pc, env.ops, fun, argc, stack, sp)
 			if err != nil {
 				return nil, 0, 0, nil, addContext(env, err)
 			}
 			sp += argc
-			return lfun.code.ops, 0, sp, f, nil
+			return fun.code.ops, 0, sp, f, nil
 		}
-		if lfun.primitive != nil {
-			val, err := lfun.primitive.fun(stack[sp : sp+argc])
+		if fun.primitive != nil {
+			val, err := fun.primitive.fun(stack[sp : sp+argc])
 			if err != nil {
 				return nil, 0, 0, nil, addContext(env, err)
 			}
@@ -514,17 +499,17 @@ opcodeTailCallAgain:
 			}
 			goto opcodeTailCallAgain
 		}
-		if lfun.continuation != nil {
+		if fun.continuation != nil {
 			if argc != 1 {
 				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
 			}
 			arg := stack[sp]
-			sp = len(stack) - len(lfun.continuation.stack)
+			sp = len(stack) - len(fun.continuation.stack)
 			segment := stack[sp:]
-			copy(segment, lfun.continuation.stack)
+			copy(segment, fun.continuation.stack)
 			sp--
 			stack[sp] = arg
-			return lfun.continuation.ops, lfun.continuation.pc, sp, lfun.frame, nil
+			return fun.continuation.ops, fun.continuation.pc, sp, fun.frame, nil
 		}
 		if fun == CallCC {
 			if argc != 1 {
@@ -565,7 +550,7 @@ func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp in
 	return env.ops, env.pc, sp, env.previous, nil
 }
 
-func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
+func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 	if verbose || trace {
 		return vm.instrumentedExec(code, args)
 	}
@@ -583,9 +568,9 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			argc := ops[pc+1]
 			fun := stack[sp]
 			if fun.variant == typeFunction {
-				if fun.function.primitive != nil {
+				if fun.primitive != nil {
 					nextSp := sp + argc
-					val, err := fun.function.primitive.fun(stack[sp+1 : nextSp+1])
+					val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
 					if err != nil {
 						return nil, addContext(env, err)
 					}
@@ -644,9 +629,9 @@ func (vm *VM) exec(code *LCode, args []*LOB) (*LOB, error) {
 			fun := stack[sp]
 			argc := ops[pc+1]
 			if fun.variant == fun.variant {
-				if fun.function.primitive != nil {
+				if fun.primitive != nil {
 					nextSp := sp + argc
-					val, err := fun.function.primitive.fun(stack[sp+1 : nextSp+1])
+					val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
 					if err != nil {
 						return nil, addContext(env, err)
 					}
@@ -812,7 +797,7 @@ func showStack(stack []*LOB, sp int) string {
 	return s + tail + " ]"
 }
 
-func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
+func (vm *VM) instrumentedExec(code *Code, args []*LOB) (*LOB, error) {
 	stack := make([]*LOB, vm.stackSize)
 	sp := vm.stackSize
 	env := new(Frame)
@@ -833,9 +818,8 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 		opcodeCallAgain:
 			switch fun.variant {
 			case typeFunction:
-				lfun := fun.function
-				if lfun.primitive != nil {
-					val, err := lfun.primitive.fun(stack[sp : sp+argc])
+				if fun.primitive != nil {
+					val, err := fun.primitive.fun(stack[sp : sp+argc])
 					if err != nil {
 						//to do: fix to throw an Ell continuation-based error
 						return nil, addContext(env, err)
@@ -843,18 +827,18 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					sp = sp + argc - 1
 					stack[sp] = val
 					pc = savedPc
-				} else if lfun.code != nil {
+				} else if fun.code != nil {
 					if checkInterrupt() {
 						return nil, addContext(env, Error(InterruptKey))
 					}
 
-					f, err := buildFrame(env, savedPc, ops, lfun, argc, stack, sp)
+					f, err := buildFrame(env, savedPc, ops, fun, argc, stack, sp)
 					if err != nil {
 						return nil, addContext(env, err)
 					}
 					sp += argc
 					env = f
-					ops = lfun.code.ops
+					ops = fun.code.ops
 					pc = 0
 				} else if fun == Apply {
 					if argc < 2 {
@@ -889,19 +873,19 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					fun = stack[sp]
 					stack[sp] = newContinuation(env, ops, savedPc, stack[sp+1:])
 					goto opcodeCallAgain
-				} else if lfun.continuation != nil {
+				} else if fun.continuation != nil {
 					if argc != 1 {
 						return nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
 					}
 					arg := stack[sp]
-					sp = len(stack) - len(lfun.continuation.stack)
+					sp = len(stack) - len(fun.continuation.stack)
 					segment := stack[sp:]
-					copy(segment, lfun.continuation.stack)
-					env = lfun.frame
+					copy(segment, fun.continuation.stack)
+					env = fun.frame
 					sp--
 					stack[sp] = arg
-					pc = lfun.continuation.pc
-					ops = lfun.continuation.ops
+					pc = fun.continuation.pc
+					ops = fun.continuation.ops
 				} else {
 					panic("bad instruction")
 				}
@@ -975,9 +959,8 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 		opcodeTailCallAgain:
 			switch fun.variant {
 			case typeFunction:
-				lfun := fun.function
-				if lfun.primitive != nil {
-					val, err := lfun.primitive.fun(stack[sp : sp+argc])
+				if fun.primitive != nil {
+					val, err := fun.primitive.fun(stack[sp : sp+argc])
 					if err != nil {
 						return nil, addContext(env, err)
 					}
@@ -989,13 +972,13 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					if env == nil {
 						return stack[sp], nil
 					}
-				} else if lfun.code != nil {
-					f, err := buildFrame(env.previous, env.pc, env.ops, lfun, argc, stack, sp)
+				} else if fun.code != nil {
+					f, err := buildFrame(env.previous, env.pc, env.ops, fun, argc, stack, sp)
 					if err != nil {
 						return nil, addContext(env, err)
 					}
 					sp += argc
-					code = lfun.code
+					code = fun.code
 					ops = code.ops
 					pc = 0
 					env = f
@@ -1032,19 +1015,19 @@ func (vm *VM) instrumentedExec(code *LCode, args []*LOB) (*LOB, error) {
 					fun = stack[sp]
 					stack[sp] = newContinuation(env.previous, env.ops, env.pc, stack[sp:])
 					goto opcodeTailCallAgain
-				} else if lfun.continuation != nil {
+				} else if fun.continuation != nil {
 					if argc != 1 {
 						return nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
 					}
 					arg := stack[sp]
-					sp = len(stack) - len(lfun.continuation.stack)
+					sp = len(stack) - len(fun.continuation.stack)
 					segment := stack[sp:]
-					copy(segment, lfun.continuation.stack)
-					env = lfun.frame
+					copy(segment, fun.continuation.stack)
+					env = fun.frame
 					sp--
 					stack[sp] = arg
-					pc = lfun.continuation.pc
-					ops = lfun.continuation.ops
+					pc = fun.continuation.pc
+					ops = fun.continuation.ops
 				} else {
 					panic("Bad instruction")
 				}

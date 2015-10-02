@@ -81,9 +81,8 @@ func isEmpty(obj *LOB) bool {
 		return len(seq.elements) == 0
 	case typeNull: //?
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 func length(obj *LOB) int {

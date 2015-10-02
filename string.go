@@ -209,9 +209,10 @@ func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
 		return newString(result), nil
 	case typeVector:
 		result := ""
-		count := len(seq.elements)
+		elements := seq.elements
+		count := len(elements)
 		for i := 0; i < count; i++ {
-			o := seq.elements[i]
+			o := elements[i]
 			if o != EmptyString && o != Null {
 				if result != "" {
 					result += delims.text

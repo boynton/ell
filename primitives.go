@@ -915,7 +915,7 @@ func ellFunctionSignature(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc == 1 {
 		if isFunction(argv[0]) {
-			return newString(argv[0].function.signature()), nil
+			return newString(functionSignature(argv[0])), nil
 		}
 		return nil, Error(ArgumentErrorKey, "function-signature expected a <function>, got a ", argv[0].variant)
 	}

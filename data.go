@@ -20,24 +20,29 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	//"unsafe"
 )
 
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
-	variant  *LOB       // i.e. <string>
-	function *LFunction // <function>
-	car      *LOB       // non-nil for instances and <list>
-	cdr      *LOB       // non-nil for <list>, nil for everything else
-	code     *LCode     //<code>
-	ival     int64      // <boolean>, <character>
-	fval     float64    //<number>
-	text     string     // <string>, <symbol>, <keyword>, <type>
-	elements []*LOB     // <vector>, <struct>
+	variant      *LOB   // i.e. <string>
+	code         *Code  // closure, code
+	frame        *Frame // closure, continuation
+	primitive    *Primitive
+	continuation *Continuation
+	car          *LOB    // non-nil for instances and <list>
+	cdr          *LOB    // non-nil for <list>, nil for everything else
+	ival         int64   // <boolean>, <character>
+	fval         float64 //<number>
+	text         string  // <string>, <symbol>, <keyword>, <type>
+	elements     []*LOB  // <vector>, <struct>
+	padTo120     int64
 }
 
 func newLOB(variant *LOB) *LOB {
 	lob := new(LOB)
+	//	println("lob size: ",unsafe.Sizeof(*lob))
 	lob.variant = variant
 	return lob
 }
@@ -69,7 +74,7 @@ func (lob *LOB) String() string {
 	case typeStruct:
 		return structToString(lob)
 	case typeFunction:
-		return lob.function.String()
+		return functionToString(lob)
 	case typeCode:
 		return lob.code.String()
 	case typeError:

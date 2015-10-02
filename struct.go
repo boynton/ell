@@ -42,9 +42,10 @@ func initStruct(strct *LOB, fieldvals []*LOB, count int) (*LOB, error) {
 		i++
 		switch value(o).variant {
 		case typeStruct: // not a valid key, just copy bindings from it
-			jmax := len(o.elements) / 2
+			elements := o.elements
+			jmax := len(elements) / 2
 			for j := 0; j < jmax; j += 2 {
-				put(strct, o.elements[j], o.elements[j+1])
+				put(strct, elements[j], elements[j+1])
 			}
 		case typeString, typeSymbol, typeKeyword, typeType:
 			if i == count {
@@ -80,7 +81,7 @@ func structGet(s *LOB, key *LOB) *LOB {
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
-			if bindings[i].variant == typeString && bindings[i].text == key.text {
+			if equal(bindings[i], key) {
 				return bindings[i+1]
 			}
 		}
@@ -137,7 +138,7 @@ func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
-			if bindings[i].variant == typeString && bindings[i].text == key.text {
+			if equal(bindings[i], key) {
 				bindings[i+1] = val
 				return obj, nil
 			}
@@ -212,11 +213,12 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 			}
 			bindings = slicePut(bindings, key, car(args))
 		case typeStruct:
-			jmax := len(key.elements)
+			elements := key.elements
+			jmax := len(elements)
 			for j := 0; j < jmax; j += 2 {
-				k := key.elements[j]
+				k := elements[j]
 				if sliceContains(keys, k) {
-					bindings = slicePut(bindings, k, key.elements[j+1])
+					bindings = slicePut(bindings, k, elements[j+1])
 				}
 			}
 		}
@@ -237,7 +239,7 @@ func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 		}
 	case typeString:
 		for i := 0; i < slen; i += 2 {
-			if bindings[i].variant == typeString && bindings[i].text == key.text {
+			if equal(bindings[i], key) {
 				bindings[i+1] = val
 				return bindings
 			}
@@ -250,7 +252,8 @@ func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 func structEqual(s1 *LOB, s2 *LOB) bool {
 	bindings1 := s1.elements
 	size := len(bindings1)
-	if size == len(s2.elements) {
+	bindings2 := s2.elements
+	if size == len(bindings2) {
 		for i := 0; i < size; i += 2 {
 			k := bindings1[i]
 			v := bindings1[i+1]
@@ -356,7 +359,7 @@ func structValueList(s *LOB) *LOB {
 
 func listToStruct(lst *LOB) (*LOB, error) {
 	strct := newLOB(typeStruct)
-	strct.elements = make([]*LOB, 0, len(lst.elements))
+	strct.elements = make([]*LOB, 0)
 	for lst != EmptyList {
 		k := lst.car
 		lst = lst.cdr
@@ -370,14 +373,15 @@ func listToStruct(lst *LOB) (*LOB, error) {
 			}
 			put(strct, k.car, k.cdr.car)
 		case typeVector:
-			n := len(k.elements)
+			elements := k.elements
+			n := len(elements)
 			if n != 2 {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
-			if !isValidStructKey(k.elements[0]) {
-				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.elements[0])
+			if !isValidStructKey(elements[0]) {
+				return nil, Error(ArgumentErrorKey, "Bad struct key: ", elements[0])
 			}
-			put(strct, k.elements[0], k.elements[1])
+			put(strct, elements[0], elements[1])
 		default:
 			if !isValidStructKey(k) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k)
@@ -410,14 +414,15 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 			}
 			put(strct, k.car, k.cdr.car)
 		case typeVector:
-			n := len(k.elements)
+			elements := k.elements
+			n := len(elements)
 			if n != 2 {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
-			if !isValidStructKey(k.elements[0]) {
+			if !isValidStructKey(elements[0]) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.elements[0])
 			}
-			put(strct, k.elements[0], k.elements[1])
+			put(strct, elements[0], elements[1])
 		case typeString, typeSymbol, typeKeyword, typeType:
 		default:
 			if !isValidStructKey(k) {

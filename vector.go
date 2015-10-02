@@ -21,12 +21,14 @@ import (
 )
 
 func vectorEqual(v1 *LOB, v2 *LOB) bool {
-	count := len(v1.elements)
-	if count != len(v2.elements) {
+	el1 := v1.elements
+	el2 := v2.elements
+	count := len(el1)
+	if count != len(el2) {
 		return false
 	}
 	for i := 0; i < count; i++ {
-		if !equal(v1.elements[i], v2.elements[i]) {
+		if !equal(el1[i], el2[i]) {
 			return false
 		}
 	}
@@ -34,14 +36,15 @@ func vectorEqual(v1 *LOB, v2 *LOB) bool {
 }
 
 func vectorToString(vec *LOB) string {
+	el := vec.elements
 	var buf bytes.Buffer
 	buf.WriteString("[")
-	count := len(vec.elements)
+	count := len(el)
 	if count > 0 {
-		buf.WriteString(vec.elements[0].String())
+		buf.WriteString(el[0].String())
 		for i := 1; i < count; i++ {
 			buf.WriteString(" ")
-			buf.WriteString(vec.elements[i].String())
+			buf.WriteString(el[i].String())
 		}
 	}
 	buf.WriteString("]")
@@ -77,23 +80,26 @@ func copyVector(vec *LOB) *LOB {
 }
 
 func vectorSet(vec *LOB, idx int, obj *LOB) error {
-	if idx < 0 || idx >= len(vec.elements) {
+	elements := vec.elements
+	if idx < 0 || idx >= len(elements) {
 		return Error(ArgumentErrorKey, "vector-set! index out of range: ", idx)
 	}
-	vec.elements[idx] = obj
+	elements[idx] = obj
 	return nil
 }
 
 func vectorRef(vec *LOB, idx int) *LOB {
-	if idx < 0 || idx >= len(vec.elements) {
+	elements := vec.elements
+	if idx < 0 || idx >= len(elements) {
 		return Null
 	}
-	return vec.elements[idx]
+	return elements[idx]
 }
 
 func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
 	//danger! mutation!
-	max := len(vec.elements)
+	elements := vec.elements
+	max := len(elements)
 	count := len(fieldvals)
 	i := 0
 	for i < count {
@@ -108,7 +114,7 @@ func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
 			if i == count {
 				return nil, Error(ArgumentErrorKey, "assoc! mismatched index/value: ", fieldvals)
 			}
-			vec.elements[idx] = fieldvals[i]
+			elements[idx] = fieldvals[i]
 			i++
 		default:
 			return nil, Error(ArgumentErrorKey, "assoc! bad vector index: ", key)

@@ -90,8 +90,8 @@ func initOpsyms() []*LOB {
 	return syms
 }
 
-// LCode - compiled Ell bytecode
-type LCode struct {
+// Code - compiled Ell bytecode
+type Code struct {
 	name     string
 	ops      []int
 	argc     int
@@ -101,7 +101,7 @@ type LCode struct {
 
 func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 	var ops []int
-	code := &LCode{
+	code := &Code{
 		name,
 		ops,
 		argc,
@@ -113,7 +113,7 @@ func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 	return result
 }
 
-func (code *LCode) signature() string {
+func (code *Code) signature() string {
 	//
 	//experimental: external annotations on the functions: *declarations* is a map from symbol to string
 	//
@@ -149,14 +149,14 @@ func (code *LCode) signature() string {
 	return tmp
 }
 
-func (code *LCode) decompile(pretty bool) string {
+func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
 	return strings.Replace(s, "(function (\"\" 0 [] [])", "(code", 1)
 }
 
-func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
+func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	indentAmount := "   "
 	offset := 0
 	max := len(code.ops)
@@ -218,12 +218,12 @@ func (code *LCode) decompileInto(buf *bytes.Buffer, indent string, pretty bool) 
 	buf.WriteString(")")
 }
 
-func (code *LCode) String() string {
+func (code *Code) String() string {
 	return code.decompile(true)
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *LCode) loadOps(lst *LOB) error {
+func (code *Code) loadOps(lst *LOB) error {
 	for lst != EmptyList {
 		instr := car(lst)
 		op := car(instr)
@@ -352,79 +352,79 @@ func (code *LCode) loadOps(lst *LOB) error {
 	return nil
 }
 
-func (code *LCode) emitLiteral(val *LOB) {
+func (code *Code) emitLiteral(val *LOB) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *LCode) emitGlobal(sym *LOB) {
+func (code *Code) emitGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitCall(argc int) {
+func (code *Code) emitCall(argc int) {
 	code.ops = append(code.ops, opcodeCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *LCode) emitReturn() {
+func (code *Code) emitReturn() {
 	code.ops = append(code.ops, opcodeReturn)
 }
-func (code *LCode) emitTailCall(argc int) {
+func (code *Code) emitTailCall(argc int) {
 	code.ops = append(code.ops, opcodeTailCall)
 	code.ops = append(code.ops, argc)
 }
-func (code *LCode) emitPop() {
+func (code *Code) emitPop() {
 	code.ops = append(code.ops, opcodePop)
 }
-func (code *LCode) emitLocal(i int, j int) {
+func (code *Code) emitLocal(i int, j int) {
 	code.ops = append(code.ops, opcodeLocal)
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *LCode) emitSetLocal(i int, j int) {
+func (code *Code) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, opcodeSetLocal)
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *LCode) emitDefGlobal(sym *LOB) {
+func (code *Code) emitDefGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitUndefGlobal(sym *LOB) {
+func (code *Code) emitUndefGlobal(sym *LOB) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitDefMacro(sym *LOB) {
+func (code *Code) emitDefMacro(sym *LOB) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *LCode) emitClosure(newCode *LOB) {
+func (code *Code) emitClosure(newCode *LOB) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, putConstant(newCode))
 }
-func (code *LCode) emitJumpFalse(offset int) int {
+func (code *Code) emitJumpFalse(offset int) int {
 	code.ops = append(code.ops, opcodeJumpFalse)
 	loc := len(code.ops)
 	code.ops = append(code.ops, offset)
 	return loc
 }
-func (code *LCode) emitJump(offset int) int {
+func (code *Code) emitJump(offset int) int {
 	code.ops = append(code.ops, opcodeJump)
 	loc := len(code.ops)
 	code.ops = append(code.ops, offset)
 	return loc
 }
-func (code *LCode) setJumpLocation(loc int) {
+func (code *Code) setJumpLocation(loc int) {
 	code.ops[loc] = len(code.ops) - loc + 1
 }
-func (code *LCode) emitVector(alen int) {
+func (code *Code) emitVector(alen int) {
 	code.ops = append(code.ops, opcodeVector)
 	code.ops = append(code.ops, alen)
 }
-func (code *LCode) emitStruct(slen int) {
+func (code *Code) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *LCode) emitUse(sym *LOB) {
+func (code *Code) emitUse(sym *LOB) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, putConstant(sym))
 }

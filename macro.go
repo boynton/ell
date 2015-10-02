@@ -79,9 +79,9 @@ func macroexpandList(expr *LOB) (*LOB, error) {
 func (mac *macro) expand(expr *LOB) (*LOB, error) {
 	expander := mac.expander
 	if expander.variant == typeFunction {
-		if expander.function.code != nil {
-			if expander.function.code.argc == 1 {
-				expanded, err := execCompileTime(expander.function.code, expr)
+		if expander.code != nil {
+			if expander.code.argc == 1 {
+				expanded, err := execCompileTime(expander.code, expr)
 				if err == nil {
 					if isList(expanded) {
 						return macroexpandObject(expanded)
@@ -90,9 +90,9 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 				}
 				return nil, err
 			}
-		} else if expander.function.primitive != nil {
+		} else if expander.primitive != nil {
 			args := []*LOB{expr}
-			expanded, err := expander.function.primitive.fun(args)
+			expanded, err := expander.primitive.fun(args)
 			if err == nil {
 				return macroexpandObject(expanded)
 			}
