@@ -1,0 +1,16 @@
+(use assert)
+
+(defgeneric add (x y))
+(defmethod add ((x <string>) y) (string x "|other|" y))
+(defmethod add ((x <number>) (y <number>)) (+ x y))
+(defmethod add ((x <string>) (y <string>)) (string x "|string|" y))
+(defmethod add ((x <list>) (y <list>)) (concat x y))
+(defmethod add ((x <vector>) (y <vector>)) (apply vector (concat (to-list x) (to-list y))))
+
+(assert-equal 3 (add 1 2) " for <number> <number>")
+(assert-equal "foo|string|bar" (add "foo" "bar") " for <string> <string>")
+(assert-equal "foo|other|bar" (add "foo" 'bar) " for <string> <any>")
+(assert-equal '(1 2 3 4) (add '(1 2) '(3 4)) " for <list> <list>")
+(assert-equal [1 2 3 4] (add [1 2] [3 4]) "for <vector> <vector>")
+
+(println "[multimethod_test OK]")

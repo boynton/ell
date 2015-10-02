@@ -146,8 +146,7 @@ func initEnvironment() {
 	defineFunction("uncaught-error", ellUncaughtError, "(<error>) <null>")
 	defineFunction("json", ellJSON, "(<any>) <string>")
 	defineFunction("getfn", ellGetFn, "(<symbol> <list>) <any>")
-	defineFunction("method-signature", ellMethodSignature, "(<list>) <symbol>")
-	defineFunction("arglist-signature", ellArglistSignature, "(<list>) <symbol>")
+	defineFunction("method-signature", ellMethodSignature, "(<list>) <type>")
 
 	if midi {
 		initMidi()
@@ -1199,8 +1198,7 @@ func ellGetFn(argv []*LOB) (*LOB, error) {
 	if sym.variant != typeSymbol {
 		return nil, Error(ArgumentErrorKey, "getfn expected a <symbol> for argument 1, got ", sym)
 	}
-	sig := arglistSignature(argv[1:])
-	return getfn(sym, sig)
+	return getfn(sym, argv[1:])
 }
 
 func ellMethodSignature(argv []*LOB) (*LOB, error) {
@@ -1213,8 +1211,4 @@ func ellMethodSignature(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "method-signature expected a <list>, got ", formalArgs)
 	}
 	return methodSignature(formalArgs)
-}
-
-func ellArglistSignature(argv []*LOB) (*LOB, error) {
-	return arglistSignature(argv), nil
 }

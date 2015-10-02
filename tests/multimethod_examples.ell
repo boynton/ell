@@ -1,5 +1,3 @@
-(use ell)
-
 (defgeneric foo (x y a))
 (defmethod foo (x y a) (list "any/any/any: " x y a))
 (defmethod foo ((x <number>) y a) (list "number/any/any: " x y a))
