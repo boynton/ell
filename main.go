@@ -123,4 +123,7 @@ func main() {
 			}
 		}
 	}
+	if midi {
+		midiClose(nil)
+	}
 }

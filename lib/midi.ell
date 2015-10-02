@@ -1,0 +1,145 @@
+(midi-open)
+
+(defn press (key vel)
+  (midi-write 144 key vel))
+
+(defn release (key vel)
+  (midi-write 128 key vel))
+
+(defn damper (n)
+  (midi-write 176 64 n))
+
+(def *now* 0)
+(def *waiting* '())
+(def *ready* '())
+(def *signals* '())
+
+(defn now ()
+  *now*)
+
+(defn schedule (continuation timeout cue)
+  (letrec ((time (+ *now* timeout))
+           (element (list time continuation cue false)))
+    (if (or (empty? *waiting*) (<= time (caar *waiting*)))
+        (set! *waiting* (cons element *waiting*))
+        (let ((tmp (cdr *waiting*)))
+          (if (empty? tmp)
+              (set-cdr! *waiting* (cons element '()))
+              (let loop ((tail *waiting*) (tail-cdr tmp))
+                (if (<= time (caar tail-cdr))
+                    (set-cdr! tail (cons element tail-cdr))
+                    (if (empty? (cdr tail-cdr))
+                        (set-cdr! tail-cdr (cons element '()))
+                        (loop (cdr tail) (cdr tail-cdr))))))))))
+
+(defn wait-until (t)
+  (let ((ms (- t (midi-time))))
+    (if (> ms 0)
+        (midi-sleep ms))))
+
+
+(defn context-switch ()
+  (let next-context ((ready *ready*))
+    (if (not (empty? ready))
+        (let ((task (car ready)))
+          (set! *now* (car task))
+          (set! *ready* (cdr ready))
+          ((cadr task) (cadddr task))))
+    (if (not (empty? *signals*))
+        (let signal-loop ((signal (car *signals*)))
+          (set! *signals* (cdr *signals*))
+          (let ((cue (car signal))
+                (value (cadr signal))
+                (tail *waiting*))
+            (let loop ((w *waiting*))
+              (if (not (empty? w))
+                  (if (equal? (caddar w) cue)
+                      (let ((tmp (cdr w)))
+                        (if (equal? w *waiting*)
+                            (set! *waiting* tmp)
+                            (set-cdr! tail tmp))
+                        (set-cdr! w *ready*)
+                        (set! *ready* w)
+                        (set-car! (car w) *now*)
+                        (set-car! (cdddar w) value)
+                        (loop tmp))
+                      (do
+                        (set! tail w)
+                        (loop (cdr w)))))))
+          (if (not (empty? *signals*))
+              (signal-loop (car *signals*))
+              (next-context *ready*))))
+    (if (not (empty? *waiting*))
+        (let ((time (caar *waiting*)))
+          (let wait-loop ((e (car *waiting*)))
+            (wait-until (car e))
+            (set! *waiting* (cdr *waiting*))
+            (set! *ready* (cons e *ready*))
+            (if (and (not (empty? *waiting*))
+                     (<= (caar *waiting*) time))
+                (wait-loop (car *waiting*))))
+          (next-context *ready*)))))
+
+(defn unique-cue () [])
+
+(defn reset-scheduler ()
+  (set! *now* 0)
+  (set! *waiting* '())
+  (set! *ready* '())
+  (set! *signals* '()))
+
+(defn wait (cue timeout)
+  (callcc
+   (fn (continuation)
+     (schedule continuation timeout cue)
+     (context-switch))))
+
+(defn signal (cue value)
+  (callcc
+   (fn (continuation)
+     (schedule continuation 0 cue)
+     (set! *signals* (cons (list cue value) *signals*))
+     (context-switch))))
+
+(defn sleep (delay)
+  (wait (unique-cue) delay))
+
+(defmacro parallel (& exprs)
+  (defn glue (expr)
+    `(schedule (fn (ignore) ~expr (join true)) 0 (unique-cue)))
+  `(let ((count ~(length exprs)))
+     (callcc
+      (fn (join)
+        ~@(map glue exprs)))
+     (if (> count 0)
+         (do
+           (set! count (dec count))
+           (context-switch)))))
+
+(defmacro sequential (& exprs)
+  `(do ~@exprs))
+
+(defmacro run (& exprs)
+  `(do
+     (set! *now* (midi-time))
+     ~@exprs))
+
+(defn note (key vel dur)
+  (press key vel)
+  (sleep dur)
+  (release key vel))
+
+(defn test ()
+  (run
+   (parallel
+    (sequential
+     (note 36 50 1500)
+     (let ((n (wait 'foo 5000)))
+       (if n
+           (note n 50 1000)
+           (println "whoops, timed out"))))
+    (sequential
+     (note 60 50 1000)
+     (note 65 50 1000)
+     (signal 'foo 24)
+     (note 67 50 1000)))))

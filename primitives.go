@@ -21,6 +21,8 @@ import (
 	"strings"
 )
 
+const midi = true
+
 // defines the global functions/variables/macros for the top level environment
 func initEnvironment() {
 
@@ -147,6 +149,9 @@ func initEnvironment() {
 	defineFunction("method-signature", ellMethodSignature, "(<list>) <symbol>")
 	defineFunction("arglist-signature", ellArglistSignature, "(<list>) <symbol>")
 
+	if midi {
+		initMidi()
+	}
 	err := loadModule("ell")
 	if err != nil {
 		fatal("*** ", err)

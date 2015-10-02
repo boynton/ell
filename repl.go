@@ -218,5 +218,8 @@ func readEvalPrintLoop() {
 }
 
 func exit(code int) {
+	if midi {
+		midiClose(nil)
+	}
 	repl.Exit(code)
 }
