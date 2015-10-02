@@ -417,7 +417,6 @@ opcodeCallAgain:
 			goto opcodeCallAgain
 		}
 		if fun.continuation != nil {
-			println("funcall cont")
 			if argc != 1 {
 				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
 			}
