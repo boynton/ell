@@ -314,8 +314,10 @@ func addContext(env *Frame, err error) error {
 		if env.code != nil {
 			if env.code.name != "throw" {
 				e.text = env.code.name
-			} else {
-				e.text = env.previous.code.name
+			} else if env.previous != nil {
+				if env.previous.code != nil {
+					e.text = env.previous.code.name
+				}
 			}
 		}
 	}
