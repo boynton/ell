@@ -793,7 +793,7 @@ func writeVector(vec *LOB, json bool, indent string, indentSize string) (string,
 func writeStruct(strct *LOB, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
-	size := len(strct.elements)
+	size := len(strct.bindings)
 	delim := ""
 	sep := " "
 	if json {
@@ -810,13 +810,14 @@ func writeStruct(strct *LOB, json bool, indent string, indentSize string) (strin
 			delim = delim + " "
 		}
 	}
-	for i := 0; i < size; i += 2 {
-		k := strct.elements[i]
-		v := strct.elements[i+1]
-		if i != 0 {
+	first := true
+	for k, v := range strct.bindings {
+		if first {
+			first = false
+		} else {
 			buf.WriteString(delim)
 		}
-		s, err := writeData(k, json, nextIndent, indentSize)
+		s, err := writeData(k.toLOB(), json, nextIndent, indentSize)
 		if err != nil {
 			return "", err
 		}

@@ -60,10 +60,10 @@ func signatureCombos(argtypes []*LOB) []string {
 		result := make([]string, 0, len(rest)*2)
 		this := argtypes[0]
 		for _, s := range rest {
-			result = append(result, this.text + s)
+			result = append(result, this.text+s)
 		}
 		for _, s := range rest {
-			result = append(result, typeAny.text + s)
+			result = append(result, typeAny.text+s)
 		}
 		return result
 	}

@@ -231,10 +231,11 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 		return nil
 	} else if isStruct(expr) {
 		//struct literal: the elements are evaluated
-		vlen := len(expr.elements)
+		vlen := len(expr.bindings) * 2
 		vals := make([]*LOB, 0, vlen)
-		for _, b := range expr.elements {
-			vals = append(vals, b)
+		for k, v := range expr.bindings {
+			vals = append(vals, k.toLOB())
+			vals = append(vals, v)
 		}
 		for i := vlen - 1; i >= 0; i-- {
 			obj := vals[i]
@@ -293,13 +294,11 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				if cdr(tmp) != EmptyList {
 					return Error(SyntaxErrorKey, tmp)
 				}
-				elen := len(a.elements)
-				slen := elen / 2
+				slen := len(a.bindings)
 				defaults = make([]*LOB, 0, slen)
 				keys = make([]*LOB, 0, slen)
-				for i := 0; i < elen; i += 2 {
-					sym := a.elements[i]
-					defValue := a.elements[i+1]
+				for k, defValue := range a.bindings {
+					sym := k.toLOB()
 					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {

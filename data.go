@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	//"unsafe"
 )
 
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
@@ -31,18 +30,17 @@ type LOB struct {
 	frame        *Frame // closure, continuation
 	primitive    *Primitive
 	continuation *Continuation
-	car          *LOB    // non-nil for instances and <list>
-	cdr          *LOB    // non-nil for <list>, nil for everything else
-	ival         int64   // <boolean>, <character>
-	fval         float64 //<number>
-	text         string  // <string>, <symbol>, <keyword>, <type>
-	elements     []*LOB  // <vector>, <struct>
-	padTo120     int64
+	car          *LOB         // non-nil for instances and <list>
+	cdr          *LOB         // non-nil for <list>, nil for everything else
+	text         string       // <string>, <symbol>, <keyword>, <type>
+	elements     []*LOB       // <vector>
+	fval         float64      //<number>
+	bindings     map[Key]*LOB // <struct>
+	ival         int64        // <boolean>, <character>
 }
 
 func newLOB(variant *LOB) *LOB {
 	lob := new(LOB)
-	//	println("lob size: ",unsafe.Sizeof(*lob))
 	lob.variant = variant
 	return lob
 }
