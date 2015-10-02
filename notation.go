@@ -491,10 +491,6 @@ func (dr *dataReader) decodeType(firstChar byte) (string, error) {
 	return s, nil
 }
 
-type dataWriter struct {
-	in *bufio.Writer
-}
-
 func namedChar(name string) (rune, error) {
 	switch name {
 	case "null":
