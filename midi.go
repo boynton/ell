@@ -23,8 +23,8 @@ func midiOpen(argv []*LOB) (*LOB, error) {
 		if err != nil {
 			return nil, err
 		}
-		deviceId := portmidi.GetDefaultOutputDeviceId()
-		out, err := portmidi.NewOutputStream(deviceId, bufsize, latency)
+		deviceID := portmidi.GetDefaultOutputDeviceId()
+		out, err := portmidi.NewOutputStream(deviceID, bufsize, latency)
 		if err != nil {
 			return nil, err
 		}
@@ -42,11 +42,10 @@ func midiSleep(argv []*LOB) (*LOB, error) {
 			return midiTime(nil)
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "midi-sleep takes a single number argument")	
+	return nil, Error(ArgumentErrorKey, "midi-sleep takes a single number argument")
 }
 
 func midiAllNotesOff() {
-	println("midiAllNotesOff")
 	if midiOut != nil {
 		midiOut.WriteShort(0xB0, 0x7B, 0x00)
 	}
