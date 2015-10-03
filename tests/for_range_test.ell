@@ -32,9 +32,11 @@
    (assert-equal '(4 3 2 1 0) x (string "for loop over a vector: " x)))
 
 
-(let ((x '()))
-   (for (i {x: 1 y: 2 z: 3}) (set! x (cons i x)))
-   (assert-equal '((z: 3) (y: 2) (x: 1)) x (string "for loop over a struct: " x)))
+(let ((x '()) (ref {x: 1 y: 2 z: 3}))
+  ;;note: the order of the keys is random, so we cannot simply compare the resulting list with any constant
+  (for (i ref) (set! x (cons i x)))
+  (assert (and (= 3 (length x)) (list? (car x)) (= 2 (length (car x)))) "for loop over a struct (1)")
+  (assert-equal (apply struct (flatten x)) ref "for loop over a struct (2)"))
 
 (let ((x '()))
    (for (i "abc") (set! x (cons i x)))

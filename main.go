@@ -94,7 +94,7 @@ func main() {
 		readEvalPrintLoop()
 	} else {
 		if *pOptimize {
-			 optimize = *pOptimize
+			optimize = *pOptimize
 		}
 		if *pVerbose {
 			verbose = *pVerbose
