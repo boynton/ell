@@ -119,10 +119,13 @@
 (defmacro sequential (& exprs)
   `(do ~@exprs))
 
+(defn run-async (fn)
+  (spawn fn))
+
 (defmacro run (& exprs)
-  `(do
-     (set! *now* (midi-time))
-     ~@exprs))
+  `(run-async (fn ()
+                (set! *now* (midi-time))
+                ~@exprs)))
 
 (defn note (key vel dur)
   (press key vel)
