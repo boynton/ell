@@ -132,7 +132,13 @@
   (sleep dur)
   (release key vel))
 
-(defn test ()
+(defn midi-test ()
+   (for (i 21 108)
+     (press i 50)
+     (midi-sleep 10)
+     (release i 0)))
+
+(defn scheduler-test ()
   (run
    (parallel
     (sequential
@@ -146,3 +152,4 @@
      (note 65 50 1000)
      (signal 'foo 24)
      (note 67 50 1000)))))
+
