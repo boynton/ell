@@ -34,9 +34,10 @@ type LOB struct {
 	cdr          *LOB         // non-nil for <list>, nil for everything else
 	text         string       // <string>, <symbol>, <keyword>, <type>
 	elements     []*LOB       // <vector>
-	fval         float64      //<number>
+	fval         float64      // <number>
 	bindings     map[Key]*LOB // <struct>
 	ival         int64        // <boolean>, <character>
+	channel      chan *LOB    // <channel>
 }
 
 func newLOB(variant *LOB) *LOB {
@@ -77,6 +78,18 @@ func (lob *LOB) String() string {
 		return lob.code.String()
 	case typeError:
 		return "#<error>" + write(lob.car)
+	case typeChannel:
+		s := "#[channel"
+		if lob.text != "" {
+			s += " " + lob.text
+		}
+		if lob.ival > 0 {
+			s += fmt.Sprintf(" [%d]", lob.ival)
+		}
+		if lob.channel == nil {
+			s += " CLOSED"
+		}
+		return s + "]"
 	default:
 		return "#" + lob.variant.text + write(lob.car)
 	}
@@ -97,6 +110,15 @@ var typeStruct = intern("<struct>")
 var typeFunction = intern("<function>")
 var typeCode = intern("<code>")
 var typeError = intern("<error>")
+var typeChannel = intern("<channel>")
+
+func isTextual(o *LOB) bool {
+	switch o.variant {
+	case typeString, typeSymbol, typeKeyword, typeType:
+		return true
+	}
+	return false
+}
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
 var Null = &LOB{variant: typeNull}
@@ -292,3 +314,13 @@ var IOErrorKey = intern("io-error:")
 
 // InterruptKey
 var InterruptKey = intern("interrupt:")
+
+// channels
+
+func newChannel(bufsize int, name string) *LOB {
+	lob := newLOB(typeChannel)
+	lob.channel = make(chan *LOB, bufsize)
+	lob.ival = int64(bufsize)
+	lob.text = name
+	return lob
+}

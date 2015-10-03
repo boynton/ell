@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const midi = true
@@ -149,6 +150,10 @@ func initEnvironment() {
 	defineFunction("method-signature", ellMethodSignature, "(<list>) <type>")
 
 	defineFunction("spawn", ellSpawn, "(<function>)")
+	defineFunction("channel", ellChannel, "(<channel>)")
+	defineFunction("send", ellSend, "(<channel> <any>) <boolean>")
+	defineFunction("recv", ellReceive, "(<channel>) <any>")
+	defineFunction("close", ellClose, "(<channel>)")
 
 	if midi {
 		initMidi()
@@ -1228,4 +1233,126 @@ func ellSpawn(argv []*LOB) (*LOB, error) {
 		}
 	}
 	return nil, Error(ArgumentErrorKey, "spawn expects 1 function")
+}
+
+func ellChannel(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	bufsize := 0
+	name := ""
+	if argc > 0 {
+		options, err := getOptions(argv, "name:", "bufsize:")
+		if err != nil {
+			return nil, err
+		}
+		opt := structGet(options, intern("name:"))
+		if opt != Null {
+			switch opt.variant {
+			case typeString, typeSymbol:
+				name = opt.text
+			default:
+				return nil, Error(ArgumentErrorKey, "channel expected a <string> or <symbol> as name: argument, got ", opt)
+			}
+		}
+		opt = structGet(options, intern("bufsize:"))
+		if opt != Null {
+			bufsize, err = intValue(opt)
+			if err != nil {
+				return nil, Error(ArgumentErrorKey, "channel expected a <number> as bufsize: argument, got ", opt)
+			}
+		}
+	}
+	return newChannel(bufsize, name), nil
+}
+
+func ellClose(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc != 1 {
+		return nil, Error(ArgumentErrorKey, "close expected 1 argument, got ", argc)
+	}
+	ch := argv[0]
+	if ch.variant != typeChannel {
+		return nil, Error(ArgumentErrorKey, "close expected a <channel> for argument 1, got ", ch)
+	}
+	if ch.channel != nil {
+		close(ch.channel)
+		ch.channel = nil
+	}
+	return Null, nil
+}
+
+func ellSend(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	timeout := 0
+	if argc == 3 {
+		f, err := floatValue(argv[2])
+		if err != nil {
+			return nil, Error(ArgumentErrorKey, "send expected a number for its optional third argument, got ", argv[1])
+		}
+		timeout = int(f * 1000)
+	}
+	if argc < 2 || argc > 3 {
+		return nil, Error(ArgumentErrorKey, "send expected 2 or 3 arguments, got ", argc)
+	}
+	ch := argv[0]
+	if ch.variant != typeChannel {
+		return nil, Error(ArgumentErrorKey, "send expected a <channel> for argument 1, got ", ch)
+	}
+	val := argv[1]
+	if ch.channel != nil {
+		if timeout > 0 {
+			dur := time.Millisecond * time.Duration(timeout)
+			select {
+			case ch.channel <- val:
+				return True, nil
+			case <-time.After(dur):
+			}
+		} else {
+			select {
+			case ch.channel <- val:
+				return True, nil
+			default:
+			}
+		}
+	}
+	return False, nil
+}
+
+func ellReceive(argv []*LOB) (*LOB, error) {
+	timeout := 0
+	argc := len(argv)
+	if argc == 2 {
+		f, err := floatValue(argv[1])
+		if err != nil {
+			return nil, Error(ArgumentErrorKey, "recv expected a number for its optional second argument, got ", argv[1])
+		}
+		timeout = int(f * 1000)
+	}
+	if argc < 1 || argc > 2 {
+		return nil, Error(ArgumentErrorKey, "recv expected 1 or 2 arguments, got ", argc)
+	}
+	ch := argv[0]
+	if ch.variant != typeChannel {
+		return nil, Error(ArgumentErrorKey, "recv expected a <channel> for argument 1, got ", ch)
+	}
+	if ch.channel != nil {
+		if timeout > 0 {
+			dur := time.Millisecond * time.Duration(timeout)
+			select {
+			case val, ok := <-ch.channel:
+				if ok {
+					return val, nil
+				}
+			case <-time.After(dur):
+			}
+		} else {
+			select {
+			case val, ok := <-ch.channel:
+				if ok {
+					return val, nil
+				}
+			default:
+			}
+		}
+	}
+	return Null, nil
 }
