@@ -23,10 +23,7 @@ import (
 )
 
 var trace bool
-
-func setTrace(b bool) {
-	trace = b
-}
+var optimize bool
 
 func str(o interface{}) string {
 	if lob, ok := o.(*LOB); ok {
@@ -85,12 +82,26 @@ var conses = 0
 func execCompileTime(code *Code, args ...*LOB) (*LOB, error) {
 	prev := verbose
 	verbose = false
-	res, err := exec(code, args...)
+	res, err := exec(code, args)
 	verbose = prev
 	return res, err
 }
 
-func exec(code *Code, args ...*LOB) (*LOB, error) {
+func spawn(code *Code, args []*LOB) {
+	argcopy := make([]*LOB, len(args), len(args))
+	copy(argcopy, args)
+	go func() {
+		_, err := exec(code, argcopy)
+		if err != nil {
+			println("; [*** error in spawned function '", code.name, "': ", err, "]")
+		} else if verbose {
+			println("; [spawned function '", code.name, "' exited cleanly]")
+		}
+	}()
+}
+
+//func exec(code *Code, args ...*LOB) (*LOB, error) {
+func exec(code *Code, args []*LOB) (*LOB, error) {
 	if verbose {
 		inExec = true
 		conses = 0
@@ -552,7 +563,7 @@ func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp in
 }
 
 func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
-	if verbose || trace {
+	if !optimize || verbose || trace {
 		return vm.instrumentedExec(code, args)
 	}
 	stack := make([]*LOB, vm.stackSize)
@@ -568,21 +579,19 @@ func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 		if op == opcodeCall { // CALL
 			argc := ops[pc+1]
 			fun := stack[sp]
-			if fun.variant == typeFunction {
-				if fun.primitive != nil {
-					nextSp := sp + argc
-					val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
-					if err != nil {
-						return nil, addContext(env, err)
-					}
-					stack[nextSp] = val
-					sp = nextSp
-					pc += 2
-				} else {
-					ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
-					if err != nil {
-						return nil, err
-					}
+			if fun.primitive != nil {
+				nextSp := sp + argc
+				val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
+				if err != nil {
+					return nil, addContext(env, err)
+				}
+				stack[nextSp] = val
+				sp = nextSp
+				pc += 2
+			} else if fun.variant == typeFunction {
+				ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
+				if err != nil {
+					return nil, err
 				}
 			} else if fun.variant == typeKeyword {
 				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
@@ -594,9 +603,6 @@ func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 			}
 		} else if op == opcodeGlobal { //GLOBAL
 			sym := constants[ops[pc+1]]
-			if sym.car == nil {
-				return nil, addContext(env, Error(ErrorKey, "Undefined symbol: ", sym))
-			}
 			sp--
 			stack[sp] = sym.car
 			pc += 2
@@ -624,34 +630,29 @@ func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 			sp++
 			pc++
 		} else if op == opcodeTailCall {
-			if checkInterrupt() {
-				return nil, addContext(env, Error(InterruptKey))
-			}
 			fun := stack[sp]
 			argc := ops[pc+1]
-			if fun.variant == fun.variant {
-				if fun.primitive != nil {
-					nextSp := sp + argc
-					val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
-					if err != nil {
-						return nil, addContext(env, err)
-					}
-					stack[nextSp] = val
-					sp = nextSp
-					ops = env.ops
-					pc = env.pc
-					env = env.previous
-					if env == nil {
-						return stack[sp], nil
-					}
-				} else {
-					ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
-					if env == nil {
-						return stack[sp], nil
-					}
-					if err != nil {
-						return nil, err
-					}
+			if fun.primitive != nil {
+				nextSp := sp + argc
+				val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
+				if err != nil {
+					return nil, addContext(env, err)
+				}
+				stack[nextSp] = val
+				sp = nextSp
+				ops = env.ops
+				pc = env.pc
+				env = env.previous
+				if env == nil {
+					return stack[sp], nil
+				}
+			} else if fun.variant == fun.variant {
+				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
+				if env == nil {
+					return stack[sp], nil
+				}
+				if err != nil {
+					return nil, err
 				}
 			} else if fun.variant == typeKeyword {
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
@@ -680,9 +681,6 @@ func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 			stack[sp] = newClosure(constants[ops[pc+1]].code, env)
 			pc = pc + 2
 		} else if op == opcodeReturn {
-			if checkInterrupt() {
-				return nil, addContext(env, Error(InterruptKey))
-			}
 			if env.previous == nil {
 				return stack[sp], nil
 			}
@@ -924,6 +922,9 @@ func (vm *VM) instrumentedExec(code *Code, args []*LOB) (*LOB, error) {
 			for i > 0 {
 				tmpEnv = tmpEnv.locals
 				i--
+			}
+			if tmpEnv == nil {
+				return nil, addContext(env, Error(ErrorKey, "Closed over environment not available in this context"))
 			}
 			j := ops[pc+2]
 			val := tmpEnv.elements[j]

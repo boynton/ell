@@ -156,7 +156,8 @@ func use(sym *LOB) error {
 }
 
 func importCode(thunk *LOB) (*LOB, error) {
-	result, err := exec(thunk.code)
+	args := make([]*LOB,0)
+	result, err := exec(thunk.code, args)
 	if err != nil {
 		return nil, err
 	}

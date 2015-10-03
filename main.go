@@ -41,6 +41,7 @@ var interrupts chan os.Signal
 
 func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
+	pOptimize := flag.Bool("o", false, "optimize execution speed, should work for correct code, but doesn't check everything")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
 	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
 	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
@@ -78,22 +79,28 @@ func main() {
 				}
 			}
 		}
+		if *pOptimize {
+			optimize = *pOptimize
+		}
 		if *pVerbose {
 			verbose = *pVerbose
 		}
 		if *pTrace {
-			setTrace(*pTrace)
+			trace = *pTrace
 		}
 		interrupts = make(chan os.Signal, 1)
 		signal.Notify(interrupts, os.Interrupt)
 		defer signal.Stop(interrupts)
 		readEvalPrintLoop()
 	} else {
+		if *pOptimize {
+			 optimize = *pOptimize
+		}
 		if *pVerbose {
 			verbose = *pVerbose
 		}
 		if *pTrace {
-			setTrace(*pTrace)
+			trace = *pTrace
 		}
 		interactive = false
 		/*

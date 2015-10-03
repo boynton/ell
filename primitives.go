@@ -148,6 +148,8 @@ func initEnvironment() {
 	defineFunction("getfn", ellGetFn, "(<symbol> <list>) <any>")
 	defineFunction("method-signature", ellMethodSignature, "(<list>) <type>")
 
+	defineFunction("spawn", ellSpawn, "(<function>)")
+
 	if midi {
 		initMidi()
 	}
@@ -1211,4 +1213,19 @@ func ellMethodSignature(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "method-signature expected a <list>, got ", formalArgs)
 	}
 	return methodSignature(formalArgs)
+}
+
+//spawn a new "go routine" for the thunk
+func ellSpawn(argv []*LOB) (*LOB, error) {
+	argc := len(argv)
+	if argc >= 1 {
+		fun := argv[0]
+		if isFunction(fun) {
+			if fun.code != nil {
+				spawn(fun.code, argv[1:])
+				return Null, nil
+			}
+		}
+	}
+	return nil, Error(ArgumentErrorKey, "spawn expects 1 function")
 }
