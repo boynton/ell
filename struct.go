@@ -177,7 +177,6 @@ func validateKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
 }
 
 func validateKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
-	println("validateKeywordArgs: ", args, ", keys: ", keys)
 	tmp, err := validateKeywordArgBindings(args, keys)
 	if err != nil {
 		return nil, err
@@ -196,11 +195,11 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 			fallthrough
 		case typeKeyword:
 			if !sliceContains(keys, key) {
-				return nil, Error(key, " bad keyword parameter. Allowed keys: ", keys)
+				return nil, Error(ArgumentErrorKey, key, " bad keyword parameter. Allowed keys: ", keys)
 			}
 			args = args.cdr
 			if args == EmptyList {
-				return nil, Error(key, " mismatched keyword/value pair in parameter")
+				return nil, Error(ArgumentErrorKey, key, " mismatched keyword/value pair in parameter")
 			}
 			bindings = slicePut(bindings, key, car(args))
 		case typeStruct:
@@ -210,6 +209,8 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 					bindings = slicePut(bindings, sym, v)
 				}
 			}
+		default:
+			return nil, Error(ArgumentErrorKey, "Not a keyword: ", key)
 		}
 		args = args.cdr
 	}
