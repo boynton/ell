@@ -21,20 +21,6 @@ import (
 )
 
 func cons(car *LOB, cdr *LOB) *LOB {
-	if true { //for dev. No external code should call into this, internal code should always be correct
-		if car == nil {
-			panic("Assertion failure: don't call cons with nil as car")
-		}
-		if cdr == nil {
-			panic("Assertion failure: don't call cons with nil as cdr")
-		}
-		if !isList(cdr) {
-			panic("Assertion failure: don't call cons with non-list as cdr")
-		}
-	}
-	if inExec {
-		conses++
-	}
 	result := newLOB(typeList)
 	result.car = car
 	result.cdr = cdr

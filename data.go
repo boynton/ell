@@ -51,10 +51,9 @@ func identical(o1 *LOB, o2 *LOB) bool {
 }
 
 func (lob *LOB) String() string {
-	if lob == Null {
-		return "null"
-	}
 	switch lob.variant {
+	case typeNull:
+		return "null"
 	case typeBoolean:
 		if lob == True {
 			return "true"

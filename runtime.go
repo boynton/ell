@@ -76,9 +76,6 @@ func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
 
 const defaultStackSize = 1000
 
-var inExec = false
-var conses = 0
-
 func execCompileTime(code *Code, args ...*LOB) (*LOB, error) {
 	prev := verbose
 	verbose = false
@@ -102,10 +99,6 @@ func spawn(code *Code, args []*LOB) {
 
 //func exec(code *Code, args ...*LOB) (*LOB, error) {
 func exec(code *Code, args []*LOB) (*LOB, error) {
-	if verbose {
-		inExec = true
-		conses = 0
-	}
 	vm := newVM(defaultStackSize)
 	if len(args) != code.argc {
 		return nil, Error(ArgumentErrorKey, "Wrong number of arguments")
@@ -114,9 +107,7 @@ func exec(code *Code, args []*LOB) (*LOB, error) {
 	result, err := vm.exec(code, args)
 	dur := time.Since(startTime)
 	if verbose {
-		inExec = false
 		println("; executed in ", dur)
-		println("; allocated list cells: ", conses)
 	}
 	if err != nil {
 		return nil, err
