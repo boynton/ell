@@ -56,10 +56,10 @@ func (lob *LOB) String() string {
 	}
 	switch lob.variant {
 	case typeBoolean:
-		if lob.ival == 0 {
-			return "false"
+		if lob == True {
+			return "true"
 		}
-		return "true"
+		return "false"
 	case typeCharacter:
 		return string([]rune{rune(lob.ival)})
 	case typeNumber:
