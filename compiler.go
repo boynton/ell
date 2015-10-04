@@ -394,12 +394,12 @@ func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, igno
 	if argc < 0 {
 		return Error(SyntaxErrorKey, cons(fn, args))
 	}
+	//fprim := global(fn)
+	//if fprim != nil && fprim.primitive != nil && !isTail { ... something more optimized. We known function signature. }
 	err := compileArgs(target, env, args, context)
 	if err != nil {
 		return err
 	}
-	//fval := global(fn)
-	//if the function is defined, we can do some additional compile-time argc check. In a dynamic env, though, not a win
 	err = compileExpr(target, env, fn, false, false, context)
 	if err != nil {
 		return err
