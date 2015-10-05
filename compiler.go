@@ -376,15 +376,18 @@ func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResul
 func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) (*LOB, *LOB) {
 	size := length(args)
 	if size == 2 {
-		if fn == intern("+") {
-			//(+ 1 x) == (+ x 1) == (1+ x)
-			if equal(One, car(args)) {
+		switch fn {
+		case intern("+"):
+			if equal(One, car(args)) { // (+ 1 x) ->  inc x)
 				return intern("inc"), cdr(args)
-			} else if equal(One, cadr(args)) {
+			} else if equal(One, cadr(args)) { // (+ x 1) -> (inc x)
 				return intern("inc"), list(car(args))
 			}
-		}
-		//other things to collapse?
+		case intern("-"):
+			if equal(One, cadr(args)) { // (- x 1) -> (dec x)
+				return intern("dec"), list(car(args))
+			}
+		} 
 	}
 	return fn, args
 }
@@ -395,7 +398,7 @@ func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, igno
 		return Error(SyntaxErrorKey, cons(fn, args))
 	}
 	//fprim := global(fn)
-	//if fprim != nil && fprim.primitive != nil && !isTail { ... something more optimized. We known function signature. }
+	//if fprim != nil && fprim.primitive != nil && !isTail { ... something more optimized. We know the function signature. }
 	err := compileArgs(target, env, args, context)
 	if err != nil {
 		return err
