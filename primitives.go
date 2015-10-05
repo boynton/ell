@@ -18,7 +18,6 @@ package main
 // the primitive functions for the languages
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -39,125 +38,141 @@ func initEnvironment() {
 	define("apply", Apply)
 	define("callcc", CallCC)
 
-	defineFunction("version", ellVersion, "()")
+	defineTypedFunction("version", ellVersion, typeString, []*LOB{}, nil, nil)
 
-	defineFunction("boolean?", ellBooleanP, "(<any>) <boolean>")
-	defineFunction("not", ellNot, "(<any>) <boolean>")
+	defineTypedFunction("boolean?", ellBooleanP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("not", ellNot, typeBoolean, []*LOB{typeAny}, nil, nil)
 
-	defineFunction("equal?", ellEq, "(<any> <any>) <boolean>")
-	defineFunction("identical?", ellIdenticalP, "(<any> <any>) <boolean>")
+	defineTypedFunction("equal?", ellEqualP, typeBoolean, []*LOB{typeAny, typeAny}, nil, nil)
+	defineTypedFunction("identical?", ellIdenticalP, typeBoolean, []*LOB{typeAny, typeAny}, nil, nil)
 
-	defineFunction("null?", ellNullP, "(<any>) <boolean>")
+	defineTypedFunction("null?", ellNullP, typeBoolean, []*LOB{typeAny}, nil, nil)
 
-	defineFunction("def?", ellDefinedP, "(<any>)")
+	defineTypedFunction("def?", ellDefinedP, typeBoolean, []*LOB{typeSymbol}, nil, nil)
 
-	defineFunction("type", ellType, "(<any>) <type>")
-	defineFunction("value", ellValue, "<any>) <any>")
+	defineTypedFunction("type", ellType, typeType, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("value", ellValue, typeAny, []*LOB{typeAny}, nil, nil)
 
-	defineFunction("instance", ellInstance, "(<type> <any>) <any>")
-	defineFunction("validate-keyword-arg-list", ellValidateKeywordArgList, "(<list> <keyword>+) <list>") // used by defstruct
+	defineTypedFunction("instance", ellInstance, typeAny, []*LOB{typeType, typeAny}, nil, nil)
 
-	defineFunction("type?", ellTypeP, "(<any>) <boolean>")
-	defineFunction("type-name", ellTypeName, "(<type>) <symbol>")
+	defineTypedFunction("type?", ellTypeP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("type-name", ellTypeName, typeSymbol, []*LOB{typeType}, nil, nil)
 
-	defineFunction("keyword?", ellKeywordP, "(<any>) <boolean>")
-	defineFunction("keyword-name", ellKeywordName, "(<keyword>) <symbol>")
+	defineTypedFunction("keyword?", ellKeywordP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("keyword-name", ellKeywordName, typeSymbol, []*LOB{typeKeyword}, nil, nil)
 
-	defineFunction("symbol?", ellSymbolP, "(<any>) <boolean>")
-	defineFunction("symbol", ellSymbol, "(<any>+) <boolean>")
+	defineTypedFunction("symbol?", ellSymbolP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineFunction("symbol", ellSymbol, "(<any>+) <boolean>") // 1..N args
 
-	defineFunction("string?", ellStringP, "(<any>) <boolean>")
-	defineFunction("string", ellString, "(<any>*) <string>")
-	defineFunction("to-string", ellToString, "(<any>) <string>")
+	defineTypedFunction("string?", ellStringP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineFunction("string", ellString, "(<any>*) <string>") // 0..N args
+	defineTypedFunction("to-string", ellToString, typeString, []*LOB{typeAny}, nil, nil)
 	//	defineFunction("format", ellFormat, "(<string> <any>*) <string>")
-	defineFunction("split", ellSplit, "(<any>) <sequence>")
-	defineFunction("join", ellJoin, "(<sequence>) <any>")
+	defineTypedFunction("split", ellSplit, typeList, []*LOB{typeString, typeString}, nil, nil)
+	defineFunction("join", ellJoin, "(<sequence> <string>) <any>") // <list|vector>
 
-	defineFunction("character?", ellCharacterP, "(<any>) <boolean>")
-	defineFunction("to-character", ellToCharacter, "(<any>) <character>")
+	defineTypedFunction("character?", ellCharacterP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("to-character", ellToCharacter, typeCharacter, []*LOB{typeAny}, nil, nil)
 
-	defineFunction("number?", ellNumberP, "(<any>) <boolean>") // either float or int
-	defineFunction("int?", ellIntP, "(<any>) <boolean>")       //int only
-	defineFunction("float?", ellFloatP, "(<any>) <boolean>")   //float only
-	defineFunction("inc", ellInc, "(<number>) <number>")
-	defineFunction("dec", ellDec, "(<number>) <number>")
-	defineFunction("+", ellPlus, "(<number>*) <number>")
-	defineFunction("-", ellMinus, "(<number>+) <number>")
-	defineFunction("*", ellTimes, "(<number>*) <number>")
-	defineFunction("/", ellDiv, "(<number>+) <number>")
-	defineFunction("quotient", ellQuotient, "(<number> <number>) <number>")
-	defineFunction("remainder", ellRemainder, "(<number> <number>) <number>")
-	defineFunction("modulo", ellRemainder, "(<number> <number>) <number>") //fix!
+	defineTypedFunction("number?", ellNumberP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("int?", ellIntP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("float?", ellFloatP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("inc", ellInc, typeNumber, []*LOB{typeNumber}, nil, nil)
+	defineTypedFunction("dec", ellDec, typeNumber, []*LOB{typeNumber}, nil, nil)
+	defineTypedFunction("+", ellAdd, typeNumber, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("-", ellSub, typeNumber, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("*", ellMul, typeNumber, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("/", ellDiv, typeNumber, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("quotient", ellQuotient, typeNumber, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("remainder", ellRemainder, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
+	defineTypedFunction("modulo", ellRemainder, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil) //fix
 
-	defineFunction("=", ellNumeq, "(<number>+) <boolean>")
-	defineFunction("<=", ellLe, "(<number>+) <boolean>")
-	defineFunction(">=", ellGe, "(<number>+) <boolean>")
-	defineFunction(">", ellGt, "(<number>+) <boolean>")
-	defineFunction("<", ellLt, "(<number>+) <boolean>")
-	defineFunction("zero?", ellZeroP, "(<number>) <boolean>")
+//	defineFunction("+", ellSum, "(<number>*) <number>")
+//	defineFunction("-", ellDifference, "(<number>+) <number>")
+//	defineFunction("*", ellProduct, "(<number>*) <number>")
+//	defineFunction("/", ellDivision, "(<number>+) <number>")
 
-	defineFunction("list?", ellListP, "(<any>) <boolean>")
-	defineFunction("to-list", ellToList, "(<any>) <list>")
-	defineFunction("cons", ellCons, "(<any> <list>) <list>")
-	defineFunction("car", ellCar, "(<list>) <any>")
-	defineFunction("cdr", ellCdr, "(<list>) <list>")
-	defineFunction("list", ellList, "(<any>*) <list>")
-	defineFunction("concat", ellConcat, "(<list>*) <list>")
-	defineFunction("reverse", ellReverse, "(<list>) <list>")
-	defineFunction("flatten", ellFlatten, "(<list>) <list>")
-	defineFunction("set-car!", ellSetCarBang, "(<list> <any>) <null>")  //mutate!
-	defineFunction("set-cdr!", ellSetCdrBang, "(<list> <list>) <null>") //mutate!
+	defineTypedFunction("=", ellNumEqual, typeBoolean, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("<=", ellNumLessEqual, typeBoolean, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction(">=", ellNumGreaterEqual, typeBoolean, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction(">", ellNumGreater, typeBoolean, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("<", ellNumLess, typeBoolean, []*LOB{typeNumber,typeNumber}, nil, nil)
+	defineTypedFunction("zero?", ellZeroP, typeBoolean, []*LOB{typeNumber}, nil, nil)
 
-	defineFunction("vector?", ellVectorP, "(<any>) <boolean>")
-	defineFunction("to-vector", ellToVector, "(<any>) <vector>")
-	defineFunction("vector", ellVector, "(<any>*) <vector>")
-	defineFunction("make-vector", ellMakeVector, "(<number> <any>) <vector>")
+	defineTypedFunction("list?", ellListP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("to-list", ellToList, typeList, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("cons", ellCons, typeList, []*LOB{typeAny, typeList}, nil, nil)
+	defineTypedFunction("car", ellCar, typeAny, []*LOB{typeList}, nil, nil)
+	defineTypedFunction("cdr", ellCdr, typeList, []*LOB{typeList}, nil, nil)
+//	defineTypedFunction("list", ellList, typeList, []*LOB{typeAny}, nil, nil) //0..n args
+//	defineFunction("list", ellList, "(<any>*) <list>") //could be defined as (defn list args args) more simply!
+	defineFunction("concat", ellConcat, "(<list>*) <list>") //0..n args
+	defineTypedFunction("reverse", ellReverse, typeList, []*LOB{typeList}, nil, nil)
+	defineFunction("flatten", ellFlatten, "(<list|vector>) <list>") //union type
+	defineTypedFunction("set-car!", ellSetCarBang, typeNull, []*LOB{typeList, typeAny}, nil, nil)
+	defineTypedFunction("set-cdr!", ellSetCdrBang, typeNull, []*LOB{typeList, typeList}, nil, nil)
 
-	defineFunction("struct?", ellStructP, "(<any>) <boolean>")
-	defineFunction("to-struct", ellToStruct, "(<any>) <struct>")
-	defineFunction("struct", ellStruct, "(<any>+) <struct>")
-	defineFunction("has?", ellHasP, "(<struct> <any>) <boolean>")
-	defineFunction("keys", ellKeys, "(<struct>) <list>")
-	defineFunction("values", ellValues, "(<struct>) <list>")
+	defineTypedFunction("vector?", ellVectorP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("to-vector", ellToVector, typeVector, []*LOB{typeAny}, nil, nil)
+	defineFunction("vector", ellVector, "(<any>*) <vector>") // n args
+	defineTypedFunction("make-vector", ellMakeVector, typeVector, []*LOB{typeNumber, typeAny}, nil, nil)
 
-	defineFunction("function?", ellFunctionP, "(<any>) <boolean>")
-	defineFunction("function-signature", ellFunctionSignature, "(<function>) <string>")
+	defineTypedFunction("struct?", ellStructP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("to-struct", ellToStruct, typeStruct, []*LOB{typeAny}, nil, nil)
+	defineFunction("struct", ellStruct, "(<any>+) <struct>") // n args
+	defineTypedFunction("has?", ellHasP, typeBoolean, []*LOB{typeStruct, typeAny}, nil, nil) // key is <symbol|keyword|type|string>
+//	defineTypedFunction("keys", ellKeys, typeList, []*LOB{typeStruct}, nil, nil)
+	defineFunction("keys", ellKeys, "(<struct|instance>) <list>")
+//	defineTypedFunction("values", ellValues, typeList, []*LOB{typeStruct}, nil, nil)
+	defineFunction("values", ellValues, "(<struct|instance>) <list>")
 
-	defineFunction("slurp", ellSlurp, "(<string>) <string>")
-	defineFunction("read", ellRead, "(<string> keys: <type>) <list>")
+	defineTypedFunction("function?", ellFunctionP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("function-signature", ellFunctionSignature, typeString, []*LOB{typeFunction}, nil, nil)
+	defineFunction("validate-keyword-arg-list", ellValidateKeywordArgList, "(<list> <keyword>+) <list>") // n-args
 
-	defineFunction("spit", ellSpit, "(<string> <any>) <null>")
+	defineTypedFunction("slurp", ellSlurp, typeString, []*LOB{typeString}, nil, nil)
+//	defineTypedFunction("read", ellRead, typeAny, []*LOB{typeString, typeType}, []*LOB{typeAny}, []*LOB{intern("keys:")})
+	defineFunction("read", ellRead, "(<string> keys: <type>) <list>") //key args
+
+	defineTypedFunction("spit", ellSpit, typeNull, []*LOB{typeString, typeAny}, nil, nil)
+//NYI	defineTypedFunction("write", ellWrite, typeNull, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
 	defineFunction("write", ellWrite, "(<any> indent: <string>) <string>")
-	defineFunction("print", ellPrint, "(<any>*) <null>")
-	defineFunction("println", ellPrintln, "(<any>*) <null>")
+	defineFunction("print", ellPrint, "(<any>*) <null>") // n args
+	defineFunction("println", ellPrintln, "(<any>*) <null>") // n args
 
-	defineFunction("macroexpand", ellMacroexpand, "(<any>) <any>")
-	defineFunction("compile", ellCompile, "(<any>) <code>")
+	defineTypedFunction("macroexpand", ellMacroexpand, typeAny, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("compile", ellCompile, typeCode, []*LOB{typeAny}, nil, nil)
 
-	defineFunction("empty?", ellEmptyP, "(<list|vector|struct|string>) <boolean>")
-	defineFunction("length", ellLength, "(<list|vector|struct|string>) <number>")
-	defineFunction("get", ellGet, "(<any> <any>) <any>")
-	defineFunction("assoc", ellAssoc, "(<any> <any>) <any>")
-	defineFunction("dissoc", ellDissoc, "(<any> <any>) <any>")
+	defineFunction("empty?", ellEmptyP, "(<list|vector|struct|string>) <boolean>") // union
+	defineFunction("length", ellLength, "(<list|vector|struct|string>) <number>")  // union
+	defineFunction("get", ellGet, "(<any> <any>) <any>") //union
+	defineFunction("assoc", ellAssoc, "(<any> <any>) <any>") //union
+	defineFunction("dissoc", ellDissoc, "(<any> <any>) <any>") //union
 	defineFunction("assoc!", ellAssocBang, "(<list|struct> <any>) <struct")    //mutate!
 	defineFunction("dissoc!", ellDissocBang, "(<list|struct> <any>) <struct>") //mutate!
 
-	defineFunction("make-error", ellMakeError, "(<any>+) <error>")
-	defineFunction("error?", ellIsError, "(<any>) <boolean>")
-	defineFunction("uncaught-error", ellUncaughtError, "(<error>) <null>")
-	defineFunction("json", ellJSON, "(<any>) <string>")
-	defineFunction("getfn", ellGetFn, "(<symbol> <list>) <any>")
-	defineFunction("method-signature", ellMethodSignature, "(<list>) <type>")
+//	defineTypedFunction("make-error", ellMakeError, typeError, []*LOB{typeAny}, nil, nil)
+	defineFunction("make-error", ellMakeError, "(<any>+) <error>") //nargs
+	defineTypedFunction("error?", ellErrorP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineTypedFunction("uncaught-error", ellUncaughtError, typeNull, []*LOB{typeError}, nil, nil) //doesn't return
+//	defineTypedFunction("json", ellJSON, typeString, []*LOB{typeAny}, nil, nil)
+	defineFunction("json", ellJSON, "(<any> indent: <string>) <string>") //keys
 
-	defineFunction("spawn", ellSpawn, "(<function>)")
-	defineFunction("channel", ellChannel, "(<channel>)")
-	defineFunction("send", ellSend, "(<channel> <any>) <boolean>")
-	defineFunction("recv", ellReceive, "(<channel>) <any>")
-	defineFunction("close", ellClose, "(<channel>)")
+//	defineTypedFunction("getfn", ellGetFn, typeAny, []*LOB{typeSymbol, typeList}, nil, nil) //union <function|null>
+	defineFunction("getfn", ellGetFn, "(<symbol> <any>*)") //nargs
+	defineTypedFunction("method-signature", ellMethodSignature, typeType, []*LOB{typeList}, nil, nil)
 
-	if midi {
-		initMidi()
-	}
+//	defineTypedFunction("spawn", ellSpawn, typeNull, []*LOB{typeFunction}, nil, nil) //union <function|null>
+	defineFunction("spawn", ellSpawn, "(<function> <any>*)") //nargs
+	//	defineTypedFunction("channel", ellChannel, typeChannel, []*LOB{typeString, typeNumber}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
+	defineFunction("channel", ellChannel, "(<channel>)") // keys
+	defineFunction("send", ellSend, "(<channel> <any> <number>?) <boolean>") //optional 3rd arg for timeout
+	defineFunction("recv", ellReceive, "(<channel> <number>?) <any>") //optional second arg for timeout
+	defineTypedFunction("close", ellClose, typeNull, []*LOB{typeChannel}, nil, nil)
+
+//	if midi {
+//		initMidi()
+//	}
 	err := loadModule("ell")
 	if err != nil {
 		fatal("*** ", err)
@@ -199,13 +214,6 @@ func ellVersion(argv []*LOB) (*LOB, error) {
 }
 
 func ellDefinedP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "defined? expected 1 argument, got ", argc)
-	}
-	if !isSymbol(argv[0]) {
-		return nil, Error(ArgumentErrorKey, "defined? expected a <symbol>, got a ", argv[0].variant)
-	}
 	if isDefined(argv[0]) {
 		return True, nil
 	}
@@ -213,47 +221,13 @@ func ellDefinedP(argv []*LOB) (*LOB, error) {
 }
 
 func ellSlurp(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 1 {
-		return nil, Error(ArgumentErrorKey, "slurp expected at least 1 argument, got none")
-	}
-	url, err := asString(argv[0])
-	if err != nil {
-		return nil, Error(ArgumentErrorKey, "slurp expected a <string>, got a ", argv[0].variant)
-	}
-	options, err := getOptions(argv[1:argc], "headers:")
-	if err != nil {
-		return nil, err
-	}
-	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
-		//do an http GET
-		return nil, Error(ArgumentErrorKey, "slurp on URL NYI: ", url, options)
-	}
-	return slurpFile(url)
+	return slurpFile(argv[0].text)
 }
 
 func ellSpit(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 2 {
-		return nil, Error(ArgumentErrorKey, "spit expected at least 2 arguments, got ", argc)
-	}
-	url, err := asString(argv[0])
-	if err != nil {
-		return nil, Error(ArgumentErrorKey, "spit expected a <string> for argument 1, got a ", argv[0].variant)
-	}
-	data, err := asString(argv[1])
-	if err != nil {
-		return nil, Error(ArgumentErrorKey, "spit expected a <string> for argument 2, got a ", argv[1].variant)
-	}
-	options, err := getOptions(argv[2:argc], "headers:")
-	if err != nil {
-		return nil, err
-	}
-	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
-		//do an http GET
-		return nil, Error(ArgumentErrorKey, "slurp on URL NYI: ", url, options, data)
-	}
-	err = spitFile(url, data)
+	url := argv[0].text
+	data := argv[1].text
+	err := spitFile(url, data)
 	if err != nil {
 		return nil, err
 	}
@@ -274,18 +248,10 @@ func ellRead(argv []*LOB) (*LOB, error) {
 }
 
 func ellMacroexpand(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "macroexpand expected 1 argument, got ", argc)
-	}
 	return macroexpand(argv[0])
 }
 
 func ellCompile(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "compile expected 1 argument, got ", argc)
-	}
 	expanded, err := macroexpand(argv[0])
 	if err != nil {
 		return nil, err
@@ -294,26 +260,14 @@ func ellCompile(argv []*LOB) (*LOB, error) {
 }
 
 func ellType(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "type expected 1 argument, got ", argc)
-	}
 	return argv[0].variant, nil
 }
 
 func ellValue(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "value expected 1 argument, got ", argc)
-	}
 	return value(argv[0]), nil
 }
 
 func ellInstance(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 2 {
-		return nil, Error(ArgumentErrorKey, "instance expected 2 arguments, got ", argc)
-	}
 	return instance(argv[0], argv[1])
 }
 
@@ -331,10 +285,6 @@ func ellValidateKeywordArgList(argv []*LOB) (*LOB, error) {
 }
 
 func ellKeys(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "keys expected 1 argument, got ", argc)
-	}
 	strct := value(argv[0])
 	if !isStruct(strct) {
 		return nil, Error(ArgumentErrorKey, "keys expected a <struct>, got a ", argv[0].variant)
@@ -369,43 +319,52 @@ func ellToStruct(argv []*LOB) (*LOB, error) {
 }
 
 func ellIdenticalP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		b := identical(argv[0], argv[1])
-		if b {
-			return True, nil
-		}
-		return False, nil
+	if argv[0] == argv[1] {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "identical? expected 2 arguments, got ", argc)
+	return False, nil
 }
 
-func ellEq(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 1 {
-		return nil, Error(ArgumentErrorKey, "equal? expected at least 1 argument, got ", argc)
+func ellEqualP(argv []*LOB) (*LOB, error) {
+	if equal(argv[0], argv[1]) {
+		return True, nil
 	}
-	obj := argv[0]
-	for i := 1; i < argc; i++ {
-		if !equal(obj, argv[1]) {
-			return False, nil
-		}
-	}
-	return True, nil
+	return False, nil
 }
 
-func ellNumeq(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 1 {
-		return nil, Error(ArgumentErrorKey, "= expected at least 1 argument, got ", argc)
+func ellNumEqual(argv []*LOB) (*LOB, error) {
+	if numberEqual(argv[0].fval, argv[1].fval) {
+		return True, nil
 	}
-	obj := argv[0]
-	for i := 1; i < argc; i++ {
-		if b, err := numericallyEqual(obj, argv[1]); err != nil || b == False {
-			return b, err
-		}
+	return False, nil
+}
+
+func ellNumLess(argv []*LOB) (*LOB, error) {
+	if argv[0].fval < argv[1].fval {
+		return True, nil
 	}
-	return True, nil
+	return False, nil
+}
+
+func ellNumLessEqual(argv []*LOB) (*LOB, error) {
+	if argv[0].fval <= argv[1].fval {
+		return True, nil
+	}
+	return False, nil
+}
+
+func ellNumGreater(argv []*LOB) (*LOB, error) {
+	if argv[0].fval > argv[1].fval {
+		return True, nil
+	}
+	return False, nil
+}
+
+func ellNumGreaterEqual(argv []*LOB) (*LOB, error) {
+	if argv[0].fval >= argv[1].fval {
+		return True, nil
+	}
+	return False, nil
 }
 
 func ellWrite(argv []*LOB) (*LOB, error) {
@@ -451,7 +410,7 @@ func ellMakeError(argv []*LOB) (*LOB, error) {
 	return newError(argv...), nil
 }
 
-func ellIsError(argv []*LOB) (*LOB, error) {
+func ellErrorP(argv []*LOB) (*LOB, error) {
 	argc := len(argv)
 	if argc != 1 {
 		return nil, Error(ArgumentErrorKey, "error? expected 1 argument, got ", argc)
@@ -556,116 +515,64 @@ func ellList(argv []*LOB) (*LOB, error) {
 }
 
 func ellNumberP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isNumber(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isNumber(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "number? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellIntP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isInt(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isInt(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "int? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellFloatP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isFloat(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isFloat(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "float? expected 1 argument, got ", argc)
-}
-
-func ellQuotient(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		n1, err := int64Value(argv[0])
-		if err != nil {
-			return nil, err
-		}
-		n2, err := int64Value(argv[1])
-		if err != nil {
-			return nil, err
-		}
-		if n2 == 0 {
-			return nil, Error(ArgumentErrorKey, "Quotient: divide by zero")
-		}
-		return newInt64(n1 / n2), nil
-	}
-	return nil, Error(ArgumentErrorKey, "quotient expected 2 arguments, got ", argc)
-}
-
-func ellRemainder(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		n1, err := int64Value(argv[0])
-		if err != nil {
-			return nil, err
-		}
-		n2, err := int64Value(argv[1])
-		if n2 == 0 {
-			return nil, Error(ArgumentErrorKey, "remainder: divide by zero")
-		}
-		if err != nil {
-			return nil, err
-		}
-		return newInt64(n1 % n2), nil
-	}
-	return nil, Error(ArgumentErrorKey, "remainder expected 2 arguments, got ", argc)
+	return False, nil
 }
 
 func ellInc(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "inc expected 1 argument, got ", argc)
-	}
-	return inc(argv[0])
+	return newFloat64(argv[0].fval + 1), nil
 }
 
 func ellDec(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "dec expected 1 argument, got ", argc)
-	}
-	return dec(argv[0])
+	return newFloat64(argv[0].fval - 1), nil
 }
 
-func ellPlus(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		return add(argv[0], argv[1])
-	}
-	return sum(argv, argc)
+func ellAdd(argv []*LOB) (*LOB, error) {
+	return newFloat64(argv[0].fval + argv[1].fval), nil
 }
 
-func ellMinus(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	return minus(argv, argc)
+func ellSub(argv []*LOB) (*LOB, error) {
+	return newFloat64(argv[0].fval - argv[1].fval), nil
 }
 
-func ellTimes(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		return mul(argv[0], argv[1])
-	}
-	return product(argv, argc)
+func ellMul(argv []*LOB) (*LOB, error) {
+	return newFloat64(argv[0].fval * argv[1].fval), nil
 }
 
 func ellDiv(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	return div(argv, argc)
+	return newFloat64(argv[0].fval / argv[1].fval), nil
+}
+
+func ellQuotient(argv []*LOB) (*LOB, error) {
+	denom := int64(argv[1].fval)
+	if denom == 0 {
+		return nil, Error(ArgumentErrorKey, "quotient: divide by zero")
+	}
+	return newInt64(int64(argv[0].fval) / denom), nil
+}
+
+func ellRemainder(argv []*LOB) (*LOB, error) {
+	denom := int64(argv[1].fval)
+	if denom == 0 {
+		return nil, Error(ArgumentErrorKey, "remainder: divide by zero")
+	}
+	return newInt64(int64(argv[0].fval) % denom), nil
 }
 
 func ellVector(argv []*LOB) (*LOB, error) {
@@ -710,67 +617,11 @@ func ellVectorP(argv []*LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "vector? expected 1 argument, got ", argc)
 }
 
-func ellGe(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		b, err := greaterOrEqual(argv[0], argv[1])
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-	}
-	return nil, Error(ArgumentErrorKey, ">= expected 2 arguments, got ", argc)
-}
-
-func ellLe(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		b, err := lessOrEqual(argv[0], argv[1])
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-	}
-	return nil, Error(ArgumentErrorKey, "<= expected 2 arguments, got ", argc)
-}
-
-func ellGt(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		b, err := greater(argv[0], argv[1])
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-	}
-	return nil, Error(ArgumentErrorKey, "> expected 2 arguments, got ", argc)
-}
-
-func ellLt(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		b, err := less(argv[0], argv[1])
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-	}
-	return nil, Error(ArgumentErrorKey, "< expected 2 arguments, got ", argc)
-}
-
 func ellZeroP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		n := argv[0]
-		if n.variant == typeNumber {
-			if numberEqual(n.fval, 0.0) {
-				return True, nil
-			}
-			return False, nil
-		}
-		return nil, Error(ArgumentErrorKey, "zero? expected a <number>, got a ", n.variant)
+	if numberEqual(argv[0].fval, 0.0) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "zero? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellLength(argv []*LOB) (*LOB, error) {
@@ -786,47 +637,31 @@ func ellLength(argv []*LOB) (*LOB, error) {
 }
 
 func ellNot(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if argv[0] == False {
-			return True, nil
-		}
-		return False, nil
+	if argv[0] == False {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "not expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellNullP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if argv[0] == Null {
-			return True, nil
-		}
-		return False, nil
+	if argv[0] == Null {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "null? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellBooleanP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isBoolean(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isBoolean(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "boolean? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellSymbolP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isSymbol(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isSymbol(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "symbol? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellSymbol(argv []*LOB) (*LOB, error) {
@@ -838,110 +673,62 @@ func ellSymbol(argv []*LOB) (*LOB, error) {
 }
 
 func ellKeywordP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isKeyword(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isKeyword(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "keyword? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellKeywordName(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isType(argv[0]) {
-			return keywordName(argv[0])
-		}
-		return False, nil
-	}
-	return nil, Error(ArgumentErrorKey, "keyword-name expected 1 argument, got ", argc)
+	return keywordName(argv[0])
 }
 
 func ellTypeP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isType(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isType(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "type? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellTypeName(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isType(argv[0]) {
-			return typeName(argv[0])
-		}
-		return False, nil
-	}
-	return nil, Error(ArgumentErrorKey, "type-name expected 1 argument, got ", argc)
+	return typeName(argv[0])
 }
 
 func ellStringP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isString(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isString(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "string? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellCharacterP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isCharacter(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isCharacter(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "character? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellToCharacter(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "to-character expected 1 argument, got ", argc)
-	}
 	return toCharacter(argv[0])
 }
 
 func ellFunctionP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isFunction(argv[0]) || isKeyword(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+//	if isFunction(argv[0]) || isKeyword(argv[0]) {
+	if isFunction(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "function? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellFunctionSignature(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isFunction(argv[0]) {
-			return newString(functionSignature(argv[0])), nil
-		}
-		return nil, Error(ArgumentErrorKey, "function-signature expected a <function>, got a ", argv[0].variant)
-	}
-	return nil, Error(ArgumentErrorKey, "function-signature expected 1 argument, got ", argc)
+	return newString(functionSignature(argv[0])), nil
 }
 
 func ellListP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isList(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isList(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "list? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellEmptyP(argv []*LOB) (*LOB, error) {
@@ -965,80 +752,46 @@ func ellString(argv []*LOB) (*LOB, error) {
 }
 
 func ellCar(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if lst.variant == typeList {
-			if lst == EmptyList {
-				return Null, nil
-			}
-			return lst.car, nil
-		}
-		return nil, Error(ArgumentErrorKey, "car expected a <list>, got a ", argv[0].variant)
+	lst := argv[0]
+	if lst == EmptyList {
+		return Null, nil
 	}
-	return nil, Error(ArgumentErrorKey, "car expected 1 argument, got ", argc)
+	return lst.car, nil
 }
 
 func ellCdr(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		lst := argv[0]
-		if lst.variant == typeList {
-			if lst == EmptyList {
-				return lst, nil
-			}
-			return lst.cdr, nil
-		}
-		return nil, Error(ArgumentErrorKey, "cdr expected a <list>, got a ", argv[0].variant)
+	lst := argv[0]
+	if lst == EmptyList {
+		return lst, nil
 	}
-	return nil, Error(ArgumentErrorKey, "cdr expected 1 argument, got ", argc)
+	return lst.cdr, nil
 }
 
 func ellSetCarBang(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		err := setCar(argv[0], argv[1])
-		if err != nil {
-			return nil, err
-		}
-		return Null, nil
+	err := setCar(argv[0], argv[1])
+	if err != nil {
+		return nil, err
 	}
-	return nil, Error(ArgumentErrorKey, "set-car! expected 2 arguments, got ", argc)
+	return Null, nil
 }
 
 func ellSetCdrBang(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		err := setCdr(argv[0], argv[1])
-		if err != nil {
-			return nil, err
-		}
-		return Null, nil
+	err := setCdr(argv[0], argv[1])
+	if err != nil {
+		return nil, err
 	}
-	return nil, Error(ArgumentErrorKey, "set-cdr! expected 2 arguments, got ", argc)
+	return Null, nil
 }
 
 func ellCons(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 2 {
-		lst := argv[1]
-		if !isList(lst) {
-			return nil, Error(ArgumentErrorKey, "cons expected a <list> for argument 2, got a ", argv[1].variant)
-		}
-		return cons(argv[0], lst), nil
-	}
-	return nil, Error(ArgumentErrorKey, "cons expected 2 arguments, got ", argc)
+	return cons(argv[0], argv[1]), nil
 }
 
 func ellStructP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		if isStruct(argv[0]) {
-			return True, nil
-		}
-		return False, nil
+	if isStruct(argv[0]) {
+		return True, nil
 	}
-	return nil, Error(ArgumentErrorKey, "struct? expected 1 argument, got ", argc)
+	return False, nil
 }
 
 func ellGet(argv []*LOB) (*LOB, error) {
@@ -1149,18 +902,10 @@ func ellDissocBang(argv []*LOB) (*LOB, error) {
 }
 
 func ellToList(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "to-list expected 1 argument, got ", argc)
-	}
 	return toList(argv[0])
 }
 
 func ellSplit(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 2 {
-		return nil, Error(ArgumentErrorKey, "split expected 2 arguments, got ", argc)
-	}
 	return stringSplit(argv[0], argv[1])
 }
 
@@ -1209,15 +954,7 @@ func ellGetFn(argv []*LOB) (*LOB, error) {
 }
 
 func ellMethodSignature(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "method-signature expected 1 argument, got ", argc)
-	}
-	formalArgs := argv[0]
-	if formalArgs.variant != typeList {
-		return nil, Error(ArgumentErrorKey, "method-signature expected a <list>, got ", formalArgs)
-	}
-	return methodSignature(formalArgs)
+	return methodSignature(argv[0])
 }
 
 //spawn a new "go routine" for the thunk
@@ -1265,14 +1002,7 @@ func ellChannel(argv []*LOB) (*LOB, error) {
 }
 
 func ellClose(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "close expected 1 argument, got ", argc)
-	}
 	ch := argv[0]
-	if ch.variant != typeChannel {
-		return nil, Error(ArgumentErrorKey, "close expected a <channel> for argument 1, got ", ch)
-	}
 	if ch.channel != nil {
 		close(ch.channel)
 		ch.channel = nil

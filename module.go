@@ -46,6 +46,17 @@ func define(name string, obj *LOB) {
 	defGlobal(sym, obj)
 }
 
+func defineTypedFunction(name string, fun PrimCallable, retType *LOB, argTypes []*LOB, argDefaults []*LOB, argKeys []*LOB) {
+	sym := intern(name)
+	if global(sym) != nil {
+		println("*** Warning: redefining ", name, " with a primitive")
+	}
+
+	prim := newTypedPrimitive(name, fun, retType, argTypes, argDefaults, argKeys)
+	defGlobal(sym, prim)
+}
+
+
 //Need to pass a "signature" string to document usage
 // "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
 func defineFunction(name string, fun PrimCallable, signature string) {

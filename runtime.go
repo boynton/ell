@@ -76,7 +76,8 @@ func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
 
 const defaultStackSize = 1000
 
-func execCompileTime(code *Code, args ...*LOB) (*LOB, error) {
+func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
+	args := []*LOB{arg}
 	prev := verbose
 	verbose = false
 	res, err := exec(code, args)
@@ -186,11 +187,66 @@ type Primitive struct { // <function>
 	fun       PrimCallable
 	signature string
 	idx       int
+	argc      int     // -1 means the primitive itself checks the args (legacy mode)
+	rtype     *LOB    // if set the type of the result
+	types     []*LOB  // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	defaults  []*LOB  // if set, then that many optional args beyond argc have these default values
+	keys      []*LOB  // if set, then it must match the size of defaults, and these are the keys
+}
+
+func functionSignatureFromTypes(returnType *LOB, types []*LOB) string {
+	sig := "("
+	for i, t := range types {
+		if !isType(t) {
+			panic("not a type: " + t.String())
+		}
+		if i > 0 {
+			sig += " "
+		}
+		sig += t.text
+	}
+	sig += ") "
+	if !isType(returnType) {
+		panic("not a type: " + returnType.String())
+	}
+	sig += returnType.text
+	return sig
+}
+
+func newTypedPrimitive(name string, fun PrimCallable, retType *LOB, argTypes []*LOB, argDefaults []*LOB, argKeys []*LOB) *LOB {
+	idx := len(primitives)
+	argc := len(argTypes)
+	if argDefaults != nil {
+		defc := len(argDefaults)
+		if defc > argc {
+			panic("more default argument values than types: " + name)
+		}
+		if argKeys != nil {
+			if len(argKeys) != defc {
+				panic("Argument keys must have same length as argument defaults")
+			}
+		}
+		argc = argc - defc
+		for i := 0; i < defc; i++ {
+			t := argTypes[argc+i]
+			if t != typeAny && argDefaults[i].variant != t {
+				panic("argument default's type (" + argDefaults[i].variant.text + ") doesn't match declared type (" + t.text + ")")
+			}
+		}
+	} else {
+		if argKeys != nil {
+			panic("Cannot have argument keys without argument defaults")
+		}
+	}
+	signature := functionSignatureFromTypes(retType, argTypes)
+	prim := &Primitive{name, fun, signature, idx, argc, retType, argTypes, argDefaults, argKeys}
+	primitives = append(primitives, prim)
+	return &LOB{variant: typeFunction, primitive: prim}
 }
 
 func newPrimitive(name string, fun PrimCallable, signature string) *LOB {
 	idx := len(primitives)
-	prim := &Primitive{name, fun, signature, idx}
+	prim := &Primitive{name, fun, signature, idx, -1, nil, nil, nil, nil}
 	primitives = append(primitives, prim)
 	return &LOB{variant: typeFunction, primitive: prim}
 }
@@ -338,6 +394,37 @@ func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int
 	return pc, sp, nil
 }
 
+func (vm *VM) callPrimitive(prim *Primitive, argv []*LOB) (*LOB, error) {
+	if prim.argc < 0 { //legacy style
+		return prim.fun(argv)
+	}
+	if prim.defaults != nil {
+		if prim.keys != nil {
+			println("callPrimitive: ", prim.name, " key arg handling NYI")
+		} else {
+			println("callPrimitive: ", prim.name, " default arg handling NYI")
+		}
+		panic("fix me")
+	} else {
+		//ok, this is the normal fast case, argc must match exactly
+		argc := len(argv)
+		if argc != prim.argc {
+			s := "arguments"
+			if prim.argc == 1 {
+				s = "argument"
+			}
+			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected %d %s, got %d", prim.name, prim.argc, s, argc))
+		}
+	}
+	for i, arg := range argv {
+		t := prim.types[i]
+		if t != typeAny && arg.variant != t {
+			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.types[i].text, i+1, argv[i].variant.text))
+		}
+	}
+	return prim.fun(argv)
+}
+
 func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeCallAgain:
 	if fun.variant == typeFunction {
@@ -375,7 +462,7 @@ opcodeCallAgain:
 			return ops, 0, sp, env, err
 		}
 		if fun.primitive != nil {
-			val, err := fun.primitive.fun(stack[sp : sp+argc])
+			val, err := vm.callPrimitive(fun.primitive, stack[sp:sp+argc])
 			if err != nil {
 				return nil, 0, 0, nil, addContext(env, err)
 			}
@@ -468,7 +555,7 @@ opcodeTailCallAgain:
 			return fun.code.ops, 0, sp, f, nil
 		}
 		if fun.primitive != nil {
-			val, err := fun.primitive.fun(stack[sp : sp+argc])
+			val, err := vm.callPrimitive(fun.primitive, stack[sp:sp+argc])
 			if err != nil {
 				return nil, 0, 0, nil, addContext(env, err)
 			}
@@ -625,7 +712,7 @@ func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 			argc := ops[pc+1]
 			if fun.primitive != nil {
 				nextSp := sp + argc
-				val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
+				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
 				if err != nil {
 					return nil, addContext(env, err)
 				}
@@ -809,7 +896,7 @@ func (vm *VM) instrumentedExec(code *Code, args []*LOB) (*LOB, error) {
 			switch fun.variant {
 			case typeFunction:
 				if fun.primitive != nil {
-					val, err := fun.primitive.fun(stack[sp : sp+argc])
+					val, err := vm.callPrimitive(fun.primitive, stack[sp:sp+argc])
 					if err != nil {
 						//to do: fix to throw an Ell continuation-based error
 						return nil, addContext(env, err)
@@ -953,7 +1040,7 @@ func (vm *VM) instrumentedExec(code *Code, args []*LOB) (*LOB, error) {
 			switch fun.variant {
 			case typeFunction:
 				if fun.primitive != nil {
-					val, err := fun.primitive.fun(stack[sp : sp+argc])
+					val, err := vm.callPrimitive(fun.primitive, stack[sp:sp+argc])
 					if err != nil {
 						return nil, addContext(env, err)
 					}
