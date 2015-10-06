@@ -187,11 +187,11 @@ type Primitive struct { // <function>
 	fun       PrimCallable
 	signature string
 	idx       int
-	argc      int     // -1 means the primitive itself checks the args (legacy mode)
-	rtype     *LOB    // if set the type of the result
-	types     []*LOB  // if set, the length must be for total args (both required and optional). The type (or <any>) for each
-	defaults  []*LOB  // if set, then that many optional args beyond argc have these default values
-	keys      []*LOB  // if set, then it must match the size of defaults, and these are the keys
+	argc      int    // -1 means the primitive itself checks the args (legacy mode)
+	rtype     *LOB   // if set the type of the result
+	types     []*LOB // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	defaults  []*LOB // if set, then that many optional args beyond argc have these default values
+	keys      []*LOB // if set, then it must match the size of defaults, and these are the keys
 }
 
 func functionSignatureFromTypes(returnType *LOB, types []*LOB) string {
@@ -394,27 +394,86 @@ func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int
 	return pc, sp, nil
 }
 
+func argcError(name string, min int, max, provided int) error {
+	s := "1 argument"
+	if min == max {
+		if min != 1 {
+			s = fmt.Sprintf("%d arguments", min)
+		}
+	} else {
+		s = fmt.Sprintf("%d to %d arguments", min, max)
+	}
+	return Error(ArgumentErrorKey, fmt.Sprintf("%s expected %s, got %d", name, s, provided))
+}
+
 func (vm *VM) callPrimitive(prim *Primitive, argv []*LOB) (*LOB, error) {
-	if prim.argc < 0 { //legacy style
+	if prim.argc < 0 { //let the primitive itself figure it out
 		return prim.fun(argv)
 	}
 	if prim.defaults != nil {
-		if prim.keys != nil {
-			println("callPrimitive: ", prim.name, " key arg handling NYI")
-		} else {
-			println("callPrimitive: ", prim.name, " default arg handling NYI")
+		return vm.callPrimitiveWithDefaults(prim, argv)
+	}
+	argc := len(argv)
+	if argc != prim.argc {
+		return nil, argcError(prim.name, prim.argc, prim.argc, argc)
+	}
+	for i, arg := range argv {
+		t := prim.types[i]
+		if t != typeAny && arg.variant != t {
+			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.types[i].text, i+1, argv[i].variant.text))
 		}
-		panic("fix me")
-	} else {
-		//ok, this is the normal fast case, argc must match exactly
-		argc := len(argv)
-		if argc != prim.argc {
-			s := "arguments"
-			if prim.argc == 1 {
-				s = "argument"
+	}
+	return prim.fun(argv)
+}
+
+func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, error) {
+	provided := len(argv)
+	minargc := prim.argc
+	maxargc := len(prim.types)
+	if provided < minargc {
+		return nil, argcError(prim.name, minargc, maxargc, provided)
+	}
+	newargs := make([]*LOB, maxargc)
+	if prim.keys != nil {
+		j := 0
+		copy(newargs, argv[:minargc])
+		for i := minargc; i < maxargc; i++ {
+			newargs[i] = prim.defaults[j]
+			j++
+		}
+		j = minargc //the first key arg
+		ndefaults := len(prim.defaults)
+		for j < provided {
+			k := argv[j]
+			j++
+			if j == provided {
+				return nil, Error(ArgumentErrorKey, "mismatched keyword/value pair in argument list")
 			}
-			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected %d %s, got %d", prim.name, prim.argc, s, argc))
+			if k.variant != typeKeyword {
+				return nil, Error(ArgumentErrorKey, "expected keyword, got a "+k.variant.text)
+			}
+			gotit := false
+			for i := 0; i < ndefaults; i++ {
+				if prim.keys[i] == k {
+					gotit = true
+					newargs[i+minargc] = argv[j]
+					j++
+					break
+				}
+			}
+			if !gotit {
+				return nil, Error(ArgumentErrorKey, prim.name, " accepts ", prim.keys, " as keyword arg(s), not ", k)
+			}
 		}
+		argv = newargs
+	} else {
+		copy(newargs, argv)
+		j := 0
+		for i := provided; i < maxargc; i++ {
+			newargs[i] = prim.defaults[j]
+			j++
+		}
+		argv = newargs
 	}
 	for i, arg := range argv {
 		t := prim.types[i]

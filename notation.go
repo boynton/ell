@@ -69,17 +69,13 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 
 //only reads the first item in the input, along with how many characters it read
 // for subsequence calls, you can slice the string to continue
-func read(input *LOB, options *LOB) (*LOB, error) {
+func read(input *LOB) (*LOB, error) {
 	if !isString(input) {
 		return nil, Error(ArgumentErrorKey, "read invalid input: ", input)
 	}
-	keys, err := keysOptionValue(options)
-	if err != nil {
-		return nil, err
-	}
 	r := strings.NewReader(input.text)
 	reader := newDataReader(r)
-	obj, err := reader.readData(keys)
+	obj, err := reader.readData(typeAny)
 	if err != nil {
 		if err == io.EOF {
 			return Null, nil
@@ -89,13 +85,9 @@ func read(input *LOB, options *LOB) (*LOB, error) {
 	return obj, nil
 }
 
-func readAll(input *LOB, options *LOB) (*LOB, error) {
+func readAll(input *LOB, keys *LOB) (*LOB, error) {
 	if !isString(input) {
 		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)
-	}
-	keys, err := keysOptionValue(options)
-	if err != nil {
-		return nil, err
 	}
 	reader := newDataReader(strings.NewReader(input.text))
 	lst := EmptyList
@@ -330,7 +322,7 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 		if err != nil {
 			return nil, err
 		}
-		if keys != nil && keys != Null {
+		if keys != nil && keys != typeAny {
 			switch keys {
 			case typeKeyword:
 				element, err = toKeyword(element)

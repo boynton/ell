@@ -5,7 +5,6 @@
 ;;
 ;; shortcuts for accessing lists
 ;;
-(defn list args args)
 (defn caar (p) (car (car p)))
 (defn cadr (p) (car (cdr p)))
 (defn cdar (p) (cdr (car p)))

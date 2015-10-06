@@ -387,7 +387,7 @@ func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ign
 			if equal(One, cadr(args)) { // (- x 1) -> (dec x)
 				return intern("dec"), list(car(args))
 			}
-		} 
+		}
 	}
 	return fn, args
 }

@@ -20,8 +20,10 @@ import (
 	"math"
 )
 
-// Commonly used constants
+// Zero is the Ell zero value
 var Zero = newInt(0)
+
+// One is the Ell one value
 var One = newInt(1)
 
 func newFloat64(f float64) *LOB {

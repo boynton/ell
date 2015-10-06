@@ -56,7 +56,6 @@ func defineTypedFunction(name string, fun PrimCallable, retType *LOB, argTypes [
 	defGlobal(sym, prim)
 }
 
-
 //Need to pass a "signature" string to document usage
 // "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
 func defineFunction(name string, fun PrimCallable, signature string) {
