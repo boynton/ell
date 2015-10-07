@@ -133,7 +133,7 @@
   (release key vel))
 
 (defn midi-test ()
-   (for (i 21 108)
+   (dorange (i 21 108)
      (press i 50)
      (midi-sleep 10)
      (release i 0)))
