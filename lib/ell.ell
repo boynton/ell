@@ -5,7 +5,6 @@
 ;;
 ;; shortcuts for accessing lists
 ;;
-(defn length (lst) (list-length lst))
 (defn caar (p) (car (car p)))
 (defn cadr (p) (car (cdr p)))
 (defn cdar (p) (cdr (car p)))
@@ -207,14 +206,15 @@
 ;;
 (defmacro defgeneric (name args)
   (let ((gf (generic-function name: name args: args methods: {})))
-    (set! *genfns* (assoc *genfns* name gf))
+    (put! *genfns* name gf)
     `(def ~name (fn ~args ((getfn '~name ~@args) ~@args)))))
 
 ;; show the methods for the generic function
 (defn methods (sym)
   (let ((gf (get *genfns* sym)))
     (if (not (null? gf))
-        (map car (struct->list (methods: gf))))))
+        (methods: gf))))
+;        (map car (to-list (methods: gf))))))
 
 ;;
 ;; Adds a method for the specialized args to the generic function
@@ -228,7 +228,7 @@
     (letrec ((methods (methods: gf))
              (names (method-arg-names specialized-args))
              (key (method-signature specialized-args)))
-      (assoc! methods key fun)
+      (put! methods key fun)
       sym)))
 
 ;;
@@ -243,35 +243,9 @@
         (error argument-error: sym " is is not defined as a generic function"))
     `(add-method '~sym '~specialized-args (fn ~names ~@body))))
 
-;;
-;; For - list comprehension. Creates nested loops over the given sequences
-;;
-;; ? (for ((x '(a b c)) (y '(1 2 3))) [x y])                                     
-;; = ([a 1] [a 2] [a 3] [b 1] [b 2] [b 3] [c 1] [c 2] [c 3])
-;;
-(defmacro for (bindings & body)
-  (defn expand-for-loop (sym init final-body prev-final prev more-bindings)
-    (let ((loop (symbol "loop-" sym))
-          (remaining (symbol "remaining-" sym))
-          (result (symbol "result-" sym)))
-      (if (empty? more-bindings)
-          (let ((final-result (if (symbol? prev)
-                                  `(if (empty? ~(symbol "remaining-" prev))
-                                       ~(symbol "result-" prev)
-                                       (~(symbol "loop-" prev) (cdr ~(symbol "remaining-" prev)) (concat ~(symbol "result-" prev) ~result))) result)))
-            (let ((body `(if (empty? ~remaining) ~final-result (~loop (cdr ~remaining) (concat ~result ~prev-final)))))
-              `(let ~loop ((~remaining ~init) (~result '())) ~body)))
-          (let ((body (expand-for-loop (caar more-bindings) (cadar more-bindings) result final-body sym (cdr more-bindings))))
-            `(let ~loop ((~remaining ~init) (~result '())) ~body)))))
-  (if (empty? bindings)
-      `((fn () ~@body))
-      (let ((final-body (list 'list (cons `(fn (~@(map car bindings)) ~@body) (map (fn (binding) `(car ~(symbol "remaining-" (car binding)))) bindings))))
-            (binding (car bindings))
-            (more (cdr bindings)))
-        (expand-for-loop (car binding) (cadr binding) final-body final-body false more))))
-
+;; range-arguments - the various optional and default values for the 3 range argument patters
 (defn range-arguments (args) 
-  (let ((argc (length args)))
+  (let ((argc (list-length args)))
     (cond
      ((= argc 0)
       (error argument-error: "infinite ranges not supported"))
@@ -339,4 +313,13 @@
               (_handler_ err)))
         ~@body))))
 
+
+;;
+;; length - a generic function example
+;;
+(defgeneric length (seq))
+(defmethod length ((lst <list>)) (list-length lst))
+(defmethod length ((vec <vector>)) (vector-length vec))
+(defmethod length ((str <string>)) (string-length str))
+(defmethod length ((strct <struct>)) (struct-length strct))
 
