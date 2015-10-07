@@ -1,7 +1,11 @@
 (use sort)
 (use pi)
 
-(defn make-foo (n) (range n))
+(defn make-foo (n)
+  (let ((tmp '()))
+    (dorange (i n)
+      (set! tmp (cons i tmp)))
+    (reverse tmp)))
 
 (defn benchmark ()
   (let ((foo (make-foo 100000)))

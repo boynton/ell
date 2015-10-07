@@ -16,7 +16,7 @@
 (defn search (wanted? lst) 
   (callcc 
    (fn (return) 
-     (for (element lst)
+     (dolist (element lst)
        (if (wanted? element)
            (return element)))
      false)))

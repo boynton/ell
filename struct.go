@@ -76,7 +76,11 @@ func initStruct(strct *LOB, fieldvals []*LOB, count int) (*LOB, error) {
 	return strct, nil
 }
 
-//called by the VM, when a keyword is used as a function. Optimize!
+func structLength(strct *LOB) int {
+	return len(strct.bindings)
+}
+
+//called by the VM, when a keyword is used as a function. Must take value to handle defstruct instances
 func get(obj *LOB, key *LOB) (*LOB, error) {
 	s := value(obj)
 	if s.variant != typeStruct {
@@ -105,37 +109,14 @@ func has(obj *LOB, key *LOB) (bool, error) {
 	return true, nil
 }
 
-func assocStruct(s *LOB, rest []*LOB) (*LOB, error) {
-	//optimize this
-	return newStruct(append(rest, s))
+func put(obj *LOB, key *LOB, val *LOB) {
+	k := newKey(key)
+	obj.bindings[k] = val
 }
 
-func assocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
-	//optimize this
-	return initStruct(s, rest, len(rest))
-}
-
-func dissocStruct(s *LOB, rest []*LOB) (*LOB, error) {
-	return nil, Error(ErrorKey, "dissocStruct: NYI")
-}
-func dissocBangStruct(s *LOB, rest []*LOB) (*LOB, error) {
-	return nil, Error(ErrorKey, "dissocStruct: NYI")
-}
-
-func put(obj *LOB, key *LOB, val *LOB) (*LOB, error) {
-	//danger! side effects!
-	s := value(obj)
-	if s.variant != typeStruct {
-		return nil, Error(ArgumentErrorKey, "put expected a <struct> for argument 1, got a ", s.variant)
-	}
-	switch key.variant {
-	case typeKeyword, typeSymbol, typeType, typeString:
-		k := newKey(key)
-		s.bindings[k] = val
-	default:
-		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
-	}
-	return obj, nil
+func unput(obj *LOB, key *LOB) {
+	k := newKey(key)
+	delete(obj.bindings, k)
 }
 
 func sliceContains(slice []*LOB, obj *LOB) bool {
@@ -185,11 +166,11 @@ func validateKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 }
 
 func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
-	count := length(args)
+	count := listLength(args)
 	bindings := make([]*LOB, 0, count)
 	for args != EmptyList {
 		key := car(args)
-		switch value(key).variant {
+		switch key.variant {
 		case typeSymbol:
 			key = intern(key.text + ":")
 			fallthrough

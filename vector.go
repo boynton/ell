@@ -96,38 +96,6 @@ func vectorRef(vec *LOB, idx int) *LOB {
 	return elements[idx]
 }
 
-func assocBangVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
-	//danger! mutation!
-	elements := vec.elements
-	max := len(elements)
-	count := len(fieldvals)
-	i := 0
-	for i < count {
-		key := value(fieldvals[i])
-		i++
-		switch key.variant {
-		case typeNumber:
-			idx := int(key.fval)
-			if idx < 0 || idx > max {
-				return nil, Error(ArgumentErrorKey, "assoc! index out of range: ", idx)
-			}
-			if i == count {
-				return nil, Error(ArgumentErrorKey, "assoc! mismatched index/value: ", fieldvals)
-			}
-			elements[idx] = fieldvals[i]
-			i++
-		default:
-			return nil, Error(ArgumentErrorKey, "assoc! bad vector index: ", key)
-		}
-	}
-	return vec, nil
-}
-
-func assocVector(vec *LOB, fieldvals []*LOB) (*LOB, error) {
-	//optimize this
-	return assocBangVector(copyVector(vec), fieldvals)
-}
-
 func toVector(obj *LOB) (*LOB, error) {
 	switch obj.variant {
 	case typeVector:

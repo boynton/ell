@@ -31,145 +31,132 @@ func initEnvironment() {
 	defineMacro("cond", ellCond)
 	defineMacro("quasiquote", ellQuasiquote)
 
-	define("null", Null)
-	define("true", True)
-	define("false", False)
+	defineGlobal("null", Null)
+	defineGlobal("true", True)
+	defineGlobal("false", False)
 
-	define("apply", Apply)
-	define("callcc", CallCC)
+	defineGlobal("apply", Apply)
+	defineGlobal("callcc", CallCC)
 
-	defineTypedFunction("version", ellVersion, typeString, []*LOB{}, nil, nil)
+	defineFunction("version", ellVersion, typeString)
+	defineFunction("boolean?", ellBooleanP, typeBoolean, typeAny)
+	defineFunction("not", ellNot, typeBoolean, typeAny)
+	defineFunction("equal?", ellEqualP, typeBoolean, typeAny, typeAny)
+	defineFunction("identical?", ellIdenticalP, typeBoolean, typeAny, typeAny)
+	defineFunction("null?", ellNullP, typeBoolean, typeAny)
+	defineFunction("def?", ellDefinedP, typeBoolean, typeSymbol)
 
-	defineTypedFunction("boolean?", ellBooleanP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("not", ellNot, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineFunction("type", ellType, typeType, typeAny)
+	defineFunction("value", ellValue, typeAny, typeAny)
+	defineFunction("instance", ellInstance, typeAny, typeType, typeAny)
 
-	defineTypedFunction("equal?", ellEqualP, typeBoolean, []*LOB{typeAny, typeAny}, nil, nil)
-	defineTypedFunction("identical?", ellIdenticalP, typeBoolean, []*LOB{typeAny, typeAny}, nil, nil)
+	defineFunction("type?", ellTypeP, typeBoolean, typeAny)
+	defineFunction("type-name", ellTypeName, typeSymbol, typeType)
+	defineFunction("keyword?", ellKeywordP, typeBoolean, typeAny)
+	defineFunction("keyword-name", ellKeywordName, typeSymbol, typeKeyword)
+	defineFunction("symbol?", ellSymbolP, typeBoolean, typeAny)
+	defineFunctionRestArgs("symbol", ellSymbol, typeSymbol, typeAny, typeAny) //"(<any> <any>*) <symbol>")
 
-	defineTypedFunction("null?", ellNullP, typeBoolean, []*LOB{typeAny}, nil, nil)
+	defineFunctionRestArgs("string?", ellStringP, typeBoolean, typeAny)
+	defineFunctionRestArgs("string", ellString, typeString, typeAny) //"(<any>*) <string>")
+	defineFunction("to-string", ellToString, typeString, typeAny)
+	defineFunction("string-length", ellStringLength, typeNumber, typeString)
+	defineFunction("split", ellSplit, typeList, typeString, typeString)
+	defineFunction("join", ellJoin, typeList, typeList, typeString) // <list|vector> for both arg1 and result could work
+	defineFunction("character?", ellCharacterP, typeBoolean, typeAny)
+	defineFunction("to-character", ellToCharacter, typeCharacter, typeAny)
 
-	defineTypedFunction("def?", ellDefinedP, typeBoolean, []*LOB{typeSymbol}, nil, nil)
+	defineFunction("number?", ellNumberP, typeBoolean, typeAny)
+	defineFunction("int?", ellIntP, typeBoolean, typeAny)
+	defineFunction("float?", ellFloatP, typeBoolean, typeAny)
+	defineFunction("inc", ellInc, typeNumber, typeNumber)
+	defineFunction("dec", ellDec, typeNumber, typeNumber)
+	defineFunction("+", ellAdd, typeNumber, typeNumber, typeNumber)
+	defineFunction("-", ellSub, typeNumber, typeNumber, typeNumber)
+	defineFunction("*", ellMul, typeNumber, typeNumber, typeNumber)
+	defineFunction("/", ellDiv, typeNumber, typeNumber, typeNumber)
+	defineFunction("quotient", ellQuotient, typeNumber, typeNumber, typeNumber)
+	defineFunction("remainder", ellRemainder, typeNumber, typeNumber, typeNumber)
+	defineFunction("modulo", ellRemainder, typeNumber, typeNumber, typeNumber) //fix
+	defineFunction("=", ellNumEqual, typeBoolean, typeNumber, typeNumber)
+	defineFunction("<=", ellNumLessEqual, typeBoolean, typeNumber, typeNumber)
+	defineFunction(">=", ellNumGreaterEqual, typeBoolean, typeNumber, typeNumber)
+	defineFunction(">", ellNumGreater, typeBoolean, typeNumber, typeNumber)
+	defineFunction("<", ellNumLess, typeBoolean, typeNumber, typeNumber)
+	defineFunction("zero?", ellZeroP, typeBoolean, typeNumber)
 
-	defineTypedFunction("type", ellType, typeType, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("value", ellValue, typeAny, []*LOB{typeAny}, nil, nil)
+	defineFunction("list?", ellListP, typeBoolean, typeAny)
+	defineFunction("empty?", ellEmptyP, typeBoolean, typeList)
+	defineFunction("to-list", ellToList, typeList, typeAny)
+	defineFunction("cons", ellCons, typeList, typeAny, typeList)
+	defineFunction("car", ellCar, typeAny, typeList)
+	defineFunction("cdr", ellCdr, typeList, typeList)
+	defineFunction("set-car!", ellSetCarBang, typeNull, typeList, typeAny)
+	defineFunction("set-cdr!", ellSetCdrBang, typeNull, typeList, typeList)
+	defineFunction("list-length", ellListLength, typeNumber, typeList)
+	defineFunction("reverse", ellReverse, typeList, typeList)
+	defineFunctionRestArgs("list", ellList, typeList, typeAny)
+	defineFunctionRestArgs("concat", ellConcat, typeList, typeList)
+	defineFunctionRestArgs("flatten", ellFlatten, typeList, typeList)
 
-	defineTypedFunction("instance", ellInstance, typeAny, []*LOB{typeType, typeAny}, nil, nil)
+	defineFunction("vector?", ellVectorP, typeBoolean, typeAny)
+	defineFunction("to-vector", ellToVector, typeVector, typeAny)
+	defineFunctionRestArgs("vector", ellVector, typeVector, typeAny)
+	defineFunctionOptionalArgs("make-vector", ellMakeVector, typeVector, []*LOB{typeNumber, typeAny}, Null)
+	defineFunction("vector-length", ellVectorLength, typeNumber, typeVector)
+	defineFunction("vector-ref", ellVectorRef, typeAny, typeVector, typeNumber)
+	defineFunction("vector-set!", ellVectorSetBang, typeNull, typeVector, typeNumber, typeAny)
 
-	defineTypedFunction("type?", ellTypeP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("type-name", ellTypeName, typeSymbol, []*LOB{typeType}, nil, nil)
+	defineFunction("struct?", ellStructP, typeBoolean, typeAny)
+	defineFunction("to-struct", ellToStruct, typeStruct, typeAny)
+	defineFunctionRestArgs("struct", ellStruct, typeStruct, typeAny)
+	defineFunction("struct-length", ellStructLength, typeNumber, typeStruct)
+	defineFunction("has?", ellHasP, typeBoolean, typeStruct, typeAny) // key is <symbol|keyword|type|string>
+	defineFunction("get", ellGet, typeAny, typeStruct, typeAny)
+	defineFunction("put!", ellPutBang, typeNull, typeStruct, typeAny, typeAny)
+	defineFunction("unput!", ellUnputBang, typeNull, typeStruct, typeAny)
+	defineFunction("keys", ellKeys, typeList, typeAny)     // <struct|instance>
+	defineFunction("values", ellValues, typeList, typeAny) // <struct|instance>
 
-	defineTypedFunction("keyword?", ellKeywordP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("keyword-name", ellKeywordName, typeSymbol, []*LOB{typeKeyword}, nil, nil)
+	defineFunction("function?", ellFunctionP, typeBoolean, typeAny)
+	defineFunction("function-signature", ellFunctionSignature, typeString, typeFunction)
+	defineFunctionRestArgs("validate-keyword-arg-list", ellValidateKeywordArgList, typeList, typeKeyword, typeList)
+	defineFunction("slurp", ellSlurp, typeString, typeString)
+	defineFunctionKeyArgs("read", ellRead, typeAny, []*LOB{typeString, typeType}, []*LOB{typeAny}, []*LOB{intern("keys:")})
+	defineFunction("spit", ellSpit, typeNull, typeString, typeAny)
+	defineFunctionKeyArgs("write", ellWrite, typeNull, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
+	defineFunctionRestArgs("print", ellPrint, typeNull, typeAny)
+	defineFunctionRestArgs("println", ellPrintln, typeNull, typeAny)
+	defineFunction("macroexpand", ellMacroexpand, typeAny, typeAny)
+	defineFunction("compile", ellCompile, typeCode, typeAny)
 
-	defineTypedFunction("symbol?", ellSymbolP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineFunction("symbol", ellSymbol, "(<any>+) <boolean>") // 1..N args
+	defineFunctionRestArgs("make-error", ellMakeError, typeError, typeAny)
 
-	defineTypedFunction("string?", ellStringP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineFunction("string", ellString, "(<any>*) <string>") // 0..N args
-	defineTypedFunction("to-string", ellToString, typeString, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("split", ellSplit, typeList, []*LOB{typeString, typeString}, nil, nil)
-	defineFunction("join", ellJoin, "(<list|vector> <string>) <any>")
+	defineFunction("error?", ellErrorP, typeBoolean, typeAny)
+	defineFunction("uncaught-error", ellUncaughtError, typeNull, typeError) //doesn't return
 
-	defineTypedFunction("character?", ellCharacterP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("to-character", ellToCharacter, typeCharacter, []*LOB{typeAny}, nil, nil)
+	defineFunctionKeyArgs("json", ellJSON, typeString, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
 
-	defineTypedFunction("number?", ellNumberP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("int?", ellIntP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("float?", ellFloatP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("inc", ellInc, typeNumber, []*LOB{typeNumber}, nil, nil)
-	defineTypedFunction("dec", ellDec, typeNumber, []*LOB{typeNumber}, nil, nil)
-	defineTypedFunction("+", ellAdd, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("-", ellSub, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("*", ellMul, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("/", ellDiv, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("quotient", ellQuotient, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("remainder", ellRemainder, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("modulo", ellRemainder, typeNumber, []*LOB{typeNumber, typeNumber}, nil, nil) //fix
+	defineLegacyFunction("getfn", ellGetFn, "(<symbol> <any>*)") //nargs
 
-	defineTypedFunction("=", ellNumEqual, typeBoolean, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("<=", ellNumLessEqual, typeBoolean, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction(">=", ellNumGreaterEqual, typeBoolean, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction(">", ellNumGreater, typeBoolean, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("<", ellNumLess, typeBoolean, []*LOB{typeNumber, typeNumber}, nil, nil)
-	defineTypedFunction("zero?", ellZeroP, typeBoolean, []*LOB{typeNumber}, nil, nil)
+	defineFunction("method-signature", ellMethodSignature, typeType, typeList)
 
-	defineTypedFunction("list?", ellListP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("to-list", ellToList, typeList, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("cons", ellCons, typeList, []*LOB{typeAny, typeList}, nil, nil)
-	defineTypedFunction("car", ellCar, typeAny, []*LOB{typeList}, nil, nil)
-	defineTypedFunction("cdr", ellCdr, typeList, []*LOB{typeList}, nil, nil)
-	defineFunction("list", ellList, "(<any>*) <list>")
-	defineFunction("concat", ellConcat, "(<list>*) <list>") //0..n args
-	defineTypedFunction("reverse", ellReverse, typeList, []*LOB{typeList}, nil, nil)
-	defineFunction("flatten", ellFlatten, "(<list|vector>) <list>") //union type
-	defineTypedFunction("set-car!", ellSetCarBang, typeNull, []*LOB{typeList, typeAny}, nil, nil)
-	defineTypedFunction("set-cdr!", ellSetCdrBang, typeNull, []*LOB{typeList, typeList}, nil, nil)
+	defineLegacyFunction("spawn", ellSpawn, "(<function> <any>*)") //nargs
 
-	defineTypedFunction("vector?", ellVectorP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("to-vector", ellToVector, typeVector, []*LOB{typeAny}, nil, nil)
-	defineFunction("vector", ellVector, "(<any>*) <vector>")
-	defineTypedFunction("make-vector", ellMakeVector, typeVector, []*LOB{typeNumber, typeAny}, []*LOB{Null}, nil)
+	defineFunctionKeyArgs("channel", ellChannel, typeChannel, []*LOB{typeString, typeNumber}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
 
-	defineTypedFunction("struct?", ellStructP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("to-struct", ellToStruct, typeStruct, []*LOB{typeAny}, nil, nil)
-	defineFunction("struct", ellStruct, "(<any>+) <struct>")
-	defineTypedFunction("has?", ellHasP, typeBoolean, []*LOB{typeStruct, typeAny}, nil, nil) // key is <symbol|keyword|type|string>
-	defineTypedFunction("keys", ellKeys, typeList, []*LOB{typeAny}, nil, nil)                // <struct|instance>
-	defineTypedFunction("values", ellValues, typeList, []*LOB{typeAny}, nil, nil)            // <struct|instance>
+	defineLegacyFunction("send", ellSend, "(<channel> <any> <number>?) <boolean>") //optional 3rd arg for timeout
+	defineLegacyFunction("recv", ellReceive, "(<channel> <number>?) <any>")        //optional second arg for timeout
 
-	defineTypedFunction("function?", ellFunctionP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("function-signature", ellFunctionSignature, typeString, []*LOB{typeFunction}, nil, nil)
-	defineFunction("validate-keyword-arg-list", ellValidateKeywordArgList, "(<list> <keyword>+) <list>") // n-args
+	defineFunction("close", ellClose, typeNull, typeChannel)
 
-	defineTypedFunction("slurp", ellSlurp, typeString, []*LOB{typeString}, nil, nil)
-	defineTypedFunction("read", ellRead, typeAny, []*LOB{typeString, typeType}, []*LOB{typeAny}, []*LOB{intern("keys:")})
-
-	defineTypedFunction("spit", ellSpit, typeNull, []*LOB{typeString, typeAny}, nil, nil)
-	defineTypedFunction("write", ellWrite, typeNull, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
-	defineFunction("print", ellPrint, "(<any>*) <null>")     // n args
-	defineFunction("println", ellPrintln, "(<any>*) <null>") // n args
-
-	defineTypedFunction("macroexpand", ellMacroexpand, typeAny, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("compile", ellCompile, typeCode, []*LOB{typeAny}, nil, nil)
-
-	defineFunction("empty?", ellEmptyP, "(<list|vector|struct|string>) <boolean>") // union
-	defineFunction("length", ellLength, "(<list|vector|struct|string>) <number>")  // union
-	defineFunction("get", ellGet, "(<any> <any>) <any>")                           //union
-	defineFunction("assoc", ellAssoc, "(<any> <any>) <any>")                       //union
-	defineFunction("dissoc", ellDissoc, "(<any> <any>) <any>")                     //union
-	defineFunction("assoc!", ellAssocBang, "(<list|struct> <any>) <struct")        //mutate!
-	defineFunction("dissoc!", ellDissocBang, "(<list|struct> <any>) <struct>")     //mutate!
-
-	defineFunction("make-error", ellMakeError, "(<any>+) <error>") //nargs
-	defineTypedFunction("error?", ellErrorP, typeBoolean, []*LOB{typeAny}, nil, nil)
-	defineTypedFunction("uncaught-error", ellUncaughtError, typeNull, []*LOB{typeError}, nil, nil) //doesn't return
-	defineTypedFunction("json", ellJSON, typeString, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
-
-	defineFunction("getfn", ellGetFn, "(<symbol> <any>*)") //nargs
-	defineTypedFunction("method-signature", ellMethodSignature, typeType, []*LOB{typeList}, nil, nil)
-
-	defineFunction("spawn", ellSpawn, "(<function> <any>*)") //nargs
-	defineTypedFunction("channel", ellChannel, typeChannel, []*LOB{typeString, typeNumber}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
-	//	defineFunction("channel", ellChannel, "(<channel>)") // keys
-	defineFunction("send", ellSend, "(<channel> <any> <number>?) <boolean>") //optional 3rd arg for timeout
-	defineFunction("recv", ellReceive, "(<channel> <number>?) <any>")        //optional second arg for timeout
-	defineTypedFunction("close", ellClose, typeNull, []*LOB{typeChannel}, nil, nil)
-
-	//	if midi {
-	//		initMidi()
-	//	}
+	if midi {
+		initMidi()
+	}
 	err := loadModule("ell")
 	if err != nil {
 		fatal("*** ", err)
 	}
-}
-
-func getOptions(rest []*LOB, keys ...string) (*LOB, error) {
-	var validOptions []*LOB
-	for _, key := range keys {
-		validOptions = append(validOptions, intern(key))
-	}
-	return validateKeywordArgs(list(rest...), validOptions)
 }
 
 //
@@ -250,30 +237,15 @@ func ellInstance(argv []*LOB) (*LOB, error) {
 func ellValidateKeywordArgList(argv []*LOB) (*LOB, error) {
 	//(validate-keyword-arg-list '(x: 23) x: y:) -> (x:)
 	//(validate-keyword-arg-list '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
-	argc := len(argv)
-	if argc < 1 {
-		return nil, Error(ArgumentErrorKey, "validate-keyword-arg-list expected at least 1 argument, got none")
-	}
-	if isList(argv[0]) {
-		return validateKeywordArgList(argv[0], argv[1:argc])
-	}
-	return nil, Error(ArgumentErrorKey, "validate-keyword-arg-list expected a <list>, got a ", argv[0].variant)
+	return validateKeywordArgList(argv[0], argv[1:])
 }
 
 func ellKeys(argv []*LOB) (*LOB, error) {
-	strct := value(argv[0])
-	if !isStruct(strct) {
-		return nil, Error(ArgumentErrorKey, "keys expected a <struct>, got a ", argv[0].variant)
-	}
-	return structKeyList(strct), nil
+	return structKeyList(argv[0]), nil
 }
 
 func ellValues(argv []*LOB) (*LOB, error) {
-	strct := value(argv[0])
-	if !isStruct(strct) {
-		return nil, Error(ArgumentErrorKey, "values expected a <struct>, got a ", argv[0].variant)
-	}
-	return structValueList(strct), nil
+	return structValueList(argv[0]), nil
 }
 
 func ellStruct(argv []*LOB) (*LOB, error) {
@@ -350,7 +322,7 @@ func ellErrorP(argv []*LOB) (*LOB, error) {
 }
 
 func ellUncaughtError(argv []*LOB) (*LOB, error) {
-	return nil, Error(ArgumentErrorKey, "uncaught-error expected an <error>, got a ", argv[0].variant)
+	return nil, argv[0]
 }
 
 func ellToString(argv []*LOB) (*LOB, error) {
@@ -376,9 +348,6 @@ func ellConcat(argv []*LOB) (*LOB, error) {
 	tail := result
 	for i := 0; i < argc; i++ {
 		lst := argv[i]
-		if !isList(lst) {
-			return nil, Error(ArgumentErrorKey, "concat expected a <list>, got a ", argv[0].variant)
-		}
 		for lst != EmptyList {
 			if tail == EmptyList {
 				result = list(lst.car)
@@ -394,32 +363,11 @@ func ellConcat(argv []*LOB) (*LOB, error) {
 }
 
 func ellReverse(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "reverse expected 1 argument, got ", argc)
-	}
-	lst := argv[0]
-	if !isList(lst) {
-		return nil, Error(ArgumentErrorKey, "reverse expected a <list>, got a ", argv[0].variant)
-	}
-	return reverse(lst), nil
+	return reverse(argv[0]), nil
 }
 
 func ellFlatten(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "flatten expected 1 argument, got ", argc)
-	}
-	seq := argv[0]
-	switch seq.variant {
-	case typeList:
-		return flatten(seq), nil
-	case typeVector:
-		lst, _ := toList(seq)
-		return flatten(lst), nil
-	default:
-		return nil, Error(ArgumentErrorKey, "flatten expected a <list>, got a ", seq.variant)
-	}
+	return flatten(argv[0]), nil
 }
 
 func ellList(argv []*LOB) (*LOB, error) {
@@ -429,6 +377,10 @@ func ellList(argv []*LOB) (*LOB, error) {
 		p = cons(argv[i], p)
 	}
 	return p, nil
+}
+
+func ellListLength(argv []*LOB) (*LOB, error) {
+	return newInt(listLength(argv[0])), nil
 }
 
 func ellNumberP(argv []*LOB) (*LOB, error) {
@@ -513,23 +465,34 @@ func ellVectorP(argv []*LOB) (*LOB, error) {
 	return False, nil
 }
 
+func ellVectorLength(argv []*LOB) (*LOB, error) {
+	return newInt(len(argv[0].elements)), nil
+}
+
+func ellVectorRef(argv []*LOB) (*LOB, error) {
+	el := argv[0].elements
+	idx := int(argv[1].fval)
+	if idx < 0 || idx > len(el) {
+		return nil, Error(ArgumentErrorKey, "Vector index out of range")
+	}
+	return el[idx], nil
+}
+
+func ellVectorSetBang(argv []*LOB) (*LOB, error) {
+	el := argv[0].elements
+	idx := int(argv[1].fval)
+	if idx < 0 || idx > len(el) {
+		return nil, Error(ArgumentErrorKey, "Vector index out of range")
+	}
+	el[idx] = argv[2]
+	return Null, nil
+}
+
 func ellZeroP(argv []*LOB) (*LOB, error) {
 	if numberEqual(argv[0].fval, 0.0) {
 		return True, nil
 	}
 	return False, nil
-}
-
-func ellLength(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		n := length(argv[0])
-		if n < 0 {
-			return nil, Error(ArgumentErrorKey, "Cannot take length of ", argv[0].variant)
-		}
-		return newInt(n), nil
-	}
-	return nil, Error(ArgumentErrorKey, "length expected 1 argument, got ", argc)
 }
 
 func ellNot(argv []*LOB) (*LOB, error) {
@@ -628,11 +591,7 @@ func ellListP(argv []*LOB) (*LOB, error) {
 }
 
 func ellEmptyP(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 1 {
-		return nil, Error(ArgumentErrorKey, "empty? expected 1 argument, got ", argc)
-	}
-	if isEmpty(argv[0]) {
+	if argv[0] == EmptyList {
 		return True, nil
 	}
 	return False, nil
@@ -645,6 +604,10 @@ func ellString(argv []*LOB) (*LOB, error) {
 		s += argv[i].String()
 	}
 	return newString(s), nil
+}
+
+func ellStringLength(argv []*LOB) (*LOB, error) {
+	return newInt(stringLength(argv[0].text)), nil
 }
 
 func ellCar(argv []*LOB) (*LOB, error) {
@@ -691,44 +654,11 @@ func ellStructP(argv []*LOB) (*LOB, error) {
 }
 
 func ellGet(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 2 {
-		return nil, Error(ArgumentErrorKey, "get expected 2 arguments, got ", argc)
-	}
-	v := value(argv[0])
-	switch v.variant {
-	case typeStruct:
-		return structGet(v, argv[1]), nil
-	case typeVector:
-		idx, err := intValue(argv[1])
-		if err != nil {
-			return Null, nil
-		}
-		return vectorRef(v, idx), nil
-	case typeList:
-		lst := v
-		idx, err := intValue(argv[1])
-		if err != nil {
-			return Null, nil
-		}
-		i := 0
-		for lst != EmptyList {
-			if i == idx {
-				return lst.car, nil
-			}
-			i++
-			lst = lst.cdr
-		}
-		return Null, nil
-	case typeString:
-		idx, err := intValue(argv[1])
-		if err != nil {
-			return Null, nil
-		}
-		return stringRef(v, idx), nil
-	default:
-		return nil, Error(ArgumentErrorKey, "get cannot work with type ", argv[0].variant)
-	}
+	return structGet(argv[0], argv[1]), nil
+}
+
+func ellStructLength(argv []*LOB) (*LOB, error) {
+	return newInt(structLength(argv[0])), nil
 }
 
 func ellHasP(argv []*LOB) (*LOB, error) {
@@ -742,55 +672,22 @@ func ellHasP(argv []*LOB) (*LOB, error) {
 	return False, nil
 }
 
-func ellAssoc(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 3 {
-		return nil, Error(ArgumentErrorKey, "assoc expected at least 3 arguments, got ", argc)
+func ellPutBang(argv []*LOB) (*LOB, error) {
+	key := argv[1]
+	if !isValidStructKey(key) {
+		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
 	}
-	return assoc(argv[0], argv[1:]...)
+	put(argv[0], key, argv[2])
+	return Null, nil
 }
 
-func ellDissoc(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 2 {
-		return nil, Error(ArgumentErrorKey, "assoc expected at least 2 arguments, got ", argc)
+func ellUnputBang(argv []*LOB) (*LOB, error) {
+	key := argv[1]
+	if !isValidStructKey(key) {
+		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
 	}
-	return dissoc(argv[0], argv[1:]...)
-}
-
-func ellAssocBang(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 3 {
-		return nil, Error(ArgumentErrorKey, "assoc! expected at least 3 arguments, got ", argc)
-	}
-	s := value(argv[0])
-	switch s.variant {
-	case typeStruct:
-		if argc == 3 {
-			return put(s, argv[1], argv[2])
-		}
-		return assocBangStruct(s, argv[1:argc])
-	case typeVector:
-		if argc == 3 {
-			idx, err := intValue(argv[1])
-			if err != nil {
-				return nil, err
-			}
-			err = vectorSet(s, idx, argv[2])
-			return s, err
-		}
-		return assocBangVector(s, argv[1:argc])
-	default:
-		return nil, Error(ArgumentErrorKey, "assoc! cannot work with type ", argv[0].variant)
-	}
-}
-
-func ellDissocBang(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 2 {
-		return nil, Error(ArgumentErrorKey, "dissoc! expected at least 2 arguments, got ", argc)
-	}
-	return dissocBang(argv[0], argv[1:]...)
+	unput(argv[0], key)
+	return Null, nil
 }
 
 func ellToList(argv []*LOB) (*LOB, error) {

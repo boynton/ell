@@ -6,11 +6,11 @@ import (
 )
 
 func initMidi() {
-	defineFunction("midi-open", midiOpen, "()")
-	defineFunction("midi-time", midiTime, "() <number>")
-	defineFunction("midi-sleep", midiSleep, "(<number>) <number>")
-	defineFunction("midi-write", midiWrite, "(<number> <number> <number>)")
-	defineFunction("midi-close", midiClose, "()")
+	defineFunction("midi-open", midiOpen, typeNull)
+	defineFunction("midi-time", midiTime, typeNumber)
+	defineFunction("midi-sleep", midiSleep, typeNumber, typeNumber)
+	defineFunction("midi-write", midiWrite, typeNull, typeNumber, typeNumber, typeNumber)
+	defineFunction("midi-close", midiClose, typeNull)
 }
 
 var midiOut *portmidi.Stream

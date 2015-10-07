@@ -121,7 +121,7 @@ func (code *Code) signature() string {
 	// (defmacro declare (name args)
 	//   (or (symbol? name) (error "expected a <symbol> got " name))
 	//   (let ((sig (string args)))
-	//     `(assoc! *declarations* '~name '~sig)))
+	//     `(put! *declarations* '~name '~sig)))
 	//used as:
 	// (declare cons (<any> <list>) <list>)
 	if code.name != "" {
@@ -250,7 +250,7 @@ func (code *Code) loadOps(lst *LOB) error {
 					argc = -argc - 1
 					defaults = make([]*LOB, 0)
 				}
-			} else if isList(funcParams) && length(funcParams) == 4 {
+			} else if isList(funcParams) && listLength(funcParams) == 4 {
 				tmp := funcParams
 				a := car(tmp)
 				tmp = cdr(tmp)

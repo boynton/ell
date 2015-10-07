@@ -188,15 +188,16 @@ type Primitive struct { // <function>
 	signature string
 	idx       int
 	argc      int    // -1 means the primitive itself checks the args (legacy mode)
-	rtype     *LOB   // if set the type of the result
-	types     []*LOB // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	result    *LOB   // if set the type of the result
+	args      []*LOB // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	rest      *LOB   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
 	defaults  []*LOB // if set, then that many optional args beyond argc have these default values
 	keys      []*LOB // if set, then it must match the size of defaults, and these are the keys
 }
 
-func functionSignatureFromTypes(returnType *LOB, types []*LOB) string {
+func functionSignatureFromTypes(result *LOB, args []*LOB, rest *LOB) string {
 	sig := "("
-	for i, t := range types {
+	for i, t := range args {
 		if !isType(t) {
 			panic("not a type: " + t.String())
 		}
@@ -205,48 +206,62 @@ func functionSignatureFromTypes(returnType *LOB, types []*LOB) string {
 		}
 		sig += t.text
 	}
-	sig += ") "
-	if !isType(returnType) {
-		panic("not a type: " + returnType.String())
+	if rest != nil {
+		if !isType(rest) {
+			panic("not a type: " + rest.String())
+		}
+		if sig != "(" {
+			sig += " "
+		}
+		sig += rest.text + "*"
 	}
-	sig += returnType.text
+	sig += ") "
+	if !isType(result) {
+		panic("not a type: " + result.String())
+	}
+	sig += result.text
 	return sig
 }
 
-func newTypedPrimitive(name string, fun PrimCallable, retType *LOB, argTypes []*LOB, argDefaults []*LOB, argKeys []*LOB) *LOB {
+func newPrimitive(name string, fun PrimCallable, result *LOB, args []*LOB, rest *LOB, defaults []*LOB, keys []*LOB) *LOB {
+	//the rest type indicates arguments past the end of args will all have the given type. the length must be checked by primitive
+	// -> they are all optional, then. So, (<any>+) must be expressed as (<any> <any>*)
 	idx := len(primitives)
-	argc := len(argTypes)
-	if argDefaults != nil {
-		defc := len(argDefaults)
+	argc := len(args)
+	if defaults != nil {
+		defc := len(defaults)
 		if defc > argc {
 			panic("more default argument values than types: " + name)
 		}
-		if argKeys != nil {
-			if len(argKeys) != defc {
+		if keys != nil {
+			if len(keys) != defc {
 				panic("Argument keys must have same length as argument defaults")
 			}
 		}
 		argc = argc - defc
 		for i := 0; i < defc; i++ {
-			t := argTypes[argc+i]
-			if t != typeAny && argDefaults[i].variant != t {
-				panic("argument default's type (" + argDefaults[i].variant.text + ") doesn't match declared type (" + t.text + ")")
+			t := args[argc+i]
+			if t != typeAny && defaults[i].variant != t {
+				panic("argument default's type (" + defaults[i].variant.text + ") doesn't match declared type (" + t.text + ")")
 			}
 		}
 	} else {
-		if argKeys != nil {
+		if keys != nil {
 			panic("Cannot have argument keys without argument defaults")
 		}
 	}
-	signature := functionSignatureFromTypes(retType, argTypes)
-	prim := &Primitive{name, fun, signature, idx, argc, retType, argTypes, argDefaults, argKeys}
+	signature := functionSignatureFromTypes(result, args, rest)
+	prim := &Primitive{name, fun, signature, idx, argc, result, args, rest, defaults, keys}
 	primitives = append(primitives, prim)
 	return &LOB{variant: typeFunction, primitive: prim}
 }
 
-func newPrimitive(name string, fun PrimCallable, signature string) *LOB {
+//argc == 1: 1 or more args (depending on Defaults)
+//argc == 0: zero or more args (depending on Defaults
+//argc = -1: do no check, the primitive will
+func newLegacyPrimitive(name string, fun PrimCallable, signature string) *LOB {
 	idx := len(primitives)
-	prim := &Primitive{name, fun, signature, idx, -1, nil, nil, nil, nil}
+	prim := &Primitive{name, fun, signature, idx, -1, nil, nil, nil, nil, nil}
 	primitives = append(primitives, prim)
 	return &LOB{variant: typeFunction, primitive: prim}
 }
@@ -400,6 +415,8 @@ func argcError(name string, min int, max, provided int) error {
 		if min != 1 {
 			s = fmt.Sprintf("%d arguments", min)
 		}
+	} else if max < 0 {
+		s = fmt.Sprintf("%d or more arguments", min)
 	} else {
 		s = fmt.Sprintf("%d to %d arguments", min, max)
 	}
@@ -418,9 +435,9 @@ func (vm *VM) callPrimitive(prim *Primitive, argv []*LOB) (*LOB, error) {
 		return nil, argcError(prim.name, prim.argc, prim.argc, argc)
 	}
 	for i, arg := range argv {
-		t := prim.types[i]
+		t := prim.args[i]
 		if t != typeAny && arg.variant != t {
-			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.types[i].text, i+1, argv[i].variant.text))
+			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].variant.text))
 		}
 	}
 	return prim.fun(argv)
@@ -429,7 +446,29 @@ func (vm *VM) callPrimitive(prim *Primitive, argv []*LOB) (*LOB, error) {
 func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, error) {
 	provided := len(argv)
 	minargc := prim.argc
-	maxargc := len(prim.types)
+	if len(prim.defaults) == 0 {
+		rest := prim.rest
+		if provided < minargc {
+			return nil, argcError(prim.name, minargc, -1, provided)
+		}
+		for i := 0; i < minargc; i++ {
+			t := prim.args[i]
+			arg := argv[i]
+			if t != typeAny && arg.variant != t {
+				return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].variant.text))
+			}
+		}
+		if rest != typeAny {
+			for i := minargc; i < provided; i++ {
+				arg := argv[i]
+				if arg.variant != rest {
+					return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, rest.text, i+1, argv[i].variant.text))
+				}
+			}
+		}
+		return prim.fun(argv)
+	}
+	maxargc := len(prim.args)
 	if provided < minargc {
 		return nil, argcError(prim.name, minargc, maxargc, provided)
 	}
@@ -467,6 +506,9 @@ func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, err
 		}
 		argv = newargs
 	} else {
+		if provided > maxargc {
+			return nil, argcError(prim.name, minargc, maxargc, provided)
+		}
 		copy(newargs, argv)
 		j := 0
 		for i := provided; i < maxargc; i++ {
@@ -476,9 +518,9 @@ func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, err
 		argv = newargs
 	}
 	for i, arg := range argv {
-		t := prim.types[i]
+		t := prim.args[i]
 		if t != typeAny && arg.variant != t {
-			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.types[i].text, i+1, argv[i].variant.text))
+			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].variant.text))
 		}
 	}
 	return prim.fun(argv)
@@ -545,7 +587,7 @@ opcodeCallAgain:
 				arglist = cons(stack[sp+i], arglist)
 			}
 			sp += argc
-			argc = length(arglist)
+			argc = listLength(arglist)
 			i := 0
 			sp -= argc
 			for arglist != EmptyList {
@@ -638,7 +680,7 @@ opcodeTailCallAgain:
 				arglist = cons(stack[sp+i], arglist)
 			}
 			sp += argc
-			argc = length(arglist)
+			argc = listLength(arglist)
 			i := 0
 			sp -= argc
 			for arglist != EmptyList {
@@ -992,7 +1034,7 @@ func (vm *VM) instrumentedExec(code *Code, args []*LOB) (*LOB, error) {
 						arglist = cons(stack[sp+i], arglist)
 					}
 					sp += argc
-					argc = length(arglist)
+					argc = listLength(arglist)
 					i := 0
 					sp -= argc
 					for arglist != EmptyList {
@@ -1137,7 +1179,7 @@ func (vm *VM) instrumentedExec(code *Code, args []*LOB) (*LOB, error) {
 						arglist = cons(stack[sp+i], arglist)
 					}
 					sp += argc
-					argc = length(arglist)
+					argc = listLength(arglist)
 					i := 0
 					sp -= argc
 					for arglist != EmptyList {

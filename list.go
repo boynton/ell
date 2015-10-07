@@ -35,10 +35,7 @@ func car(lst *LOB) *LOB {
 }
 
 func setCar(lst *LOB, obj *LOB) error {
-	if !isList(lst) {
-		return Error(ArgumentErrorKey, "set-car! expected a <list> for argument 1, got a ", lst.variant)
-	}
-	if isEmpty(lst) {
+	if lst == EmptyList {
 		return Error(ArgumentErrorKey, "set-car! expected a non-empty <list>")
 	}
 	lst.car = obj
@@ -53,14 +50,8 @@ func cdr(lst *LOB) *LOB {
 }
 
 func setCdr(lst *LOB, obj *LOB) error {
-	if !isList(lst) {
-		return Error(ArgumentErrorKey, "set-cdr! expected a <list> for argument 1, got a ", lst.variant)
-	}
-	if isEmpty(lst) {
+	if lst == EmptyList {
 		return Error(ArgumentErrorKey, "set-cdr! expected a non-empty <list>")
-	}
-	if !isList(obj) {
-		return Error(ArgumentErrorKey, "set-cdr! expected a <list> for argument 2, got a ", obj.variant)
 	}
 	lst.cdr = obj
 	return nil
@@ -213,4 +204,54 @@ func toList(obj *LOB) (*LOB, error) {
 		return stringToList(obj), nil
 	}
 	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.variant)
+}
+
+func reverse(lst *LOB) *LOB {
+	rev := EmptyList
+	for lst != EmptyList {
+		rev = cons(lst.car, rev)
+		lst = lst.cdr
+	}
+	return rev
+}
+
+func flatten(lst *LOB) *LOB {
+	result := EmptyList
+	tail := EmptyList
+	for lst != EmptyList {
+		item := lst.car
+		switch item.variant {
+		case typeList:
+			item = flatten(item)
+		case typeVector:
+			litem, _ := toList(item)
+			item = flatten(litem)
+		default:
+			item = list(item)
+		}
+		if tail == EmptyList {
+			result = item
+			tail = result
+		} else {
+			tail.cdr = item
+		}
+		for tail.cdr != EmptyList {
+			tail = tail.cdr
+		}
+		lst = lst.cdr
+	}
+	return result
+}
+
+func concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
+	rev := reverse(seq1)
+	if rev == EmptyList {
+		return seq2, nil
+	}
+	lst := seq2
+	for rev != EmptyList {
+		lst = cons(rev.car, lst)
+		rev = rev.cdr
+	}
+	return lst, nil
 }

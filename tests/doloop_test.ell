@@ -1,0 +1,23 @@
+(use assert)
+
+(let ((x '()))
+   (dorange (i 5) (set! x (cons i x)))
+   (assert-equal '(4 3 2 1 0) x " dorange with 1 arg"))
+
+(let ((x '()))
+   (dorange (i 1 5) (set! x (cons i x)))
+   (assert-equal '(4 3 2 1) x " dorange with 2 args"))
+
+(let ((x '()))
+   (dorange (i 1 5 2) (set! x (cons i x)))
+   (assert-equal '(3 1) x " dorange with 3 args"))
+
+(let ((x '()))
+   (dolist (i '(0 1 2 3 4)) (set! x (cons i x)))
+   (assert-equal '(4 3 2 1 0) x (string " dolist: " x)))
+
+(let ((x '()))
+   (dovector (i '[0 1 2 3 4]) (set! x (cons i x)))
+   (assert-equal '(4 3 2 1 0) x (string " dovector: " x)))
+
+(println "[doloop_test OK]")

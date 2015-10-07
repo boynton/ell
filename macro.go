@@ -129,7 +129,7 @@ func expandSequence(seq *LOB) (*LOB, error) {
 }
 
 func expandIf(expr *LOB) (*LOB, error) {
-	i := length(expr)
+	i := listLength(expr)
 	if i == 4 {
 		tmp, err := expandSequence(cdr(expr))
 		if err != nil {
@@ -149,7 +149,7 @@ func expandIf(expr *LOB) (*LOB, error) {
 }
 
 func expandUndef(expr *LOB) (*LOB, error) {
-	if length(expr) != 2 || !isSymbol(cadr(expr)) {
+	if listLength(expr) != 2 || !isSymbol(cadr(expr)) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	return expr, nil
@@ -159,7 +159,7 @@ func expandUndef(expr *LOB) (*LOB, error) {
 //  ->
 // (def f (fn (x) (+ 1 x)))
 func expandDefn(expr *LOB) (*LOB, error) {
-	exprLen := length(expr)
+	exprLen := listLength(expr)
 	if exprLen >= 4 {
 		name := cadr(expr)
 		if isSymbol(name) {
@@ -179,7 +179,7 @@ func expandDefn(expr *LOB) (*LOB, error) {
 }
 
 func expandDefmacro(expr *LOB) (*LOB, error) {
-	exprLen := length(expr)
+	exprLen := listLength(expr)
 	if exprLen >= 4 {
 		name := cadr(expr)
 		if isSymbol(name) {
@@ -208,7 +208,7 @@ func expandDefmacro(expr *LOB) (*LOB, error) {
 //  `(defmacro ~(cadr expr) (fn (expr) (apply (fn ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
 
 func expandDef(expr *LOB) (*LOB, error) {
-	exprLen := length(expr)
+	exprLen := listLength(expr)
 	if exprLen != 3 {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
@@ -231,7 +231,7 @@ func expandDef(expr *LOB) (*LOB, error) {
 }
 
 func expandFn(expr *LOB) (*LOB, error) {
-	exprLen := length(expr)
+	exprLen := listLength(expr)
 	if exprLen < 3 {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
@@ -239,7 +239,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
-	bodyLen := length(body)
+	bodyLen := listLength(body)
 	if bodyLen > 0 {
 		tmp := body
 		if isList(tmp) && caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
@@ -266,7 +266,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 }
 
 func expandSetBang(expr *LOB) (*LOB, error) {
-	exprLen := length(expr)
+	exprLen := listLength(expr)
 	if exprLen != 3 {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
@@ -370,7 +370,7 @@ func expandLetrec(expr *LOB) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
-	values := newList(length(names), Null)
+	values := newList(listLength(names), Null)
 	return cons(code, values), nil
 }
 
@@ -496,7 +496,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 		}
 		if elsesym == car(clause1) {
 			if cadr(clause0) == intern("=>") {
-				if length(clause0) != 3 {
+				if listLength(clause0) != 3 {
 					return nil, Error(SyntaxErrorKey, expr)
 				}
 				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), cons(dosym, cdr(clause1))))
@@ -505,7 +505,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 			}
 		} else {
 			if cadr(clause1) == intern("=>") {
-				if length(clause1) != 3 {
+				if listLength(clause1) != 3 {
 					return nil, Error(SyntaxErrorKey, expr)
 				}
 				result = list(letsym, list(list(tmpsym, car(clause1))), list(ifsym, tmpsym, list(caddr(clause1), tmpsym), clause1))
@@ -513,7 +513,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 				result = list(ifsym, car(clause1), cons(dosym, cdr(clause1)))
 			}
 			if cadr(clause0) == intern("=>") {
-				if length(clause0) != 3 {
+				if listLength(clause0) != 3 {
 					return nil, Error(SyntaxErrorKey, expr)
 				}
 				result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
@@ -527,7 +527,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 			return nil, err
 		}
 		if cadr(clause0) == intern("=>") {
-			if length(clause0) != 3 {
+			if listLength(clause0) != 3 {
 				return nil, Error(SyntaxErrorKey, expr)
 			}
 			result = list(letsym, list(list(tmpsym, car(clause0))), list(ifsym, tmpsym, list(caddr(clause0), tmpsym), result))
@@ -539,7 +539,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 }
 
 func expandCond(expr *LOB) (*LOB, error) {
-	i := length(expr)
+	i := listLength(expr)
 	if i < 2 {
 		return nil, Error(SyntaxErrorKey, expr)
 	} else if i == 2 {
@@ -557,7 +557,7 @@ func expandCond(expr *LOB) (*LOB, error) {
 }
 
 func expandQuasiquote(expr *LOB) (*LOB, error) {
-	if length(expr) != 2 {
+	if listLength(expr) != 2 {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	return expandQQ(cadr(expr))
@@ -602,7 +602,7 @@ func expandQQList(lst *LOB) (*LOB, error) {
 			if car(item) == symQuasiquote {
 				return nil, Error(MacroErrorKey, "nested quasiquote not supported")
 			}
-			if car(item) == symUnquote && length(item) == 2 {
+			if car(item) == symUnquote && listLength(item) == 2 {
 				tmp, err = macroexpand(cadr(item))
 				tmp = list(intern("list"), tmp)
 				if err != nil {
@@ -610,7 +610,7 @@ func expandQQList(lst *LOB) (*LOB, error) {
 				}
 				tail.cdr = list(tmp)
 				tail = tail.cdr
-			} else if car(item) == symUnquoteSplicing && length(item) == 2 {
+			} else if car(item) == symUnquoteSplicing && listLength(item) == 2 {
 				tmp, err = macroexpand(cadr(item))
 				if err != nil {
 					return nil, err

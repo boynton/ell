@@ -38,7 +38,7 @@ func checkInterrupt() bool {
 	return false
 }
 
-func define(name string, obj *LOB) {
+func defineGlobal(name string, obj *LOB) {
 	sym := intern(name)
 	if sym == nil {
 		panic("Cannot define a value for this symbol: " + name)
@@ -46,26 +46,39 @@ func define(name string, obj *LOB) {
 	defGlobal(sym, obj)
 }
 
-func defineTypedFunction(name string, fun PrimCallable, retType *LOB, argTypes []*LOB, argDefaults []*LOB, argKeys []*LOB) {
+func definePrimitive(name string, prim *LOB) {
 	sym := intern(name)
 	if global(sym) != nil {
 		println("*** Warning: redefining ", name, " with a primitive")
 	}
-
-	prim := newTypedPrimitive(name, fun, retType, argTypes, argDefaults, argKeys)
 	defGlobal(sym, prim)
+}
+
+func defineFunction(name string, fun PrimCallable, result *LOB, args ...*LOB) {
+	prim := newPrimitive(name, fun, result, args, nil, nil, nil)
+	definePrimitive(name, prim)
+}
+
+func defineFunctionRestArgs(name string, fun PrimCallable, result *LOB, rest *LOB, args ...*LOB) {
+	prim := newPrimitive(name, fun, result, args, rest, []*LOB{}, nil)
+	definePrimitive(name, prim)
+}
+
+func defineFunctionOptionalArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults ...*LOB) {
+	prim := newPrimitive(name, fun, result, args, nil, defaults, nil)
+	definePrimitive(name, prim)
+}
+
+func defineFunctionKeyArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
+	prim := newPrimitive(name, fun, result, args, nil, defaults, keys)
+	definePrimitive(name, prim)
 }
 
 //Need to pass a "signature" string to document usage
 // "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
-func defineFunction(name string, fun PrimCallable, signature string) {
-	sym := intern(name)
-	if global(sym) != nil {
-		println("*** Warning: redefining ", name, " with a primitive")
-	}
-
-	prim := newPrimitive(name, fun, signature)
-	defGlobal(sym, prim)
+func defineLegacyFunction(name string, fun PrimCallable, signature string) {
+	prim := newLegacyPrimitive(name, fun, signature)
+	definePrimitive(name, prim)
 }
 
 func defineMacro(name string, fun PrimCallable) {
@@ -73,7 +86,7 @@ func defineMacro(name string, fun PrimCallable) {
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
-	prim := newPrimitive(name, fun, "(<any>)")
+	prim := newLegacyPrimitive(name, fun, "(<any>)")
 	defMacro(sym, prim)
 }
 

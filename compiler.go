@@ -79,7 +79,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			return nil
 		}
 		lst := expr
-		lstlen := length(lst)
+		lstlen := listLength(lst)
 		if lstlen == 0 {
 			return Error(SyntaxErrorKey, lst)
 		}
@@ -374,7 +374,7 @@ func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResul
 }
 
 func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) (*LOB, *LOB) {
-	size := length(args)
+	size := listLength(args)
 	if size == 2 {
 		switch fn {
 		case intern("+"):
@@ -393,7 +393,7 @@ func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ign
 }
 
 func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) error {
-	argc := length(args)
+	argc := listLength(args)
 	if argc < 0 {
 		return Error(SyntaxErrorKey, cons(fn, args))
 	}
@@ -458,7 +458,7 @@ func compileIfElse(target *LOB, env *LOB, predicate *LOB, consequent *LOB, antec
 }
 
 func compileUse(target *LOB, rest *LOB) error {
-	lstlen := length(rest)
+	lstlen := listLength(rest)
 	if lstlen != 1 {
 		//to do: other options for use.
 		return Error(SyntaxErrorKey, cons(intern("use"), rest))
