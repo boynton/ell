@@ -86,6 +86,8 @@ func initEnvironment() {
 	defineFunction("<", ellNumLess, typeBoolean, typeNumber, typeNumber)
 	defineFunction("zero?", ellZeroP, typeBoolean, typeNumber)
 
+	defineFunction("seal!", ellSeal, typeAny, typeAny) //actually only list, vector, and struct for now
+
 	defineFunction("list?", ellListP, typeBoolean, typeAny)
 	defineFunction("empty?", ellEmptyP, typeBoolean, typeList)
 	defineFunction("to-list", ellToList, typeList, typeAny)
@@ -479,6 +481,9 @@ func ellVectorRef(argv []*LOB) (*LOB, error) {
 }
 
 func ellVectorSetBang(argv []*LOB) (*LOB, error) {
+	if argv[0].ival != 0 {
+		return nil, Error(ArgumentErrorKey, "vector-set! on sealed vector")
+	}
 	el := argv[0].elements
 	idx := int(argv[1].fval)
 	if idx < 0 || idx > len(el) {
@@ -627,6 +632,9 @@ func ellCdr(argv []*LOB) (*LOB, error) {
 }
 
 func ellSetCarBang(argv []*LOB) (*LOB, error) {
+	if argv[0].ival != 0 {
+		return nil, Error(ArgumentErrorKey, "set-car! on sealed list")
+	}
 	err := setCar(argv[0], argv[1])
 	if err != nil {
 		return nil, err
@@ -635,6 +643,9 @@ func ellSetCarBang(argv []*LOB) (*LOB, error) {
 }
 
 func ellSetCdrBang(argv []*LOB) (*LOB, error) {
+	if argv[0].ival != 0 {
+		return nil, Error(ArgumentErrorKey, "set-cdr! on sealed list")
+	}
 	err := setCdr(argv[0], argv[1])
 	if err != nil {
 		return nil, err
@@ -672,10 +683,23 @@ func ellHasP(argv []*LOB) (*LOB, error) {
 	return False, nil
 }
 
+func ellSeal(argv []*LOB) (*LOB, error) {
+	switch argv[0].variant {
+	case typeStruct, typeVector, typeList:
+		argv[0].ival = 1
+		return argv[0], nil
+	default:
+		return nil, Error(ArgumentErrorKey, "put! on sealed struct")
+	}
+}
+
 func ellPutBang(argv []*LOB) (*LOB, error) {
 	key := argv[1]
 	if !isValidStructKey(key) {
 		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
+	}
+	if argv[0].ival != 0 {
+		return nil, Error(ArgumentErrorKey, "put! on sealed struct")
 	}
 	put(argv[0], key, argv[2])
 	return Null, nil
@@ -685,6 +709,9 @@ func ellUnputBang(argv []*LOB) (*LOB, error) {
 	key := argv[1]
 	if !isValidStructKey(key) {
 		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
+	}
+	if argv[0].ival != 0 {
+		return nil, Error(ArgumentErrorKey, "unput! on sealed struct")
 	}
 	unput(argv[0], key)
 	return Null, nil

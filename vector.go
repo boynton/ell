@@ -79,23 +79,6 @@ func copyVector(vec *LOB) *LOB {
 	return vectorFromElements(vec.elements, len(vec.elements))
 }
 
-func vectorSet(vec *LOB, idx int, obj *LOB) error {
-	elements := vec.elements
-	if idx < 0 || idx >= len(elements) {
-		return Error(ArgumentErrorKey, "vector-set! index out of range: ", idx)
-	}
-	elements[idx] = obj
-	return nil
-}
-
-func vectorRef(vec *LOB, idx int) *LOB {
-	elements := vec.elements
-	if idx < 0 || idx >= len(elements) {
-		return Null
-	}
-	return elements[idx]
-}
-
 func toVector(obj *LOB) (*LOB, error) {
 	switch obj.variant {
 	case typeVector:
