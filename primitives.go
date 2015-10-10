@@ -111,6 +111,7 @@ func initEnvironment() {
 	defineFunction("struct?", ellStructP, typeBoolean, typeAny)
 	defineFunction("to-struct", ellToStruct, typeStruct, typeAny)
 	defineFunctionRestArgs("struct", ellStruct, typeStruct, typeAny)
+	defineFunction("make-struct", ellMakeStruct, typeStruct, typeNumber)
 	defineFunction("struct-length", ellStructLength, typeNumber, typeStruct)
 	defineFunction("has?", ellHasP, typeBoolean, typeStruct, typeAny) // key is <symbol|keyword|type|string>
 	defineFunction("get", ellGet, typeAny, typeStruct, typeAny)
@@ -246,6 +247,9 @@ func ellValues(argv []*LOB) (*LOB, error) {
 
 func ellStruct(argv []*LOB) (*LOB, error) {
 	return newStruct(argv)
+}
+func ellMakeStruct(argv []*LOB) (*LOB, error) {
+	return makeStruct(int(argv[0].fval)), nil
 }
 
 func ellToStruct(argv []*LOB) (*LOB, error) {

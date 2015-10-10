@@ -46,32 +46,46 @@ func isValidStructKey(o *LOB) bool {
 	return false
 }
 
-func newStruct(fieldvals []*LOB) (*LOB, error) {
-	count := len(fieldvals)
+func makeStruct(capacity int) *LOB {
 	strct := newLOB(typeStruct)
-	strct.bindings = make(map[Key]*LOB)
-	return initStruct(strct, fieldvals, count)
+	strct.bindings = make(map[Key]*LOB, capacity)
+	return strct
 }
 
-func initStruct(strct *LOB, fieldvals []*LOB, count int) (*LOB, error) {
+func newStruct(fieldvals []*LOB) (*LOB, error) {
+	strct := newLOB(typeStruct)
+	strct.bindings = make(map[Key]*LOB)
+	count := len(fieldvals)
 	i := 0
+	var bindings map[Key]*LOB
 	for i < count {
 		o := value(fieldvals[i])
 		i++
 		switch o.variant {
 		case typeStruct: // not a valid key, just copy bindings from it
+			if bindings == nil {
+				bindings = make(map[Key]*LOB, len(o.bindings))
+			}
 			for k, v := range o.bindings {
-				strct.bindings[k] = v
+				bindings[k] = v
 			}
 		case typeString, typeSymbol, typeKeyword, typeType:
 			if i == count {
 				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in arglist: ", o)
 			}
-			strct.bindings[newKey(o)] = fieldvals[i]
+			if bindings == nil {
+				bindings = make(map[Key]*LOB)
+			}
+			bindings[newKey(o)] = fieldvals[i]
 			i++
 		default:
 			return nil, Error(ArgumentErrorKey, "Bad struct key: ", o)
 		}
+	}
+	if bindings == nil {
+		strct.bindings = make(map[Key]*LOB)
+	} else {
+		strct.bindings = bindings
 	}
 	return strct, nil
 }
@@ -357,7 +371,7 @@ func listToStruct(lst *LOB) (*LOB, error) {
 func vectorToStruct(vec *LOB) (*LOB, error) {
 	count := len(vec.elements)
 	strct := newLOB(typeStruct)
-	strct.elements = make([]*LOB, 0, count)
+	strct.bindings = make(map[Key]*LOB, count)
 	i := 0
 	for i < count {
 		k := vec.elements[i]
