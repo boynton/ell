@@ -74,19 +74,12 @@ func defineFunctionKeyArgs(name string, fun PrimCallable, result *LOB, args []*L
 	definePrimitive(name, prim)
 }
 
-//Need to pass a "signature" string to document usage
-// "(x y [z])" or "(x {y: default})" or "(x & y)" or whatever
-func defineLegacyFunction(name string, fun PrimCallable, signature string) {
-	prim := newLegacyPrimitive(name, fun, signature)
-	definePrimitive(name, prim)
-}
-
 func defineMacro(name string, fun PrimCallable) {
 	sym := intern(name)
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
-	prim := newLegacyPrimitive(name, fun, "(<any>)")
+	prim := newPrimitive(name, fun, typeAny, []*LOB{typeAny}, nil, nil, nil)
 	defMacro(sym, prim)
 }
 

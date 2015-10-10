@@ -76,51 +76,6 @@ func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
 
 const defaultStackSize = 1000
 
-func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
-	args := []*LOB{arg}
-	prev := verbose
-	verbose = false
-	res, err := exec(code, args)
-	verbose = prev
-	return res, err
-}
-
-func spawn(code *Code, args []*LOB) {
-	argcopy := make([]*LOB, len(args), len(args))
-	copy(argcopy, args)
-	go func() {
-		_, err := exec(code, argcopy)
-		if err != nil {
-			println("; [*** error in spawned function '", code.name, "': ", err, "]")
-		} else if verbose {
-			println("; [spawned function '", code.name, "' exited cleanly]")
-		}
-	}()
-}
-
-//func exec(code *Code, args ...*LOB) (*LOB, error) {
-func exec(code *Code, args []*LOB) (*LOB, error) {
-	vm := newVM(defaultStackSize)
-	if len(args) != code.argc {
-		return nil, Error(ArgumentErrorKey, "Wrong number of arguments")
-	}
-	startTime := time.Now()
-	result, err := vm.exec(code, args)
-	dur := time.Since(startTime)
-	if verbose {
-		println("; executed in ", dur)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if verbose {
-		if err == nil && result != nil {
-			println("; => ", result)
-		}
-	}
-	return result, err
-}
-
 // VM - the Ell VM
 type VM struct {
 	stackSize int
@@ -424,9 +379,6 @@ func argcError(name string, min int, max, provided int) error {
 }
 
 func (vm *VM) callPrimitive(prim *Primitive, argv []*LOB) (*LOB, error) {
-	if prim.argc < 0 { //let the primitive itself figure it out
-		return prim.fun(argv)
-	}
 	if prim.defaults != nil {
 		return vm.callPrimitiveWithDefaults(prim, argv)
 	}
@@ -741,6 +693,51 @@ func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp in
 	return env.ops, env.pc, sp, env.previous, nil
 }
 
+func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
+	args := []*LOB{arg}
+	prev := verbose
+	verbose = false
+	res, err := exec(code, args)
+	verbose = prev
+	return res, err
+}
+
+func spawn(code *Code, args []*LOB) {
+	argcopy := make([]*LOB, len(args), len(args))
+	copy(argcopy, args)
+	go func() {
+		_, err := exec(code, argcopy)
+		if err != nil {
+			println("; [*** error in spawned function '", code.name, "': ", err, "]")
+		} else if verbose {
+			println("; [spawned function '", code.name, "' exited cleanly]")
+		}
+	}()
+}
+
+//func exec(code *Code, args ...*LOB) (*LOB, error) {
+func exec(code *Code, args []*LOB) (*LOB, error) {
+	vm := newVM(defaultStackSize)
+	if len(args) != code.argc {
+		return nil, Error(ArgumentErrorKey, "Wrong number of arguments")
+	}
+	startTime := time.Now()
+	result, err := vm.exec(code, args)
+	dur := time.Since(startTime)
+	if verbose {
+		println("; executed in ", dur)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if verbose {
+		if err == nil && result != nil {
+			println("; => ", result)
+		}
+	}
+	return result, err
+}
+
 func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 	if !optimize || verbose || trace {
 		return vm.instrumentedExec(code, args)
@@ -760,7 +757,7 @@ func (vm *VM) exec(code *Code, args []*LOB) (*LOB, error) {
 			fun := stack[sp]
 			if fun.primitive != nil {
 				nextSp := sp + argc
-				val, err := fun.primitive.fun(stack[sp+1 : nextSp+1])
+				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
 				if err != nil {
 					return nil, addContext(env, err)
 				}

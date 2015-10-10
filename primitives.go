@@ -131,28 +131,24 @@ func initEnvironment() {
 	defineFunction("compile", ellCompile, typeCode, typeAny)
 
 	defineFunctionRestArgs("make-error", ellMakeError, typeError, typeAny)
-
 	defineFunction("error?", ellErrorP, typeBoolean, typeAny)
 	defineFunction("uncaught-error", ellUncaughtError, typeNull, typeError) //doesn't return
 
 	defineFunctionKeyArgs("json", ellJSON, typeString, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
 
-	defineLegacyFunction("getfn", ellGetFn, "(<symbol> <any>*)") //nargs
-
+	defineFunctionRestArgs("getfn", ellGetFn, typeFunction, typeAny, typeSymbol)
 	defineFunction("method-signature", ellMethodSignature, typeType, typeList)
 
-	defineLegacyFunction("spawn", ellSpawn, "(<function> <any>*)") //nargs
-
+	defineFunctionRestArgs("spawn", ellSpawn, typeNull, typeAny, typeFunction)
 	defineFunctionKeyArgs("channel", ellChannel, typeChannel, []*LOB{typeString, typeNumber}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
-
-	defineLegacyFunction("send", ellSend, "(<channel> <any> <number>?) <boolean>") //optional 3rd arg for timeout
-	defineLegacyFunction("recv", ellReceive, "(<channel> <number>?) <any>")        //optional second arg for timeout
-
+	defineFunctionOptionalArgs("send", ellSend, typeNull, []*LOB{typeChannel, typeAny, typeNumber}, MinusOne)
+	defineFunctionOptionalArgs("recv", ellReceive, typeAny, []*LOB{typeChannel, typeNumber}, MinusOne)
 	defineFunction("close", ellClose, typeNull, typeChannel)
 
 	if midi {
 		initMidi()
 	}
+
 	err := loadModule("ell")
 	if err != nil {
 		fatal("*** ", err)
@@ -707,6 +703,7 @@ func ellJoin(argv []*LOB) (*LOB, error) {
 }
 
 func ellJSON(argv []*LOB) (*LOB, error) {
+	println("ellJSON: ", argv)
 	s, err := writeToString(argv[0], true, argv[1].text)
 	if err != nil {
 		return nil, err
@@ -761,61 +758,44 @@ func ellClose(argv []*LOB) (*LOB, error) {
 }
 
 func ellSend(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	timeout := 0
-	if argc == 3 {
-		f, err := floatValue(argv[2])
-		if err != nil {
-			return nil, Error(ArgumentErrorKey, "send expected a number for its optional third argument, got ", argv[1])
-		}
-		timeout = int(f * 1000)
-	}
-	if argc < 2 || argc > 3 {
-		return nil, Error(ArgumentErrorKey, "send expected 2 or 3 arguments, got ", argc)
-	}
 	ch := argv[0]
-	if ch.variant != typeChannel {
-		return nil, Error(ArgumentErrorKey, "send expected a <channel> for argument 1, got ", ch)
-	}
-	val := argv[1]
-	if ch.channel != nil {
-		if timeout > 0 {
+	if ch.channel != nil { //not closed
+		val := argv[1]
+		timeout := argv[2].fval  //FIX: timeouts in seconds, floating point
+		if numberEqual(timeout, 0.0) { //non-blocking
+			select {
+			case ch.channel <- val:
+				return True, nil
+			default:
+			}
+		} else if timeout > 0 { //with timeout
 			dur := time.Millisecond * time.Duration(timeout)
 			select {
 			case ch.channel <- val:
 				return True, nil
 			case <-time.After(dur):
 			}
-		} else {
-			select {
-			case ch.channel <- val:
-				return True, nil
-			default:
-			}
+		} else { //block forever
+			ch.channel <- val
+			return True, nil
 		}
 	}
 	return False, nil
 }
 
 func ellReceive(argv []*LOB) (*LOB, error) {
-	timeout := 0
-	argc := len(argv)
-	if argc == 2 {
-		f, err := floatValue(argv[1])
-		if err != nil {
-			return nil, Error(ArgumentErrorKey, "recv expected a number for its optional second argument, got ", argv[1])
-		}
-		timeout = int(f * 1000)
-	}
-	if argc < 1 || argc > 2 {
-		return nil, Error(ArgumentErrorKey, "recv expected 1 or 2 arguments, got ", argc)
-	}
 	ch := argv[0]
-	if ch.variant != typeChannel {
-		return nil, Error(ArgumentErrorKey, "recv expected a <channel> for argument 1, got ", ch)
-	}
-	if ch.channel != nil {
-		if timeout > 0 {
+	if ch.channel != nil { //not closed
+		timeout := argv[1].fval
+		if numberEqual(timeout, 0.0) { //non-blocking
+			select {
+			case val, ok := <-ch.channel:
+				if ok {
+					return val, nil
+				}
+			default:
+			}
+		} else if timeout > 0 { //with timeout
 			dur := time.Millisecond * time.Duration(timeout)
 			select {
 			case val, ok := <-ch.channel:
@@ -824,14 +804,8 @@ func ellReceive(argv []*LOB) (*LOB, error) {
 				}
 			case <-time.After(dur):
 			}
-		} else {
-			select {
-			case val, ok := <-ch.channel:
-				if ok {
-					return val, nil
-				}
-			default:
-			}
+		} else { //block forever
+			return <-ch.channel, nil
 		}
 	}
 	return Null, nil

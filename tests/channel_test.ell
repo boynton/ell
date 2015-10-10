@@ -1,8 +1,8 @@
 (use assert)
 
 (def chan (channel))
-(assert-false (send chan 23) "send to nonbuffered channel with no receiver should immediately return false")
-(assert-null (recv chan) "recv on nonbuffered channel with no sender should immediately return null")
+(assert-false (send chan 23 0) "send to nonbuffered channel with no receiver should immediately return false")
+(assert-null (recv chan 0) "recv on nonbuffered channel with no sender should immediately return null")
 
 (close chan)
 (assert-false (send chan 23) "send to closed channel should return false")
@@ -14,7 +14,7 @@
 ;; unbuffered...
 (spawn (fn (back front)
          (send front 'running)
-         (let ((tmp (recv back 1)))
+         (let ((tmp (recv back)))
            (if (null? tmp)
                (assert false "could not receive on unbuffered channel")
                (send front tmp))))
@@ -23,14 +23,14 @@
 (assert-equal 'running (recv to-front 1)) ;;wait up to a second for the background thread to say it is running
 ;; it is now running
 (if (send to-back 23)
-    (assert-equal (recv to-front 1) 23 "round trip on unbuffered channel")
+    (assert-equal (recv to-front) 23 "round trip on unbuffered channel")
     (assert false "cannot send on unbuffered channel even when a receiver is waiting"))
 
 (def to-back (channel bufsize: 1))
 (def to-front (channel bufsize: 1))
 
 (spawn (fn (back front)
-         (let ((tmp (recv back 1)))
+         (let ((tmp (recv back)))
            (if (null? tmp)
                (assert false "could not receive on buffered channel")
                (send front tmp))))
@@ -38,7 +38,7 @@
 
 ;;it may not be running yet, but the value will be buffered
 (if (send to-back 23)
-    (assert-equal (recv to-front 1) 23 "round trip on buffered channel")
+    (assert-equal (recv to-front) 23 "round trip on buffered channel")
     (assert false "cannot send on channel even when buffered"))
 
 (println "[channel_test OK]")

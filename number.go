@@ -20,11 +20,14 @@ import (
 	"math"
 )
 
-// Zero is the Ell zero value
+// Zero is the Ell 0 value
 var Zero = newInt(0)
 
-// One is the Ell one value
+// One is the Ell 1 value
 var One = newInt(1)
+
+// MinusOne is the Ell -1 value
+var MinusOne = newInt(-1)
 
 func newFloat64(f float64) *LOB {
 	num := newLOB(typeNumber)
