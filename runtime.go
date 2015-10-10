@@ -292,9 +292,6 @@ func buildFrame(env *Frame, pc int, ops []int, fun *LOB, argc int, stack []*LOB,
 		return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
-	if totalArgc > 4 {
-		panic("> 4 args")
-	}
 	el := make([]*LOB, totalArgc)
 	end := sp + expectedArgc
 	if rest {
