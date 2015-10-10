@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/rakyll/portmidi"
+	"sync"
 	"time"
 )
 
@@ -14,6 +15,7 @@ func initMidi() {
 }
 
 var midiOut *portmidi.Stream
+var midiMutex = &sync.Mutex{}
 
 func midiOpen(argv []*LOB) (*LOB, error) {
 	latency := int64(0)
@@ -46,17 +48,17 @@ func midiSleep(argv []*LOB) (*LOB, error) {
 }
 
 func midiAllNotesOff() {
-	if midiOut != nil {
-		midiOut.WriteShort(0xB0, 0x7B, 0x00)
-	}
+	midiOut.WriteShort(0xB0, 0x7B, 0x00)
 }
 
 func midiClose(argv []*LOB) (*LOB, error) {
+	midiMutex.Lock()
 	if midiOut != nil {
 		midiAllNotesOff()
 		midiOut.Close()
 		midiOut = nil
 	}
+	midiMutex.Unlock()
 	return Null, nil
 }
 
@@ -75,7 +77,13 @@ func midiWrite(argv []*LOB) (*LOB, error) {
 		data1, err2 := int64Value(argv[1])
 		data2, err3 := int64Value(argv[2])
 		if err1 == nil && err2 == nil && err3 == nil {
-			return Null, midiOut.WriteShort(status, data1, data2)
+			midiMutex.Lock()
+			var err error
+			if midiOut != nil {
+				err = midiOut.WriteShort(status, data1, data2)
+			}
+			midiMutex.Unlock()
+			return Null, err
 		}
 	}
 	return nil, Error(ArgumentErrorKey, "midi-write takes 3 numbers")
