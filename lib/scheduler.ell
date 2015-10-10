@@ -141,8 +141,8 @@
     (note (+ k 67) 50 1000))))
 
 
-(defn scheduler-test ()
+(defn scheduler-test (i)
   (run
    (parallel
     (phrase1 0)
-    (phrase1 24))))
+    (phrase1 i))))

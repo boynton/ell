@@ -37,6 +37,7 @@ func initEnvironment() {
 
 	defineGlobal("apply", Apply)
 	defineGlobal("callcc", CallCC)
+	defineGlobal("spawn", Spawn)
 
 	defineFunction("version", ellVersion, typeString)
 	defineFunction("boolean?", ellBooleanP, typeBoolean, typeAny)
@@ -139,7 +140,6 @@ func initEnvironment() {
 	defineFunctionRestArgs("getfn", ellGetFn, typeFunction, typeAny, typeSymbol)
 	defineFunction("method-signature", ellMethodSignature, typeType, typeList)
 
-	defineFunctionRestArgs("spawn", ellSpawn, typeNull, typeAny, typeFunction)
 	defineFunctionKeyArgs("channel", ellChannel, typeChannel, []*LOB{typeString, typeNumber}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
 	defineFunctionOptionalArgs("send", ellSend, typeNull, []*LOB{typeChannel, typeAny, typeNumber}, MinusOne)
 	defineFunctionOptionalArgs("recv", ellReceive, typeAny, []*LOB{typeChannel, typeNumber}, MinusOne)
@@ -727,21 +727,6 @@ func ellMethodSignature(argv []*LOB) (*LOB, error) {
 	return methodSignature(argv[0])
 }
 
-//spawn a new "go routine" for the thunk
-func ellSpawn(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc >= 1 {
-		fun := argv[0]
-		if isFunction(fun) {
-			if fun.code != nil {
-				spawn(fun.code, argv[1:])
-				return Null, nil
-			}
-		}
-	}
-	return nil, Error(ArgumentErrorKey, "spawn expects 1 function")
-}
-
 func ellChannel(argv []*LOB) (*LOB, error) {
 	name := argv[0].text
 	bufsize := int(argv[1].fval)
@@ -761,7 +746,7 @@ func ellSend(argv []*LOB) (*LOB, error) {
 	ch := argv[0]
 	if ch.channel != nil { //not closed
 		val := argv[1]
-		timeout := argv[2].fval  //FIX: timeouts in seconds, floating point
+		timeout := argv[2].fval        //FIX: timeouts in seconds, floating point
 		if numberEqual(timeout, 0.0) { //non-blocking
 			select {
 			case ch.channel <- val:

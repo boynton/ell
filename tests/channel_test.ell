@@ -41,4 +41,21 @@
     (assert-equal (recv to-front) 23 "round trip on buffered channel")
     (assert false "cannot send on channel even when buffered"))
 
+
+(def c (channel))
+(spawn (fn (ch y) (send ch (+ 2 y))) c 100)
+(assert-equal 102 (recv c) "simple spawn, self-contained function")
+
+(spawn (fn (y) (send c (+ 2 y))) 200)
+(assert-equal 202 (recv c) "spawned function using a shared global for the channel")
+
+(let ((x 2))
+  (spawn (fn (y) (send c (+ x y))) 300))
+(assert-equal 302 (recv c 1000) "spawned function using shared channel and closed over local state")
+
+(let ((chan (channel)) (x 2))
+  (spawn (fn (y) (send chan (+ x y))) 400)
+  (assert-equal 402 (recv chan 1000) "spawned function and client both closed over channel and state"))
+
+
 (println "[channel_test OK]")
