@@ -685,7 +685,7 @@ func ellSeal(argv []*LOB) (*LOB, error) {
 		argv[0].ival = 1
 		return argv[0], nil
 	default:
-		return nil, Error(ArgumentErrorKey, "put! on sealed struct")
+		return nil, Error(ArgumentErrorKey, "cannot seal! ", argv[0])
 	}
 }
 
