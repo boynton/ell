@@ -837,7 +837,6 @@ func ellReceive(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-
 func ellSetRandomSeedBang(argv []*LOB) (*LOB, error) {
 	randomSeed(int64(argv[0].fval))
 	return Null, nil
@@ -855,7 +854,7 @@ func ellRandom(argv []*LOB) (*LOB, error) {
 		min = argv[0].fval
 		max = argv[1].fval
 	default:
-      return nil, Error(ArgumentErrorKey, "random expected 0 to 2 arguments, got ", argc)
+		return nil, Error(ArgumentErrorKey, "random expected 0 to 2 arguments, got ", argc)
 	}
 	return random(min, max), nil
 }
@@ -873,9 +872,7 @@ func ellRandomList(argv []*LOB) (*LOB, error) {
 		min = argv[1].fval
 		max = argv[2].fval
 	default:
-      return nil, Error(ArgumentErrorKey, "random-list expected 1 to 3 arguments, got ", argc)
+		return nil, Error(ArgumentErrorKey, "random-list expected 1 to 3 arguments, got ", argc)
 	}
 	return randomList(count, min, max), nil
 }
-
-

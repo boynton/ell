@@ -149,4 +149,3 @@ func randomList(size int, min float64, max float64) *LOB {
 	}
 	return result
 }
-
