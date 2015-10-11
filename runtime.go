@@ -56,14 +56,14 @@ type Continuation struct {
 }
 
 func newClosure(code *Code, frame *Frame) *LOB {
-	fun := newLOB(typeFunction)
+	fun := newLOB(FunctionType)
 	fun.code = code
 	fun.frame = frame
 	return fun
 }
 
 func newContinuation(frame *Frame, ops []int, pc int, stack []*LOB) *LOB {
-	fun := newLOB(typeFunction)
+	fun := newLOB(FunctionType)
 	cont := new(Continuation)
 	cont.ops = ops
 	cont.stack = make([]*LOB, len(stack))
@@ -86,13 +86,13 @@ func newVM(stackSize int) *VM {
 }
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &LOB{variant: typeFunction}
+var Apply = &LOB{variant: FunctionType}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &LOB{variant: typeFunction}
+var CallCC = &LOB{variant: FunctionType}
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Spawn = &LOB{variant: typeFunction}
+var Spawn = &LOB{variant: FunctionType}
 
 func functionSignature(f *LOB) string {
 	if f.primitive != nil {
@@ -205,7 +205,7 @@ func newPrimitive(name string, fun PrimCallable, result *LOB, args []*LOB, rest 
 		argc = argc - defc
 		for i := 0; i < defc; i++ {
 			t := args[argc+i]
-			if t != typeAny && defaults[i].variant != t {
+			if t != AnyType && defaults[i].variant != t {
 				panic("argument default's type (" + defaults[i].variant.text + ") doesn't match declared type (" + t.text + ")")
 			}
 		}
@@ -217,7 +217,7 @@ func newPrimitive(name string, fun PrimCallable, result *LOB, args []*LOB, rest 
 	signature := functionSignatureFromTypes(result, args, rest)
 	prim := &Primitive{name, fun, signature, idx, argc, result, args, rest, defaults, keys}
 	primitives = append(primitives, prim)
-	return &LOB{variant: typeFunction, primitive: prim}
+	return &LOB{variant: FunctionType, primitive: prim}
 }
 
 //argc == 1: 1 or more args (depending on Defaults)
@@ -227,7 +227,7 @@ func newLegacyPrimitive(name string, fun PrimCallable, signature string) *LOB {
 	idx := len(primitives)
 	prim := &Primitive{name, fun, signature, idx, -1, nil, nil, nil, nil, nil}
 	primitives = append(primitives, prim)
-	return &LOB{variant: typeFunction, primitive: prim}
+	return &LOB{variant: FunctionType, primitive: prim}
 }
 
 // Frame - a call frame in the VM, as well as en environment frame for lexical closures
@@ -399,7 +399,7 @@ func (vm *VM) callPrimitive(prim *Primitive, argv []*LOB) (*LOB, error) {
 	}
 	for i, arg := range argv {
 		t := prim.args[i]
-		if t != typeAny && arg.variant != t {
+		if t != AnyType && arg.variant != t {
 			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].variant.text))
 		}
 	}
@@ -417,11 +417,11 @@ func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, err
 		for i := 0; i < minargc; i++ {
 			t := prim.args[i]
 			arg := argv[i]
-			if t != typeAny && arg.variant != t {
+			if t != AnyType && arg.variant != t {
 				return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].variant.text))
 			}
 		}
-		if rest != typeAny {
+		if rest != AnyType {
 			for i := minargc; i < provided; i++ {
 				arg := argv[i]
 				if arg.variant != rest {
@@ -451,7 +451,7 @@ func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, err
 			if j == provided {
 				return nil, Error(ArgumentErrorKey, "mismatched keyword/value pair in argument list")
 			}
-			if k.variant != typeKeyword {
+			if k.variant != KeywordType {
 				return nil, Error(ArgumentErrorKey, "expected keyword, got a "+k.variant.text)
 			}
 			gotit := false
@@ -482,7 +482,7 @@ func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, err
 	}
 	for i, arg := range argv {
 		t := prim.args[i]
-		if t != typeAny && arg.variant != t {
+		if t != AnyType && arg.variant != t {
 			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].variant.text))
 		}
 	}
@@ -491,7 +491,7 @@ func (vm *VM) callPrimitiveWithDefaults(prim *Primitive, argv []*LOB) (*LOB, err
 
 func (vm *VM) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeCallAgain:
-	if fun.variant == typeFunction {
+	if fun.variant == FunctionType {
 		if fun.code != nil {
 			if checkInterrupt() {
 				return nil, 0, 0, nil, addContext(env, Error(InterruptKey))
@@ -592,7 +592,7 @@ opcodeCallAgain:
 		}
 		panic("unsupported instruction")
 	}
-	if fun.variant == typeKeyword {
+	if fun.variant == KeywordType {
 		if argc != 1 {
 			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 			return nil, 0, 0, nil, addContext(env, err)
@@ -609,7 +609,7 @@ opcodeCallAgain:
 
 func (vm *VM) tailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeTailCallAgain:
-	if fun.variant == typeFunction {
+	if fun.variant == FunctionType {
 		if fun.code != nil {
 			if fun.code.defaults == nil && fun.code == env.code { //self-tail-call - we can reuse the frame.
 				expectedArgc := fun.code.argc
@@ -694,7 +694,7 @@ opcodeTailCallAgain:
 		}
 		panic("Bad function")
 	}
-	if fun.variant == typeKeyword {
+	if fun.variant == KeywordType {
 		if argc != 1 {
 			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 			return nil, 0, 0, nil, addContext(env, err)
@@ -732,7 +732,7 @@ func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
 }
 
 func (vm *VM) spawn(fun *LOB, argc int, stack []*LOB, sp int) error {
-	if fun.variant == typeFunction {
+	if fun.variant == FunctionType {
 		if fun.code != nil {
 			env, err := buildFrame(nil, 0, nil, fun, argc, stack, sp)
 			if err != nil {
@@ -804,12 +804,12 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 				stack[nextSp] = val
 				sp = nextSp
 				pc += 2
-			} else if fun.variant == typeFunction {
+			} else if fun.variant == FunctionType {
 				ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
 				if err != nil {
 					return nil, err
 				}
-			} else if fun.variant == typeKeyword {
+			} else if fun.variant == KeywordType {
 				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
 				if err != nil {
 					return nil, addContext(env, err)
@@ -870,7 +870,7 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 				if err != nil {
 					return nil, err
 				}
-			} else if fun.variant == typeKeyword {
+			} else if fun.variant == KeywordType {
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
 				if env == nil {
 					return stack[sp], nil
@@ -1035,12 +1035,12 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				stack[nextSp] = val
 				sp = nextSp
 				pc += 2
-			} else if fun.variant == typeFunction {
+			} else if fun.variant == FunctionType {
 				ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
 				if err != nil {
 					return nil, err
 				}
-			} else if fun.variant == typeKeyword {
+			} else if fun.variant == KeywordType {
 				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
 				if err != nil {
 					return nil, addContext(env, err)
@@ -1114,7 +1114,7 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				if env == nil {
 					return stack[sp], nil
 				}
-			} else if fun.variant == typeFunction {
+			} else if fun.variant == FunctionType {
 				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
 				if env == nil {
 					return stack[sp], nil
@@ -1122,7 +1122,7 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				if err != nil {
 					return nil, err
 				}
-			} else if fun.variant == typeKeyword {
+			} else if fun.variant == KeywordType {
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
 				if env.previous == nil {
 					return stack[sp], nil

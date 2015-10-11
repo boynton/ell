@@ -23,29 +23,29 @@ import (
 var EmptyString = newString("")
 
 func newString(s string) *LOB {
-	str := newLOB(typeString)
+	str := newLOB(StringType)
 	str.text = s
 	return str
 }
 
 func asString(obj *LOB) (string, error) {
 	if !isString(obj) {
-		return "", Error(ArgumentErrorKey, typeString, obj)
+		return "", Error(ArgumentErrorKey, StringType, obj)
 	}
 	return obj.text, nil
 }
 
 func toString(a *LOB) (*LOB, error) {
 	switch a.variant {
-	case typeCharacter:
+	case CharacterType:
 		return newString(string([]rune{rune(a.ival)})), nil
-	case typeString:
+	case StringType:
 		return a, nil
-	case typeSymbol, typeKeyword, typeType:
+	case SymbolType, KeywordType, TypeType:
 		return newString(a.text), nil
-	case typeNumber, typeBoolean:
+	case NumberType, BooleanType:
 		return newString(a.String()), nil
-	case typeVector:
+	case VectorType:
 		var chars []rune
 		for _, c := range a.elements {
 			if !isCharacter(c) {
@@ -54,7 +54,7 @@ func toString(a *LOB) (*LOB, error) {
 			chars = append(chars, rune(c.ival))
 		}
 		return newString(string(chars)), nil
-	case typeList:
+	case ListType:
 		var chars []rune
 		for a != EmptyList {
 			c := car(a)
@@ -113,22 +113,22 @@ func encodeString(s string) string {
 }
 
 func newCharacter(c rune) *LOB {
-	char := newLOB(typeCharacter)
+	char := newLOB(CharacterType)
 	char.ival = int64(c)
 	return char
 }
 
 func toCharacter(c *LOB) (*LOB, error) {
 	switch c.variant {
-	case typeCharacter:
+	case CharacterType:
 		return c, nil
-	case typeString:
+	case StringType:
 		if len(c.text) == 1 {
 			for _, r := range c.text {
 				return newCharacter(r), nil
 			}
 		}
-	case typeNumber:
+	case NumberType:
 		r := rune(int(c.fval))
 		return newCharacter(r), nil
 	}
@@ -194,7 +194,7 @@ func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "join expected a <string> for argument 2, got ", delims)
 	}
 	switch seq.variant {
-	case typeList:
+	case ListType:
 		result := ""
 		for seq != EmptyList {
 			o := seq.car
@@ -207,7 +207,7 @@ func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
 			seq = seq.cdr
 		}
 		return newString(result), nil
-	case typeVector:
+	case VectorType:
 		result := ""
 		elements := seq.elements
 		count := len(elements)

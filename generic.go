@@ -21,13 +21,13 @@ func methodSignature(formalArgs *LOB) (*LOB, error) {
 	for formalArgs != EmptyList {
 		s := formalArgs.car //might be a symbol, might be a list
 		tname := ""
-		if s.variant == typeList { //specialized
+		if s.variant == ListType { //specialized
 			t := cadr(s)
-			if t.variant != typeType {
+			if t.variant != TypeType {
 				return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
 			}
 			tname = t.text
-		} else if s.variant == typeSymbol { //unspecialized
+		} else if s.variant == SymbolType { //unspecialized
 			tname = "<any>"
 		} else {
 			return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
@@ -46,14 +46,12 @@ func arglistSignature(args []*LOB) string {
 	return sig
 }
 
-var typeAny = intern("<any>")
-
 func signatureCombos(argtypes []*LOB) []string {
 	switch len(argtypes) {
 	case 0:
 		return []string{}
 	case 1:
-		return []string{argtypes[0].text, typeAny.text}
+		return []string{argtypes[0].text, AnyType.text}
 	default:
 		//get the combinations of the tail, and concat both the type and <any> onto each of those combos
 		rest := signatureCombos(argtypes[1:]) // ["<number>" "<any>"]
@@ -63,7 +61,7 @@ func signatureCombos(argtypes []*LOB) []string {
 			result = append(result, this.text+s)
 		}
 		for _, s := range rest {
-			result = append(result, typeAny.text+s)
+			result = append(result, AnyType.text+s)
 		}
 		return result
 	}
@@ -95,13 +93,13 @@ var keyMethods = intern("methods:")
 func getfn(sym *LOB, args []*LOB) (*LOB, error) {
 	sigs := arglistSignatures(args)
 	gfs := global(symGenfns)
-	if gfs != nil && gfs.variant == typeStruct {
+	if gfs != nil && gfs.variant == StructType {
 		gf := structGet(gfs, sym)
 		if gf == Null {
 			return nil, Error(ErrorKey, "Not a generic function: ", sym)
 		}
 		methods := structGet(value(gf), keyMethods)
-		if methods.variant == typeStruct {
+		if methods.variant == StructType {
 			for _, sig := range sigs {
 				fun := structGet(methods, sig)
 				if fun != Null {

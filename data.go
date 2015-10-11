@@ -52,32 +52,32 @@ func identical(o1 *LOB, o2 *LOB) bool {
 
 func (lob *LOB) String() string {
 	switch lob.variant {
-	case typeNull:
+	case NullType:
 		return "null"
-	case typeBoolean:
+	case BooleanType:
 		if lob == True {
 			return "true"
 		}
 		return "false"
-	case typeCharacter:
+	case CharacterType:
 		return string([]rune{rune(lob.ival)})
-	case typeNumber:
+	case NumberType:
 		return strconv.FormatFloat(lob.fval, 'f', -1, 64)
-	case typeString, typeSymbol, typeKeyword, typeType:
+	case StringType, SymbolType, KeywordType, TypeType:
 		return lob.text
-	case typeList:
+	case ListType:
 		return listToString(lob)
-	case typeVector:
+	case VectorType:
 		return vectorToString(lob)
-	case typeStruct:
+	case StructType:
 		return structToString(lob)
-	case typeFunction:
+	case FunctionType:
 		return functionToString(lob)
-	case typeCode:
+	case CodeType:
 		return lob.code.String()
-	case typeError:
+	case ErrorType:
 		return "#<error>" + write(lob.car)
-	case typeChannel:
+	case ChannelType:
 		s := "#[channel"
 		if lob.text != "" {
 			s += " " + lob.text
@@ -94,80 +94,111 @@ func (lob *LOB) String() string {
 	}
 }
 
-var typeType *LOB    // bootstrapped in initSymbolTable => intern("<type>")
-var typeKeyword *LOB // bootstrapped in initSymbolTable => intern("<keyword>")
-var typeSymbol *LOB  // bootstrapped in initSymbolTable = intern("<symbol>")
+// TypeType is the metatype, the type of all types
+var TypeType *LOB // bootstrapped in initSymbolTable => intern("<type>")
 
-var typeNull = intern("<null>")
-var typeBoolean = intern("<boolean>")
-var typeCharacter = intern("<character>")
-var typeNumber = intern("<number>")
-var typeString = intern("<string>")
-var typeList = intern("<list>")
-var typeVector = intern("<vector>")
-var typeStruct = intern("<struct>")
-var typeFunction = intern("<function>")
-var typeCode = intern("<code>")
-var typeError = intern("<error>")
-var typeChannel = intern("<channel>")
+// KeywordType is the type of all keywords
+var KeywordType *LOB // bootstrapped in initSymbolTable => intern("<keyword>")
+
+// SymbolType is the type of all symbols
+var SymbolType *LOB // bootstrapped in initSymbolTable = intern("<symbol>")
+
+// NullType the type of the null object
+var NullType = intern("<null>")
+
+// BooleanType is the type of true and false
+var BooleanType = intern("<boolean>")
+
+// CharacterType is the type of all characters
+var CharacterType = intern("<character>")
+
+// NumberType is the type of all numbers
+var NumberType = intern("<number>")
+
+// StringType is the type of all strings
+var StringType = intern("<string>")
+
+// ListType is the type of all lists
+var ListType = intern("<list>")
+
+// VectorType is the type of all vectors
+var VectorType = intern("<vector>")
+
+// VectorType is the type of all structs
+var StructType = intern("<struct>")
+
+// FunctionType is the type of all functions
+var FunctionType = intern("<function>")
+
+// CodeType is the type of compiled code
+var CodeType = intern("<code>")
+
+// ErrorType is the type of all errors
+var ErrorType = intern("<error>")
+
+// ChannelType is the type for channels
+var ChannelType = intern("<channel>")
+
+// AnyType is a pseudo type specifier indicating any type
+var AnyType = intern("<any>")
 
 func isTextual(o *LOB) bool {
 	switch o.variant {
-	case typeString, typeSymbol, typeKeyword, typeType:
+	case StringType, SymbolType, KeywordType, TypeType:
 		return true
 	}
 	return false
 }
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
-var Null = &LOB{variant: typeNull}
+var Null = &LOB{variant: NullType}
 
 func isNull(obj *LOB) bool {
 	return obj == Null
 }
 
 // True is the singleton boolean true value
-var True = &LOB{variant: typeBoolean, ival: 1}
+var True = &LOB{variant: BooleanType, ival: 1}
 
 // False is the singleton boolean false value
-var False = &LOB{variant: typeBoolean, ival: 0}
+var False = &LOB{variant: BooleanType, ival: 0}
 
 func isBoolean(obj *LOB) bool {
-	return obj.variant == typeBoolean
+	return obj.variant == BooleanType
 }
 
 func isCharacter(obj *LOB) bool {
-	return obj.variant == typeCharacter
+	return obj.variant == CharacterType
 }
 func isNumber(obj *LOB) bool {
-	return obj.variant == typeNumber
+	return obj.variant == NumberType
 }
 func isString(obj *LOB) bool {
-	return obj.variant == typeString
+	return obj.variant == StringType
 }
 func isList(obj *LOB) bool {
-	return obj.variant == typeList
+	return obj.variant == ListType
 }
 func isVector(obj *LOB) bool {
-	return obj.variant == typeVector
+	return obj.variant == VectorType
 }
 func isStruct(obj *LOB) bool {
-	return obj.variant == typeStruct
+	return obj.variant == StructType
 }
 func isFunction(obj *LOB) bool {
-	return obj.variant == typeFunction
+	return obj.variant == FunctionType
 }
 func isCode(obj *LOB) bool {
-	return obj.variant == typeCode
+	return obj.variant == CodeType
 }
 func isSymbol(obj *LOB) bool {
-	return obj.variant == typeSymbol
+	return obj.variant == SymbolType
 }
 func isKeyword(obj *LOB) bool {
-	return obj.variant == typeKeyword
+	return obj.variant == KeywordType
 }
 func isType(obj *LOB) bool {
-	return obj.variant == typeType
+	return obj.variant == TypeType
 }
 
 //instances have arbitrary variant symbols, all we can check is that the instanceValue is set
@@ -183,21 +214,21 @@ func equal(o1 *LOB, o2 *LOB) bool {
 		return false
 	}
 	switch o1.variant {
-	case typeBoolean, typeCharacter:
+	case BooleanType, CharacterType:
 		return o1.ival == o2.ival
-	case typeNumber:
+	case NumberType:
 		return numberEqual(o1.fval, o2.fval)
-	case typeString:
+	case StringType:
 		return o1.text == o2.text
-	case typeList:
+	case ListType:
 		return listEqual(o1, o2)
-	case typeVector:
+	case VectorType:
 		return vectorEqual(o1, o2)
-	case typeStruct:
+	case StructType:
 		return structEqual(o1, o2)
-	case typeSymbol, typeKeyword, typeType:
+	case SymbolType, KeywordType, TypeType:
 		return o1 == o2
-	case typeNull:
+	case NullType:
 		return true // singleton
 	default:
 		o1a := value(o1)
@@ -211,9 +242,9 @@ func equal(o1 *LOB, o2 *LOB) bool {
 
 func isPrimitiveType(tag *LOB) bool {
 	switch tag {
-	case typeNull, typeBoolean, typeCharacter, typeNumber, typeString, typeList, typeVector, typeStruct:
+	case NullType, BooleanType, CharacterType, NumberType, StringType, ListType, VectorType, StructType:
 		return true
-	case typeSymbol, typeKeyword, typeType, typeFunction:
+	case SymbolType, KeywordType, TypeType, FunctionType:
 		return true
 	default:
 		return false
@@ -222,7 +253,7 @@ func isPrimitiveType(tag *LOB) bool {
 
 func instance(tag *LOB, val *LOB) (*LOB, error) {
 	if !isType(tag) {
-		return nil, Error(ArgumentErrorKey, typeType.text, tag)
+		return nil, Error(ArgumentErrorKey, TypeType.text, tag)
 	}
 	if isPrimitiveType(tag) {
 		return val, nil
@@ -251,7 +282,7 @@ func Error(errkey *LOB, args ...interface{}) error {
 			buf.WriteString(fmt.Sprintf("%v", o))
 		}
 	}
-	if errkey.variant != typeKeyword {
+	if errkey.variant != KeywordType {
 		errkey = ErrorKey
 	}
 	return newError(errkey, newString(buf.String()))
@@ -259,7 +290,7 @@ func Error(errkey *LOB, args ...interface{}) error {
 
 func newError(elements ...*LOB) *LOB {
 	data := vector(elements...)
-	return &LOB{variant: typeError, car: data}
+	return &LOB{variant: ErrorType, car: data}
 }
 
 func theError(o interface{}) (*LOB, bool) {
@@ -267,7 +298,7 @@ func theError(o interface{}) (*LOB, bool) {
 		return nil, false
 	}
 	if err, ok := o.(*LOB); ok {
-		if err.variant == typeError {
+		if err.variant == ErrorType {
 			return err, true
 		}
 	}
@@ -286,7 +317,7 @@ func errorData(err *LOB) *LOB {
 
 // Error
 func (lob *LOB) Error() string {
-	if lob.variant == typeError {
+	if lob.variant == ErrorType {
 		s := lob.car.String()
 		if lob.text != "" {
 			s += " [in " + lob.text + "]"
@@ -317,7 +348,7 @@ var InterruptKey = intern("interrupt:")
 // channels
 
 func newChannel(bufsize int, name string) *LOB {
-	lob := newLOB(typeChannel)
+	lob := newLOB(ChannelType)
 	lob.channel = make(chan *LOB, bufsize)
 	lob.ival = int64(bufsize)
 	lob.text = name

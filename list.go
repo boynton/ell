@@ -21,7 +21,7 @@ import (
 )
 
 func cons(car *LOB, cdr *LOB) *LOB {
-	result := newLOB(typeList)
+	result := newLOB(ListType)
 	result.car = car
 	result.cdr = cdr
 	return result
@@ -95,7 +95,7 @@ var symUnquoteSplicing = intern("unquote-splicing")
 var EmptyList = initEmpty()
 
 func initEmpty() *LOB {
-	return &LOB{variant: typeList} //car and cdr are both nil
+	return &LOB{variant: ListType} //car and cdr are both nil
 }
 
 // Equal returns true if the object is equal to the argument
@@ -194,13 +194,13 @@ func listToVector(lst *LOB) *LOB {
 
 func toList(obj *LOB) (*LOB, error) {
 	switch obj.variant {
-	case typeList:
+	case ListType:
 		return obj, nil
-	case typeVector:
+	case VectorType:
 		return listFromValues(obj.elements), nil
-	case typeStruct:
+	case StructType:
 		return structToList(obj)
-	case typeString:
+	case StringType:
 		return stringToList(obj), nil
 	}
 	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.variant)
@@ -221,9 +221,9 @@ func flatten(lst *LOB) *LOB {
 	for lst != EmptyList {
 		item := lst.car
 		switch item.variant {
-		case typeList:
+		case ListType:
 			item = flatten(item)
-		case typeVector:
+		case VectorType:
 			litem, _ := toList(item)
 			item = flatten(litem)
 		default:

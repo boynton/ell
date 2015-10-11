@@ -21,11 +21,11 @@ func intern(name string) *LOB {
 		sym = new(LOB)
 		sym.text = name
 		if isValidKeywordName(name) {
-			sym.variant = typeKeyword
+			sym.variant = KeywordType
 		} else if isValidTypeName(name) {
-			sym.variant = typeType
+			sym.variant = TypeType
 		} else if isValidSymbolName(name) {
-			sym.variant = typeSymbol
+			sym.variant = SymbolType
 		} else {
 			panic("invalid symbol/type/keyword name passed to intern: " + name)
 		}
@@ -56,13 +56,13 @@ func isValidKeywordName(s string) bool {
 
 func toKeyword(obj *LOB) (*LOB, error) {
 	switch obj.variant {
-	case typeKeyword:
+	case KeywordType:
 		return obj, nil
-	case typeType:
+	case TypeType:
 		return intern(obj.text[1:len(obj.text)-1] + ":"), nil
-	case typeSymbol:
+	case SymbolType:
 		return intern(obj.text + ":"), nil
-	case typeString:
+	case StringType:
 		if isValidKeywordName(obj.text) {
 			return intern(obj.text), nil
 		} else if isValidSymbolName(obj.text) {
@@ -74,12 +74,12 @@ func toKeyword(obj *LOB) (*LOB, error) {
 
 func keywordify(s *LOB) *LOB {
 	switch s.variant {
-	case typeString:
+	case StringType:
 		if !isValidKeywordName(s.text) {
 			return intern(s.text + ":")
 		}
 		return intern(s.text)
-	case typeSymbol:
+	case SymbolType:
 		return intern(s.text + ":")
 	}
 	return s
@@ -128,13 +128,13 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 
 func toSymbol(obj *LOB) (*LOB, error) {
 	switch obj.variant {
-	case typeKeyword:
+	case KeywordType:
 		return intern(keywordNameString(obj.text)), nil
-	case typeType:
+	case TypeType:
 		return intern(typeNameString(obj.text)), nil
-	case typeSymbol:
+	case SymbolType:
 		return obj, nil
-	case typeString:
+	case StringType:
 		if isValidSymbolName(obj.text) {
 			return intern(obj.text), nil
 		}
@@ -147,15 +147,15 @@ var symtab = initSymbolTable()
 
 func initSymbolTable() map[string]*LOB {
 	syms := make(map[string]*LOB, 0)
-	typeType = &LOB{text: "<type>"}
-	typeType.variant = typeType //mutate to bootstrap type type
-	syms[typeType.text] = typeType
+	TypeType = &LOB{text: "<type>"}
+	TypeType.variant = TypeType //mutate to bootstrap type type
+	syms[TypeType.text] = TypeType
 
-	typeKeyword = &LOB{variant: typeType, text: "<keyword>"}
-	syms[typeKeyword.text] = typeKeyword
+	KeywordType = &LOB{variant: TypeType, text: "<keyword>"}
+	syms[KeywordType.text] = KeywordType
 
-	typeSymbol = &LOB{variant: typeType, text: "<symbol>"}
-	syms[typeSymbol.text] = typeSymbol
+	SymbolType = &LOB{variant: TypeType, text: "<symbol>"}
+	syms[SymbolType.text] = SymbolType
 
 	return syms
 }
@@ -178,7 +178,7 @@ func symbol(names []*LOB) (*LOB, error) {
 		o := names[i]
 		s := ""
 		switch o.variant {
-		case typeString, typeSymbol:
+		case StringType, SymbolType:
 			s = o.text
 		default:
 			return nil, Error(ArgumentErrorKey, "symbol name component invalid: ", o)

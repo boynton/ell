@@ -57,7 +57,7 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 		t, err := get(options, intern("keys:"))
 		if err == nil && isType(t) {
 			switch t {
-			case typeSymbol, typeKeyword, typeString:
+			case SymbolType, KeywordType, StringType:
 				return t, nil
 			default:
 				return nil, Error(ArgumentErrorKey, "Bad option value for keys: ", t)
@@ -75,7 +75,7 @@ func read(input *LOB) (*LOB, error) {
 	}
 	r := strings.NewReader(input.text)
 	reader := newDataReader(r)
-	obj, err := reader.readData(typeAny)
+	obj, err := reader.readData(AnyType)
 	if err != nil {
 		if err == io.EOF {
 			return Null, nil
@@ -322,19 +322,19 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 		if err != nil {
 			return nil, err
 		}
-		if keys != nil && keys != typeAny {
+		if keys != nil && keys != AnyType {
 			switch keys {
-			case typeKeyword:
+			case KeywordType:
 				element, err = toKeyword(element)
 				if err != nil {
 					return nil, err
 				}
-			case typeSymbol:
+			case SymbolType:
 				element, err = toSymbol(element)
 				if err != nil {
 					return nil, err
 				}
-			case typeString:
+			case StringType:
 				element, err = toString(element)
 				if err != nil {
 					return nil, err
@@ -644,27 +644,27 @@ func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
 func writeData(obj *LOB, json bool, indent string, indentSize string) (string, error) {
 	//an error is never returned for non-json
 	switch obj.variant {
-	case typeBoolean, typeNull, typeNumber:
+	case BooleanType, NullType, NumberType:
 		return obj.String(), nil
-	case typeList:
+	case ListType:
 		if json {
 			return writeVector(listToVector(obj), json, indent, indentSize)
 		}
 		return writeList(obj, indent, indentSize), nil
-	case typeKeyword:
+	case KeywordType:
 		if json {
 			return encodeString(unkeywordedString(obj)), nil
 		}
 		return obj.String(), nil
-	case typeSymbol, typeType:
+	case SymbolType, TypeType:
 		return obj.String(), nil
-	case typeString:
+	case StringType:
 		return encodeString(obj.text), nil
-	case typeVector:
+	case VectorType:
 		return writeVector(obj, json, indent, indentSize)
-	case typeStruct:
+	case StructType:
 		return writeStruct(obj, json, indent, indentSize)
-	case typeCharacter:
+	case CharacterType:
 		switch obj.ival {
 		case 0:
 			return "#\\null", nil

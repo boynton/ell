@@ -39,114 +39,114 @@ func initEnvironment() {
 	defineGlobal("callcc", CallCC)
 	defineGlobal("spawn", Spawn)
 
-	defineFunction("version", ellVersion, typeString)
-	defineFunction("boolean?", ellBooleanP, typeBoolean, typeAny)
-	defineFunction("not", ellNot, typeBoolean, typeAny)
-	defineFunction("equal?", ellEqualP, typeBoolean, typeAny, typeAny)
-	defineFunction("identical?", ellIdenticalP, typeBoolean, typeAny, typeAny)
-	defineFunction("null?", ellNullP, typeBoolean, typeAny)
-	defineFunction("def?", ellDefinedP, typeBoolean, typeSymbol)
+	defineFunction("version", ellVersion, StringType)
+	defineFunction("boolean?", ellBooleanP, BooleanType, AnyType)
+	defineFunction("not", ellNot, BooleanType, AnyType)
+	defineFunction("equal?", ellEqualP, BooleanType, AnyType, AnyType)
+	defineFunction("identical?", ellIdenticalP, BooleanType, AnyType, AnyType)
+	defineFunction("null?", ellNullP, BooleanType, AnyType)
+	defineFunction("def?", ellDefinedP, BooleanType, SymbolType)
 
-	defineFunction("type", ellType, typeType, typeAny)
-	defineFunction("value", ellValue, typeAny, typeAny)
-	defineFunction("instance", ellInstance, typeAny, typeType, typeAny)
+	defineFunction("type", ellType, TypeType, AnyType)
+	defineFunction("value", ellValue, AnyType, AnyType)
+	defineFunction("instance", ellInstance, AnyType, TypeType, AnyType)
 
-	defineFunction("type?", ellTypeP, typeBoolean, typeAny)
-	defineFunction("type-name", ellTypeName, typeSymbol, typeType)
-	defineFunction("keyword?", ellKeywordP, typeBoolean, typeAny)
-	defineFunction("keyword-name", ellKeywordName, typeSymbol, typeKeyword)
-	defineFunction("symbol?", ellSymbolP, typeBoolean, typeAny)
-	defineFunctionRestArgs("symbol", ellSymbol, typeSymbol, typeAny, typeAny) //"(<any> <any>*) <symbol>")
+	defineFunction("type?", ellTypeP, BooleanType, AnyType)
+	defineFunction("type-name", ellTypeName, SymbolType, TypeType)
+	defineFunction("keyword?", ellKeywordP, BooleanType, AnyType)
+	defineFunction("keyword-name", ellKeywordName, SymbolType, KeywordType)
+	defineFunction("symbol?", ellSymbolP, BooleanType, AnyType)
+	defineFunctionRestArgs("symbol", ellSymbol, SymbolType, AnyType, AnyType) //"(<any> <any>*) <symbol>")
 
-	defineFunctionRestArgs("string?", ellStringP, typeBoolean, typeAny)
-	defineFunctionRestArgs("string", ellString, typeString, typeAny) //"(<any>*) <string>")
-	defineFunction("to-string", ellToString, typeString, typeAny)
-	defineFunction("string-length", ellStringLength, typeNumber, typeString)
-	defineFunction("split", ellSplit, typeList, typeString, typeString)
-	defineFunction("join", ellJoin, typeList, typeList, typeString) // <list|vector> for both arg1 and result could work
-	defineFunction("character?", ellCharacterP, typeBoolean, typeAny)
-	defineFunction("to-character", ellToCharacter, typeCharacter, typeAny)
+	defineFunctionRestArgs("string?", ellStringP, BooleanType, AnyType)
+	defineFunctionRestArgs("string", ellString, StringType, AnyType) //"(<any>*) <string>")
+	defineFunction("to-string", ellToString, StringType, AnyType)
+	defineFunction("string-length", ellStringLength, NumberType, StringType)
+	defineFunction("split", ellSplit, ListType, StringType, StringType)
+	defineFunction("join", ellJoin, ListType, ListType, StringType) // <list|vector> for both arg1 and result could work
+	defineFunction("character?", ellCharacterP, BooleanType, AnyType)
+	defineFunction("to-character", ellToCharacter, CharacterType, AnyType)
 
-	defineFunction("number?", ellNumberP, typeBoolean, typeAny)
-	defineFunction("int?", ellIntP, typeBoolean, typeAny)
-	defineFunction("float?", ellFloatP, typeBoolean, typeAny)
-	defineFunction("inc", ellInc, typeNumber, typeNumber)
-	defineFunction("dec", ellDec, typeNumber, typeNumber)
-	defineFunction("+", ellAdd, typeNumber, typeNumber, typeNumber)
-	defineFunction("-", ellSub, typeNumber, typeNumber, typeNumber)
-	defineFunction("*", ellMul, typeNumber, typeNumber, typeNumber)
-	defineFunction("/", ellDiv, typeNumber, typeNumber, typeNumber)
-	defineFunction("quotient", ellQuotient, typeNumber, typeNumber, typeNumber)
-	defineFunction("remainder", ellRemainder, typeNumber, typeNumber, typeNumber)
-	defineFunction("modulo", ellRemainder, typeNumber, typeNumber, typeNumber) //fix
-	defineFunction("=", ellNumEqual, typeBoolean, typeNumber, typeNumber)
-	defineFunction("<=", ellNumLessEqual, typeBoolean, typeNumber, typeNumber)
-	defineFunction(">=", ellNumGreaterEqual, typeBoolean, typeNumber, typeNumber)
-	defineFunction(">", ellNumGreater, typeBoolean, typeNumber, typeNumber)
-	defineFunction("<", ellNumLess, typeBoolean, typeNumber, typeNumber)
-	defineFunction("zero?", ellZeroP, typeBoolean, typeNumber)
+	defineFunction("number?", ellNumberP, BooleanType, AnyType)
+	defineFunction("int?", ellIntP, BooleanType, AnyType)
+	defineFunction("float?", ellFloatP, BooleanType, AnyType)
+	defineFunction("inc", ellInc, NumberType, NumberType)
+	defineFunction("dec", ellDec, NumberType, NumberType)
+	defineFunction("+", ellAdd, NumberType, NumberType, NumberType)
+	defineFunction("-", ellSub, NumberType, NumberType, NumberType)
+	defineFunction("*", ellMul, NumberType, NumberType, NumberType)
+	defineFunction("/", ellDiv, NumberType, NumberType, NumberType)
+	defineFunction("quotient", ellQuotient, NumberType, NumberType, NumberType)
+	defineFunction("remainder", ellRemainder, NumberType, NumberType, NumberType)
+	defineFunction("modulo", ellRemainder, NumberType, NumberType, NumberType) //fix
+	defineFunction("=", ellNumEqual, BooleanType, NumberType, NumberType)
+	defineFunction("<=", ellNumLessEqual, BooleanType, NumberType, NumberType)
+	defineFunction(">=", ellNumGreaterEqual, BooleanType, NumberType, NumberType)
+	defineFunction(">", ellNumGreater, BooleanType, NumberType, NumberType)
+	defineFunction("<", ellNumLess, BooleanType, NumberType, NumberType)
+	defineFunction("zero?", ellZeroP, BooleanType, NumberType)
 
-	defineFunction("seal!", ellSeal, typeAny, typeAny) //actually only list, vector, and struct for now
+	defineFunction("seal!", ellSeal, AnyType, AnyType) //actually only list, vector, and struct for now
 
-	defineFunction("list?", ellListP, typeBoolean, typeAny)
-	defineFunction("empty?", ellEmptyP, typeBoolean, typeList)
-	defineFunction("to-list", ellToList, typeList, typeAny)
-	defineFunction("cons", ellCons, typeList, typeAny, typeList)
-	defineFunction("car", ellCar, typeAny, typeList)
-	defineFunction("cdr", ellCdr, typeList, typeList)
-	defineFunction("set-car!", ellSetCarBang, typeNull, typeList, typeAny)
-	defineFunction("set-cdr!", ellSetCdrBang, typeNull, typeList, typeList)
-	defineFunction("list-length", ellListLength, typeNumber, typeList)
-	defineFunction("reverse", ellReverse, typeList, typeList)
-	defineFunctionRestArgs("list", ellList, typeList, typeAny)
-	defineFunctionRestArgs("concat", ellConcat, typeList, typeList)
-	defineFunctionRestArgs("flatten", ellFlatten, typeList, typeList)
+	defineFunction("list?", ellListP, BooleanType, AnyType)
+	defineFunction("empty?", ellEmptyP, BooleanType, ListType)
+	defineFunction("to-list", ellToList, ListType, AnyType)
+	defineFunction("cons", ellCons, ListType, AnyType, ListType)
+	defineFunction("car", ellCar, AnyType, ListType)
+	defineFunction("cdr", ellCdr, ListType, ListType)
+	defineFunction("set-car!", ellSetCarBang, NullType, ListType, AnyType)
+	defineFunction("set-cdr!", ellSetCdrBang, NullType, ListType, ListType)
+	defineFunction("list-length", ellListLength, NumberType, ListType)
+	defineFunction("reverse", ellReverse, ListType, ListType)
+	defineFunctionRestArgs("list", ellList, ListType, AnyType)
+	defineFunctionRestArgs("concat", ellConcat, ListType, ListType)
+	defineFunctionRestArgs("flatten", ellFlatten, ListType, ListType)
 
-	defineFunction("vector?", ellVectorP, typeBoolean, typeAny)
-	defineFunction("to-vector", ellToVector, typeVector, typeAny)
-	defineFunctionRestArgs("vector", ellVector, typeVector, typeAny)
-	defineFunctionOptionalArgs("make-vector", ellMakeVector, typeVector, []*LOB{typeNumber, typeAny}, Null)
-	defineFunction("vector-length", ellVectorLength, typeNumber, typeVector)
-	defineFunction("vector-ref", ellVectorRef, typeAny, typeVector, typeNumber)
-	defineFunction("vector-set!", ellVectorSetBang, typeNull, typeVector, typeNumber, typeAny)
+	defineFunction("vector?", ellVectorP, BooleanType, AnyType)
+	defineFunction("to-vector", ellToVector, VectorType, AnyType)
+	defineFunctionRestArgs("vector", ellVector, VectorType, AnyType)
+	defineFunctionOptionalArgs("make-vector", ellMakeVector, VectorType, []*LOB{NumberType, AnyType}, Null)
+	defineFunction("vector-length", ellVectorLength, NumberType, VectorType)
+	defineFunction("vector-ref", ellVectorRef, AnyType, VectorType, NumberType)
+	defineFunction("vector-set!", ellVectorSetBang, NullType, VectorType, NumberType, AnyType)
 
-	defineFunction("struct?", ellStructP, typeBoolean, typeAny)
-	defineFunction("to-struct", ellToStruct, typeStruct, typeAny)
-	defineFunctionRestArgs("struct", ellStruct, typeStruct, typeAny)
-	defineFunction("make-struct", ellMakeStruct, typeStruct, typeNumber)
-	defineFunction("struct-length", ellStructLength, typeNumber, typeStruct)
-	defineFunction("has?", ellHasP, typeBoolean, typeStruct, typeAny) // key is <symbol|keyword|type|string>
-	defineFunction("get", ellGet, typeAny, typeStruct, typeAny)
-	defineFunction("put!", ellPutBang, typeNull, typeStruct, typeAny, typeAny)
-	defineFunction("unput!", ellUnputBang, typeNull, typeStruct, typeAny)
-	defineFunction("keys", ellKeys, typeList, typeAny)     // <struct|instance>
-	defineFunction("values", ellValues, typeList, typeAny) // <struct|instance>
+	defineFunction("struct?", ellStructP, BooleanType, AnyType)
+	defineFunction("to-struct", ellToStruct, StructType, AnyType)
+	defineFunctionRestArgs("struct", ellStruct, StructType, AnyType)
+	defineFunction("make-struct", ellMakeStruct, StructType, NumberType)
+	defineFunction("struct-length", ellStructLength, NumberType, StructType)
+	defineFunction("has?", ellHasP, BooleanType, StructType, AnyType) // key is <symbol|keyword|type|string>
+	defineFunction("get", ellGet, AnyType, StructType, AnyType)
+	defineFunction("put!", ellPutBang, NullType, StructType, AnyType, AnyType)
+	defineFunction("unput!", ellUnputBang, NullType, StructType, AnyType)
+	defineFunction("keys", ellKeys, ListType, AnyType)     // <struct|instance>
+	defineFunction("values", ellValues, ListType, AnyType) // <struct|instance>
 
-	defineFunction("function?", ellFunctionP, typeBoolean, typeAny)
-	defineFunction("function-signature", ellFunctionSignature, typeString, typeFunction)
-	defineFunctionRestArgs("validate-keyword-arg-list", ellValidateKeywordArgList, typeList, typeKeyword, typeList)
-	defineFunction("slurp", ellSlurp, typeString, typeString)
-	defineFunctionKeyArgs("read", ellRead, typeAny, []*LOB{typeString, typeType}, []*LOB{typeAny}, []*LOB{intern("keys:")})
-	defineFunction("spit", ellSpit, typeNull, typeString, typeAny)
-	defineFunctionKeyArgs("write", ellWrite, typeNull, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
-	defineFunctionRestArgs("print", ellPrint, typeNull, typeAny)
-	defineFunctionRestArgs("println", ellPrintln, typeNull, typeAny)
-	defineFunction("macroexpand", ellMacroexpand, typeAny, typeAny)
-	defineFunction("compile", ellCompile, typeCode, typeAny)
+	defineFunction("function?", ellFunctionP, BooleanType, AnyType)
+	defineFunction("function-signature", ellFunctionSignature, StringType, FunctionType)
+	defineFunctionRestArgs("validate-keyword-arg-list", ellValidateKeywordArgList, ListType, KeywordType, ListType)
+	defineFunction("slurp", ellSlurp, StringType, StringType)
+	defineFunctionKeyArgs("read", ellRead, AnyType, []*LOB{StringType, TypeType}, []*LOB{AnyType}, []*LOB{intern("keys:")})
+	defineFunction("spit", ellSpit, NullType, StringType, AnyType)
+	defineFunctionKeyArgs("write", ellWrite, NullType, []*LOB{AnyType, StringType}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
+	defineFunctionRestArgs("print", ellPrint, NullType, AnyType)
+	defineFunctionRestArgs("println", ellPrintln, NullType, AnyType)
+	defineFunction("macroexpand", ellMacroexpand, AnyType, AnyType)
+	defineFunction("compile", ellCompile, CodeType, AnyType)
 
-	defineFunctionRestArgs("make-error", ellMakeError, typeError, typeAny)
-	defineFunction("error?", ellErrorP, typeBoolean, typeAny)
-	defineFunction("uncaught-error", ellUncaughtError, typeNull, typeError) //doesn't return
+	defineFunctionRestArgs("make-error", ellMakeError, ErrorType, AnyType)
+	defineFunction("error?", ellErrorP, BooleanType, AnyType)
+	defineFunction("uncaught-error", ellUncaughtError, NullType, ErrorType) //doesn't return
 
-	defineFunctionKeyArgs("json", ellJSON, typeString, []*LOB{typeAny, typeString}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
+	defineFunctionKeyArgs("json", ellJSON, StringType, []*LOB{AnyType, StringType}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
 
-	defineFunctionRestArgs("getfn", ellGetFn, typeFunction, typeAny, typeSymbol)
-	defineFunction("method-signature", ellMethodSignature, typeType, typeList)
+	defineFunctionRestArgs("getfn", ellGetFn, FunctionType, AnyType, SymbolType)
+	defineFunction("method-signature", ellMethodSignature, TypeType, ListType)
 
-	defineFunctionKeyArgs("channel", ellChannel, typeChannel, []*LOB{typeString, typeNumber}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
-	defineFunctionOptionalArgs("send", ellSend, typeNull, []*LOB{typeChannel, typeAny, typeNumber}, MinusOne)
-	defineFunctionOptionalArgs("recv", ellReceive, typeAny, []*LOB{typeChannel, typeNumber}, MinusOne)
-	defineFunction("close", ellClose, typeNull, typeChannel)
+	defineFunctionKeyArgs("channel", ellChannel, ChannelType, []*LOB{StringType, NumberType}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
+	defineFunctionOptionalArgs("send", ellSend, NullType, []*LOB{ChannelType, AnyType, NumberType}, MinusOne)
+	defineFunctionOptionalArgs("recv", ellReceive, AnyType, []*LOB{ChannelType, NumberType}, MinusOne)
+	defineFunction("close", ellClose, NullType, ChannelType)
 
 	if midi {
 		initMidi()
@@ -681,7 +681,7 @@ func ellHasP(argv []*LOB) (*LOB, error) {
 
 func ellSeal(argv []*LOB) (*LOB, error) {
 	switch argv[0].variant {
-	case typeStruct, typeVector, typeList:
+	case StructType, VectorType, ListType:
 		argv[0].ival = 1
 		return argv[0], nil
 	default:
@@ -738,7 +738,7 @@ func ellGetFn(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "getfn expected at least 1 argument, got none")
 	}
 	sym := argv[0]
-	if sym.variant != typeSymbol {
+	if sym.variant != SymbolType {
 		return nil, Error(ArgumentErrorKey, "getfn expected a <symbol> for argument 1, got ", sym)
 	}
 	return getfn(sym, argv[1:])

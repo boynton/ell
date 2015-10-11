@@ -108,7 +108,7 @@ func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
 	}
-	result := newLOB(typeCode)
+	result := newLOB(CodeType)
 	result.code = code
 	return result
 }

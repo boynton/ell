@@ -30,25 +30,25 @@ var One = newInt(1)
 var MinusOne = newInt(-1)
 
 func newFloat64(f float64) *LOB {
-	num := newLOB(typeNumber)
+	num := newLOB(NumberType)
 	num.fval = f
 	return num
 }
 
 func newInt64(i int64) *LOB {
-	num := newLOB(typeNumber)
+	num := newLOB(NumberType)
 	num.fval = float64(i)
 	return num
 }
 
 func newInt(i int) *LOB {
-	num := newLOB(typeNumber)
+	num := newLOB(NumberType)
 	num.fval = float64(i)
 	return num
 }
 
 func isInt(obj *LOB) bool {
-	if obj.variant == typeNumber {
+	if obj.variant == NumberType {
 		f := obj.fval
 		if math.Trunc(f) == f {
 			return true
@@ -58,28 +58,28 @@ func isInt(obj *LOB) bool {
 }
 
 func isFloat(obj *LOB) bool {
-	if obj.variant == typeNumber {
+	if obj.variant == NumberType {
 		return !isInt(obj)
 	}
 	return false
 }
 
 func floatValue(obj *LOB) (float64, error) {
-	if obj.variant == typeNumber {
+	if obj.variant == NumberType {
 		return obj.fval, nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
 }
 
 func int64Value(obj *LOB) (int64, error) {
-	if obj.variant == typeNumber {
+	if obj.variant == NumberType {
 		return int64(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
 }
 
 func intValue(obj *LOB) (int, error) {
-	if obj.variant == typeNumber {
+	if obj.variant == NumberType {
 		return int(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)

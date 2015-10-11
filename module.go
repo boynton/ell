@@ -79,7 +79,7 @@ func defineMacro(name string, fun PrimCallable) {
 	if getMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
 	}
-	prim := newPrimitive(name, fun, typeAny, []*LOB{typeAny}, nil, nil, nil)
+	prim := newPrimitive(name, fun, AnyType, []*LOB{AnyType}, nil, nil, nil)
 	defMacro(sym, prim)
 }
 
