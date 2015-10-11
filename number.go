@@ -18,6 +18,8 @@ package main
 
 import (
 	"math"
+	"math/rand"
+	"strconv"
 )
 
 // Zero is the Ell 0 value
@@ -45,6 +47,30 @@ func newInt(i int) *LOB {
 	num := newLOB(NumberType)
 	num.fval = float64(i)
 	return num
+}
+
+func round(f float64) float64 {
+	if f > 0 {
+		return math.Floor(f + 0.5)
+	}
+	return math.Ceil(f - 0.5)
+}
+
+func toInt(o *LOB) (*LOB, error) {
+	switch o.variant {
+	case NumberType:
+		return newFloat64(round(o.fval)), nil
+	case CharacterType:
+		return newInt64(o.ival), nil
+	case BooleanType:
+		return newInt64(o.ival), nil
+	case StringType:
+		f, err := strconv.ParseFloat(o.text, 64)
+		if err == nil {
+			return newFloat64(f), nil
+		}
+	}
+	return nil, Error(ArgumentErrorKey, "cannot convert to an integer: ", o)
 }
 
 func isInt(obj *LOB) bool {
@@ -97,3 +123,30 @@ func numberEqual(f1 float64, f2 float64) bool {
 	}
 	return false
 }
+
+var randomGenerator = rand.New(rand.NewSource(1))
+
+func randomSeed(n int64) {
+	randomGenerator = rand.New(rand.NewSource(n))
+}
+
+func random(min float64, max float64) *LOB {
+	return newFloat64(min + (randomGenerator.Float64() * (max - min)))
+}
+
+func randomList(size int, min float64, max float64) *LOB {
+	result := EmptyList
+	tail := EmptyList
+	for i := 0; i < size; i++ {
+		tmp := list(random(min, max))
+		if result == EmptyList {
+			result = tmp
+			tail = tmp
+		} else {
+			tail.cdr = tmp
+			tail = tmp
+		}
+	}
+	return result
+}
+

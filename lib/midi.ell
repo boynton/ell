@@ -16,4 +16,13 @@
      (midi-note i 50 8)
      (midi-sleep 10)))
 
+(defn random-phrase (base)
+  (dolist (k (map int (random-list 12 (- base 7) (+ base 7))))
+    (midi-note k 75 100)
+    (midi-sleep 100)))
+
+(defn midi-test2 ()
+  (let loop ((k 60))
+    (random-phrase k)
+    (loop (random 36 84))))
 

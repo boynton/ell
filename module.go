@@ -257,8 +257,7 @@ func eval(expr *LOB) (*LOB, error) {
 		val := strings.Replace(write(code), "\n", "\n; ", -1)
 		println("; compiled to:\n;  ", val)
 	}
-	result, err := importCode(code)
-	return result, err
+	return importCode(code)
 }
 
 func findModuleFile(name string) (string, error) {

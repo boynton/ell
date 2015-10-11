@@ -18,6 +18,7 @@ package main
 // the primitive functions for the languages
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -70,6 +71,9 @@ func initEnvironment() {
 	defineFunction("number?", ellNumberP, BooleanType, AnyType)
 	defineFunction("int?", ellIntP, BooleanType, AnyType)
 	defineFunction("float?", ellFloatP, BooleanType, AnyType)
+	defineFunction("int", ellInt, NumberType, AnyType)
+	defineFunction("floor", ellFloor, NumberType, NumberType)
+	defineFunction("ceil", ellCeil, NumberType, NumberType)
 	defineFunction("inc", ellInc, NumberType, NumberType)
 	defineFunction("dec", ellDec, NumberType, NumberType)
 	defineFunction("+", ellAdd, NumberType, NumberType, NumberType)
@@ -147,6 +151,10 @@ func initEnvironment() {
 	defineFunctionOptionalArgs("send", ellSend, NullType, []*LOB{ChannelType, AnyType, NumberType}, MinusOne)
 	defineFunctionOptionalArgs("recv", ellReceive, AnyType, []*LOB{ChannelType, NumberType}, MinusOne)
 	defineFunction("close", ellClose, NullType, ChannelType)
+
+	defineFunction("set-random-seed!", ellSetRandomSeedBang, NullType, NumberType)
+	defineFunctionRestArgs("random", ellRandom, NumberType, NumberType)
+	defineFunctionRestArgs("random-list", ellRandomList, ListType, NumberType)
 
 	if midi {
 		initMidi()
@@ -402,6 +410,18 @@ func ellFloatP(argv []*LOB) (*LOB, error) {
 		return True, nil
 	}
 	return False, nil
+}
+
+func ellInt(argv []*LOB) (*LOB, error) {
+	return toInt(argv[0])
+}
+
+func ellFloor(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Floor(argv[0].fval)), nil
+}
+
+func ellCeil(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Ceil(argv[0].fval)), nil
 }
 
 func ellInc(argv []*LOB) (*LOB, error) {
@@ -816,3 +836,46 @@ func ellReceive(argv []*LOB) (*LOB, error) {
 	}
 	return Null, nil
 }
+
+
+func ellSetRandomSeedBang(argv []*LOB) (*LOB, error) {
+	randomSeed(int64(argv[0].fval))
+	return Null, nil
+}
+
+func ellRandom(argv []*LOB) (*LOB, error) {
+	min := 0.0
+	max := 1.0
+	argc := len(argv)
+	switch argc {
+	case 0:
+	case 1:
+		max = argv[0].fval
+	case 2:
+		min = argv[0].fval
+		max = argv[1].fval
+	default:
+      return nil, Error(ArgumentErrorKey, "random expected 0 to 2 arguments, got ", argc)
+	}
+	return random(min, max), nil
+}
+
+func ellRandomList(argv []*LOB) (*LOB, error) {
+	count := int(argv[0].fval)
+	min := 0.0
+	max := 1.0
+	argc := len(argv)
+	switch argc {
+	case 1:
+	case 2:
+		max = argv[1].fval
+	case 3:
+		min = argv[1].fval
+		max = argv[2].fval
+	default:
+      return nil, Error(ArgumentErrorKey, "random-list expected 1 to 3 arguments, got ", argc)
+	}
+	return randomList(count, min, max), nil
+}
+
+
