@@ -38,7 +38,12 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 			val, err := eval(lexpr)
 			if err == nil {
 				result := ""
-				result = "= " + write(val)
+				if val == nil {
+					result = " !!! whoops, result is nil, that isn't right"
+					panic("here")
+				} else {
+					result = "= " + write(val)
+				}
 				return result, false, nil
 			}
 			return "", false, err
