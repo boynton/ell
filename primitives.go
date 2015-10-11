@@ -345,11 +345,9 @@ func ellPrintln(argv []*LOB) (*LOB, error) {
 }
 
 func ellConcat(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
 	result := EmptyList
 	tail := result
-	for i := 0; i < argc; i++ {
-		lst := argv[i]
+	for _, lst := range argv {
 		for lst != EmptyList {
 			if tail == EmptyList {
 				result = list(lst.car)
@@ -529,11 +527,10 @@ func ellSymbolP(argv []*LOB) (*LOB, error) {
 }
 
 func ellSymbol(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 1 {
+	if len(argv) < 1 {
 		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")
 	}
-	return symbol(argv[:argc])
+	return symbol(argv)
 }
 
 func ellKeywordP(argv []*LOB) (*LOB, error) {
@@ -603,10 +600,9 @@ func ellEmptyP(argv []*LOB) (*LOB, error) {
 }
 
 func ellString(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
 	s := ""
-	for i := 0; i < argc; i++ {
-		s += argv[i].String()
+	for _, ss := range argv {
+		s += ss.String()
 	}
 	return newString(s), nil
 }
@@ -726,15 +722,10 @@ func ellSplit(argv []*LOB) (*LOB, error) {
 }
 
 func ellJoin(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc != 2 {
-		return nil, Error(ArgumentErrorKey, "join expected 2 arguments, got ", argc)
-	}
 	return stringJoin(argv[0], argv[1])
 }
 
 func ellJSON(argv []*LOB) (*LOB, error) {
-	println("ellJSON: ", argv)
 	s, err := writeToString(argv[0], true, argv[1].text)
 	if err != nil {
 		return nil, err
@@ -743,8 +734,7 @@ func ellJSON(argv []*LOB) (*LOB, error) {
 }
 
 func ellGetFn(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc < 1 {
+	if len(argv) < 1 {
 		return nil, Error(ArgumentErrorKey, "getfn expected at least 1 argument, got none")
 	}
 	sym := argv[0]
