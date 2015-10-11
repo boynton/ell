@@ -773,10 +773,11 @@ func exec(code *Code, args []*LOB) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
+	if result == nil {
+		panic("result should never be nil if no error")
+	}
 	if verbose {
-		if err == nil && result != nil {
-			println("; => ", result)
-		}
+		println("; => ", result)
 	}
 	return result, err
 }
@@ -864,14 +865,17 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 				}
 			} else if fun.variant == fun.variant {
 				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
-				if env == nil {
-					return stack[sp], nil
-				}
 				if err != nil {
 					return nil, err
 				}
+				if env == nil {
+					return stack[sp], nil
+				}
 			} else if fun.variant == KeywordType {
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
+				if err != nil {
+					return nil, err
+				}
 				if env == nil {
 					return stack[sp], nil
 				}
@@ -1069,9 +1073,6 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				tmpEnv = tmpEnv.locals
 				i--
 			}
-			if tmpEnv == nil {
-				return nil, addContext(env, Error(ErrorKey, "Closed over environment not available in this context"))
-			}
 			j := ops[pc+2]
 			val := tmpEnv.elements[j]
 			sp--
@@ -1116,14 +1117,17 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				}
 			} else if fun.variant == FunctionType {
 				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
-				if env == nil {
-					return stack[sp], nil
-				}
 				if err != nil {
 					return nil, err
 				}
+				if env == nil {
+					return stack[sp], nil
+				}
 			} else if fun.variant == KeywordType {
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
+				if err != nil {
+					return nil, err
+				}
 				if env.previous == nil {
 					return stack[sp], nil
 				}
