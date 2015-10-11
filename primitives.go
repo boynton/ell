@@ -73,7 +73,8 @@ func initEnvironment() {
 	defineFunction("float?", ellFloatP, BooleanType, AnyType)
 	defineFunction("int", ellInt, NumberType, AnyType)
 	defineFunction("floor", ellFloor, NumberType, NumberType)
-	defineFunction("ceil", ellCeil, NumberType, NumberType)
+	defineFunction("ceiling", ellCeiling, NumberType, NumberType)
+	defineFunction("abs", ellAbs, NumberType, NumberType)
 	defineFunction("inc", ellInc, NumberType, NumberType)
 	defineFunction("dec", ellDec, NumberType, NumberType)
 	defineFunction("+", ellAdd, NumberType, NumberType, NumberType)
@@ -89,6 +90,16 @@ func initEnvironment() {
 	defineFunction(">", ellNumGreater, BooleanType, NumberType, NumberType)
 	defineFunction("<", ellNumLess, BooleanType, NumberType, NumberType)
 	defineFunction("zero?", ellZeroP, BooleanType, NumberType)
+	defineFunction("abs", ellAbs, NumberType, NumberType)
+	defineFunction("exp", ellExp, NumberType, NumberType)
+	defineFunction("log", ellLog, NumberType, NumberType)
+	defineFunction("sin", ellSin, NumberType, NumberType)
+	defineFunction("cos", ellCos, NumberType, NumberType)
+	defineFunction("tan", ellTan, NumberType, NumberType)
+	defineFunction("asin", ellAsin, NumberType, NumberType)
+	defineFunction("acos", ellAcos, NumberType, NumberType)
+	defineFunction("atan", ellAtan, NumberType, NumberType)
+	defineFunction("atan2", ellAtan2, NumberType, NumberType, NumberType)
 
 	defineFunction("seal!", ellSeal, AnyType, AnyType) //actually only list, vector, and struct for now
 
@@ -420,7 +431,7 @@ func ellFloor(argv []*LOB) (*LOB, error) {
 	return newFloat64(math.Floor(argv[0].fval)), nil
 }
 
-func ellCeil(argv []*LOB) (*LOB, error) {
+func ellCeiling(argv []*LOB) (*LOB, error) {
 	return newFloat64(math.Ceil(argv[0].fval)), nil
 }
 
@@ -462,6 +473,47 @@ func ellRemainder(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "remainder: divide by zero")
 	}
 	return newInt64(int64(argv[0].fval) % denom), nil
+}
+
+
+func ellAbs(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Abs(argv[0].fval)), nil
+}
+
+func ellExp(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Exp(argv[0].fval)), nil
+}
+
+func ellLog(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Log(argv[0].fval)), nil
+}
+
+func ellSin(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Sin(argv[0].fval)), nil
+}
+
+func ellCos(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Cos(argv[0].fval)), nil
+}
+
+func ellTan(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Tan(argv[0].fval)), nil
+}
+
+func ellAsin(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Asin(argv[0].fval)), nil
+}
+
+func ellAcos(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Acos(argv[0].fval)), nil
+}
+
+func ellAtan(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Atan(argv[0].fval)), nil
+}
+
+func ellAtan2(argv []*LOB) (*LOB, error) {
+	return newFloat64(math.Atan2(argv[0].fval, argv[1].fval)), nil
 }
 
 func ellVector(argv []*LOB) (*LOB, error) {
