@@ -725,7 +725,8 @@ func writeList(lst *LOB, indent string, indentSize string) string {
 		delim = "\n" + nextIndent
 		buf.WriteString("\n" + nextIndent)
 	}
-	buf.WriteString(write(car(lst)))
+	s, _ := writeData(lst.car, false, nextIndent, indentSize)
+	buf.WriteString(s)
 	lst = lst.cdr
 	for lst != EmptyList {
 		buf.WriteString(delim)
