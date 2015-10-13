@@ -18,6 +18,7 @@ package main
 // the primitive functions for the languages
 import (
 	"fmt"
+	"github.com/pborman/uuid"
 	"math"
 	"time"
 )
@@ -141,7 +142,7 @@ func initEnvironment() {
 	defineFunctionRestArgs("validate-keyword-arg-list", ellValidateKeywordArgList, ListType, KeywordType, ListType)
 	defineFunction("slurp", ellSlurp, StringType, StringType)
 	defineFunctionKeyArgs("read", ellRead, AnyType, []*LOB{StringType, TypeType}, []*LOB{AnyType}, []*LOB{intern("keys:")})
-	defineFunction("spit", ellSpit, NullType, StringType, AnyType)
+	defineFunction("spit", ellSpit, NullType, StringType, StringType)
 	defineFunctionKeyArgs("write", ellWrite, NullType, []*LOB{AnyType, StringType}, []*LOB{EmptyString}, []*LOB{intern("indent:")})
 	defineFunctionRestArgs("print", ellPrint, NullType, AnyType)
 	defineFunctionRestArgs("println", ellPrintln, NullType, AnyType)
@@ -165,6 +166,9 @@ func initEnvironment() {
 	defineFunction("set-random-seed!", ellSetRandomSeedBang, NullType, NumberType)
 	defineFunctionRestArgs("random", ellRandom, NumberType, NumberType)
 	defineFunctionRestArgs("random-list", ellRandomList, ListType, NumberType)
+
+	defineFunctionRestArgs("uuid", ellUUIDFromTime, StringType, StringType)
+	defineFunction("timestamp", ellTimestamp, StringType)
 
 	if midi {
 		initMidi()
@@ -925,4 +929,31 @@ func ellRandomList(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "random-list expected 1 to 3 arguments, got ", argc)
 	}
 	return randomList(count, min, max), nil
+}
+
+func ellUUIDFromTime(argv []*LOB) (*LOB, error) {
+	var u uuid.UUID
+	argc := len(argv)
+	switch argc {
+	case 0:
+		u = uuid.NewUUID()
+	case 1:
+		u = uuid.NewMD5(uuid.NameSpace_URL, []byte(argv[0].text))
+	case 2:
+		ns := uuid.Parse(argv[0].text)
+		if ns == nil {
+			ns = uuid.NewMD5(uuid.NameSpace_URL, []byte(argv[0].text))
+		}
+		u = uuid.NewMD5(ns, []byte(argv[1].text))
+	}
+	if u == nil {
+		return nil, Error(ArgumentErrorKey, "Expected 0-2 arguments, got: ", argc)
+	}
+	return newString(u.String()), nil
+}
+
+func ellTimestamp(argv []*LOB) (*LOB, error) {
+	t := time.Now().UTC()
+	format := "%d-%02d-%02dT%02d:%02d:%02d.%03dZ"
+	return newString(fmt.Sprintf(format, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000000)), nil
 }
