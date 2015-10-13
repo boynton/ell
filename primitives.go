@@ -74,7 +74,6 @@ func initEnvironment() {
 	defineFunction("int", ellInt, NumberType, AnyType)
 	defineFunction("floor", ellFloor, NumberType, NumberType)
 	defineFunction("ceiling", ellCeiling, NumberType, NumberType)
-	defineFunction("abs", ellAbs, NumberType, NumberType)
 	defineFunction("inc", ellInc, NumberType, NumberType)
 	defineFunction("dec", ellDec, NumberType, NumberType)
 	defineFunction("+", ellAdd, NumberType, NumberType, NumberType)
@@ -474,7 +473,6 @@ func ellRemainder(argv []*LOB) (*LOB, error) {
 	}
 	return newInt64(int64(argv[0].fval) % denom), nil
 }
-
 
 func ellAbs(argv []*LOB) (*LOB, error) {
 	return newFloat64(math.Abs(argv[0].fval)), nil
