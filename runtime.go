@@ -494,7 +494,7 @@ opcodeCallAgain:
 	if fun.variant == FunctionType {
 		if fun.code != nil {
 			if checkInterrupt() {
-				return nil, 0, 0, nil, addContext(env, Error(InterruptKey))
+				return nil, 0, 0, nil, addContext(env, Error(InterruptKey)) //not catchable
 			}
 			if fun.code.defaults == nil {
 				f := new(Frame)
@@ -518,7 +518,7 @@ opcodeCallAgain:
 			}
 			f, err := buildFrame(env, savedPc, ops, fun, argc, stack, sp)
 			if err != nil {
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			sp += argc
 			env = f
@@ -528,7 +528,7 @@ opcodeCallAgain:
 		if fun.primitive != nil {
 			val, err := vm.callPrimitive(fun.primitive, stack[sp:sp+argc])
 			if err != nil {
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			sp = sp + argc - 1
 			stack[sp] = val
@@ -537,13 +537,13 @@ opcodeCallAgain:
 		if fun == Apply {
 			if argc < 2 {
 				err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			fun = stack[sp]
 			args := stack[sp+argc-1]
 			if !isList(args) {
 				err := Error(ArgumentErrorKey, "apply expected a <list> as its final argument")
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			arglist := args
 			for i := argc - 2; i > 0; i-- {
@@ -563,7 +563,7 @@ opcodeCallAgain:
 		if fun == CallCC {
 			if argc != 1 {
 				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			fun = stack[sp]
 			stack[sp] = newContinuation(env, ops, savedPc, stack[sp+1:])
@@ -571,7 +571,8 @@ opcodeCallAgain:
 		}
 		if fun.continuation != nil {
 			if argc != 1 {
-				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
+				err := Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc)
+				return vm.catch(err, stack, env)
 			}
 			arg := stack[sp]
 			sp = len(stack) - len(fun.continuation.stack)
@@ -584,7 +585,7 @@ opcodeCallAgain:
 		if fun == Spawn {
 			err := vm.spawn(stack[sp], argc-1, stack, sp+1)
 			if err != nil {
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			sp = sp + argc - 1
 			stack[sp] = Null
@@ -595,16 +596,17 @@ opcodeCallAgain:
 	if fun.variant == KeywordType {
 		if argc != 1 {
 			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
-			return nil, 0, 0, nil, addContext(env, err)
+			return vm.catch(err, stack, env)
 		}
 		v, err := get(stack[sp], fun)
 		if err != nil {
-			return nil, 0, 0, nil, addContext(env, err)
+			return vm.catch(err, stack, env)
 		}
 		stack[sp] = v
 		return ops, savedPc, sp, env, err
 	}
-	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function: ", fun))
+	err := Error(ArgumentErrorKey, "Not a function: ", fun)
+	return vm.catch(err, stack, env)
 }
 
 func (vm *VM) tailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
@@ -622,7 +624,7 @@ opcodeTailCallAgain:
 			}
 			f, err := buildFrame(env.previous, env.pc, env.ops, fun, argc, stack, sp)
 			if err != nil {
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			sp += argc
 			return fun.code.ops, 0, sp, f, nil
@@ -630,7 +632,7 @@ opcodeTailCallAgain:
 		if fun.primitive != nil {
 			val, err := vm.callPrimitive(fun.primitive, stack[sp:sp+argc])
 			if err != nil {
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			sp = sp + argc - 1
 			stack[sp] = val
@@ -639,13 +641,13 @@ opcodeTailCallAgain:
 		if fun == Apply {
 			if argc < 2 {
 				err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			fun = stack[sp]
 			args := stack[sp+argc-1]
 			if !isList(args) {
 				err := Error(ArgumentErrorKey, "apply expected its last argument to be a <list>")
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			arglist := args
 			for i := argc - 2; i > 0; i-- {
@@ -664,7 +666,8 @@ opcodeTailCallAgain:
 		}
 		if fun.continuation != nil {
 			if argc != 1 {
-				return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc))
+				err := Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc)
+				return vm.catch(err, stack, env)
 			}
 			arg := stack[sp]
 			sp = len(stack) - len(fun.continuation.stack)
@@ -677,7 +680,7 @@ opcodeTailCallAgain:
 		if fun == CallCC {
 			if argc != 1 {
 				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			fun = stack[sp]
 			stack[sp] = newContinuation(env.previous, env.ops, env.pc, stack[sp:])
@@ -686,7 +689,7 @@ opcodeTailCallAgain:
 		if fun == Spawn {
 			err := vm.spawn(stack[sp], argc-1, stack, sp+1)
 			if err != nil {
-				return nil, 0, 0, nil, addContext(env, err)
+				return vm.catch(err, stack, env)
 			}
 			sp = sp + argc - 1
 			stack[sp] = Null
@@ -697,26 +700,27 @@ opcodeTailCallAgain:
 	if fun.variant == KeywordType {
 		if argc != 1 {
 			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
-			return nil, 0, 0, nil, addContext(env, err)
+			return vm.catch(err, stack, env)
 		}
 		v, err := get(stack[sp], fun)
 		if err != nil {
-			return nil, 0, 0, nil, addContext(env, err)
+			return vm.catch(err, stack, env)
 		}
 		stack[sp] = v
 		return env.ops, env.pc, sp, env.previous, nil
 	}
-	return nil, 0, 0, nil, addContext(env, Error(ArgumentErrorKey, "Not a function:", fun))
+	err := Error(ArgumentErrorKey, "Not a function:", fun)
+	return vm.catch(err, stack, env)
 }
 
 func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 	if argc != 1 {
 		err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
-		return nil, 0, 0, nil, addContext(env, err)
+		return vm.catch(err, stack, env)
 	}
 	v, err := get(stack[sp], fun)
 	if err != nil {
-		return nil, 0, 0, nil, addContext(env, err)
+		return vm.catch(err, stack, env)
 	}
 	stack[sp] = v
 	return env.ops, env.pc, sp, env.previous, nil
@@ -729,6 +733,24 @@ func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
 	res, err := exec(code, args)
 	verbose = prev
 	return res, err
+}
+
+func (vm *VM) catch(err error, stack []*LOB, env *Frame) ([]int, int, int, *Frame, error) {
+	errobj, ok := err.(*LOB)
+	if !ok {
+		errobj = newError(ErrorKey, newString(err.Error()))
+	}
+	handler := global(intern("*top-handler*"))
+	if handler.variant == FunctionType {
+		if handler.code != nil {
+			if handler.code.argc == 1 {
+				sp := len(stack) - 1
+				stack[sp] = errobj
+				return vm.funcall(handler, 1, nil, 0, stack, sp, nil)
+			}
+		}
+	}
+	return nil, 0, 0, nil, addContext(env, err)
 }
 
 func (vm *VM) spawn(fun *LOB, argc int, stack []*LOB, sp int) error {
@@ -800,7 +822,10 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 				nextSp := sp + argc
 				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
 				if err != nil {
-					return nil, addContext(env, err)
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
 				}
 				stack[nextSp] = val
 				sp = nextSp
@@ -813,10 +838,16 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 			} else if fun.variant == KeywordType {
 				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
 				if err != nil {
-					return nil, addContext(env, err)
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
 				}
 			} else {
-				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
+				ops, pc, sp, env, err = vm.catch(Error(ArgumentErrorKey, "Not callable: ", fun), stack, env)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else if op == opcodeGlobal { //GLOBAL
 			sym := constants[ops[pc+1]]
@@ -853,7 +884,10 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 				nextSp := sp + argc
 				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
 				if err != nil {
-					return nil, addContext(env, err)
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
 				}
 				stack[nextSp] = val
 				sp = nextSp
@@ -874,13 +908,20 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 			} else if fun.variant == KeywordType {
 				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
 				if err != nil {
-					return nil, err
-				}
-				if env == nil {
-					return stack[sp], nil
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					if env == nil {
+						return stack[sp], nil
+					}
 				}
 			} else {
-				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
+				ops, pc, sp, env, err = vm.catch(Error(ArgumentErrorKey, "Not callable: ", fun), stack, env)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else if op == opcodeLiteral {
 			sp--
@@ -926,11 +967,15 @@ func (vm *VM) exec(code *Code, env *Frame) (*LOB, error) {
 			sym := constants[ops[pc+1]]
 			err := use(sym)
 			if err != nil {
-				return nil, addContext(env, err)
+				ops, pc, sp, env, err = vm.catch(err, stack, env)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				sp--
+				stack[sp] = sym
+				pc += 2
 			}
-			sp--
-			stack[sp] = sym
-			pc += 2
 		} else if op == opcodeVector {
 			vlen := ops[pc+1]
 			v := vector(stack[sp : sp+vlen]...)
@@ -1034,11 +1079,15 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				nextSp := sp + argc
 				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
 				if err != nil {
-					return nil, addContext(env, err)
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					stack[nextSp] = val
+					sp = nextSp
+					pc += 2
 				}
-				stack[nextSp] = val
-				sp = nextSp
-				pc += 2
 			} else if fun.variant == FunctionType {
 				ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
 				if err != nil {
@@ -1047,22 +1096,34 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 			} else if fun.variant == KeywordType {
 				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
 				if err != nil {
-					return nil, addContext(env, err)
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
 				}
 			} else {
-				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
+				err := Error(ArgumentErrorKey, "Not callable: ", fun)
+				ops, pc, sp, env, err = vm.catch(err, stack, env)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else if op == opcodeGlobal { //GLOBAL
 			sym := constants[ops[pc+1]]
 			if sym.car == nil {
-				return nil, addContext(env, Error(ErrorKey, "Undefined symbol: ", sym))
+				err := Error(ErrorKey, "Undefined symbol: ", sym)
+				ops, pc, sp, env, err = vm.catch(err, stack, env)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				if trace {
+					showInstruction(pc, op, sym.text, stack, sp)
+				}
+				sp--
+				stack[sp] = sym.car
+				pc += 2
 			}
-			if trace {
-				showInstruction(pc, op, sym.text, stack, sp)
-			}
-			sp--
-			stack[sp] = sym.car
-			pc += 2
 		} else if op == opcodeLocal {
 			if trace {
 				showInstruction(pc, op, fmt.Sprintf("%d, %d", ops[pc+1], ops[pc+2]), stack, sp)
@@ -1105,15 +1166,19 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 				nextSp := sp + argc
 				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
 				if err != nil {
-					return nil, addContext(env, err)
-				}
-				stack[nextSp] = val
-				sp = nextSp
-				ops = env.ops
-				pc = env.pc
-				env = env.previous
-				if env == nil {
-					return stack[sp], nil
+					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					stack[nextSp] = val
+					sp = nextSp
+					ops = env.ops
+					pc = env.pc
+					env = env.previous
+					if env == nil {
+						return stack[sp], nil
+					}
 				}
 			} else if fun.variant == FunctionType {
 				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
@@ -1163,7 +1228,7 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if checkInterrupt() {
-				return nil, addContext(env, Error(InterruptKey))
+				return nil, addContext(env, Error(InterruptKey)) //not catchable
 			}
 			if trace {
 				showInstruction(pc, op, "", stack, sp)
@@ -1208,7 +1273,10 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 			}
 			err := use(sym)
 			if err != nil {
-				return nil, addContext(env, err)
+				ops, pc, sp, env, err = vm.catch(err, stack, env)
+				if err != nil {
+					return nil, err
+				}
 			}
 			sp--
 			stack[sp] = sym

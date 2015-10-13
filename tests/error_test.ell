@@ -1,0 +1,31 @@
+(use assert)
+
+(println "catch without throw: " (catch 23))
+(println "catch with throw: " (catch (error foo: 57) 23))
+
+(println "catch with low level error: " (catch (slurp "/bad_file")))
+
+(defn catch-test1 (key)
+  (try
+   (if (equal? safe: key)
+       "This means no error"
+       (error key 57))
+   (catch (foo: err)
+          (println "caught a foo: " err))
+   (catch (bar: err)
+          (println "caught a bar: " err))
+   (else
+    (println "caught something else: " err))))
+
+(defn catch-test (key)
+  (let ((tmp (catch (if (equal? safe: key) 23 (error key 57)))))
+    (if (error? tmp)
+        (println "caught this error: " tmp)
+        (println "no error: " tmp))
+    tmp))
+ 
+(assert (error? (catch-test foo:)) " foo: error did not get caught")
+(assert (error? (catch-test bar:)) " bar: error did not get caught")
+(assert (not (error? (catch-test safe:))) " safe: produces an error when it shouldn't")
+  
+(println "[error_test OK]")

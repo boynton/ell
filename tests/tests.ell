@@ -6,5 +6,6 @@
 (use defstruct_test)
 (use continuation_test)
 (use channel_test)
+(use error_test)
 
 (println "[all tests passed]")
