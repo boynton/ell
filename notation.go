@@ -685,7 +685,7 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 		case 127:
 			return "#\\delete", nil
 		default:
-			if obj.ival < 127 {
+			if obj.ival < 127 && obj.ival > 32 {
 				return "#\\" + string(rune(obj.ival)), nil
 			}
 			return fmt.Sprintf("#\\x%04X", obj.ival), nil

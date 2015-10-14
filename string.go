@@ -41,7 +41,7 @@ func toString(a *LOB) (*LOB, error) {
 		return newString(string([]rune{rune(a.ival)})), nil
 	case StringType:
 		return a, nil
-	case SymbolType, KeywordType, TypeType:
+	case SymbolType, KeywordType, TypeType, BlobType:
 		return newString(a.text), nil
 	case NumberType, BooleanType:
 		return newString(a.String()), nil

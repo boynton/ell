@@ -25,19 +25,19 @@ import (
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
-	variant      *LOB   // i.e. <string>
-	code         *Code  // closure, code
-	frame        *Frame // closure, continuation
-	primitive    *Primitive
-	continuation *Continuation
-	car          *LOB         // non-nil for instances and <list>
-	cdr          *LOB         // non-nil for <list>, nil for everything else
-	text         string       // <string>, <symbol>, <keyword>, <type>
-	elements     []*LOB       // <vector>
-	fval         float64      // <number>
-	bindings     map[Key]*LOB // <struct>
-	ival         int64        // <boolean>, <character>
-	channel      chan *LOB    // <channel>
+	variant      *LOB          // i.e. <string>
+	code         *Code         // non-nil for closure, code
+	frame        *Frame        // non-nil for closure, continuation
+	primitive    *Primitive    // non-nil for primitives
+	continuation *Continuation // non-nil for continuation
+	car          *LOB          // non-nil for instances and lists
+	cdr          *LOB          // non-nil for slists, nil for everything else
+	channel      chan *LOB     // non-nil for channels
+	text         string        // string, symbol, keyword, type, blob, channel
+	elements     []*LOB        // non-nil for vector
+	fval         float64       // number
+	bindings     map[Key]*LOB  // non-nil for struct
+	ival         int64         // boolean, character, channel
 }
 
 func newLOB(variant *LOB) *LOB {
@@ -63,6 +63,8 @@ func (lob *LOB) String() string {
 		return string([]rune{rune(lob.ival)})
 	case NumberType:
 		return strconv.FormatFloat(lob.fval, 'f', -1, 64)
+	case BlobType:
+		return fmt.Sprintf("#[blob %d bytes]", len(lob.text))
 	case StringType, SymbolType, KeywordType, TypeType:
 		return lob.text
 	case ListType:
@@ -117,6 +119,9 @@ var NumberType = intern("<number>")
 
 // StringType is the type of all strings
 var StringType = intern("<string>")
+
+// BlobType is the type of all bytearrays
+var BlobType = intern("<blob>")
 
 // ListType is the type of all lists
 var ListType = intern("<list>")

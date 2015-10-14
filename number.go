@@ -56,6 +56,23 @@ func round(f float64) float64 {
 	return math.Ceil(f - 0.5)
 }
 
+func toNumber(o *LOB) (*LOB, error) {
+	switch o.variant {
+	case NumberType:
+		return o, nil
+	case CharacterType:
+		return newInt64(o.ival), nil
+	case BooleanType:
+		return newInt64(o.ival), nil
+	case StringType:
+		f, err := strconv.ParseFloat(o.text, 64)
+		if err == nil {
+			return newFloat64(f), nil
+		}
+	}
+	return nil, Error(ArgumentErrorKey, "cannot convert to an number: ", o)
+}
+
 func toInt(o *LOB) (*LOB, error) {
 	switch o.variant {
 	case NumberType:
@@ -107,6 +124,13 @@ func int64Value(obj *LOB) (int64, error) {
 func intValue(obj *LOB) (int, error) {
 	if obj.variant == NumberType {
 		return int(obj.fval), nil
+	}
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
+}
+
+func byteValue(obj *LOB) (byte, error) {
+	if obj.variant == NumberType {
+		return byte(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
 }

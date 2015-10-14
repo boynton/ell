@@ -69,9 +69,16 @@ func initEnvironment() {
 	defineFunction("character?", ellCharacterP, BooleanType, AnyType)
 	defineFunction("to-character", ellToCharacter, CharacterType, AnyType)
 
+	defineFunction("blob?", ellBlobP, BooleanType, AnyType)
+	defineFunction("to-blob", ellToBlob, BlobType, AnyType)
+	defineFunction("make-blob", ellMakeBlob, BlobType, NumberType)
+	defineFunction("blob-length", ellBlobLength, NumberType, BlobType)
+	defineFunction("blob-ref", ellBlobRef, NumberType, BlobType, NumberType)
+
 	defineFunction("number?", ellNumberP, BooleanType, AnyType)
 	defineFunction("int?", ellIntP, BooleanType, AnyType)
 	defineFunction("float?", ellFloatP, BooleanType, AnyType)
+	defineFunction("to-number", ellToNumber, NumberType, AnyType)
 	defineFunction("int", ellInt, NumberType, AnyType)
 	defineFunction("floor", ellFloor, NumberType, NumberType)
 	defineFunction("ceiling", ellCeiling, NumberType, NumberType)
@@ -412,6 +419,10 @@ func ellNumberP(argv []*LOB) (*LOB, error) {
 	return False, nil
 }
 
+func ellToNumber(argv []*LOB) (*LOB, error) {
+	return toNumber(argv[0])
+}
+
 func ellIntP(argv []*LOB) (*LOB, error) {
 	if isInt(argv[0]) {
 		return True, nil
@@ -546,7 +557,7 @@ func ellVectorLength(argv []*LOB) (*LOB, error) {
 func ellVectorRef(argv []*LOB) (*LOB, error) {
 	el := argv[0].elements
 	idx := int(argv[1].fval)
-	if idx < 0 || idx > len(el) {
+	if idx < 0 || idx >= len(el) {
 		return nil, Error(ArgumentErrorKey, "Vector index out of range")
 	}
 	return el[idx], nil
@@ -956,4 +967,33 @@ func ellTimestamp(argv []*LOB) (*LOB, error) {
 	t := time.Now().UTC()
 	format := "%d-%02d-%02dT%02d:%02d:%02d.%03dZ"
 	return newString(fmt.Sprintf(format, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000000)), nil
+}
+
+func ellBlobP(argv []*LOB) (*LOB, error) {
+	if argv[0].variant == BlobType {
+		return True, nil
+	}
+	return False, nil
+}
+
+func ellToBlob(argv []*LOB) (*LOB, error) {
+	return toBlob(argv[0])
+}
+
+func ellMakeBlob(argv []*LOB) (*LOB, error) {
+	size := int(argv[0].fval)
+	return makeBlob(size), nil
+}
+
+func ellBlobLength(argv []*LOB) (*LOB, error) {
+	return newInt(len(argv[0].text)), nil
+}
+
+func ellBlobRef(argv []*LOB) (*LOB, error) {
+	el := argv[0].text
+	idx := int(argv[1].fval)
+	if idx < 0 || idx >= len(el) {
+		return nil, Error(ArgumentErrorKey, "Blob index out of range")
+	}
+	return newInt(int(el[idx])), nil
 }
