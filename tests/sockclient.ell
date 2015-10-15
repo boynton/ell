@@ -1,0 +1,7 @@
+(def client (connect "127.0.0.1" 8080))
+(if (null? client)
+    (error "Cannot connect to server"))
+(dorange (i 0 5)
+  (if (send (output: client) (write {x: i}))
+      (println (to-string (recv (input: client))))
+      (error "Cannot send req to server")))

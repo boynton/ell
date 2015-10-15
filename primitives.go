@@ -181,6 +181,7 @@ func initEnvironment() {
 	defineFunction("timestamp", ellTimestamp, StringType)
 
 	defineFunction("listen", ellListen, ChannelType, NumberType)
+	defineFunction("connect", ellConnect, AnyType, StringType, NumberType)
 
 	if midi {
 		initMidi()
@@ -1010,6 +1011,18 @@ func ellBlobRef(argv []*LOB) (*LOB, error) {
 	return newInt(int(el[idx])), nil
 }
 
+func tcpConnection(con net.Conn, endpoint string) *LOB {
+	inchan := newChannel(10, "input")
+	outchan := newChannel(10, "output")
+	go tcpReader(con, inchan)
+	go tcpWriter(con, outchan)
+	name := fmt.Sprintf("connection on %s", endpoint)
+	connection := newLOB(intern("<tcp-connection>"))
+	s, _ := newStruct([]*LOB{intern("input:"), inchan, intern("output:"), outchan, intern("name:"), newString(name)})
+	connection.car = s
+	return connection
+}
+
 func tcpReader(conn net.Conn, inchan *LOB) {
 	for {
 		r := bufio.NewReader(conn)
@@ -1067,38 +1080,34 @@ func tcpWriter(con net.Conn, outchan *LOB) {
 	}
 }
 
-func tcpListener(listener net.Listener, acceptChannel *LOB) (*LOB, error) {
+func tcpListener(listener net.Listener, acceptChannel *LOB, endpoint string) (*LOB, error) {
 	for {
 		con, err := listener.Accept()
 		if err != nil {
-			println("[tcp listener cannot accept: ", err.Error(), "]")
 			return nil, err
 		}
-		inchan := newChannel(10, "input")
-		outchan := newChannel(10, "output")
-		go tcpReader(con, inchan)
-		go tcpWriter(con, outchan)
-		connection := newLOB(intern("<tcp-connection>"))
-		s, _ := newStruct([]*LOB{intern("input:"), inchan, intern("output:"), outchan})
-		connection.car = s
-		acceptChannel.channel <- connection
+		acceptChannel.channel <- tcpConnection(con, endpoint)
 	}
 }
 
-func makeTcpServer(port int, name string) (*LOB, error) {
-	listener, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	acceptName := fmt.Sprintf("%s accepted connections", name)
-	acceptChan := newChannel(10, acceptName)
-	go tcpListener(listener, acceptChan)
+func ellListen(argv []*LOB) (*LOB, error) {
+	port := fmt.Sprintf(":%d", int(argv[0].fval))
+	listener, err := net.Listen("tcp", port)
+	if err != nil {
+		return nil, err
+	}
+	acceptChan := newChannel(10, fmt.Sprintf("tcp listener on %s", port))
+	go tcpListener(listener, acceptChan, port)
 	return acceptChan, nil
 }
 
-func ellListen(argv []*LOB) (*LOB, error) {
-	nport := int(argv[0].fval)
-	port := fmt.Sprintf(":%d", nport)
-	ln, _ := net.Listen("tcp", port)
-	name := fmt.Sprintf("tcp listener on port %d", nport)
-	acceptChan := newChannel(10, name)
-	go tcpListener(ln, acceptChan)
-	return acceptChan, nil
+func ellConnect(argv []*LOB) (*LOB, error) {
+	host := argv[0].text
+	port := int(argv[1].fval)
+	endpoint := fmt.Sprintf("%s:%d", host, port)
+	con, err := net.Dial("tcp", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	return tcpConnection(con, endpoint), nil
 }
