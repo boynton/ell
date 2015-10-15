@@ -30,6 +30,9 @@ func makeBlob(size int) *LOB {
 	return newBlob(el)
 }
 
+// EmptyBlob - a blob with no bytes
+var EmptyBlob = makeBlob(0)
+
 func toBlob(obj *LOB) (*LOB, error) {
 	switch obj.variant {
 	case BlobType:

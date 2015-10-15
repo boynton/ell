@@ -1,0 +1,17 @@
+
+(def sbody (slurp "http://boynton.com"))
+(def b (http "http://boynton.com"))
+(println "body: " (body: b))
+(def body (to-string (body: b)))
+(println "body length is " (length body))
+(println "headers included in response:\n" (write (keys (headers: b)) indent: "   "))
+;;(println "number of values per header in response:\n" (write (map length (values (headers: b))) indent: "   "))
+(println "status of response: " (status: b))
+
+(if (not (equal? sbody (to-string (body: b))))
+    (error "slurp body doesn't match http body: attribute"))
+
+;;still need to test:
+;(http "http://boynton.com" method: "POST" body: "" headers: {}) -> {status: 200 headers: {}, body: "<html>...</html>"}
+;(http "http://boynton.com" method: "PUT" body: "" headers: {}) -> {status: 200 headers: {}, body: "<html>...</html>"}
+;(http "http://boynton.com" method: "DELETE") -> {status: 200 headers: {}, body: "<html>...</html>"}

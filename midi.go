@@ -35,16 +35,15 @@ func midiOpen(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
+// (midi-time) -> seconds
+func midiTime(argc []*LOB) (*LOB, error) {
+	n := float64(portmidi.Time())
+	return newFloat64(n / 1000.0), nil
+}
+
 func midiSleep(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 1 {
-		ms, err := int64Value(argv[0])
-		if err == nil {
-			time.Sleep(time.Duration(ms) * time.Millisecond)
-			return midiTime(nil)
-		}
-	}
-	return nil, Error(ArgumentErrorKey, "midi-sleep takes a single number argument")
+	time.Sleep(time.Duration(argv[0].fval*1000.0) * time.Millisecond)
+	return midiTime(nil)
 }
 
 func midiAllNotesOff() {
@@ -62,29 +61,17 @@ func midiClose(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-// (midi-time) -> milliseconds
-func midiTime(argc []*LOB) (*LOB, error) {
-	n := int64(portmidi.Time())
-	return newInt64(n), nil
-}
-
 // (midi-write 144 60 80) -> middle C note on
 // (midi-write 128 60 0) -> middle C note off
 func midiWrite(argv []*LOB) (*LOB, error) {
-	argc := len(argv)
-	if argc == 3 {
-		status, err1 := int64Value(argv[0])
-		data1, err2 := int64Value(argv[1])
-		data2, err3 := int64Value(argv[2])
-		if err1 == nil && err2 == nil && err3 == nil {
-			midiMutex.Lock()
-			var err error
-			if midiOut != nil {
-				err = midiOut.WriteShort(status, data1, data2)
-			}
-			midiMutex.Unlock()
-			return Null, err
-		}
+	status := int64(argv[0].fval)
+	data1 := int64(argv[1].fval)
+	data2 := int64(argv[2].fval)
+	midiMutex.Lock()
+	var err error
+	if midiOut != nil {
+		err = midiOut.WriteShort(status, data1, data2)
 	}
-	return nil, Error(ArgumentErrorKey, "midi-write takes 3 numbers")
+	midiMutex.Unlock()
+	return Null, err
 }

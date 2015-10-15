@@ -1,0 +1,29 @@
+
+(listen 8080 type: "tcp" framed: true
+        (fn (input output)
+          (let handler-loop ((request (recv input)))
+            (println "got request: " request)
+            (send (client: request) (string "back at you: " (body: request)))
+            (handler-loop (recv server))))
+        (
+;; a simple echo server
+(let ((server (listen 8080)))
+  (let handler-loop ((request (recv server)))
+    (println "got request: " request)
+    (send (client: request) (string "back at you: " (body: request)))
+    (handler-loop (recv server))))
+
+;; (listen port) -> returns a channel to get the next accepted connection on
+
+;;
+;; but, the way sockets work is more like:
+;; server := listen()
+;; loop {
+;;    client := server.accept()
+;;    client.recv
+;;    client.recv
+;;    ...
+;;    client.close
+;;
+
+;;so, the server channel receives connections. Each connection is then an object with 2 channels (in and out)

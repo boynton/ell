@@ -1,0 +1,75 @@
+
+(defstruct store path: <string> state: <struct>)
+
+(defgeneric create (db rec))
+(defgeneric fetch (db id))
+(defgeneric update (db id rec))
+(defgeneric delete (db id))
+(defgeneric enumerate (db))
+
+(defn file-exists? (path)
+  (not (error? (catch (slurp path)))))
+
+(defn open-store (path)
+  (if (not (file-exists? path))
+      (spit path (write {} indent: "    ")))
+  (store path: path state: (car (read (slurp path)))))
+
+(defgeneric commit (store))
+(defmethod commit ((store <store>))
+  (spit (path: store) (write (state: store) indent: "    ")))
+
+(defgeneric revert (store))
+(defmethod revert ((store <store>))
+  (let ((state (car (read (slurp (path: store))))))
+    (put! (value store) state: state)))
+
+(defmethod create ((db <store>) rec)
+  (let ((id (uuid)))
+    (let ((r (struct rec id: id modified: (timestamp))))
+      (put! (state: db) id r)
+      r)))
+
+(defmethod fetch ((db <store>) id)
+  (get (state: db) id))
+
+(defmethod update ((db <store>) id rec)
+  (if (equal? id (id: rec))
+      (let ((prev (fetch db id)) (r (struct rec modified: (timestamp))))
+        (if (null? prev)
+            (error not-found: "record " id)
+            (do (put! (state: db) id r) r)))
+      (error conflict: "id and record value don't match")))
+
+(defmethod delete ((db <store>) id)
+  (unput! (state: db) id))
+
+(defmethod enumerate ((db <store>))
+  (values (state: db)))
+
+(defn test-db ()
+  (let ((db (open-store "test.db")))
+    (if (= 0 (length (state: db)))
+        (let ((r1 (create db {name: "Lee" email: "lee@boynton.com"})))
+          (println "created: " (write r1 indent: "   "))
+          (let ((id1 (id: r1)))
+            (println "id is " (write id1))
+            (let ((r2 (fetch db id1)))
+              (println "fetch returned " (write r2 indent: "   "))
+              (let ((r3 (update db id1 (struct r2 name: "Lee B."))))
+                (println "update returned " (write r3 indent: "   "))))
+            (create db {name: "Jim"})
+            (create db {name: "Bob"})
+            (println "enumerate: " (write (enumerate db) indent: "   "))
+            (commit db)
+            (println "commited to disk")
+            (delete db id1)
+            (println "fetch after delete: " (fetch db id1))
+            (println "enumerate after delete: " (write (enumerate db) indent: "   "))
+            (revert db)
+            (println "enumerate after revert: " (write (enumerate db) indent: "   "))
+            ))
+        (println "enumerate after open-existing: " (write (enumerate db) indent: "   ")))))
+
+
+(test-db)

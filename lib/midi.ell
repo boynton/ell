@@ -13,13 +13,13 @@
 
 (defn midi-test ()
    (dorange (i 21 108)
-     (midi-note i 50 8)
-     (midi-sleep 10)))
+     (midi-note i 50 .1)
+     (midi-sleep .1)))
 
 (defn random-phrase (base)
   (dolist (k (map int (random-list 12 (- base 7) (+ base 7))))
-    (midi-note k 75 100)
-    (midi-sleep 100)))
+    (midi-note k 75 0.09)
+    (midi-sleep .1)))
 
 (defn midi-test2 ()
   (let loop ((k 60))

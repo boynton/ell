@@ -46,6 +46,9 @@ func isValidStructKey(o *LOB) bool {
 	return false
 }
 
+// EmptyStruct - a <struct> with no bindings
+var EmptyStruct = makeStruct(0)
+
 func makeStruct(capacity int) *LOB {
 	strct := newLOB(StructType)
 	strct.bindings = make(map[Key]*LOB, capacity)

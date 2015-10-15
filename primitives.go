@@ -18,11 +18,16 @@ package main
 // the primitive functions for the languages
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"github.com/pborman/uuid"
+	"io"
+	"io/ioutil"
 	"math"
 	"net"
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -183,6 +188,12 @@ func initEnvironment() {
 	defineFunction("listen", ellListen, ChannelType, NumberType)
 	defineFunction("connect", ellConnect, AnyType, StringType, NumberType)
 
+	defineFunction("serve", ellHTTPServer, AnyType, NumberType, FunctionType)
+	defineFunctionKeyArgs("http", ellHTTPClient, StructType,
+		[]*LOB{StringType, StringType, StructType, BlobType}, //(http "url" method: "PUT" headers: {} body: #[blob])
+		[]*LOB{newString("GET"), EmptyStruct, EmptyBlob},
+		[]*LOB{intern("method:"), intern("headers:"), intern("body:")})
+
 	if midi {
 		initMidi()
 	}
@@ -227,6 +238,19 @@ func ellDefinedP(argv []*LOB) (*LOB, error) {
 }
 
 func ellSlurp(argv []*LOB) (*LOB, error) {
+	url := argv[0].text
+	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
+		res, err := httpClientOperation("GET", url, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		status := int(structGet(res, intern("status:")).fval)
+		if status != 200 {
+			return nil, Error(HTTPErrorKey, status, " ", http.StatusText(status))
+		}
+		s, _ := toString(structGet(res, intern("body:")))
+		return s, nil
+	}
 	return slurpFile(argv[0].text)
 }
 
@@ -870,7 +894,7 @@ func ellSend(argv []*LOB) (*LOB, error) {
 			default:
 			}
 		} else if timeout > 0 { //with timeout
-			dur := time.Millisecond * time.Duration(timeout)
+			dur := time.Millisecond * time.Duration(timeout*1000.0)
 			select {
 			case ch <- val:
 				return True, nil
@@ -897,7 +921,7 @@ func ellReceive(argv []*LOB) (*LOB, error) {
 			default:
 			}
 		} else if timeout > 0 { //with timeout
-			dur := time.Millisecond * time.Duration(timeout)
+			dur := time.Millisecond * time.Duration(timeout*1000.0)
 			select {
 			case val, ok := <-ch:
 				if ok && val != nil {
@@ -1110,4 +1134,206 @@ func ellConnect(argv []*LOB) (*LOB, error) {
 		return nil, err
 	}
 	return tcpConnection(con, endpoint), nil
+}
+
+func ellHTTPServer(argv []*LOB) (*LOB, error) {
+	port := int(argv[0].fval)
+	handler := argv[1] // a function of one <struct> argument
+	if handler.code == nil || handler.code.argc != 1 {
+		return nil, Error(ArgumentErrorKey, "Cannot use this function as a handler: ", handler)
+	}
+	glue := func(w http.ResponseWriter, r *http.Request) {
+		headers := makeStruct(10)
+		for k, v := range r.Header {
+			var values []*LOB
+			for _, val := range v {
+				values = append(values, newString(val))
+			}
+			put(headers, newString(k), listFromValues(values))
+		}
+		var body *LOB
+		println("method: ", r.Method)
+		switch strings.ToUpper(r.Method) {
+		case "POST", "PUT":
+			println("try to read the body...")
+			bodyBytes, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				w.WriteHeader(500)
+				w.Write([]byte("Cannot decode body for " + r.Method + " request"))
+				return
+			}
+			println("... got ", bodyBytes)
+			body = newBlob(bodyBytes)
+		}
+		req, _ := newStruct([]*LOB{intern("headers:"), headers, intern("body:"), body})
+		println("req object: ", req)
+		args := []*LOB{req}
+		res, err := exec(handler.code, args)
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		if !isStruct(res) {
+			w.WriteHeader(500)
+			w.Write([]byte("Handler did not return a struct"))
+			return
+		}
+		headers = structGet(res, intern("headers:"))
+		body = structGet(res, intern("body:"))
+		status := structGet(res, intern("status:"))
+		if status != nil {
+			nstatus := int(status.fval)
+			if nstatus != 0 && nstatus != 200 {
+				w.WriteHeader(nstatus)
+			}
+		}
+		if isStruct(headers) {
+			//fix: multiple values for a header
+			for k, v := range headers.bindings {
+				ks := headerString(k.toLOB())
+				vs := v.String()
+				w.Header().Set(ks, vs)
+			}
+		}
+		if isString(body) {
+			bodylen := len(body.text)
+			w.Header().Set("Content-length", fmt.Sprint(bodylen))
+			if bodylen > 0 {
+				w.Write([]byte(body.text))
+			}
+		}
+	}
+	http.HandleFunc("/", glue)
+	println("web server running at ", fmt.Sprintf(":%d", port))
+	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	//no way to stop it
+	return Null, nil
+}
+
+func headerString(obj *LOB) string {
+	switch obj.variant {
+	case StringType, SymbolType:
+		return obj.text
+	case KeywordType:
+		return unkeywordedString(obj)
+	default:
+		s, err := toString(obj)
+		if err != nil {
+			return typeNameString(obj.variant.text)
+		}
+		return s.text
+	}
+}
+
+func ellHTTPGet(url string, headers *LOB) (*LOB, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if headers != nil {
+		for k, v := range headers.bindings {
+			ks := k.toLOB().text
+			if v.variant == ListType {
+				vs := v.car.String()
+				req.Header.Set(ks, vs)
+				for v.cdr != EmptyList {
+					v = v.cdr
+					req.Header.Add(ks, v.car.String())
+				}
+			} else {
+				req.Header.Set(ks, v.String())
+			}
+		}
+	}
+	res, err := client.Do(req)
+	if err == nil {
+		bodyBytes, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		if err == nil {
+			status := newInt(res.StatusCode)
+			headers := makeStruct(len(res.Header))
+			body := newBlob(bodyBytes)
+			for k, v := range res.Header {
+				var values []*LOB
+				for _, val := range v {
+					values = append(values, newString(val))
+				}
+				put(headers, newString(k), listFromValues(values))
+			}
+			s, _ := newStruct([]*LOB{intern("status:"), status, intern("headers:"), headers, intern("body:"), body})
+			return s, nil
+		}
+	}
+	return nil, err
+}
+
+func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*LOB, error) {
+	client := &http.Client{}
+	var bodyReader io.Reader
+	bodyLen := 0
+	if data != nil {
+		tmp := []byte(data.text)
+		bodyLen = len(tmp)
+		if bodyLen > 0 {
+			bodyReader = bytes.NewBuffer(tmp)
+		}
+	}
+	req, err := http.NewRequest(method, url, bodyReader)
+	if headers != nil {
+		for k, v := range headers.bindings {
+			ks := k.toLOB().text
+			if v.variant == ListType {
+				vs := v.car.String()
+				req.Header.Set(ks, vs)
+				for v.cdr != EmptyList {
+					v = v.cdr
+					req.Header.Add(ks, v.car.String())
+				}
+			} else {
+				req.Header.Set(ks, v.String())
+			}
+		}
+	}
+	if bodyLen > 0 {
+		req.Header.Set("Content-Length", fmt.Sprint(bodyLen))
+	}
+	res, err := client.Do(req)
+	if err == nil {
+		bodyBytes, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		if err == nil {
+			s := makeStruct(3)
+			put(s, intern("status:"), newInt(res.StatusCode))
+			bodyLen := len(bodyBytes)
+			if bodyLen > 0 {
+				put(s, intern("body:"), newBlob(bodyBytes))
+			}
+			if len(res.Header) > 0 {
+				headers = makeStruct(len(res.Header))
+				for k, v := range res.Header {
+					var values []*LOB
+					for _, val := range v {
+						values = append(values, newString(val))
+					}
+					put(headers, newString(k), listFromValues(values))
+				}
+				put(s, intern("headers:"), headers)
+			}
+			return s, nil
+		}
+	}
+	return nil, err
+}
+
+func ellHTTPClient(argv []*LOB) (*LOB, error) {
+	url := argv[0].text
+	method := strings.ToUpper(argv[1].text)
+	headers := argv[2]
+	body := argv[3]
+	println("http ", method, " of ", url, ", headers: ", headers, ", body: ", body)
+	switch method {
+	case "GET", "PUT", "POST", "DELETE", "HEAD", "OPTIONS", "PATCH":
+		return httpClientOperation(method, url, headers, body)
+	default:
+		return nil, Error(ErrorKey, "HTTP method not support: ", method)
+	}
 }

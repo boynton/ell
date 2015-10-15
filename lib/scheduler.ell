@@ -23,9 +23,9 @@
                         (loop (cdr tail) (cdr tail-cdr))))))))))
 
 (defn wait-until (t)
-  (let ((ms (- t (midi-time))))
-    (if (> ms 0)
-        (midi-sleep ms))))
+  (let ((seconds (- t (midi-time))))
+    (if (> seconds 0)
+        (midi-sleep seconds))))
 
 
 (defn context-switch ()
@@ -129,16 +129,16 @@
 (defn phrase1 (k)
   (parallel
    (sequential
-    (note (+ k 36) 50 1500)
-    (let ((n (wait 'foo 5000)))
+    (note (+ k 36) 50 1.5)
+    (let ((n (wait 'foo 5)))
       (if n
-          (note (+ k n) 50 1000)
+          (note (+ k n) 50 1)
           (println "whoops, timed out"))))
    (sequential
-    (note (+ k 60) 50 1000)
-    (note (+ k 65) 50 1000)
+    (note (+ k 60) 50 1)
+    (note (+ k 65) 50 1)
     (signal 'foo 24)
-    (note (+ k 67) 50 1000))))
+    (note (+ k 67) 50 1))))
 
 
 (defn scheduler-test (i)
