@@ -17,9 +17,12 @@ package main
 
 // the primitive functions for the languages
 import (
+	"bufio"
+	"encoding/binary"
 	"fmt"
 	"github.com/pborman/uuid"
 	"math"
+	"net"
 	"time"
 )
 
@@ -176,6 +179,8 @@ func initEnvironment() {
 
 	defineFunctionRestArgs("uuid", ellUUIDFromTime, StringType, StringType)
 	defineFunction("timestamp", ellTimestamp, StringType)
+
+	defineFunction("listen", ellListen, ChannelType, NumberType)
 
 	if midi {
 		initMidi()
@@ -839,35 +844,39 @@ func ellChannel(argv []*LOB) (*LOB, error) {
 	return newChannel(bufsize, name), nil
 }
 
-func ellClose(argv []*LOB) (*LOB, error) {
-	ch := argv[0]
+func closeChannel(ch *LOB) {
 	if ch.channel != nil {
 		close(ch.channel)
 		ch.channel = nil
 	}
+}
+
+func ellClose(argv []*LOB) (*LOB, error) {
+	closeChannel(argv[0])
 	return Null, nil
 }
 
 func ellSend(argv []*LOB) (*LOB, error) {
-	ch := argv[0]
-	if ch.channel != nil { //not closed
+	chanobj := argv[0]
+	ch := chanobj.channel
+	if ch != nil { //not closed
 		val := argv[1]
 		timeout := argv[2].fval        //FIX: timeouts in seconds, floating point
 		if numberEqual(timeout, 0.0) { //non-blocking
 			select {
-			case ch.channel <- val:
+			case ch <- val:
 				return True, nil
 			default:
 			}
 		} else if timeout > 0 { //with timeout
 			dur := time.Millisecond * time.Duration(timeout)
 			select {
-			case ch.channel <- val:
+			case ch <- val:
 				return True, nil
 			case <-time.After(dur):
 			}
 		} else { //block forever
-			ch.channel <- val
+			ch <- val
 			return True, nil
 		}
 	}
@@ -875,13 +884,13 @@ func ellSend(argv []*LOB) (*LOB, error) {
 }
 
 func ellReceive(argv []*LOB) (*LOB, error) {
-	ch := argv[0]
-	if ch.channel != nil { //not closed
+	ch := argv[0].channel
+	if ch != nil { //not closed
 		timeout := argv[1].fval
 		if numberEqual(timeout, 0.0) { //non-blocking
 			select {
-			case val, ok := <-ch.channel:
-				if ok {
+			case val, ok := <-ch:
+				if ok && val != nil {
 					return val, nil
 				}
 			default:
@@ -889,14 +898,17 @@ func ellReceive(argv []*LOB) (*LOB, error) {
 		} else if timeout > 0 { //with timeout
 			dur := time.Millisecond * time.Duration(timeout)
 			select {
-			case val, ok := <-ch.channel:
-				if ok {
+			case val, ok := <-ch:
+				if ok && val != nil {
 					return val, nil
 				}
 			case <-time.After(dur):
 			}
 		} else { //block forever
-			return <-ch.channel, nil
+			val := <-ch
+			if val != nil {
+				return val, nil
+			}
 		}
 	}
 	return Null, nil
@@ -996,4 +1008,97 @@ func ellBlobRef(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "Blob index out of range")
 	}
 	return newInt(int(el[idx])), nil
+}
+
+func tcpReader(conn net.Conn, inchan *LOB) {
+	for {
+		r := bufio.NewReader(conn)
+		count, err := binary.ReadVarint(r)
+		if err != nil {
+			closeChannel(inchan)
+			return
+		}
+		buf := make([]byte, count, count)
+		cur := buf[:]
+		remaining := int(count)
+		offset := 0
+		for remaining > 0 {
+			n, err := r.Read(cur)
+			if err != nil {
+				closeChannel(inchan)
+				return
+			}
+			remaining -= n
+			offset += n
+			cur = buf[offset:]
+		}
+		packet := newBlob(buf)
+		ch := inchan.channel
+		if ch != nil {
+			ch <- packet
+		}
+	}
+}
+
+func tcpWriter(con net.Conn, outchan *LOB) {
+	for {
+		var packet *LOB
+		ch := outchan.channel
+		if ch != nil {
+			packet = <-ch
+		}
+		if packet == nil {
+			return
+		}
+		data := []byte(packet.text)
+		count := len(data)
+		header := make([]byte, 8)
+		n := binary.PutVarint(header, int64(count))
+		n, err := con.Write(header[:n])
+		if err != nil {
+			closeChannel(outchan)
+			return
+		}
+		n, err = con.Write([]byte(data))
+		if n != len(data) || err != nil {
+			closeChannel(outchan)
+			return
+		}
+	}
+}
+
+func tcpListener(listener net.Listener, acceptChannel *LOB) (*LOB, error) {
+	for {
+		con, err := listener.Accept()
+		if err != nil {
+			println("[tcp listener cannot accept: ", err.Error(), "]")
+			return nil, err
+		}
+		inchan := newChannel(10, "input")
+		outchan := newChannel(10, "output")
+		go tcpReader(con, inchan)
+		go tcpWriter(con, outchan)
+		connection := newLOB(intern("<tcp-connection>"))
+		s, _ := newStruct([]*LOB{intern("input:"), inchan, intern("output:"), outchan})
+		connection.car = s
+		acceptChannel.channel <- connection
+	}
+}
+
+func makeTcpServer(port int, name string) (*LOB, error) {
+	listener, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	acceptName := fmt.Sprintf("%s accepted connections", name)
+	acceptChan := newChannel(10, acceptName)
+	go tcpListener(listener, acceptChan)
+	return acceptChan, nil
+}
+
+func ellListen(argv []*LOB) (*LOB, error) {
+	nport := int(argv[0].fval)
+	port := fmt.Sprintf(":%d", nport)
+	ln, _ := net.Listen("tcp", port)
+	name := fmt.Sprintf("tcp listener on port %d", nport)
+	acceptChan := newChannel(10, name)
+	go tcpListener(ln, acceptChan)
+	return acceptChan, nil
 }
