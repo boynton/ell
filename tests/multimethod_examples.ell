@@ -16,17 +16,17 @@
 
 (defgeneric area (shape))
 
-(defstruct rect x: 0 y: 0 w: 0 h: 0)
+(defstruct rect x: <number> y: <number> w: <number> h: <number>)
 (defmethod area ((r <rect>))
    (* (w: r) (h: r)))
 
-(def r1 (rect w: 10 h: 20))
+(def r1 (rect x: 0 y: 0 w: 10 h: 20))
 (println "area of " r1 " => " (area r1))
 
 (def pi 3.1415926)
-(defstruct circle x: 0 y: 0 r: 0)
+(defstruct circle x: <number> y: <number> r: <number>)
 (defmethod area ((c <circle>))
-   (* pi (r: c) (r: c)))
+   (* pi (* (r: c) (r: c))))
 
-(def c1 (circle r: 10))
+(def c1 (circle x: 0 y: 0 r: 10))
 (println "area of " c1 " => " (area c1))
