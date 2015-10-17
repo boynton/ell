@@ -5,8 +5,7 @@
    (if (= x 0)
       'done
       (do
-        (display x)
-        (newline)
+        (println x)
         (foo (- x 1)))))
 
 
