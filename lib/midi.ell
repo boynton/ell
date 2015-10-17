@@ -1,7 +1,8 @@
-(midi-open)
+;(def *midi-config* (midi-open input: "USB Oxygen 8 v2"))
+(def *midi-config* (midi-open))
 
 (defn midi-write-after (dur d1 d2 d3)
-  (midi-sleep dur)
+  (sleep dur)
   (midi-write d1 d2 d3))
 
 (defn midi-damper (n)
@@ -14,15 +15,22 @@
 (defn midi-test ()
    (dorange (i 21 108)
      (midi-note i 50 .1)
-     (midi-sleep .1)))
+     (sleep .1)))
 
 (defn random-phrase (base)
   (dolist (k (map int (random-list 12 (- base 7) (+ base 7))))
     (midi-note k 75 0.09)
-    (midi-sleep .1)))
+    (sleep .1)))
 
 (defn midi-test2 ()
   (let loop ((k 60))
     (random-phrase k)
     (loop (random 36 84))))
 
+(defn midi-test3 ()
+  (let ((ch (midi-listen))) ;;probably should just be a global channel
+    (let loop ((tmp (recv ch 1)))
+      (if (not (null? tmp))
+          (println tmp)
+          (println "[" (now) "]"))
+      (loop (recv ch 1)))))
