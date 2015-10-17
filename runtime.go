@@ -789,9 +789,6 @@ func exec(code *Code, args []*LOB) (*LOB, error) {
 	startTime := time.Now()
 	result, err := vm.exec(code, env)
 	dur := time.Since(startTime)
-	if verbose {
-		println("; executed in ", dur)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -799,7 +796,10 @@ func exec(code *Code, args []*LOB) (*LOB, error) {
 		panic("result should never be nil if no error")
 	}
 	if verbose {
-		println("; => ", result)
+		println("; executed in ", dur)
+		if !interactive {
+			println("; => ", result)
+		}
 	}
 	return result, err
 }

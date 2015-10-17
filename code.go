@@ -153,7 +153,7 @@ func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "(function (\"\" 0 [] [])", "(code", 1)
+	return strings.Replace(s, "(" + symOpFunction.text + " (\"\" 0 [] [])", "(code", 1)
 }
 
 func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
@@ -161,7 +161,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	offset := 0
 	max := len(code.ops)
 	prefix := " "
-	buf.WriteString(indent + "(function (")
+	buf.WriteString(indent + "(" + symOpFunction.text + " (")
 	buf.WriteString(fmt.Sprintf("%q ", code.name))
 	buf.WriteString(strconv.Itoa(code.argc))
 	if code.defaults != nil {
@@ -198,7 +198,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			buf.WriteString(s + " " + strconv.Itoa(code.ops[offset+1]) + " " + strconv.Itoa(code.ops[offset+2]) + ")")
 			offset += 3
 		case opcodeClosure:
-			buf.WriteString(s + ")")
+			buf.WriteString(s)
 			if pretty {
 				buf.WriteString("\n")
 			} else {
@@ -231,6 +231,10 @@ func (code *Code) loadOps(lst *LOB) error {
 		case symOpClosure:
 			lstFunc := cadr(instr)
 			if car(lstFunc) != symOpFunction {
+				println("closure: ", lstFunc)
+				println("car(lstFunc) ", car(lstFunc))
+				println("symOpFunction ", symOpFunction)
+				panic("1")
 				return Error(SyntaxErrorKey, instr)
 			}
 			lstFunc = cdr(lstFunc)
@@ -256,12 +260,14 @@ func (code *Code) loadOps(lst *LOB) error {
 				tmp = cdr(tmp)
 				name, err = asString(a)
 				if err != nil {
+				panic("2")
 					return Error(SyntaxErrorKey, funcParams)
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
 				argc, err = intValue(a)
 				if err != nil {
+				panic("3")
 					return Error(SyntaxErrorKey, funcParams)
 				}
 				a = car(tmp)
@@ -274,6 +280,7 @@ func (code *Code) loadOps(lst *LOB) error {
 					keys = a.elements
 				}
 			} else {
+				panic("4")
 				return Error(SyntaxErrorKey, funcParams)
 			}
 			fun := newCode(argc, defaults, keys, name)

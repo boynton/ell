@@ -173,6 +173,10 @@ func initEnvironment() {
 	defineFunctionRestArgs("getfn", ellGetFn, FunctionType, AnyType, SymbolType)
 	defineFunction("method-signature", ellMethodSignature, TypeType, ListType)
 
+	defineFunction("now", ellNow, NumberType)
+	defineFunction("since", ellSince, NumberType, NumberType)
+	defineFunction("sleep", ellSleep, NumberType, NumberType)
+
 	defineFunctionKeyArgs("channel", ellChannel, ChannelType, []*LOB{StringType, NumberType}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
 	defineFunctionOptionalArgs("send", ellSend, NullType, []*LOB{ChannelType, AnyType, NumberType}, MinusOne)
 	defineFunctionOptionalArgs("recv", ellReceive, AnyType, []*LOB{ChannelType, NumberType}, MinusOne)
@@ -1336,4 +1340,25 @@ func ellHTTPClient(argv []*LOB) (*LOB, error) {
 	default:
 		return nil, Error(ErrorKey, "HTTP method not support: ", method)
 	}
+}
+
+func now() float64 {
+	now := time.Now()
+	return float64(now.UnixNano()) / float64(time.Second)
+}
+
+func ellNow(argv[]*LOB) (*LOB, error) {
+	return newFloat64(now()), nil
+}
+
+func ellSince(argv[]*LOB) (*LOB, error) {
+	then := argv[0].fval
+	dur := now() - then
+	return newFloat64(dur), nil
+}
+
+func ellSleep(argv[]*LOB) (*LOB, error) {
+	dur := time.Duration(argv[0].fval*float64(time.Second))
+	time.Sleep(dur) //!! this is not interruptable, fairly risky in a REPL
+	return newFloat64(now()), nil
 }

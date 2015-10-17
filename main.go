@@ -24,6 +24,7 @@ import (
 )
 
 var verbose bool
+var debug bool
 var interactive bool
 
 // Version - this version of gell
@@ -43,6 +44,7 @@ func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
 	pOptimize := flag.Bool("o", false, "optimize execution speed, should work for correct code, but doesn't check everything")
 	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
+	pDebug := flag.Bool("d", false, "debug mode, print extra information about compilation")
 	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
 	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
 	flag.Parse()
@@ -85,6 +87,9 @@ func main() {
 		if *pVerbose {
 			verbose = *pVerbose
 		}
+		if *pDebug {
+			debug = *pDebug
+		}
 		if *pTrace {
 			trace = *pTrace
 		}
@@ -98,6 +103,9 @@ func main() {
 		}
 		if *pVerbose {
 			verbose = *pVerbose
+		}
+		if *pDebug {
+			debug = *pDebug
 		}
 		if *pTrace {
 			trace = *pTrace

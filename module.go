@@ -94,7 +94,7 @@ func getKeywords() []*LOB {
 		intern("defn"),
 		intern("defmacro"),
 		intern("set!"),
-		intern("lap"),
+		intern("code"),
 		intern("use"),
 	}
 	return keywords
@@ -183,17 +183,19 @@ func importCode(thunk *LOB) (*LOB, error) {
 func findModuleByName(moduleName string) (string, error) {
 	path := strings.Split(EllPath, ":")
 	name := moduleName
-	lname := moduleName
-	if !strings.HasSuffix(name, ".ell") {
+	var lname string
+	if strings.HasSuffix(name, ".ell") {
+		lname = name[:len(name)-3] + ".lvm"
+	} else {
+		lname = name + ".lvm"
 		name = name + ".ell"
-		lname = moduleName + ".lap"
 	}
 	for _, dirname := range path {
-		filename := filepath.Join(dirname, name)
+		filename := filepath.Join(dirname, lname)
 		if fileReadable(filename) {
 			return filename, nil
 		}
-		filename = filepath.Join(dirname, lname)
+		filename = filepath.Join(dirname, name)
 		if fileReadable(filename) {
 			return filename, nil
 		}
@@ -202,13 +204,9 @@ func findModuleByName(moduleName string) (string, error) {
 }
 
 func loadModule(name string) error {
-	file := name
-	if !fileReadable(name) {
-		f, err := findModuleFile(name)
-		if err != nil {
-			return err
-		}
-		file = f
+	file, err := findModuleFile(name)
+	if err != nil {
+		return err
 	}
 	return loadFile(file)
 }
@@ -239,21 +237,21 @@ func loadFile(file string) error {
 }
 
 func eval(expr *LOB) (*LOB, error) {
-	if verbose {
+	if debug {
 		println("; eval: ", write(expr))
 	}
 	expanded, err := macroexpandObject(expr)
 	if err != nil {
 		return nil, err
 	}
-	if verbose {
+	if debug {
 		println("; expanded to: ", write(expanded))
 	}
 	code, err := compile(expanded)
 	if err != nil {
 		return nil, err
 	}
-	if verbose {
+	if debug {
 		val := strings.Replace(write(code), "\n", "\n; ", -1)
 		println("; compiled to:\n;  ", val)
 	}
@@ -276,21 +274,21 @@ func findModuleFile(name string) (string, error) {
 }
 
 func compileObject(expr *LOB) (string, error) {
-	if verbose {
+	if debug {
 		println("; compile: ", write(expr))
 	}
 	expanded, err := macroexpandObject(expr)
 	if err != nil {
 		return "", err
 	}
-	if verbose {
+	if debug {
 		println("; expanded to: ", write(expanded))
 	}
 	thunk, err := compile(expanded)
 	if err != nil {
 		return "", err
 	}
-	if verbose {
+	if debug {
 		println("; compiled to: ", write(thunk))
 	}
 	return thunk.code.decompile(true) + "\n", nil
@@ -312,14 +310,14 @@ func compileFile(name string) (*LOB, error) {
 
 	exprs, err := readAll(fileText, nil)
 	result := ";\n; code generated from " + file + "\n;\n"
-	var lap string
+	var lvm string
 	for exprs != EmptyList {
 		expr := car(exprs)
-		lap, err = compileObject(expr)
+		lvm, err = compileObject(expr)
 		if err != nil {
 			return nil, err
 		}
-		result += lap
+		result += lvm
 		exprs = cdr(exprs)
 	}
 	return newString(result), nil
