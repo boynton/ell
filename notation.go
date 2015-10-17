@@ -427,7 +427,7 @@ func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 	buf := []byte{}
 	if firstChar != 0 {
 		if firstChar == ':' {
-			return "", Error(SyntaxErrorKey, "Invalid keyword: colons go at the end of symbols, not at the beginning")
+			return "", Error(SyntaxErrorKey, "Invalid keyword: colons only valid at the end of symbols")
 		}
 		buf = append(buf, firstChar)
 	}
