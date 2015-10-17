@@ -1157,6 +1157,9 @@ func (vm *VM) instrumentedExec(code *Code, env *Frame) (*LOB, error) {
 			sp++
 			pc++
 		} else if op == opcodeTailCall {
+			if checkInterrupt() {
+				return nil, addContext(env, Error(InterruptKey)) //not catchable
+			}
 			if trace {
 				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
