@@ -34,7 +34,7 @@ func makeBlob(size int) *LOB {
 var EmptyBlob = makeBlob(0)
 
 func toBlob(obj *LOB) (*LOB, error) {
-	switch obj.variant {
+	switch obj.Type {
 	case BlobType:
 		return obj, nil
 	case StringType:
@@ -42,7 +42,7 @@ func toBlob(obj *LOB) (*LOB, error) {
 	case VectorType:
 		return vectorToBlob(obj)
 	default:
-		return nil, Error(ArgumentErrorKey, "to-blob expected <blob> or <string>, got a ", obj.variant)
+		return nil, Error(ArgumentErrorKey, "to-blob expected <blob> or <string>, got a ", obj.Type)
 	}
 }
 

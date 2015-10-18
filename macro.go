@@ -78,7 +78,7 @@ func macroexpandList(expr *LOB) (*LOB, error) {
 
 func (mac *macro) expand(expr *LOB) (*LOB, error) {
 	expander := mac.expander
-	if expander.variant == FunctionType {
+	if expander.Type == FunctionType {
 		if expander.code != nil {
 			if expander.code.argc == 1 {
 				expanded, err := execCompileTime(expander.code, expr)
@@ -564,7 +564,7 @@ func expandQuasiquote(expr *LOB) (*LOB, error) {
 }
 
 func expandQQ(expr *LOB) (*LOB, error) {
-	switch expr.variant {
+	switch expr.Type {
 	case ListType:
 		if expr == EmptyList {
 			return expr, nil

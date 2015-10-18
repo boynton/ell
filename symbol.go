@@ -21,11 +21,11 @@ func intern(name string) *LOB {
 		sym = new(LOB)
 		sym.text = name
 		if isValidKeywordName(name) {
-			sym.variant = KeywordType
+			sym.Type = KeywordType
 		} else if isValidTypeName(name) {
-			sym.variant = TypeType
+			sym.Type = TypeType
 		} else if isValidSymbolName(name) {
-			sym.variant = SymbolType
+			sym.Type = SymbolType
 		} else {
 			panic("invalid symbol/type/keyword name passed to intern: " + name)
 		}
@@ -55,7 +55,7 @@ func isValidKeywordName(s string) bool {
 }
 
 func toKeyword(obj *LOB) (*LOB, error) {
-	switch obj.variant {
+	switch obj.Type {
 	case KeywordType:
 		return obj, nil
 	case TypeType:
@@ -69,11 +69,11 @@ func toKeyword(obj *LOB) (*LOB, error) {
 			return intern(obj.text + ":"), nil
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type)
 }
 
 func keywordify(s *LOB) *LOB {
-	switch s.variant {
+	switch s.Type {
 	case StringType:
 		if !isValidKeywordName(s.text) {
 			return intern(s.text + ":")
@@ -92,7 +92,7 @@ func typeNameString(s string) string {
 // <type> -> <symbol>
 func typeName(t *LOB) (*LOB, error) {
 	if !isType(t) {
-		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.variant)
+		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.Type)
 	}
 	return intern(typeNameString(t.text)), nil
 }
@@ -100,7 +100,7 @@ func typeName(t *LOB) (*LOB, error) {
 // <keyword> -> <symbol>
 func keywordName(t *LOB) (*LOB, error) {
 	if !isKeyword(t) {
-		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.variant)
+		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.Type)
 	}
 	return unkeyworded(t)
 }
@@ -123,11 +123,11 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 	if isKeyword(obj) {
 		return intern(keywordNameString(obj.text)), nil
 	}
-	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.Type)
 }
 
 func toSymbol(obj *LOB) (*LOB, error) {
-	switch obj.variant {
+	switch obj.Type {
 	case KeywordType:
 		return intern(keywordNameString(obj.text)), nil
 	case TypeType:
@@ -139,7 +139,7 @@ func toSymbol(obj *LOB) (*LOB, error) {
 			return intern(obj.text), nil
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "to-symbol expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-symbol expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type)
 }
 
 //the global symbol table. symbols for the basic types defined in this file are precached
@@ -148,13 +148,13 @@ var symtab = initSymbolTable()
 func initSymbolTable() map[string]*LOB {
 	syms := make(map[string]*LOB, 0)
 	TypeType = &LOB{text: "<type>"}
-	TypeType.variant = TypeType //mutate to bootstrap type type
+	TypeType.Type = TypeType //mutate to bootstrap type type
 	syms[TypeType.text] = TypeType
 
-	KeywordType = &LOB{variant: TypeType, text: "<keyword>"}
+	KeywordType = &LOB{Type: TypeType, text: "<keyword>"}
 	syms[KeywordType.text] = KeywordType
 
-	SymbolType = &LOB{variant: TypeType, text: "<symbol>"}
+	SymbolType = &LOB{Type: TypeType, text: "<symbol>"}
 	syms[SymbolType.text] = SymbolType
 
 	return syms
@@ -177,7 +177,7 @@ func symbol(names []*LOB) (*LOB, error) {
 	for i := 0; i < size; i++ {
 		o := names[i]
 		s := ""
-		switch o.variant {
+		switch o.Type {
 		case StringType, SymbolType:
 			s = o.text
 		default:

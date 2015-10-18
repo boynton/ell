@@ -57,13 +57,13 @@ func round(f float64) float64 {
 }
 
 func toNumber(o *LOB) (*LOB, error) {
-	switch o.variant {
+	switch o.Type {
 	case NumberType:
 		return o, nil
 	case CharacterType:
-		return newInt64(o.ival), nil
+		return newFloat64(o.fval), nil
 	case BooleanType:
-		return newInt64(o.ival), nil
+		return newFloat64(o.fval), nil
 	case StringType:
 		f, err := strconv.ParseFloat(o.text, 64)
 		if err == nil {
@@ -74,13 +74,13 @@ func toNumber(o *LOB) (*LOB, error) {
 }
 
 func toInt(o *LOB) (*LOB, error) {
-	switch o.variant {
+	switch o.Type {
 	case NumberType:
 		return newFloat64(round(o.fval)), nil
 	case CharacterType:
-		return newInt64(o.ival), nil
+		return newFloat64(o.fval), nil
 	case BooleanType:
-		return newInt64(o.ival), nil
+		return newFloat64(o.fval), nil
 	case StringType:
 		f, err := strconv.ParseFloat(o.text, 64)
 		if err == nil {
@@ -91,7 +91,7 @@ func toInt(o *LOB) (*LOB, error) {
 }
 
 func isInt(obj *LOB) bool {
-	if obj.variant == NumberType {
+	if obj.Type == NumberType {
 		f := obj.fval
 		if math.Trunc(f) == f {
 			return true
@@ -101,38 +101,38 @@ func isInt(obj *LOB) bool {
 }
 
 func isFloat(obj *LOB) bool {
-	if obj.variant == NumberType {
+	if obj.Type == NumberType {
 		return !isInt(obj)
 	}
 	return false
 }
 
 func floatValue(obj *LOB) (float64, error) {
-	if obj.variant == NumberType {
+	if obj.Type == NumberType {
 		return obj.fval, nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
 func int64Value(obj *LOB) (int64, error) {
-	if obj.variant == NumberType {
+	if obj.Type == NumberType {
 		return int64(obj.fval), nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
 func intValue(obj *LOB) (int, error) {
-	if obj.variant == NumberType {
+	if obj.Type == NumberType {
 		return int(obj.fval), nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
 func byteValue(obj *LOB) (byte, error) {
-	if obj.variant == NumberType {
+	if obj.Type == NumberType {
 		return byte(obj.fval), nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.variant)
+	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
 const epsilon = 0.000000001

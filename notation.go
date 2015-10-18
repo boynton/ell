@@ -643,7 +643,7 @@ func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
 
 func writeData(obj *LOB, json bool, indent string, indentSize string) (string, error) {
 	//an error is never returned for non-json
-	switch obj.variant {
+	switch obj.Type {
 	case BooleanType, NullType, NumberType:
 		return obj.String(), nil
 	case ListType:
@@ -665,7 +665,8 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 	case StructType:
 		return writeStruct(obj, json, indent, indentSize)
 	case CharacterType:
-		switch obj.ival {
+		c := rune(obj.fval)
+		switch c {
 		case 0:
 			return "#\\null", nil
 		case 7:
@@ -685,10 +686,10 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 		case 127:
 			return "#\\delete", nil
 		default:
-			if obj.ival < 127 && obj.ival > 32 {
-				return "#\\" + string(rune(obj.ival)), nil
+			if c < 127 && c > 32 {
+				return "#\\" + string(c), nil
 			}
-			return fmt.Sprintf("#\\x%04X", obj.ival), nil
+			return fmt.Sprintf("#\\x%04X", c), nil
 		}
 	default:
 		if json {

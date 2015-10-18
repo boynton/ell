@@ -80,7 +80,7 @@ func copyVector(vec *LOB) *LOB {
 }
 
 func toVector(obj *LOB) (*LOB, error) {
-	switch obj.variant {
+	switch obj.Type {
 	case VectorType:
 		return obj, nil
 	case ListType:
@@ -90,5 +90,5 @@ func toVector(obj *LOB) (*LOB, error) {
 	case StringType:
 		return stringToVector(obj), nil
 	}
-	return nil, Error(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.Type)
 }

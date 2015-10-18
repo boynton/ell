@@ -25,24 +25,62 @@ import (
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
-	variant      *LOB          // i.e. <string>
+	Type      *LOB          // i.e. <string>
 	code         *Code         // non-nil for closure, code
 	frame        *Frame        // non-nil for closure, continuation
 	primitive    *Primitive    // non-nil for primitives
 	continuation *Continuation // non-nil for continuation
 	car          *LOB          // non-nil for instances and lists
 	cdr          *LOB          // non-nil for slists, nil for everything else
-	channel      chan *LOB     // non-nil for channels
-	text         string        // string, symbol, keyword, type, blob, channel
+	bindings     map[Key]*LOB  // non-nil for struct
 	elements     []*LOB        // non-nil for vector
 	fval         float64       // number
-	bindings     map[Key]*LOB  // non-nil for struct
-	ival         int64         // boolean, character, channel
+	text         string        // string, symbol, keyword, type, blob, channel
+	Value         interface{}   // the rest of the data for more complex things
+}
+
+func BoolValue(obj *LOB) bool {
+	if obj == True {
+		return true
+	}
+	return false
+}
+
+func RuneValue(obj *LOB) rune {
+	return rune(obj.fval)
+}
+
+func StringValue(obj *LOB) string {
+	return obj.text
+}
+
+func BlobValue(obj *LOB) []byte {
+	return []byte(obj.text)
+}
+
+
+type Channel struct {
+	bufsize        int
+	channel      chan *LOB     // non-nil for channels
+}
+
+func ChannelValue (obj *LOB) *Channel {
+	if obj.Value == nil {
+		return nil
+	}
+	v, _ := obj.Value.(*Channel)
+	return v
+}
+
+func NewObject(variant *LOB, value interface{}) *LOB {
+	lob := newLOB(variant)
+	lob.Value = value
+	return lob
 }
 
 func newLOB(variant *LOB) *LOB {
 	lob := new(LOB)
-	lob.variant = variant
+	lob.Type = variant
 	return lob
 }
 
@@ -51,7 +89,7 @@ func identical(o1 *LOB, o2 *LOB) bool {
 }
 
 func (lob *LOB) String() string {
-	switch lob.variant {
+	switch lob.Type {
 	case NullType:
 		return "null"
 	case BooleanType:
@@ -60,7 +98,7 @@ func (lob *LOB) String() string {
 		}
 		return "false"
 	case CharacterType:
-		return string([]rune{rune(lob.ival)})
+		return string([]rune{rune(lob.fval)})
 	case NumberType:
 		return strconv.FormatFloat(lob.fval, 'f', -1, 64)
 	case BlobType:
@@ -84,15 +122,16 @@ func (lob *LOB) String() string {
 		if lob.text != "" {
 			s += " " + lob.text
 		}
-		if lob.ival > 0 {
-			s += fmt.Sprintf(" [%d]", lob.ival)
+		ch, _ := lob.Value.(*Channel)
+		if ch.bufsize > 0 {
+			s += fmt.Sprintf(" [%d]", ch.bufsize)
 		}
-		if lob.channel == nil {
+		if ch.channel == nil {
 			s += " CLOSED"
 		}
 		return s + "]"
 	default:
-		return "#" + lob.variant.text + write(lob.car)
+		return "#" + lob.Type.text + write(lob.car)
 	}
 }
 
@@ -148,7 +187,7 @@ var ChannelType = intern("<channel>")
 var AnyType = intern("<any>")
 
 func isTextual(o *LOB) bool {
-	switch o.variant {
+	switch o.Type {
 	case StringType, SymbolType, KeywordType, TypeType:
 		return true
 	}
@@ -156,57 +195,57 @@ func isTextual(o *LOB) bool {
 }
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
-var Null = &LOB{variant: NullType}
+var Null = &LOB{Type: NullType}
 
 func isNull(obj *LOB) bool {
 	return obj == Null
 }
 
 // True is the singleton boolean true value
-var True = &LOB{variant: BooleanType, ival: 1}
+var True = &LOB{Type: BooleanType, fval: 1}
 
 // False is the singleton boolean false value
-var False = &LOB{variant: BooleanType, ival: 0}
+var False = &LOB{Type: BooleanType, fval: 0}
 
 func isBoolean(obj *LOB) bool {
-	return obj.variant == BooleanType
+	return obj.Type == BooleanType
 }
 
 func isCharacter(obj *LOB) bool {
-	return obj.variant == CharacterType
+	return obj.Type == CharacterType
 }
 func isNumber(obj *LOB) bool {
-	return obj.variant == NumberType
+	return obj.Type == NumberType
 }
 func isString(obj *LOB) bool {
-	return obj.variant == StringType
+	return obj.Type == StringType
 }
 func isList(obj *LOB) bool {
-	return obj.variant == ListType
+	return obj.Type == ListType
 }
 func isVector(obj *LOB) bool {
-	return obj.variant == VectorType
+	return obj.Type == VectorType
 }
 func isStruct(obj *LOB) bool {
-	return obj.variant == StructType
+	return obj.Type == StructType
 }
 func isFunction(obj *LOB) bool {
-	return obj.variant == FunctionType
+	return obj.Type == FunctionType
 }
 func isCode(obj *LOB) bool {
-	return obj.variant == CodeType
+	return obj.Type == CodeType
 }
 func isSymbol(obj *LOB) bool {
-	return obj.variant == SymbolType
+	return obj.Type == SymbolType
 }
 func isKeyword(obj *LOB) bool {
-	return obj.variant == KeywordType
+	return obj.Type == KeywordType
 }
 func isType(obj *LOB) bool {
-	return obj.variant == TypeType
+	return obj.Type == TypeType
 }
 
-//instances have arbitrary variant symbols, all we can check is that the instanceValue is set
+//instances have arbitrary Type symbols, all we can check is that the instanceValue is set
 func isInstance(obj *LOB) bool {
 	return obj.car != nil && obj.cdr == nil
 }
@@ -215,12 +254,12 @@ func equal(o1 *LOB, o2 *LOB) bool {
 	if o1 == o2 {
 		return true
 	}
-	if o1.variant != o2.variant {
+	if o1.Type != o2.Type {
 		return false
 	}
-	switch o1.variant {
+	switch o1.Type {
 	case BooleanType, CharacterType:
-		return o1.ival == o2.ival
+		return int(o1.fval) == int(o2.fval)
 	case NumberType:
 		return numberEqual(o1.fval, o2.fval)
 	case StringType:
@@ -287,7 +326,7 @@ func Error(errkey *LOB, args ...interface{}) error {
 			buf.WriteString(fmt.Sprintf("%v", o))
 		}
 	}
-	if errkey.variant != KeywordType {
+	if errkey.Type != KeywordType {
 		errkey = ErrorKey
 	}
 	return newError(errkey, newString(buf.String()))
@@ -295,7 +334,7 @@ func Error(errkey *LOB, args ...interface{}) error {
 
 func newError(elements ...*LOB) *LOB {
 	data := vector(elements...)
-	return &LOB{variant: ErrorType, car: data}
+	return &LOB{Type: ErrorType, car: data}
 }
 
 func theError(o interface{}) (*LOB, bool) {
@@ -303,7 +342,7 @@ func theError(o interface{}) (*LOB, bool) {
 		return nil, false
 	}
 	if err, ok := o.(*LOB); ok {
-		if err.variant == ErrorType {
+		if err.Type == ErrorType {
 			return err, true
 		}
 	}
@@ -322,7 +361,7 @@ func errorData(err *LOB) *LOB {
 
 // Error
 func (lob *LOB) Error() string {
-	if lob.variant == ErrorType {
+	if lob.Type == ErrorType {
 		s := lob.car.String()
 		if lob.text != "" {
 			s += " [in " + lob.text + "]"
@@ -357,8 +396,7 @@ var InterruptKey = intern("interrupt:")
 
 func newChannel(bufsize int, name string) *LOB {
 	lob := newLOB(ChannelType)
-	lob.channel = make(chan *LOB, bufsize)
-	lob.ival = int64(bufsize)
+	lob.Value = &Channel{bufsize: bufsize, channel: make(chan *LOB, bufsize)}
 	lob.text = name
 	return lob
 }

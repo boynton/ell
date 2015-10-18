@@ -28,7 +28,7 @@ type Key struct {
 }
 
 func newKey(v *LOB) Key {
-	return Key{v.text, v.variant.text}
+	return Key{v.text, v.Type.text}
 }
 
 func (k Key) toLOB() *LOB {
@@ -39,7 +39,7 @@ func (k Key) toLOB() *LOB {
 }
 
 func isValidStructKey(o *LOB) bool {
-	switch o.variant {
+	switch o.Type {
 	case StringType, SymbolType, KeywordType, TypeType:
 		return true
 	}
@@ -64,7 +64,7 @@ func newStruct(fieldvals []*LOB) (*LOB, error) {
 	for i < count {
 		o := value(fieldvals[i])
 		i++
-		switch o.variant {
+		switch o.Type {
 		case StructType: // not a valid key, just copy bindings from it
 			if bindings == nil {
 				bindings = make(map[Key]*LOB, len(o.bindings))
@@ -100,14 +100,14 @@ func structLength(strct *LOB) int {
 //called by the VM, when a keyword is used as a function. Must take value to handle defstruct instances
 func get(obj *LOB, key *LOB) (*LOB, error) {
 	s := value(obj)
-	if s.variant != StructType {
-		return nil, Error(ArgumentErrorKey, "get expected a <struct> argument, got a ", obj.variant)
+	if s.Type != StructType {
+		return nil, Error(ArgumentErrorKey, "get expected a <struct> argument, got a ", obj.Type)
 	}
 	return structGet(s, key), nil
 }
 
 func structGet(s *LOB, key *LOB) *LOB {
-	switch key.variant {
+	switch key.Type {
 	case KeywordType, SymbolType, TypeType, StringType:
 		k := newKey(key)
 		result, ok := s.bindings[k]
@@ -187,7 +187,7 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 	bindings := make([]*LOB, 0, count)
 	for args != EmptyList {
 		key := car(args)
-		switch key.variant {
+		switch key.Type {
 		case SymbolType:
 			key = intern(key.text + ":")
 			fallthrough
@@ -217,7 +217,7 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 
 func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 	slen := len(bindings)
-	switch key.variant {
+	switch key.Type {
 	case KeywordType, SymbolType, TypeType: //these are all intern'ed, so pointer equality works
 		for i := 0; i < slen; i += 2 {
 			if bindings[i] == key {
@@ -338,7 +338,7 @@ func listToStruct(lst *LOB) (*LOB, error) {
 	for lst != EmptyList {
 		k := lst.car
 		lst = lst.cdr
-		switch k.variant {
+		switch k.Type {
 		case ListType:
 			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
@@ -379,7 +379,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 	for i < count {
 		k := vec.elements[i]
 		i++
-		switch k.variant {
+		switch k.Type {
 		case ListType:
 			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
@@ -415,7 +415,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 
 func toStruct(obj *LOB) (*LOB, error) {
 	val := value(obj)
-	switch val.variant {
+	switch val.Type {
 	case StructType:
 		return val, nil
 	case ListType:
@@ -423,5 +423,5 @@ func toStruct(obj *LOB) (*LOB, error) {
 	case VectorType:
 		return vectorToStruct(val)
 	}
-	return nil, Error(ArgumentErrorKey, "to-struct cannot accept argument of type ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-struct cannot accept argument of type ", obj.Type)
 }

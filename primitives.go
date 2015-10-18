@@ -180,7 +180,7 @@ func initEnvironment() {
 	defineFunctionKeyArgs("channel", ellChannel, ChannelType, []*LOB{StringType, NumberType}, []*LOB{EmptyString, Zero}, []*LOB{intern("name:"), intern("bufsize:")})
 	defineFunctionOptionalArgs("send", ellSend, NullType, []*LOB{ChannelType, AnyType, NumberType}, MinusOne)
 	defineFunctionOptionalArgs("recv", ellReceive, AnyType, []*LOB{ChannelType, NumberType}, MinusOne)
-	defineFunction("close", ellClose, NullType, ChannelType)
+	defineFunction("close", ellClose, NullType, AnyType)
 
 	defineFunction("set-random-seed!", ellSetRandomSeedBang, NullType, NumberType)
 	defineFunctionRestArgs("random", ellRandom, NumberType, NumberType)
@@ -285,7 +285,7 @@ func ellCompile(argv []*LOB) (*LOB, error) {
 }
 
 func ellType(argv []*LOB) (*LOB, error) {
-	return argv[0].variant, nil
+	return argv[0].Type, nil
 }
 
 func ellValue(argv []*LOB) (*LOB, error) {
@@ -598,7 +598,8 @@ func ellVectorRef(argv []*LOB) (*LOB, error) {
 }
 
 func ellVectorSetBang(argv []*LOB) (*LOB, error) {
-	if argv[0].ival != 0 {
+	sealed := int(argv[0].fval)
+	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "vector-set! on sealed vector")
 	}
 	el := argv[0].elements
@@ -747,7 +748,8 @@ func ellCdr(argv []*LOB) (*LOB, error) {
 }
 
 func ellSetCarBang(argv []*LOB) (*LOB, error) {
-	if argv[0].ival != 0 {
+	sealed := int(argv[0].fval)
+	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "set-car! on sealed list")
 	}
 	err := setCar(argv[0], argv[1])
@@ -758,7 +760,8 @@ func ellSetCarBang(argv []*LOB) (*LOB, error) {
 }
 
 func ellSetCdrBang(argv []*LOB) (*LOB, error) {
-	if argv[0].ival != 0 {
+	sealed := int(argv[0].fval)
+	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "set-cdr! on sealed list")
 	}
 	err := setCdr(argv[0], argv[1])
@@ -799,9 +802,9 @@ func ellHasP(argv []*LOB) (*LOB, error) {
 }
 
 func ellSeal(argv []*LOB) (*LOB, error) {
-	switch argv[0].variant {
+	switch argv[0].Type {
 	case StructType, VectorType, ListType:
-		argv[0].ival = 1
+		argv[0].fval = 1
 		return argv[0], nil
 	default:
 		return nil, Error(ArgumentErrorKey, "cannot seal! ", argv[0])
@@ -813,7 +816,8 @@ func ellPutBang(argv []*LOB) (*LOB, error) {
 	if !isValidStructKey(key) {
 		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
 	}
-	if argv[0].ival != 0 {
+	sealed := int(argv[0].fval)
+	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "put! on sealed struct")
 	}
 	put(argv[0], key, argv[2])
@@ -825,7 +829,8 @@ func ellUnputBang(argv []*LOB) (*LOB, error) {
 	if !isValidStructKey(key) {
 		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
 	}
-	if argv[0].ival != 0 {
+	sealed := int(argv[0].fval)
+	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "unput! on sealed struct")
 	}
 	unput(argv[0], key)
@@ -857,7 +862,7 @@ func ellGetFn(argv []*LOB) (*LOB, error) {
 		return nil, Error(ArgumentErrorKey, "getfn expected at least 1 argument, got none")
 	}
 	sym := argv[0]
-	if sym.variant != SymbolType {
+	if sym.Type != SymbolType {
 		return nil, Error(ArgumentErrorKey, "getfn expected a <symbol> for argument 1, got ", sym)
 	}
 	return getfn(sym, argv[1:])
@@ -874,19 +879,27 @@ func ellChannel(argv []*LOB) (*LOB, error) {
 }
 
 func closeChannel(ch *LOB) {
-	if ch.channel != nil {
-		close(ch.channel)
-		ch.channel = nil
+	c, _ := ch.Value.(*Channel)
+	if c.channel != nil {
+		close(c.channel)
+		c.channel = nil
 	}
 }
 
 func ellClose(argv []*LOB) (*LOB, error) {
-	closeChannel(argv[0])
+	switch argv[0].Type {
+	case ChannelType:
+		closeChannel(argv[0])
+	case intern("<tcp-connection>"):
+		closeConnection(argv[0])
+	default:
+      return nil, Error(ArgumentErrorKey, "close expected a channel or connection")
+	}
 	return Null, nil
 }
 
 func ellSend(argv []*LOB) (*LOB, error) {
-	chanobj := argv[0]
+	chanobj, _ := argv[0].Value.(*Channel)
 	ch := chanobj.channel
 	if ch != nil { //not closed
 		val := argv[1]
@@ -913,7 +926,8 @@ func ellSend(argv []*LOB) (*LOB, error) {
 }
 
 func ellReceive(argv []*LOB) (*LOB, error) {
-	ch := argv[0].channel
+	chanobj, _ := argv[0].Value.(*Channel)
+	ch := chanobj.channel
 	if ch != nil { //not closed
 		timeout := argv[1].fval
 		if numberEqual(timeout, 0.0) { //non-blocking
@@ -1011,7 +1025,7 @@ func ellTimestamp(argv []*LOB) (*LOB, error) {
 }
 
 func ellBlobP(argv []*LOB) (*LOB, error) {
-	if argv[0].variant == BlobType {
+	if argv[0].Type == BlobType {
 		return True, nil
 	}
 	return False, nil
@@ -1039,7 +1053,7 @@ func ellBlobRef(argv []*LOB) (*LOB, error) {
 	return newInt(int(el[idx])), nil
 }
 
-func tcpConnection(con net.Conn, endpoint string) *LOB {
+func newConnection(con net.Conn, endpoint string) *LOB {
 	inchan := newChannel(10, "input")
 	outchan := newChannel(10, "output")
 	go tcpReader(con, inchan)
@@ -1048,14 +1062,41 @@ func tcpConnection(con net.Conn, endpoint string) *LOB {
 	connection := newLOB(intern("<tcp-connection>"))
 	s, _ := newStruct([]*LOB{intern("input:"), inchan, intern("output:"), outchan, intern("name:"), newString(name)})
 	connection.car = s
+	connection.Value = con
 	return connection
 }
 
+func closeConnection(conobj *LOB) {
+	if conobj.Value != nil {
+		inchan, err := get(conobj, intern("input:"))
+		if err == nil {
+			closeChannel(inchan)
+		}
+		outchan, err := get(conobj, intern("output:"))
+		if err == nil {
+			closeChannel(outchan)
+		}
+		con, ok := conobj.Value.(net.Conn)
+		if ok {
+			con.Close()
+			conobj.Value = nil
+		}
+	}
+}
+
+// MaxFrameSize is an arbitrary limit to the tcp server framesize, to avoid trouble
+const MaxFrameSize = 1000000
+
 func tcpReader(conn net.Conn, inchan *LOB) {
+	r := bufio.NewReader(conn)
 	for {
-		r := bufio.NewReader(conn)
 		count, err := binary.ReadVarint(r)
 		if err != nil {
+			closeChannel(inchan)
+			return
+		}
+		if count < 0 || count > MaxFrameSize {
+			println("Bad frame size: ", count)
 			closeChannel(inchan)
 			return
 		}
@@ -1074,17 +1115,22 @@ func tcpReader(conn net.Conn, inchan *LOB) {
 			cur = buf[offset:]
 		}
 		packet := newBlob(buf)
-		ch := inchan.channel
+		ch := channelHandle(inchan)
 		if ch != nil {
 			ch <- packet
 		}
 	}
 }
 
+func channelHandle(channel *LOB) chan *LOB {
+	ch, _ := channel.Value.(*Channel)
+	return ch.channel
+}
+
 func tcpWriter(con net.Conn, outchan *LOB) {
 	for {
 		var packet *LOB
-		ch := outchan.channel
+		ch := channelHandle(outchan)
 		if ch != nil {
 			packet = <-ch
 		}
@@ -1114,7 +1160,10 @@ func tcpListener(listener net.Listener, acceptChannel *LOB, endpoint string) (*L
 		if err != nil {
 			return nil, err
 		}
-		acceptChannel.channel <- tcpConnection(con, endpoint)
+		ch := channelHandle(acceptChannel)
+		if ch != nil {
+			ch <- newConnection(con, endpoint)
+		}
 	}
 }
 
@@ -1137,7 +1186,7 @@ func ellConnect(argv []*LOB) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tcpConnection(con, endpoint), nil
+	return newConnection(con, endpoint), nil
 }
 
 func ellHTTPServer(argv []*LOB) (*LOB, error) {
@@ -1216,7 +1265,7 @@ func ellHTTPServer(argv []*LOB) (*LOB, error) {
 }
 
 func headerString(obj *LOB) string {
-	switch obj.variant {
+	switch obj.Type {
 	case StringType, SymbolType:
 		return obj.text
 	case KeywordType:
@@ -1224,7 +1273,7 @@ func headerString(obj *LOB) string {
 	default:
 		s, err := toString(obj)
 		if err != nil {
-			return typeNameString(obj.variant.text)
+			return typeNameString(obj.Type.text)
 		}
 		return s.text
 	}
@@ -1236,7 +1285,7 @@ func ellHTTPGet(url string, headers *LOB) (*LOB, error) {
 	if headers != nil {
 		for k, v := range headers.bindings {
 			ks := k.toLOB().text
-			if v.variant == ListType {
+			if v.Type == ListType {
 				vs := v.car.String()
 				req.Header.Set(ks, vs)
 				for v.cdr != EmptyList {
@@ -1285,7 +1334,7 @@ func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*L
 	if headers != nil {
 		for k, v := range headers.bindings {
 			ks := k.toLOB().text
-			if v.variant == ListType {
+			if v.Type == ListType {
 				vs := v.car.String()
 				req.Header.Set(ks, vs)
 				for v.cdr != EmptyList {

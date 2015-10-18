@@ -95,7 +95,7 @@ var symUnquoteSplicing = intern("unquote-splicing")
 var EmptyList = initEmpty()
 
 func initEmpty() *LOB {
-	return &LOB{variant: ListType} //car and cdr are both nil
+	return &LOB{Type: ListType} //car and cdr are both nil
 }
 
 // Equal returns true if the object is equal to the argument
@@ -193,7 +193,7 @@ func listToVector(lst *LOB) *LOB {
 }
 
 func toList(obj *LOB) (*LOB, error) {
-	switch obj.variant {
+	switch obj.Type {
 	case ListType:
 		return obj, nil
 	case VectorType:
@@ -203,7 +203,7 @@ func toList(obj *LOB) (*LOB, error) {
 	case StringType:
 		return stringToList(obj), nil
 	}
-	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.variant)
+	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.Type)
 }
 
 func reverse(lst *LOB) *LOB {
@@ -220,7 +220,7 @@ func flatten(lst *LOB) *LOB {
 	tail := EmptyList
 	for lst != EmptyList {
 		item := lst.car
-		switch item.variant {
+		switch item.Type {
 		case ListType:
 			item = flatten(item)
 		case VectorType:

@@ -18,6 +18,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 	//return result, needMore, error
 	for checkInterrupt() {
 	} //to clear out any that happened while sitting in getc
+	interrupted = false
 	whole := strings.Trim(ell.buf+expr, " ")
 	opens := len(strings.Split(whole, "("))
 	closes := len(strings.Split(whole, ")"))

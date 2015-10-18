@@ -144,7 +144,7 @@ func midiListen(argv []*LOB) (*LOB, error) {
 				if err != nil {
 					continue
 				}
-				channel := ch.channel
+				channel := channelHandle(ch)
 				if channel != nil {
 					for _, ev := range events {
 						ts := (float64(ev.Timestamp) / 1000) + midiBaseTime

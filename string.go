@@ -36,9 +36,9 @@ func asString(obj *LOB) (string, error) {
 }
 
 func toString(a *LOB) (*LOB, error) {
-	switch a.variant {
+	switch a.Type {
 	case CharacterType:
-		return newString(string([]rune{rune(a.ival)})), nil
+		return newString(string([]rune{rune(a.fval)})), nil
 	case StringType:
 		return a, nil
 	case SymbolType, KeywordType, TypeType, BlobType:
@@ -51,7 +51,7 @@ func toString(a *LOB) (*LOB, error) {
 			if !isCharacter(c) {
 				return nil, Error(ArgumentErrorKey, "to-string: vector element is not a <character>: ", c)
 			}
-			chars = append(chars, rune(c.ival))
+			chars = append(chars, rune(c.fval))
 		}
 		return newString(string(chars)), nil
 	case ListType:
@@ -61,7 +61,7 @@ func toString(a *LOB) (*LOB, error) {
 			if !isCharacter(c) {
 				return nil, Error(ArgumentErrorKey, "to-string: list element is not a <character>: ", c)
 			}
-			chars = append(chars, rune(c.ival))
+			chars = append(chars, rune(c.fval))
 			a = a.cdr
 		}
 		return newString(string(chars)), nil
@@ -114,12 +114,12 @@ func encodeString(s string) string {
 
 func newCharacter(c rune) *LOB {
 	char := newLOB(CharacterType)
-	char.ival = int64(c)
+	char.fval = float64(c)
 	return char
 }
 
 func toCharacter(c *LOB) (*LOB, error) {
-	switch c.variant {
+	switch c.Type {
 	case CharacterType:
 		return c, nil
 	case StringType:
@@ -139,7 +139,7 @@ func asCharacter(c *LOB) (rune, error) {
 	if !isCharacter(c) {
 		return 0, Error(ArgumentErrorKey, "Not a <character>", c)
 	}
-	return rune(c.ival), nil
+	return rune(c.fval), nil
 }
 
 func stringCharacters(s *LOB) []*LOB {
@@ -193,7 +193,7 @@ func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
 	if !isString(delims) {
 		return nil, Error(ArgumentErrorKey, "join expected a <string> for argument 2, got ", delims)
 	}
-	switch seq.variant {
+	switch seq.Type {
 	case ListType:
 		result := ""
 		for seq != EmptyList {
@@ -222,6 +222,6 @@ func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
 		}
 		return newString(result), nil
 	default:
-		return nil, Error(ArgumentErrorKey, "join expected a <list> or <vector> for argument 1, got a ", seq.variant)
+		return nil, Error(ArgumentErrorKey, "join expected a <list> or <vector> for argument 1, got a ", seq.Type)
 	}
 }

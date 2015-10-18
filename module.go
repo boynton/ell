@@ -26,18 +26,6 @@ var constants = make([]*LOB, 0, 1000)
 var macroMap = make(map[*LOB]*macro, 0)
 var primitives = make([]*Primitive, 0, 1000)
 
-func checkInterrupt() bool {
-	if interrupts != nil {
-		select {
-		case msg := <-interrupts:
-			return msg != nil
-		default:
-			return false
-		}
-	}
-	return false
-}
-
 func defineGlobal(name string, obj *LOB) {
 	sym := intern(name)
 	if sym == nil {
