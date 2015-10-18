@@ -8,7 +8,7 @@
 (println "server: " server)
 
 (defn handler (con)
-  (let ((input (input: con)) (output (output: con)) (timeout 5000))
+  (let ((input (input: con)) (output (output: con)) (timeout 5))
     (println "accepted: " con)
     (let loop ((req (recv input timeout)))
       (if (not (null? req))
@@ -24,10 +24,10 @@
 (defn tcp-connection? (o)
   (identical? <tcp-connection> (type o)))
 
-(let loop ((con (recv server 10000)))
+(let loop ((con (recv server 10)))
   (if (tcp-connection? con)
       (do
         (println "accepted a connection: " con)
         (spawn handler con))
       (println "[waiting...]"))
-  (loop (recv server 10000)))
+  (loop (recv server 10)))
