@@ -121,7 +121,7 @@
        (defn ~(symbol sym "?") (o) (identical? (type o) ~typesym))
        (defn ~sym ~args
          (if (not ~@predicate-body)
-             (error syntax-error: ~(string "not a valid " typesym ": ") (to-string ~arg)))
+             (error syntax-error: ~(string "not a valid " typesym ": ") (write ~arg)))
          (instance ~typesym ~(car args)))
        ~typesym)))
 
