@@ -14,12 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package ell
 
 import (
 	"path/filepath"
 	"strings"
 )
+
+var verbose bool
+var debug bool
+var interactive bool
+
+func SetFlags(o bool, v bool, d bool, t bool, i bool) {
+	optimize = o
+	verbose = v
+	debug = d
+	trace = t
+	interactive = i
+}
+
+// Version - this version of gell
+const Version = "ell v0.2"
+
+// EllPath is the path where the library *.ell files can be found
+var EllPath string
 
 var constantsMap = make(map[*LOB]int, 0)
 var constants = make([]*LOB, 0, 1000)
@@ -156,7 +174,7 @@ func putConstant(val *LOB) int {
 }
 
 func use(sym *LOB) error {
-	return loadModule(sym.text)
+	return LoadModule(sym.text)
 }
 
 func importCode(thunk *LOB) (*LOB, error) {
@@ -191,7 +209,7 @@ func findModuleByName(moduleName string) (string, error) {
 	return "", Error(IOErrorKey, "Module not found: ", moduleName)
 }
 
-func loadModule(name string) error {
+func LoadModule(name string) error {
 	file, err := findModuleFile(name)
 	if err != nil {
 		return err
@@ -283,7 +301,7 @@ func compileObject(expr *LOB) (string, error) {
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func compileFile(name string) (*LOB, error) {
+func CompileFile(name string) (*LOB, error) {
 	file, err := findModuleFile(name)
 	if err != nil {
 		return nil, err

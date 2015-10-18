@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package ell
 
 import (
 	"bufio"
@@ -562,10 +562,16 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 	case '!': //to handle shell scripts, handle #! as a comment
 		err := dr.decodeComment()
 		return Null, err
+	case '[': //all non-printable objects are displayed like #[foo ... ]
+		s, err := dr.decodeAtomString(0)
+		if err != nil {
+			return nil, err
+		}
+		return nil, Error(SyntaxErrorKey, "Unreadable object: #[", s, "]")
 	default:
 		atom, err := dr.decodeType(c)
 		if err != nil {
-			return nil, Error(SyntaxErrorKey, "Bad reader macro: #", string([]byte{c}), " ...")
+			return nil, err
 		}
 		if isValidTypeName(atom) {
 			val, err := dr.readData(keys)

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package ell
 
 import (
 	"bytes"
@@ -58,20 +58,6 @@ func BlobValue(obj *LOB) []byte {
 	return []byte(obj.text)
 }
 
-
-type Channel struct {
-	bufsize        int
-	channel      chan *LOB     // non-nil for channels
-}
-
-func ChannelValue (obj *LOB) *Channel {
-	if obj.Value == nil {
-		return nil
-	}
-	v, _ := obj.Value.(*Channel)
-	return v
-}
-
 func NewObject(variant *LOB, value interface{}) *LOB {
 	lob := newLOB(variant)
 	lob.Value = value
@@ -86,6 +72,10 @@ func newLOB(variant *LOB) *LOB {
 
 func identical(o1 *LOB, o2 *LOB) bool {
 	return o1 == o2
+}
+
+type Stringable interface {
+	String() string
 }
 
 func (lob *LOB) String() string {
@@ -117,20 +107,15 @@ func (lob *LOB) String() string {
 		return lob.code.String()
 	case ErrorType:
 		return "#<error>" + write(lob.car)
-	case ChannelType:
-		s := "#[channel"
-		if lob.text != "" {
-			s += " " + lob.text
-		}
-		ch, _ := lob.Value.(*Channel)
-		if ch.bufsize > 0 {
-			s += fmt.Sprintf(" [%d]", ch.bufsize)
-		}
-		if ch.channel == nil {
-			s += " CLOSED"
-		}
-		return s + "]"
+//	case ChannelType:
+//		return ChannelValue(lob).String()
 	default:
+		if lob.Value != nil {
+			if s, ok := lob.Value.(Stringable); ok {
+				return s.String()
+			}
+			return "#[" + typeNameString(lob.Type.text) + "]"
+		}
 		return "#" + lob.Type.text + write(lob.car)
 	}
 }
@@ -179,9 +164,6 @@ var CodeType = intern("<code>")
 
 // ErrorType is the type of all errors
 var ErrorType = intern("<error>")
-
-// ChannelType is the type for channels
-var ChannelType = intern("<channel>")
 
 // AnyType is a pseudo type specifier indicating any type
 var AnyType = intern("<any>")
@@ -392,11 +374,3 @@ var HTTPErrorKey = intern("http-error:")
 // InterruptKey
 var InterruptKey = intern("interrupt:")
 
-// channels
-
-func newChannel(bufsize int, name string) *LOB {
-	lob := newLOB(ChannelType)
-	lob.Value = &Channel{bufsize: bufsize, channel: make(chan *LOB, bufsize)}
-	lob.text = name
-	return lob
-}

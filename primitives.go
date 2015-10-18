@@ -13,7 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+
+package ell
 
 // the primitive functions for the languages
 import (
@@ -33,8 +34,8 @@ import (
 
 const midi = true
 
-// defines the global functions/variables/macros for the top level environment
-func initEnvironment() {
+// InitEnvironment - defines the global functions/variables/macros for the top level environment
+func InitEnvironment() {
 
 	defineMacro("let", ellLet)
 	defineMacro("letrec", ellLetrec)
@@ -202,9 +203,15 @@ func initEnvironment() {
 		initMidi()
 	}
 
-	err := loadModule("ell")
+	err := LoadModule("ell")
 	if err != nil {
-		fatal("*** ", err)
+		Fatal("*** ", err)
+	}
+}
+
+func CleanupEnvironment() {
+	if midi {
+		midiClose(nil)
 	}
 }
 
@@ -876,14 +883,6 @@ func ellChannel(argv []*LOB) (*LOB, error) {
 	name := argv[0].text
 	bufsize := int(argv[1].fval)
 	return newChannel(bufsize, name), nil
-}
-
-func closeChannel(ch *LOB) {
-	c, _ := ch.Value.(*Channel)
-	if c.channel != nil {
-		close(c.channel)
-		c.channel = nil
-	}
 }
 
 func ellClose(argv []*LOB) (*LOB, error) {

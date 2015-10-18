@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package ell
 
 func compile(expr *LOB) (*LOB, error) {
 	target := newCode(0, nil, nil, "")

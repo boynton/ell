@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package ell
 
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -26,6 +27,7 @@ var trace bool
 var optimize bool
 
 var interrupted = false
+var interrupts chan os.Signal
 
 func checkInterrupt() bool {
 	if interrupts != nil {
@@ -49,7 +51,7 @@ func str(o interface{}) string {
 	return fmt.Sprintf("%v", o)
 }
 
-func print(args ...interface{}) {
+func Print(args ...interface{}) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(str(args[i]))
@@ -57,13 +59,19 @@ func print(args ...interface{}) {
 	fmt.Print(str(args[max]))
 }
 
-func println(args ...interface{}) {
+func Println(args ...interface{}) {
 	max := len(args) - 1
 	for i := 0; i < max; i++ {
 		fmt.Print(str(args[i]))
 	}
 	fmt.Println(str(args[max]))
 }
+
+func Fatal(args ...interface{}) {
+	Println(args...)
+	exit(1)
+}
+
 
 // Continuation -
 type Continuation struct {

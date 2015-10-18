@@ -20,26 +20,8 @@ import (
 	"github.com/boynton/ell"
 	"flag"
 	"os"
-	"os/signal"
 	"path/filepath"
 )
-
-var verbose bool
-var debug bool
-var interactive bool
-
-// Version - this version of gell
-const Version = "gell v0.2"
-
-// EllPath is the path where the library *.ell files can be found
-var EllPath string
-
-func fatal(args ...interface{}) {
-	println(args...)
-	exit(1)
-}
-
-var interrupts chan os.Signal
 
 func main() {
 	pCompile := flag.Bool("c", false, "compile the file and output lap")
@@ -51,54 +33,59 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	EllPath = os.Getenv("ELL_PATH")
+	ell.EllPath = os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")
 	ellini := filepath.Join(home, ".ell")
-	if EllPath == "" {
-		EllPath = "."
+	if ell.EllPath == "" {
+		ell.EllPath = "."
 		homelib := filepath.Join(home, "lib/ell")
 		_, err := os.Stat(homelib)
 		if err == nil {
-			EllPath += ":" + homelib
+			ell.EllPath += ":" + homelib
 		}
 		gopath := os.Getenv("GOPATH")
 		if gopath != "" {
 			golibdir := filepath.Join(gopath, "src/github.com/boynton/gell/lib")
 			_, err := os.Stat(golibdir)
 			if err == nil {
-				EllPath += ":" + golibdir
+				ell.EllPath += ":" + golibdir
 			}
 		}
 	}
-	initEnvironment()
+	ell.InitEnvironment()
 	if len(args) < 1 {
-		interactive = true
+//		interactive = true
 		if !*pNoInit {
 			_, err := os.Stat(ellini)
 			if err == nil {
-				err := loadModule(ellini)
+				err := ell.LoadModule(ellini)
 				if err != nil {
-					fatal("*** ", err)
+					ell.Fatal("*** ", err)
 				}
 			}
 		}
-		if *pOptimize {
-			optimize = *pOptimize
+		ell.SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, true)
+/*		if *pOptimize {
+			ell.SetOptimize(*pOptimize)
+//			optimize = *pOptimize
 		}
 		if *pVerbose {
-			verbose = *pVerbose
+			ell.SetVerbose(*pVerbose)
+//			verbose = *pVerbose
 		}
 		if *pDebug {
-			debug = *pDebug
+			ell.SetDebug(*pDebug)
+//			debug = *pDebug
 		}
 		if *pTrace {
-			trace = *pTrace
+			ell.SetTrace(*pTrace)
+//			trace = *pTrace
 		}
-		interrupts = make(chan os.Signal, 1)
-		signal.Notify(interrupts, os.Interrupt)
-		defer signal.Stop(interrupts)
-		readEvalPrintLoop()
+*/
+		ell.ReadEvalPrintLoop()
 	} else {
+		ell.SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, false)
+/*
 		if *pOptimize {
 			optimize = *pOptimize
 		}
@@ -112,6 +99,7 @@ func main() {
 			trace = *pTrace
 		}
 		interactive = false
+*/
 		/*
 			if len(os.Args) > 2 {
 				cfg := profile.Config{
@@ -125,21 +113,19 @@ func main() {
 		for _, filename := range args {
 			if *pCompile {
 				//just compile and print LAP code
-				lap, err := compileFile(filename)
+				lap, err := ell.CompileFile(filename)
 				if err != nil {
-					fatal("*** ", err)
+					ell.Fatal("*** ", err)
 				}
 				println(lap)
 			} else {
 				//this executes the file
-				err := loadModule(filename)
+				err := ell.LoadModule(filename)
 				if err != nil {
-					fatal("*** ", err.Error())
+					ell.Fatal("*** ", err.Error())
 				}
 			}
 		}
 	}
-	if midi {
-		midiClose(nil)
-	}
+	ell.CleanupEnvironment()
 }
