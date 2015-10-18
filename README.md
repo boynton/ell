@@ -7,16 +7,16 @@ ell
 
 The reference version of Ell is written in Go. If you have Go installed on your machine, you can install Ell easily:
 
-	go get github.com/boynton/gell
+	go get github.com/boynton/ell/...
 
-This installs the self-contained binary into `$GOPATH/bin/gell`. Ell loads its library files from locations defined by the `ELL_PATH`
-environment variable. If that variable is not defined, the default path is `".:$HOME/lib/ell:$GOPATH/src/github.com/boynton/gell/lib"`.
+This installs the self-contained binary into `$GOPATH/bin/ell`. Ell loads its library files from locations defined by the `ELL_PATH`
+environment variable. If that variable is not defined, the default path is `".:$HOME/lib/ell:$GOPATH/src/github.com/boynton/ell/lib"`.
 
 If you have a `.ell` file in your home directory, it will get loaded and executed when running ell interactively.
 
-	$ gell
+	$ ell
 	[loading /Users/lee/.ell]
-	gell v0.2
+	ell v0.2
 	?
 
 The `?` prompt is the Read-Eval-Print-Loop (REPL) for ell, waiting for your input. Entering CTRL-D will end the REPL and exit

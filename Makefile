@@ -1,5 +1,5 @@
 GOPATH=$(HOME)
-PKG=github.com/boynton/gell
+PKG=github.com/boynton/ell
 all:
 	go install $(PKG)
 

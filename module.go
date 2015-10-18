@@ -33,7 +33,7 @@ func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 	interactive = i
 }
 
-// Version - this version of gell
+// Version - this version of ell
 const Version = "ell v0.2"
 
 // EllPath is the path where the library *.ell files can be found
