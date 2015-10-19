@@ -49,6 +49,11 @@ func isValidStructKey(o *LOB) bool {
 // EmptyStruct - a <struct> with no bindings
 var EmptyStruct = makeStruct(0)
 
+func MakeStruct(capacity int) *LOB {
+	strct := newLOB(StructType)
+	strct.bindings = make(map[Key]*LOB, capacity)
+	return strct
+}
 func makeStruct(capacity int) *LOB {
 	strct := newLOB(StructType)
 	strct.bindings = make(map[Key]*LOB, capacity)
@@ -62,7 +67,7 @@ func newStruct(fieldvals []*LOB) (*LOB, error) {
 	i := 0
 	var bindings map[Key]*LOB
 	for i < count {
-		o := value(fieldvals[i])
+		o := Value(fieldvals[i])
 		i++
 		switch o.Type {
 		case StructType: // not a valid key, just copy bindings from it
@@ -98,8 +103,8 @@ func structLength(strct *LOB) int {
 }
 
 //called by the VM, when a keyword is used as a function. Must take value to handle defstruct instances
-func get(obj *LOB, key *LOB) (*LOB, error) {
-	s := value(obj)
+func Get(obj *LOB, key *LOB) (*LOB, error) {
+	s := Value(obj)
 	if s.Type != StructType {
 		return nil, Error(ArgumentErrorKey, "get expected a <struct> argument, got a ", obj.Type)
 	}
@@ -118,20 +123,20 @@ func structGet(s *LOB, key *LOB) *LOB {
 	return Null
 }
 
-func has(obj *LOB, key *LOB) (bool, error) {
-	tmp, err := get(obj, key)
+func Has(obj *LOB, key *LOB) (bool, error) {
+	tmp, err := Get(obj, key)
 	if err != nil || tmp == Null {
 		return false, err
 	}
 	return true, nil
 }
 
-func put(obj *LOB, key *LOB, val *LOB) {
+func Put(obj *LOB, key *LOB, val *LOB) {
 	k := newKey(key)
 	obj.bindings[k] = val
 }
 
-func unput(obj *LOB, key *LOB) {
+func Unput(obj *LOB, key *LOB) {
 	k := newKey(key)
 	delete(obj.bindings, k)
 }
@@ -227,7 +232,7 @@ func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 		}
 	case StringType:
 		for i := 0; i < slen; i += 2 {
-			if equal(bindings[i], key) {
+			if Equal(bindings[i], key) {
 				bindings[i+1] = val
 				return bindings
 			}
@@ -247,7 +252,7 @@ func structEqual(s1 *LOB, s2 *LOB) bool {
 			if !ok {
 				return false
 			}
-			if !equal(v, v2) {
+			if !Equal(v, v2) {
 				return false
 			}
 		}
@@ -346,7 +351,7 @@ func listToStruct(lst *LOB) (*LOB, error) {
 			if !isValidStructKey(k.car) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.car)
 			}
-			put(strct, k.car, k.cdr.car)
+			Put(strct, k.car, k.cdr.car)
 		case VectorType:
 			elements := k.elements
 			n := len(elements)
@@ -356,7 +361,7 @@ func listToStruct(lst *LOB) (*LOB, error) {
 			if !isValidStructKey(elements[0]) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", elements[0])
 			}
-			put(strct, elements[0], elements[1])
+			Put(strct, elements[0], elements[1])
 		default:
 			if !isValidStructKey(k) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k)
@@ -364,7 +369,7 @@ func listToStruct(lst *LOB) (*LOB, error) {
 			if lst == EmptyList {
 				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in list: ", k)
 			}
-			put(strct, k, lst.car)
+			Put(strct, k, lst.car)
 			lst = lst.cdr
 		}
 	}
@@ -387,7 +392,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 			if !isValidStructKey(k.car) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.car)
 			}
-			put(strct, k.car, k.cdr.car)
+			Put(strct, k.car, k.cdr.car)
 		case VectorType:
 			elements := k.elements
 			n := len(elements)
@@ -397,7 +402,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 			if !isValidStructKey(elements[0]) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.elements[0])
 			}
-			put(strct, elements[0], elements[1])
+			Put(strct, elements[0], elements[1])
 		case StringType, SymbolType, KeywordType, TypeType:
 		default:
 			if !isValidStructKey(k) {
@@ -406,7 +411,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 			if i == count {
 				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in vector: ", k)
 			}
-			put(strct, k, vec.elements[i])
+			Put(strct, k, vec.elements[i])
 			i++
 		}
 	}
@@ -414,7 +419,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 }
 
 func toStruct(obj *LOB) (*LOB, error) {
-	val := value(obj)
+	val := Value(obj)
 	switch val.Type {
 	case StructType:
 		return val, nil

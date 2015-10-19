@@ -31,13 +31,29 @@ var One = newInt(1)
 // MinusOne is the Ell -1 value
 var MinusOne = newInt(-1)
 
+func NewFloat64(f float64) *LOB {
+	num := newLOB(NumberType)
+	num.fval = f
+	return num
+}
 func newFloat64(f float64) *LOB {
 	num := newLOB(NumberType)
 	num.fval = f
 	return num
 }
 
+func NewInt64(i int64) *LOB {
+	num := newLOB(NumberType)
+	num.fval = float64(i)
+	return num
+}
 func newInt64(i int64) *LOB {
+	num := newLOB(NumberType)
+	num.fval = float64(i)
+	return num
+}
+
+func NewInt(i int) *LOB {
 	num := newLOB(NumberType)
 	num.fval = float64(i)
 	return num

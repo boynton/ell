@@ -38,7 +38,7 @@ func macroexpand(expr *LOB) (*LOB, error) {
 }
 
 func macroexpandObject(expr *LOB) (*LOB, error) {
-	if isList(expr) {
+	if IsList(expr) {
 		if expr != EmptyList {
 			return macroexpandList(expr)
 		}
@@ -53,7 +53,7 @@ func macroexpandList(expr *LOB) (*LOB, error) {
 	lst := expr
 	fn := car(lst)
 	head := fn
-	if isSymbol(fn) {
+	if IsSymbol(fn) {
 		result, err := expandPrimitive(fn, lst)
 		if err != nil {
 			return nil, err
@@ -62,7 +62,7 @@ func macroexpandList(expr *LOB) (*LOB, error) {
 			return result, nil
 		}
 		head = fn
-	} else if isList(fn) {
+	} else if IsList(fn) {
 		expanded, err := macroexpandList(fn)
 		if err != nil {
 			return nil, err
@@ -83,7 +83,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 			if expander.code.argc == 1 {
 				expanded, err := execCompileTime(expander.code, expr)
 				if err == nil {
-					if isList(expanded) {
+					if IsList(expanded) {
 						return macroexpandObject(expanded)
 					}
 					return expanded, err
@@ -109,7 +109,7 @@ func expandSequence(seq *LOB) (*LOB, error) {
 	}
 	for seq != EmptyList {
 		item := car(seq)
-		if isList(item) {
+		if IsList(item) {
 			expanded, err := macroexpandList(item)
 			if err != nil {
 				return nil, err
@@ -149,7 +149,7 @@ func expandIf(expr *LOB) (*LOB, error) {
 }
 
 func expandUndef(expr *LOB) (*LOB, error) {
-	if listLength(expr) != 2 || !isSymbol(cadr(expr)) {
+	if listLength(expr) != 2 || !IsSymbol(cadr(expr)) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	return expr, nil
@@ -162,7 +162,7 @@ func expandDefn(expr *LOB) (*LOB, error) {
 	exprLen := listLength(expr)
 	if exprLen >= 4 {
 		name := cadr(expr)
-		if isSymbol(name) {
+		if IsSymbol(name) {
 			args := caddr(expr)
 			body, err := expandSequence(cdddr(expr))
 			if err != nil {
@@ -182,7 +182,7 @@ func expandDefmacro(expr *LOB) (*LOB, error) {
 	exprLen := listLength(expr)
 	if exprLen >= 4 {
 		name := cadr(expr)
-		if isSymbol(name) {
+		if IsSymbol(name) {
 			args := caddr(expr)
 			body, err := expandSequence(cdddr(expr))
 			if err != nil {
@@ -213,14 +213,14 @@ func expandDef(expr *LOB) (*LOB, error) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	name := cadr(expr)
-	if !isSymbol(name) {
+	if !IsSymbol(name) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	if exprLen > 3 {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	body := caddr(expr)
-	if !isList(body) {
+	if !IsList(body) {
 		return expr, nil
 	}
 	val, err := macroexpandList(body)
@@ -242,7 +242,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 	bodyLen := listLength(body)
 	if bodyLen > 0 {
 		tmp := body
-		if isList(tmp) && caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
+		if IsList(tmp) && caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
 			bindings := EmptyList
 			for caar(tmp) == intern("def") || caar(tmp) == intern("defmacro") {
 				if caar(tmp) == intern("defmacro") {
@@ -271,7 +271,7 @@ func expandSetBang(expr *LOB) (*LOB, error) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	var val = caddr(expr)
-	if isList(val) {
+	if IsList(val) {
 		v, err := macroexpandList(val)
 		if err != nil {
 			return nil, err
@@ -319,16 +319,16 @@ func crackLetrecBindings(bindings *LOB, tail *LOB) (*LOB, *LOB, bool) {
 	var names []*LOB
 	inits := EmptyList
 	for bindings != EmptyList {
-		if isList(bindings) {
+		if IsList(bindings) {
 			tmp := car(bindings)
-			if isList(tmp) {
+			if IsList(tmp) {
 				name := car(tmp)
-				if isSymbol(name) {
+				if IsSymbol(name) {
 					names = append(names, name)
 				} else {
 					return nil, nil, false
 				}
-				if isList(cdr(tmp)) {
+				if IsList(cdr(tmp)) {
 					inits = cons(cons(intern("set!"), tmp), inits)
 				} else {
 					return nil, nil, false
@@ -359,7 +359,7 @@ func expandLetrec(expr *LOB) (*LOB, error) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	bindings := cadr(expr)
-	if !isList(bindings) {
+	if !IsList(bindings) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	names, body, ok := crackLetrecBindings(bindings, body)
@@ -379,9 +379,9 @@ func crackLetBindings(bindings *LOB) (*LOB, *LOB, bool) {
 	var values []*LOB
 	for bindings != EmptyList {
 		tmp := car(bindings)
-		if isList(tmp) {
+		if IsList(tmp) {
 			name := car(tmp)
-			if isSymbol(name) {
+			if IsSymbol(name) {
 				names = append(names, name)
 				tmp2 := cdr(tmp)
 				if tmp2 != EmptyList {
@@ -403,12 +403,12 @@ func expandLet(expr *LOB) (*LOB, error) {
 	// (let () expr ...) -> (do expr ...)
 	// (let ((x 1) (y 2)) expr ...) -> ((fn (x y) expr ...) 1 2)
 	// (let label ((x 1) (y 2)) expr ...) -> (fn (label) expr
-	if isSymbol(cadr(expr)) {
+	if IsSymbol(cadr(expr)) {
 		//return ell_expand_named_let(argv, argc)
 		return expandNamedLet(expr)
 	}
 	bindings := cadr(expr)
-	if !isList(bindings) {
+	if !IsList(bindings) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	names, values, ok := crackLetBindings(bindings)
@@ -429,7 +429,7 @@ func expandLet(expr *LOB) (*LOB, error) {
 func expandNamedLet(expr *LOB) (*LOB, error) {
 	name := cadr(expr)
 	bindings := caddr(expr)
-	if !isList(bindings) {
+	if !IsList(bindings) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	names, values, ok := crackLetBindings(bindings)
@@ -447,13 +447,13 @@ func crackDoBindings(bindings *LOB) (*LOB, *LOB, *LOB, bool) {
 	steps := EmptyList
 	for bindings != EmptyList {
 		tmp := car(bindings)
-		if !isList(tmp) {
+		if !IsList(tmp) {
 			return nil, nil, nil, false
 		}
-		if !isSymbol(car(tmp)) {
+		if !IsSymbol(car(tmp)) {
 			return nil, nil, nil, false
 		}
-		if !isList(cdr(tmp)) {
+		if !IsList(cdr(tmp)) {
 			return nil, nil, nil, false
 		}
 		names = cons(car(tmp), names)
@@ -491,7 +491,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 	clause1 := car(next)
 
 	if count == 2 {
-		if !isList(clause1) {
+		if !IsList(clause1) {
 			return nil, Error(SyntaxErrorKey, expr)
 		}
 		if elsesym == car(clause1) {
@@ -598,7 +598,7 @@ func expandQQList(lst *LOB) (*LOB, error) {
 	tail := result
 	for lst != EmptyList {
 		item := car(lst)
-		if isList(item) && item != EmptyList {
+		if IsList(item) && item != EmptyList {
 			if car(item) == symQuasiquote {
 				return nil, Error(MacroErrorKey, "nested quasiquote not supported")
 			}

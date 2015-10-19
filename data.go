@@ -25,7 +25,7 @@ import (
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. intern("<string>")
 type LOB struct {
-	Type      *LOB          // i.e. <string>
+	Type         *LOB          // i.e. <string>
 	code         *Code         // non-nil for closure, code
 	frame        *Frame        // non-nil for closure, continuation
 	primitive    *Primitive    // non-nil for primitives
@@ -36,7 +36,7 @@ type LOB struct {
 	elements     []*LOB        // non-nil for vector
 	fval         float64       // number
 	text         string        // string, symbol, keyword, type, blob, channel
-	Value         interface{}   // the rest of the data for more complex things
+	Value        interface{}   // the rest of the data for more complex things
 }
 
 func BoolValue(obj *LOB) bool {
@@ -48,6 +48,18 @@ func BoolValue(obj *LOB) bool {
 
 func RuneValue(obj *LOB) rune {
 	return rune(obj.fval)
+}
+
+func IntValue(obj *LOB) int {
+	return int(obj.fval)
+}
+
+func Int64Value(obj *LOB) int64 {
+	return int64(obj.fval)
+}
+
+func Float64Value(obj *LOB) float64 {
+	return obj.fval
 }
 
 func StringValue(obj *LOB) string {
@@ -70,11 +82,11 @@ func newLOB(variant *LOB) *LOB {
 	return lob
 }
 
-func identical(o1 *LOB, o2 *LOB) bool {
+func Identical(o1 *LOB, o2 *LOB) bool {
 	return o1 == o2
 }
 
-type Stringable interface {
+type stringable interface {
 	String() string
 }
 
@@ -107,11 +119,11 @@ func (lob *LOB) String() string {
 		return lob.code.String()
 	case ErrorType:
 		return "#<error>" + write(lob.car)
-//	case ChannelType:
-//		return ChannelValue(lob).String()
+		//	case ChannelType:
+		//		return ChannelValue(lob).String()
 	default:
 		if lob.Value != nil {
-			if s, ok := lob.Value.(Stringable); ok {
+			if s, ok := lob.Value.(stringable); ok {
 				return s.String()
 			}
 			return "#[" + typeNameString(lob.Type.text) + "]"
@@ -168,18 +180,10 @@ var ErrorType = intern("<error>")
 // AnyType is a pseudo type specifier indicating any type
 var AnyType = intern("<any>")
 
-func isTextual(o *LOB) bool {
-	switch o.Type {
-	case StringType, SymbolType, KeywordType, TypeType:
-		return true
-	}
-	return false
-}
-
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
 var Null = &LOB{Type: NullType}
 
-func isNull(obj *LOB) bool {
+func IsNull(obj *LOB) bool {
 	return obj == Null
 }
 
@@ -189,50 +193,50 @@ var True = &LOB{Type: BooleanType, fval: 1}
 // False is the singleton boolean false value
 var False = &LOB{Type: BooleanType, fval: 0}
 
-func isBoolean(obj *LOB) bool {
+func IsBoolean(obj *LOB) bool {
 	return obj.Type == BooleanType
 }
 
-func isCharacter(obj *LOB) bool {
+func IsCharacter(obj *LOB) bool {
 	return obj.Type == CharacterType
 }
-func isNumber(obj *LOB) bool {
+func IsNumber(obj *LOB) bool {
 	return obj.Type == NumberType
 }
-func isString(obj *LOB) bool {
+func IsString(obj *LOB) bool {
 	return obj.Type == StringType
 }
-func isList(obj *LOB) bool {
+func IsList(obj *LOB) bool {
 	return obj.Type == ListType
 }
-func isVector(obj *LOB) bool {
+func IsVector(obj *LOB) bool {
 	return obj.Type == VectorType
 }
-func isStruct(obj *LOB) bool {
+func IsStruct(obj *LOB) bool {
 	return obj.Type == StructType
 }
-func isFunction(obj *LOB) bool {
+func IsFunction(obj *LOB) bool {
 	return obj.Type == FunctionType
 }
-func isCode(obj *LOB) bool {
+func IsCode(obj *LOB) bool {
 	return obj.Type == CodeType
 }
-func isSymbol(obj *LOB) bool {
+func IsSymbol(obj *LOB) bool {
 	return obj.Type == SymbolType
 }
-func isKeyword(obj *LOB) bool {
+func IsKeyword(obj *LOB) bool {
 	return obj.Type == KeywordType
 }
-func isType(obj *LOB) bool {
+func IsType(obj *LOB) bool {
 	return obj.Type == TypeType
 }
 
 //instances have arbitrary Type symbols, all we can check is that the instanceValue is set
-func isInstance(obj *LOB) bool {
+func IsInstance(obj *LOB) bool {
 	return obj.car != nil && obj.cdr == nil
 }
 
-func equal(o1 *LOB, o2 *LOB) bool {
+func Equal(o1 *LOB, o2 *LOB) bool {
 	if o1 == o2 {
 		return true
 	}
@@ -257,16 +261,16 @@ func equal(o1 *LOB, o2 *LOB) bool {
 	case NullType:
 		return true // singleton
 	default:
-		o1a := value(o1)
+		o1a := Value(o1)
 		if o1a != o1 {
-			o2a := value(o2)
-			return equal(o1a, o2a)
+			o2a := Value(o2)
+			return Equal(o1a, o2a)
 		}
 		return false
 	}
 }
 
-func isPrimitiveType(tag *LOB) bool {
+func IsPrimitiveType(tag *LOB) bool {
 	switch tag {
 	case NullType, BooleanType, CharacterType, NumberType, StringType, ListType, VectorType, StructType:
 		return true
@@ -277,11 +281,11 @@ func isPrimitiveType(tag *LOB) bool {
 	}
 }
 
-func instance(tag *LOB, val *LOB) (*LOB, error) {
-	if !isType(tag) {
+func Instance(tag *LOB, val *LOB) (*LOB, error) {
+	if !IsType(tag) {
 		return nil, Error(ArgumentErrorKey, TypeType.text, tag)
 	}
-	if isPrimitiveType(tag) {
+	if IsPrimitiveType(tag) {
 		return val, nil
 	}
 	result := newLOB(tag)
@@ -289,7 +293,7 @@ func instance(tag *LOB, val *LOB) (*LOB, error) {
 	return result, nil
 }
 
-func value(obj *LOB) *LOB {
+func Value(obj *LOB) *LOB {
 	if obj.cdr == nil && obj.car != nil {
 		return obj.car
 	}
@@ -373,4 +377,3 @@ var HTTPErrorKey = intern("http-error:")
 
 // InterruptKey
 var InterruptKey = intern("interrupt:")
-

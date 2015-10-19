@@ -98,7 +98,7 @@ func getfn(sym *LOB, args []*LOB) (*LOB, error) {
 		if gf == Null {
 			return nil, Error(ErrorKey, "Not a generic function: ", sym)
 		}
-		methods := structGet(value(gf), keyMethods)
+		methods := structGet(Value(gf), keyMethods)
 		if methods.Type == StructType {
 			for _, sig := range sigs {
 				fun := structGet(methods, sig)

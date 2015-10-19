@@ -28,7 +28,7 @@ func vectorEqual(v1 *LOB, v2 *LOB) bool {
 		return false
 	}
 	for i := 0; i < count; i++ {
-		if !equal(el1[i], el2[i]) {
+		if !Equal(el1[i], el2[i]) {
 			return false
 		}
 	}

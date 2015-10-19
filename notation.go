@@ -54,8 +54,8 @@ func spitFile(path string, data string) error {
 
 func keysOptionValue(options *LOB) (*LOB, error) {
 	if options != nil {
-		t, err := get(options, intern("keys:"))
-		if err == nil && isType(t) {
+		t, err := Get(options, intern("keys:"))
+		if err == nil && IsType(t) {
 			switch t {
 			case SymbolType, KeywordType, StringType:
 				return t, nil
@@ -70,7 +70,7 @@ func keysOptionValue(options *LOB) (*LOB, error) {
 //only reads the first item in the input, along with how many characters it read
 // for subsequence calls, you can slice the string to continue
 func read(input *LOB) (*LOB, error) {
-	if !isString(input) {
+	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read invalid input: ", input)
 	}
 	r := strings.NewReader(input.text)
@@ -86,7 +86,7 @@ func read(input *LOB) (*LOB, error) {
 }
 
 func readAll(input *LOB, keys *LOB) (*LOB, error) {
-	if !isString(input) {
+	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)
 	}
 	reader := newDataReader(strings.NewReader(input.text))
@@ -578,7 +578,7 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 			if err != nil {
 				return nil, Error(SyntaxErrorKey, "Bad reader macro: #", atom, " ...")
 			}
-			return instance(intern(atom), val)
+			return Instance(Intern(atom), val)
 		}
 		return nil, Error(SyntaxErrorKey, "Bad reader macro: #", atom, " ...")
 	}
@@ -618,7 +618,7 @@ func prettyAll(obj *LOB) string {
 }
 
 func writeAllIndent(obj *LOB, indent string) string {
-	if isList(obj) {
+	if IsList(obj) {
 		var buf bytes.Buffer
 		for obj != EmptyList {
 			o := car(obj)

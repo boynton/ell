@@ -126,8 +126,8 @@ func (code *Code) signature() string {
 	// (declare cons (<any> <list>) <list>)
 	if code.name != "" {
 		val := global(intern("*declarations*")) //so if this this has not been defined, we'll just skip it
-		if val != nil && isStruct(val) {
-			sig, _ := get(val, intern(code.name))
+		if val != nil && IsStruct(val) {
+			sig, _ := Get(val, intern(code.name))
 			if sig != Null {
 				return sig.String()
 			}
@@ -153,7 +153,7 @@ func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "(" + symOpFunction.text + " (\"\" 0 [] [])", "(code", 1)
+	return strings.Replace(s, "("+symOpFunction.text+" (\"\" 0 [] [])", "(code", 1)
 }
 
 func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
@@ -231,10 +231,6 @@ func (code *Code) loadOps(lst *LOB) error {
 		case symOpClosure:
 			lstFunc := cadr(instr)
 			if car(lstFunc) != symOpFunction {
-				println("closure: ", lstFunc)
-				println("car(lstFunc) ", car(lstFunc))
-				println("symOpFunction ", symOpFunction)
-				panic("1")
 				return Error(SyntaxErrorKey, instr)
 			}
 			lstFunc = cdr(lstFunc)
@@ -244,7 +240,7 @@ func (code *Code) loadOps(lst *LOB) error {
 			var defaults []*LOB
 			var keys []*LOB
 			var err error
-			if isSymbol(funcParams) {
+			if IsSymbol(funcParams) {
 				//legacy form, just the argc
 				argc, err = intValue(funcParams)
 				if err != nil {
@@ -254,33 +250,30 @@ func (code *Code) loadOps(lst *LOB) error {
 					argc = -argc - 1
 					defaults = make([]*LOB, 0)
 				}
-			} else if isList(funcParams) && listLength(funcParams) == 4 {
+			} else if IsList(funcParams) && listLength(funcParams) == 4 {
 				tmp := funcParams
 				a := car(tmp)
 				tmp = cdr(tmp)
 				name, err = asString(a)
 				if err != nil {
-				panic("2")
 					return Error(SyntaxErrorKey, funcParams)
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
 				argc, err = intValue(a)
 				if err != nil {
-				panic("3")
 					return Error(SyntaxErrorKey, funcParams)
 				}
 				a = car(tmp)
 				tmp = cdr(tmp)
-				if isVector(a) {
+				if IsVector(a) {
 					defaults = a.elements
 				}
 				a = car(tmp)
-				if isVector(a) {
+				if IsVector(a) {
 					keys = a.elements
 				}
 			} else {
-				panic("4")
 				return Error(SyntaxErrorKey, funcParams)
 			}
 			fun := newCode(argc, defaults, keys, name)
@@ -310,7 +303,7 @@ func (code *Code) loadOps(lst *LOB) error {
 			code.emitSetLocal(i, j)
 		case symOpGlobal:
 			sym := cadr(instr)
-			if isSymbol(sym) {
+			if IsSymbol(sym) {
 				code.emitGlobal(sym)
 			} else {
 				return Error(symOpGlobal, " argument 1 not a symbol: ", sym)

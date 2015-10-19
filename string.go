@@ -23,6 +23,11 @@ import (
 // EmptyString
 var EmptyString = newString("")
 
+func NewString(s string) *LOB {
+	str := newLOB(StringType)
+	str.text = s
+	return str
+}
 func newString(s string) *LOB {
 	str := newLOB(StringType)
 	str.text = s
@@ -30,7 +35,7 @@ func newString(s string) *LOB {
 }
 
 func asString(obj *LOB) (string, error) {
-	if !isString(obj) {
+	if !IsString(obj) {
 		return "", Error(ArgumentErrorKey, StringType, obj)
 	}
 	return obj.text, nil
@@ -49,7 +54,7 @@ func toString(a *LOB) (*LOB, error) {
 	case VectorType:
 		var chars []rune
 		for _, c := range a.elements {
-			if !isCharacter(c) {
+			if !IsCharacter(c) {
 				return nil, Error(ArgumentErrorKey, "to-string: vector element is not a <character>: ", c)
 			}
 			chars = append(chars, rune(c.fval))
@@ -59,7 +64,7 @@ func toString(a *LOB) (*LOB, error) {
 		var chars []rune
 		for a != EmptyList {
 			c := car(a)
-			if !isCharacter(c) {
+			if !IsCharacter(c) {
 				return nil, Error(ArgumentErrorKey, "to-string: list element is not a <character>: ", c)
 			}
 			chars = append(chars, rune(c.fval))
@@ -137,7 +142,7 @@ func toCharacter(c *LOB) (*LOB, error) {
 }
 
 func asCharacter(c *LOB) (rune, error) {
-	if !isCharacter(c) {
+	if !IsCharacter(c) {
 		return 0, Error(ArgumentErrorKey, "Not a <character>", c)
 	}
 	return rune(c.fval), nil
@@ -170,10 +175,10 @@ func stringToList(s *LOB) *LOB {
 }
 
 func stringSplit(obj *LOB, delims *LOB) (*LOB, error) {
-	if !isString(obj) {
+	if !IsString(obj) {
 		return nil, Error(ArgumentErrorKey, "split expected a <string> for argument 1, got ", obj)
 	}
-	if !isString(delims) {
+	if !IsString(delims) {
 		return nil, Error(ArgumentErrorKey, "split expected a <string> for argument 2, got ", delims)
 	}
 	lst := EmptyList
@@ -191,7 +196,7 @@ func stringSplit(obj *LOB, delims *LOB) (*LOB, error) {
 }
 
 func stringJoin(seq *LOB, delims *LOB) (*LOB, error) {
-	if !isString(delims) {
+	if !IsString(delims) {
 		return nil, Error(ArgumentErrorKey, "join expected a <string> for argument 2, got ", delims)
 	}
 	switch seq.Type {

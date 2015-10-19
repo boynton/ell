@@ -16,6 +16,10 @@ limitations under the License.
 
 package ell
 
+func Intern(name string) *LOB {
+	return intern(name)
+}
+
 func intern(name string) *LOB {
 	sym, ok := symtab[name]
 	if !ok {
@@ -92,7 +96,7 @@ func typeNameString(s string) string {
 
 // <type> -> <symbol>
 func typeName(t *LOB) (*LOB, error) {
-	if !isType(t) {
+	if !IsType(t) {
 		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.Type)
 	}
 	return intern(typeNameString(t.text)), nil
@@ -100,7 +104,7 @@ func typeName(t *LOB) (*LOB, error) {
 
 // <keyword> -> <symbol>
 func keywordName(t *LOB) (*LOB, error) {
-	if !isKeyword(t) {
+	if !IsKeyword(t) {
 		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.Type)
 	}
 	return unkeyworded(t)
@@ -111,17 +115,17 @@ func keywordNameString(s string) string {
 }
 
 func unkeywordedString(k *LOB) string {
-	if isKeyword(k) {
+	if IsKeyword(k) {
 		return keywordNameString(k.text)
 	}
 	return k.text
 }
 
 func unkeyworded(obj *LOB) (*LOB, error) {
-	if isSymbol(obj) {
+	if IsSymbol(obj) {
 		return obj, nil
 	}
-	if isKeyword(obj) {
+	if IsKeyword(obj) {
 		return intern(keywordNameString(obj.text)), nil
 	}
 	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.Type)

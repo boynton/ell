@@ -172,7 +172,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 				if strings.HasPrefix(str, prefix) {
 					if funPosition {
 						val := global(sym)
-						if isFunction(val) {
+						if IsFunction(val) {
 							candidates[sym] = true
 						}
 					} else {
@@ -244,8 +244,6 @@ func ReadEvalPrintLoop() {
 }
 
 func exit(code int) {
-	if midi {
-		midiClose(nil)
-	}
+	Cleanup()
 	repl.Exit(code)
 }

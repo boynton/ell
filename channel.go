@@ -27,9 +27,9 @@ import (
 var ChannelType = intern("<channel>")
 
 type Channel struct {
-	name string
-	bufsize        int
-	channel      chan *LOB     // non-nil for channels
+	name    string
+	bufsize int
+	channel chan *LOB // non-nil for channels
 }
 
 func (ch *Channel) String() string {
@@ -46,13 +46,33 @@ func (ch *Channel) String() string {
 	return s + "]"
 }
 
+func NewChannel(bufsize int, name string) *LOB {
+	lob := newLOB(ChannelType)
+	lob.Value = &Channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)}
+	return lob
+}
 func newChannel(bufsize int, name string) *LOB {
 	lob := newLOB(ChannelType)
 	lob.Value = &Channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)}
 	return lob
 }
 
-func ChannelValue (obj *LOB) *Channel {
+func ChannelHandle(channel *LOB) chan *LOB {
+	ch := ChannelValue(channel)
+	if ch == nil {
+		return nil
+	}
+	return ch.channel
+}
+func channelHandle(channel *LOB) chan *LOB {
+	ch := ChannelValue(channel)
+	if ch == nil {
+		return nil
+	}
+	return ch.channel
+}
+
+func ChannelValue(obj *LOB) *Channel {
 	if obj.Value == nil {
 		return nil
 	}
@@ -62,10 +82,9 @@ func ChannelValue (obj *LOB) *Channel {
 
 func closeChannel(obj *LOB) {
 	c := ChannelValue(obj)
-//	c, _ := ch.Value.(*Channel)
+	//	c, _ := ch.Value.(*Channel)
 	if c.channel != nil {
 		close(c.channel)
 		c.channel = nil
 	}
 }
-

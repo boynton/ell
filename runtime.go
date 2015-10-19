@@ -72,7 +72,6 @@ func Fatal(args ...interface{}) {
 	exit(1)
 }
 
-
 // Continuation -
 type Continuation struct {
 	ops   []int
@@ -187,7 +186,7 @@ type Primitive struct { // <function>
 func functionSignatureFromTypes(result *LOB, args []*LOB, rest *LOB) string {
 	sig := "("
 	for i, t := range args {
-		if !isType(t) {
+		if !IsType(t) {
 			panic("not a type: " + t.String())
 		}
 		if i > 0 {
@@ -196,7 +195,7 @@ func functionSignatureFromTypes(result *LOB, args []*LOB, rest *LOB) string {
 		sig += t.text
 	}
 	if rest != nil {
-		if !isType(rest) {
+		if !IsType(rest) {
 			panic("not a type: " + rest.String())
 		}
 		if sig != "(" {
@@ -205,7 +204,7 @@ func functionSignatureFromTypes(result *LOB, args []*LOB, rest *LOB) string {
 		sig += rest.text + "*"
 	}
 	sig += ") "
-	if !isType(result) {
+	if !IsType(result) {
 		panic("not a type: " + result.String())
 	}
 	sig += result.text
@@ -392,7 +391,7 @@ func (vm *VM) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int
 	if argc != 1 {
 		return 0, 0, Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 	}
-	v, err := get(stack[sp], fun)
+	v, err := Get(stack[sp], fun)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -566,7 +565,7 @@ opcodeCallAgain:
 			}
 			fun = stack[sp]
 			args := stack[sp+argc-1]
-			if !isList(args) {
+			if !IsList(args) {
 				err := Error(ArgumentErrorKey, "apply expected a <list> as its final argument")
 				return vm.catch(err, stack, env)
 			}
@@ -623,7 +622,7 @@ opcodeCallAgain:
 			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 			return vm.catch(err, stack, env)
 		}
-		v, err := get(stack[sp], fun)
+		v, err := Get(stack[sp], fun)
 		if err != nil {
 			return vm.catch(err, stack, env)
 		}
@@ -670,7 +669,7 @@ opcodeTailCallAgain:
 			}
 			fun = stack[sp]
 			args := stack[sp+argc-1]
-			if !isList(args) {
+			if !IsList(args) {
 				err := Error(ArgumentErrorKey, "apply expected its last argument to be a <list>")
 				return vm.catch(err, stack, env)
 			}
@@ -727,7 +726,7 @@ opcodeTailCallAgain:
 			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 			return vm.catch(err, stack, env)
 		}
-		v, err := get(stack[sp], fun)
+		v, err := Get(stack[sp], fun)
 		if err != nil {
 			return vm.catch(err, stack, env)
 		}
@@ -743,7 +742,7 @@ func (vm *VM) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp in
 		err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 		return vm.catch(err, stack, env)
 	}
-	v, err := get(stack[sp], fun)
+	v, err := Get(stack[sp], fun)
 	if err != nil {
 		return vm.catch(err, stack, env)
 	}

@@ -45,7 +45,7 @@ func calculateLocation(sym *LOB, env *LOB) (int, int, bool) {
 }
 
 func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult bool, context string) error {
-	if isKeyword(expr) || isType(expr) {
+	if IsKeyword(expr) || IsType(expr) {
 		if !ignoreResult {
 			target.code.emitLiteral(expr)
 			if isTail {
@@ -53,7 +53,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			}
 		}
 		return nil
-	} else if isSymbol(expr) {
+	} else if IsSymbol(expr) {
 		if getMacro(expr) != nil {
 			return Error(intern("macro-error"), "Cannot use macro as a value: ", expr)
 		}
@@ -68,7 +68,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			target.code.emitReturn()
 		}
 		return nil
-	} else if isList(expr) {
+	} else if IsList(expr) {
 		if expr == EmptyList {
 			if !ignoreResult {
 				target.code.emitLiteral(expr)
@@ -129,7 +129,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 				return Error(SyntaxErrorKey, expr)
 			}
 			sym := cadr(lst)
-			if !isSymbol(sym) {
+			if !IsSymbol(sym) {
 				return Error(SyntaxErrorKey, expr)
 			}
 			target.code.emitUndefGlobal(sym)
@@ -147,7 +147,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 				return Error(SyntaxErrorKey, expr)
 			}
 			var sym = cadr(lst)
-			if !isSymbol(sym) {
+			if !IsSymbol(sym) {
 				return Error(SyntaxErrorKey, expr)
 			}
 			err := compileExpr(target, env, caddr(expr), false, false, sym.String())
@@ -184,7 +184,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 				return Error(SyntaxErrorKey, expr)
 			}
 			var sym = cadr(lst)
-			if !isSymbol(sym) {
+			if !IsSymbol(sym) {
 				return Error(SyntaxErrorKey, expr)
 			}
 			err := compileExpr(target, env, caddr(lst), false, false, context)
@@ -214,7 +214,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			fn, args := optimizeFuncall(target, env, fn, cdr(lst), isTail, ignoreResult, context)
 			return compileFuncall(target, env, fn, args, isTail, ignoreResult, context)
 		}
-	} else if isVector(expr) {
+	} else if IsVector(expr) {
 		//vector literal: the elements are evaluated
 		vlen := len(expr.elements)
 		for i := vlen - 1; i >= 0; i-- {
@@ -229,7 +229,7 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 			target.code.emitReturn()
 		}
 		return nil
-	} else if isStruct(expr) {
+	} else if IsStruct(expr) {
 		//struct literal: the elements are evaluated
 		vlen := len(expr.bindings) * 2
 		vals := make([]*LOB, 0, vlen)
@@ -266,10 +266,10 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 	var keys []*LOB
 	tmp := args
 	rest := false
-	if !isSymbol(args) {
+	if !IsSymbol(args) {
 		for tmp != EmptyList {
 			a := car(tmp)
-			if isVector(a) {
+			if IsVector(a) {
 				//i.e. (x [y (z 23)]) is for optional y and z, but bound, z with default 23
 				if cdr(tmp) != EmptyList {
 					return Error(SyntaxErrorKey, tmp)
@@ -277,11 +277,11 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				defaults = make([]*LOB, 0, len(a.elements))
 				for _, sym := range a.elements {
 					def := Null
-					if isList(sym) {
+					if IsList(sym) {
 						def = cadr(sym)
 						sym = car(sym)
 					}
-					if !isSymbol(sym) {
+					if !IsSymbol(sym) {
 						return Error(SyntaxErrorKey, tmp)
 					}
 					syms = append(syms, sym)
@@ -289,7 +289,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				}
 				tmp = EmptyList
 				break
-			} else if isStruct(a) {
+			} else if IsStruct(a) {
 				//i.e. (x {y: 23, z: 57}]) is for optional y and z, keyword args, with defaults
 				if cdr(tmp) != EmptyList {
 					return Error(SyntaxErrorKey, tmp)
@@ -299,7 +299,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				keys = make([]*LOB, 0, slen)
 				for k, defValue := range a.bindings {
 					sym := k.toLOB()
-					if isList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
+					if IsList(sym) && car(sym) == intern("quote") && cdr(sym) != EmptyList {
 						sym = cadr(sym)
 					} else {
 						var err error
@@ -308,7 +308,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 							return Error(SyntaxErrorKey, tmp)
 						}
 					}
-					if !isSymbol(sym) {
+					if !IsSymbol(sym) {
 						return Error(SyntaxErrorKey, tmp)
 					}
 					syms = append(syms, sym)
@@ -317,7 +317,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				}
 				tmp = EmptyList
 				break
-			} else if !isSymbol(a) {
+			} else if !IsSymbol(a) {
 				return Error(SyntaxErrorKey, tmp)
 			}
 			if a == intern("&") { //the rest of the arglist is bound to a single variable
@@ -337,7 +337,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 		}
 	}
 	if tmp != EmptyList { //entire arglist bound to a single variable
-		if isSymbol(tmp) {
+		if IsSymbol(tmp) {
 			syms = append(syms, tmp) //note: added, but argv not incremented
 			defaults = make([]*LOB, 0)
 		} else {
@@ -378,13 +378,13 @@ func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ign
 	if size == 2 {
 		switch fn {
 		case intern("+"):
-			if equal(One, car(args)) { // (+ 1 x) ->  inc x)
+			if Equal(One, car(args)) { // (+ 1 x) ->  inc x)
 				return intern("inc"), cdr(args)
-			} else if equal(One, cadr(args)) { // (+ x 1) -> (inc x)
+			} else if Equal(One, cadr(args)) { // (+ x 1) -> (inc x)
 				return intern("inc"), list(car(args))
 			}
 		case intern("-"):
-			if equal(One, cadr(args)) { // (- x 1) -> (dec x)
+			if Equal(One, cadr(args)) { // (- x 1) -> (dec x)
 				return intern("dec"), list(car(args))
 			}
 		}
@@ -464,7 +464,7 @@ func compileUse(target *LOB, rest *LOB) error {
 		return Error(SyntaxErrorKey, cons(intern("use"), rest))
 	}
 	sym := car(rest)
-	if !isSymbol(sym) {
+	if !IsSymbol(sym) {
 		return Error(SyntaxErrorKey, rest)
 	}
 	target.code.emitUse(sym)

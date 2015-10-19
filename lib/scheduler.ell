@@ -1,9 +1,10 @@
-(use midi)
 (def *now* 0)
 (def *waiting* '())
 (def *ready* '())
 (def *signals* '())
 
+(def sys-now now)
+(def sys-sleep sleep)
 (defn now ()
   *now*)
 
@@ -23,9 +24,9 @@
                         (loop (cdr tail) (cdr tail-cdr))))))))))
 
 (defn wait-until (t)
-  (let ((seconds (- t (midi-time))))
+  (let ((seconds (- t (sys-now))))
     (if (> seconds 0)
-        (midi-sleep seconds))))
+        (sys-sleep seconds))))
 
 
 (defn context-switch ()
@@ -109,22 +110,10 @@
 (defmacro sequential (& exprs)
   `(do ~@exprs))
 
-(defn run-async (fn)
-  (spawn fn))
-
-(defmacro run (& exprs)
-  `(run-async (fn ()
-                (set! *now* (midi-time))
-                ~@exprs)))
-
 (defn note (key vel dur)
-  (midi-note key vel dur)
-  (sleep dur))
-
-(defn chord (keys vel dur)
-  (dolist (key keys)
-    (midi-note key vel dur))
-  (sleep dur))
+  (println *now* ": note-on " key " " vel)
+  (sleep dur)
+  (println *now* ": note-off " key " " vel))
 
 (defn phrase1 (k)
   (parallel
@@ -142,7 +131,7 @@
 
 
 (defn scheduler-test (i)
-  (run
-   (parallel
-    (phrase1 0)
-    (phrase1 i))))
+  (set! *now* (sys-now))
+  (parallel
+   (phrase1 0)
+   (phrase1 i)))

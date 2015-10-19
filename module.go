@@ -17,6 +17,9 @@ limitations under the License.
 package ell
 
 import (
+	"flag"
+	//"github.com/davecheney/profile"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -60,21 +63,38 @@ func definePrimitive(name string, prim *LOB) {
 	defGlobal(sym, prim)
 }
 
+func DefineFunction(name string, fun PrimCallable, result *LOB, args ...*LOB) {
+	prim := newPrimitive(name, fun, result, args, nil, nil, nil)
+	definePrimitive(name, prim)
+}
+
 func defineFunction(name string, fun PrimCallable, result *LOB, args ...*LOB) {
 	prim := newPrimitive(name, fun, result, args, nil, nil, nil)
 	definePrimitive(name, prim)
 }
 
+func DefineFunctionRestArgs(name string, fun PrimCallable, result *LOB, rest *LOB, args ...*LOB) {
+	prim := newPrimitive(name, fun, result, args, rest, []*LOB{}, nil)
+	definePrimitive(name, prim)
+}
 func defineFunctionRestArgs(name string, fun PrimCallable, result *LOB, rest *LOB, args ...*LOB) {
 	prim := newPrimitive(name, fun, result, args, rest, []*LOB{}, nil)
 	definePrimitive(name, prim)
 }
 
+func DefineFunctionOptionalArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults ...*LOB) {
+	prim := newPrimitive(name, fun, result, args, nil, defaults, nil)
+	definePrimitive(name, prim)
+}
 func defineFunctionOptionalArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults ...*LOB) {
 	prim := newPrimitive(name, fun, result, args, nil, defaults, nil)
 	definePrimitive(name, prim)
 }
 
+func DefineFunctionKeyArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
+	prim := newPrimitive(name, fun, result, args, nil, defaults, keys)
+	definePrimitive(name, prim)
+}
 func defineFunctionKeyArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
 	prim := newPrimitive(name, fun, result, args, nil, defaults, keys)
 	definePrimitive(name, prim)
@@ -117,7 +137,7 @@ func getGlobals() []*LOB {
 }
 
 func global(sym *LOB) *LOB {
-	if isSymbol(sym) {
+	if IsSymbol(sym) {
 		return sym.car
 	}
 	return nil
@@ -327,4 +347,78 @@ func CompileFile(name string) (*LOB, error) {
 		exprs = cdr(exprs)
 	}
 	return newString(result), nil
+}
+
+func Main(ext Extension) {
+	pCompile := flag.Bool("c", false, "compile the file and output lap")
+	pOptimize := flag.Bool("o", false, "optimize execution speed, should work for correct code, but doesn't check everything")
+	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
+	pDebug := flag.Bool("d", false, "debug mode, print extra information about compilation")
+	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
+	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
+	flag.Parse()
+	args := flag.Args()
+
+	EllPath = os.Getenv("ELL_PATH")
+	home := os.Getenv("HOME")
+	ellini := filepath.Join(home, ".ell")
+	if EllPath == "" {
+		EllPath = "."
+		homelib := filepath.Join(home, "lib/ell")
+		_, err := os.Stat(homelib)
+		if err == nil {
+			EllPath += ":" + homelib
+		}
+		gopath := os.Getenv("GOPATH")
+		if gopath != "" {
+			golibdir := filepath.Join(gopath, "src/github.com/boynton/gell/lib")
+			_, err := os.Stat(golibdir)
+			if err == nil {
+				EllPath += ":" + golibdir
+			}
+		}
+	}
+	Init(ext)
+	if len(args) < 1 {
+		if !*pNoInit {
+			_, err := os.Stat(ellini)
+			if err == nil {
+				err := LoadModule(ellini)
+				if err != nil {
+					Fatal("*** ", err)
+				}
+			}
+		}
+		SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, true)
+		ReadEvalPrintLoop()
+	} else {
+		SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, false)
+		/*
+			if len(os.Args) > 2 {
+				cfg := profile.Config{
+					CPUProfile:     true,
+					ProfilePath:    ".",  // store profiles in current directory
+					NoShutdownHook: true, // do not hook SIGINT
+				}
+				defer profile.Start(&cfg).Stop()
+			}
+		*/
+		for _, filename := range args {
+			if *pCompile {
+				//just compile and print LAP code
+				lap, err := CompileFile(filename)
+				if err != nil {
+					Fatal("*** ", err)
+				}
+				println(lap)
+			} else {
+				//this executes the file
+				err := LoadModule(filename)
+				if err != nil {
+					Fatal("*** ", err.Error())
+				}
+			}
+		}
+	}
+	Cleanup()
 }

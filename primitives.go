@@ -32,10 +32,16 @@ import (
 	"time"
 )
 
-const midi = true
+type Extension interface {
+	Init() error
+	Cleanup()
+}
+
+var extension Extension
 
 // InitEnvironment - defines the global functions/variables/macros for the top level environment
-func InitEnvironment() {
+func Init(ext Extension) {
+	extension = ext
 
 	defineMacro("let", ellLet)
 	defineMacro("letrec", ellLetrec)
@@ -199,19 +205,21 @@ func InitEnvironment() {
 		[]*LOB{newString("GET"), EmptyStruct, EmptyBlob},
 		[]*LOB{intern("method:"), intern("headers:"), intern("body:")})
 
-	if midi {
-		initMidi()
-	}
-
 	err := LoadModule("ell")
 	if err != nil {
 		Fatal("*** ", err)
 	}
+	if extension != nil {
+		err := extension.Init()
+		if err != nil {
+			Fatal("*** ", err)
+		}
+	}
 }
 
-func CleanupEnvironment() {
-	if midi {
-		midiClose(nil)
+func Cleanup() {
+	if extension != nil {
+		extension.Cleanup()
 	}
 }
 
@@ -296,11 +304,11 @@ func ellType(argv []*LOB) (*LOB, error) {
 }
 
 func ellValue(argv []*LOB) (*LOB, error) {
-	return value(argv[0]), nil
+	return Value(argv[0]), nil
 }
 
 func ellInstance(argv []*LOB) (*LOB, error) {
-	return instance(argv[0], argv[1])
+	return Instance(argv[0], argv[1])
 }
 
 func ellValidateKeywordArgList(argv []*LOB) (*LOB, error) {
@@ -337,7 +345,7 @@ func ellIdenticalP(argv []*LOB) (*LOB, error) {
 }
 
 func ellEqualP(argv []*LOB) (*LOB, error) {
-	if equal(argv[0], argv[1]) {
+	if Equal(argv[0], argv[1]) {
 		return True, nil
 	}
 	return False, nil
@@ -454,7 +462,7 @@ func ellListLength(argv []*LOB) (*LOB, error) {
 }
 
 func ellNumberP(argv []*LOB) (*LOB, error) {
-	if isNumber(argv[0]) {
+	if IsNumber(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -585,7 +593,7 @@ func ellMakeVector(argv []*LOB) (*LOB, error) {
 }
 
 func ellVectorP(argv []*LOB) (*LOB, error) {
-	if isVector(argv[0]) {
+	if IsVector(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -640,14 +648,14 @@ func ellNullP(argv []*LOB) (*LOB, error) {
 }
 
 func ellBooleanP(argv []*LOB) (*LOB, error) {
-	if isBoolean(argv[0]) {
+	if IsBoolean(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
 func ellSymbolP(argv []*LOB) (*LOB, error) {
-	if isSymbol(argv[0]) {
+	if IsSymbol(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -661,7 +669,7 @@ func ellSymbol(argv []*LOB) (*LOB, error) {
 }
 
 func ellKeywordP(argv []*LOB) (*LOB, error) {
-	if isKeyword(argv[0]) {
+	if IsKeyword(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -672,7 +680,7 @@ func ellKeywordName(argv []*LOB) (*LOB, error) {
 }
 
 func ellTypeP(argv []*LOB) (*LOB, error) {
-	if isType(argv[0]) {
+	if IsType(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -683,14 +691,14 @@ func ellTypeName(argv []*LOB) (*LOB, error) {
 }
 
 func ellStringP(argv []*LOB) (*LOB, error) {
-	if isString(argv[0]) {
+	if IsString(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
 func ellCharacterP(argv []*LOB) (*LOB, error) {
-	if isCharacter(argv[0]) {
+	if IsCharacter(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -701,8 +709,7 @@ func ellToCharacter(argv []*LOB) (*LOB, error) {
 }
 
 func ellFunctionP(argv []*LOB) (*LOB, error) {
-	//	if isFunction(argv[0]) || isKeyword(argv[0]) {
-	if isFunction(argv[0]) {
+	if IsFunction(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -713,7 +720,7 @@ func ellFunctionSignature(argv []*LOB) (*LOB, error) {
 }
 
 func ellListP(argv []*LOB) (*LOB, error) {
-	if isList(argv[0]) {
+	if IsList(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -783,7 +790,7 @@ func ellCons(argv []*LOB) (*LOB, error) {
 }
 
 func ellStructP(argv []*LOB) (*LOB, error) {
-	if isStruct(argv[0]) {
+	if IsStruct(argv[0]) {
 		return True, nil
 	}
 	return False, nil
@@ -798,7 +805,7 @@ func ellStructLength(argv []*LOB) (*LOB, error) {
 }
 
 func ellHasP(argv []*LOB) (*LOB, error) {
-	b, err := has(argv[0], argv[1])
+	b, err := Has(argv[0], argv[1])
 	if err != nil {
 		return nil, err
 	}
@@ -827,7 +834,7 @@ func ellPutBang(argv []*LOB) (*LOB, error) {
 	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "put! on sealed struct")
 	}
-	put(argv[0], key, argv[2])
+	Put(argv[0], key, argv[2])
 	return Null, nil
 }
 
@@ -840,7 +847,7 @@ func ellUnputBang(argv []*LOB) (*LOB, error) {
 	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "unput! on sealed struct")
 	}
-	unput(argv[0], key)
+	Unput(argv[0], key)
 	return Null, nil
 }
 
@@ -892,7 +899,7 @@ func ellClose(argv []*LOB) (*LOB, error) {
 	case intern("<tcp-connection>"):
 		closeConnection(argv[0])
 	default:
-      return nil, Error(ArgumentErrorKey, "close expected a channel or connection")
+		return nil, Error(ArgumentErrorKey, "close expected a channel or connection")
 	}
 	return Null, nil
 }
@@ -1067,11 +1074,11 @@ func newConnection(con net.Conn, endpoint string) *LOB {
 
 func closeConnection(conobj *LOB) {
 	if conobj.Value != nil {
-		inchan, err := get(conobj, intern("input:"))
+		inchan, err := Get(conobj, intern("input:"))
 		if err == nil {
 			closeChannel(inchan)
 		}
-		outchan, err := get(conobj, intern("output:"))
+		outchan, err := Get(conobj, intern("output:"))
 		if err == nil {
 			closeChannel(outchan)
 		}
@@ -1119,11 +1126,6 @@ func tcpReader(conn net.Conn, inchan *LOB) {
 			ch <- packet
 		}
 	}
-}
-
-func channelHandle(channel *LOB) chan *LOB {
-	ch, _ := channel.Value.(*Channel)
-	return ch.channel
 }
 
 func tcpWriter(con net.Conn, outchan *LOB) {
@@ -1201,7 +1203,7 @@ func ellHTTPServer(argv []*LOB) (*LOB, error) {
 			for _, val := range v {
 				values = append(values, newString(val))
 			}
-			put(headers, newString(k), listFromValues(values))
+			Put(headers, newString(k), listFromValues(values))
 		}
 		var body *LOB
 		println("method: ", r.Method)
@@ -1226,7 +1228,7 @@ func ellHTTPServer(argv []*LOB) (*LOB, error) {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		if !isStruct(res) {
+		if !IsStruct(res) {
 			w.WriteHeader(500)
 			w.Write([]byte("Handler did not return a struct"))
 			return
@@ -1240,7 +1242,7 @@ func ellHTTPServer(argv []*LOB) (*LOB, error) {
 				w.WriteHeader(nstatus)
 			}
 		}
-		if isStruct(headers) {
+		if IsStruct(headers) {
 			//fix: multiple values for a header
 			for k, v := range headers.bindings {
 				ks := headerString(k.toLOB())
@@ -1248,7 +1250,7 @@ func ellHTTPServer(argv []*LOB) (*LOB, error) {
 				w.Header().Set(ks, vs)
 			}
 		}
-		if isString(body) {
+		if IsString(body) {
 			bodylen := len(body.text)
 			w.Header().Set("Content-length", fmt.Sprint(bodylen))
 			if bodylen > 0 {
@@ -1309,7 +1311,7 @@ func ellHTTPGet(url string, headers *LOB) (*LOB, error) {
 				for _, val := range v {
 					values = append(values, newString(val))
 				}
-				put(headers, newString(k), listFromValues(values))
+				Put(headers, newString(k), listFromValues(values))
 			}
 			s, _ := newStruct([]*LOB{intern("status:"), status, intern("headers:"), headers, intern("body:"), body})
 			return s, nil
@@ -1354,10 +1356,10 @@ func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*L
 		res.Body.Close()
 		if err == nil {
 			s := makeStruct(3)
-			put(s, intern("status:"), newInt(res.StatusCode))
+			Put(s, intern("status:"), newInt(res.StatusCode))
 			bodyLen := len(bodyBytes)
 			if bodyLen > 0 {
-				put(s, intern("body:"), newBlob(bodyBytes))
+				Put(s, intern("body:"), newBlob(bodyBytes))
 			}
 			if len(res.Header) > 0 {
 				headers = makeStruct(len(res.Header))
@@ -1366,9 +1368,9 @@ func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*L
 					for _, val := range v {
 						values = append(values, newString(val))
 					}
-					put(headers, newString(k), listFromValues(values))
+					Put(headers, newString(k), listFromValues(values))
 				}
-				put(s, intern("headers:"), headers)
+				Put(s, intern("headers:"), headers)
 			}
 			return s, nil
 		}
@@ -1390,23 +1392,28 @@ func ellHTTPClient(argv []*LOB) (*LOB, error) {
 	}
 }
 
+func Now() float64 {
+	now := time.Now()
+	return float64(now.UnixNano()) / float64(time.Second)
+}
+
 func now() float64 {
 	now := time.Now()
 	return float64(now.UnixNano()) / float64(time.Second)
 }
 
-func ellNow(argv[]*LOB) (*LOB, error) {
+func ellNow(argv []*LOB) (*LOB, error) {
 	return newFloat64(now()), nil
 }
 
-func ellSince(argv[]*LOB) (*LOB, error) {
+func ellSince(argv []*LOB) (*LOB, error) {
 	then := argv[0].fval
 	dur := now() - then
 	return newFloat64(dur), nil
 }
 
-func ellSleep(argv[]*LOB) (*LOB, error) {
-	dur := time.Duration(argv[0].fval*float64(time.Second))
+func ellSleep(argv []*LOB) (*LOB, error) {
+	dur := time.Duration(argv[0].fval * float64(time.Second))
 	time.Sleep(dur) //!! this is not interruptable, fairly risky in a REPL
 	return newFloat64(now()), nil
 }

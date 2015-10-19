@@ -104,7 +104,7 @@ func listEqual(lst *LOB, a *LOB) bool {
 		if a == EmptyList {
 			return false
 		}
-		if !equal(lst.car, a.car) {
+		if !Equal(lst.car, a.car) {
 			return false
 		}
 		lst = lst.cdr
@@ -179,6 +179,9 @@ func listFromValues(values []*LOB) *LOB {
 	return p
 }
 
+func List(values ...*LOB) *LOB {
+	return listFromValues(values)
+}
 func list(values ...*LOB) *LOB {
 	return listFromValues(values)
 }
