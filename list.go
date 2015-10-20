@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"bytes"
 )
 
+// Cons - create a new list consisting of the first object and the rest of the list
 func Cons(car *LOB, cdr *LOB) *LOB {
 	result := new(LOB)
 	result.Type = ListType
@@ -28,6 +29,7 @@ func Cons(car *LOB, cdr *LOB) *LOB {
 	return result
 }
 
+// Car - return the first object in a list
 func Car(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return Null
@@ -35,6 +37,7 @@ func Car(lst *LOB) *LOB {
 	return lst.car
 }
 
+// Cdr - return the rest of the list
 func Cdr(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return lst
@@ -42,30 +45,47 @@ func Cdr(lst *LOB) *LOB {
 	return lst.cdr
 }
 
+// Caar - return the Car of the Car of the list
 func Caar(lst *LOB) *LOB {
 	return Car(Car(lst))
 }
+
+// Cadr - return the Car of the Cdr of the list
 func Cadr(lst *LOB) *LOB {
 	return Car(Cdr(lst))
 }
+
+// Cdar - return the Cdr of the Car of the list
 func Cdar(lst *LOB) *LOB {
 	return Car(Cdr(lst))
 }
+
+// Cddr - return the Cdr of the Cdr of the list
 func Cddr(lst *LOB) *LOB {
 	return Cdr(Cdr(lst))
 }
+
+// Cadar - return the Car of the Cdr of the Car of the list
 func Cadar(lst *LOB) *LOB {
 	return Car(Cdr(Car(lst)))
 }
+
+// Caddr - return the Car of the Cdr of the Cdr of the list
 func Caddr(lst *LOB) *LOB {
 	return Car(Cdr(Cdr(lst)))
 }
+
+// Cdddr - return the Cdr of the Cdr of the Cdr of the list
 func Cdddr(lst *LOB) *LOB {
 	return Cdr(Cdr(Cdr(lst)))
 }
+
+// Cadddr - return the Car of the Cdr of the Cdr of the Cdr of the list
 func Cadddr(lst *LOB) *LOB {
 	return Car(Cdr(Cdr(Cdr(lst))))
 }
+
+// Cddddr - return the Cdr of the Cdr of the Cdr of the Cdr of the list
 func Cddddr(lst *LOB) *LOB {
 	return Cdr(Cdr(Cdr(Cdr(lst))))
 }
@@ -83,7 +103,7 @@ func initEmpty() *LOB {
 	return &LOB{Type: ListType} //car and cdr are both nil
 }
 
-// Equal returns true if the object is equal to the argument
+// ListEqual returns true if the object is equal to the argument
 func ListEqual(lst *LOB, a *LOB) bool {
 	for lst != EmptyList {
 		if a == EmptyList {
@@ -177,6 +197,7 @@ func listToVector(lst *LOB) *LOB {
 	return VectorFromElementsNoCopy(elems)
 }
 
+// ToList - conver the argument to a List, if possible
 func ToList(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case ListType:
@@ -191,7 +212,7 @@ func ToList(obj *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.Type)
 }
 
-func reverse(lst *LOB) *LOB {
+func Reverse(lst *LOB) *LOB {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = Cons(lst.car, rev)
@@ -200,17 +221,17 @@ func reverse(lst *LOB) *LOB {
 	return rev
 }
 
-func flatten(lst *LOB) *LOB {
+func Flatten(lst *LOB) *LOB {
 	result := EmptyList
 	tail := EmptyList
 	for lst != EmptyList {
 		item := lst.car
 		switch item.Type {
 		case ListType:
-			item = flatten(item)
+			item = Flatten(item)
 		case VectorType:
 			litem, _ := ToList(item)
-			item = flatten(litem)
+			item = Flatten(litem)
 		default:
 			item = List(item)
 		}
@@ -228,8 +249,8 @@ func flatten(lst *LOB) *LOB {
 	return result
 }
 
-func concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
-	rev := reverse(seq1)
+func Concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
+	rev := Reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil
 	}

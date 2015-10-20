@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ var verbose bool
 var debug bool
 var interactive bool
 
+// SetFlags - set various flags controlling the runtime
 func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 	optimize = o
 	verbose = v
@@ -47,6 +48,7 @@ var constants = make([]*LOB, 0, 1000)
 var macroMap = make(map[*LOB]*macro, 0)
 var primitives = make([]*primitive, 0, 1000)
 
+// Bind the value to the global name
 func DefineGlobal(name string, obj *LOB) {
 	sym := Intern(name)
 	if sym == nil {
@@ -55,7 +57,7 @@ func DefineGlobal(name string, obj *LOB) {
 	defGlobal(sym, obj)
 }
 
-func DefinePrimitive(name string, prim *LOB) {
+func definePrimitive(name string, prim *LOB) {
 	sym := Intern(name)
 	if GetGlobal(sym) != nil {
 		println("*** Warning: redefining ", name, " with a primitive")
@@ -63,26 +65,31 @@ func DefinePrimitive(name string, prim *LOB) {
 	defGlobal(sym, prim)
 }
 
+// Register a primitive function to the specified global name
 func DefineFunction(name string, fun PrimitiveFunction, result *LOB, args ...*LOB) {
 	prim := Primitive(name, fun, result, args, nil, nil, nil)
-	DefinePrimitive(name, prim)
+	definePrimitive(name, prim)
 }
 
+// Register a primitive function with Rest arguments to the specified global name
 func DefineFunctionRestArgs(name string, fun PrimitiveFunction, result *LOB, rest *LOB, args ...*LOB) {
 	prim := Primitive(name, fun, result, args, rest, []*LOB{}, nil)
-	DefinePrimitive(name, prim)
+	definePrimitive(name, prim)
 }
 
+// Register a primitive function with optional arguments to the specified global name
 func DefineFunctionOptionalArgs(name string, fun PrimitiveFunction, result *LOB, args []*LOB, defaults ...*LOB) {
 	prim := Primitive(name, fun, result, args, nil, defaults, nil)
-	DefinePrimitive(name, prim)
+	definePrimitive(name, prim)
 }
 
+// Register a primitive function with keyword arguments to the specified global name
 func DefineFunctionKeyArgs(name string, fun PrimitiveFunction, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
 	prim := Primitive(name, fun, result, args, nil, defaults, keys)
-	DefinePrimitive(name, prim)
+	definePrimitive(name, prim)
 }
 
+// Register a primitive macro with the specified name.
 func DefineMacro(name string, fun PrimitiveFunction) {
 	sym := Intern(name)
 	if GetMacro(sym) != nil {
@@ -92,6 +99,7 @@ func DefineMacro(name string, fun PrimitiveFunction) {
 	defMacro(sym, prim)
 }
 
+// GetKeywords - return a slice of Ell primitive reserved words
 func GetKeywords() []*LOB {
 	//keywords reserved for the base language that Ell compiles
 	keywords := []*LOB{
@@ -109,6 +117,7 @@ func GetKeywords() []*LOB {
 	return keywords
 }
 
+// Globals - return a slice of all defined global symbols
 func Globals() []*LOB {
 	var syms []*LOB
 	for _, sym := range symtab {
@@ -119,6 +128,7 @@ func Globals() []*LOB {
 	return syms
 }
 
+// GetGlobal - return the global value for the specified symbol, or nil if the symbol is not defined.
 func GetGlobal(sym *LOB) *LOB {
 	if IsSymbol(sym) {
 		return sym.car
@@ -136,6 +146,7 @@ func defGlobal(sym *LOB, val *LOB) {
 	delete(macroMap, sym)
 }
 
+// IsDefined - return true if the there is a global value defined for the symbol
 func IsDefined(sym *LOB) bool {
 	return sym.car != nil
 }
@@ -144,6 +155,7 @@ func undefGlobal(sym *LOB) {
 	sym.car = nil
 }
 
+// Macros - return a slice of all defined macros
 func Macros() []*LOB {
 	keys := make([]*LOB, 0, len(macroMap))
 	for k := range macroMap {
@@ -152,6 +164,7 @@ func Macros() []*LOB {
 	return keys
 }
 
+// GetMacro - return the macro for the symbol, or nil if not defined
 func GetMacro(sym *LOB) *macro {
 	mac, ok := macroMap[sym]
 	if !ok {

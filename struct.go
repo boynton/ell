@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ func (k structKey) toLOB() *LOB {
 	return Intern(k.keyValue)
 }
 
+// IsValidStructKey - return true of the object is a valid <struct> key.
 func IsValidStructKey(o *LOB) bool {
 	switch o.Type {
 	case StringType, SymbolType, KeywordType, TypeType:
@@ -49,6 +50,7 @@ func IsValidStructKey(o *LOB) bool {
 // EmptyStruct - a <struct> with no bindings
 var EmptyStruct = MakeStruct(0)
 
+// MakeStruct - create an empty <struct> object with the specified capacity
 func MakeStruct(capacity int) *LOB {
 	strct := new(LOB)
 	strct.Type = StructType
@@ -56,6 +58,7 @@ func MakeStruct(capacity int) *LOB {
 	return strct
 }
 
+// Struct - create a new <struct> object from the arguments, which can be other structs, or key/value pairs
 func Struct(fieldvals []*LOB) (*LOB, error) {
 	strct := new(LOB)
 	strct.Type = StructType
@@ -95,11 +98,14 @@ func Struct(fieldvals []*LOB) (*LOB, error) {
 	return strct, nil
 }
 
+// StructLength - return the length (field count) of the <struct> object
 func StructLength(strct *LOB) int {
 	return len(strct.bindings)
 }
 
-//called by the VM, when a keyword is used as a function. Must take value to handle defstruct instances
+// Get - return the value for the key of the object. The Value() function is first called to
+// handle typed instances of <struct>.
+// This is called by the VM, when a keyword is used as a function.
 func Get(obj *LOB, key *LOB) (*LOB, error) {
 	s := Value(obj)
 	if s.Type != StructType {

@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 // EmptyString
 var EmptyString = String("")
 
+// String - create a new string object
 func String(s string) *LOB {
 	str := new(LOB)
 	str.Type = StringType
@@ -30,6 +31,7 @@ func String(s string) *LOB {
 	return str
 }
 
+// AsStringValue - return the native string representation of the object, if possible
 func AsStringValue(obj *LOB) (string, error) {
 	if !IsString(obj) {
 		return "", Error(ArgumentErrorKey, StringType, obj)
@@ -37,6 +39,7 @@ func AsStringValue(obj *LOB) (string, error) {
 	return obj.text, nil
 }
 
+// ToString - convert the object to a string, if possible
 func ToString(a *LOB) (*LOB, error) {
 	switch a.Type {
 	case CharacterType:
@@ -74,6 +77,7 @@ func ToString(a *LOB) (*LOB, error) {
 	}
 }
 
+// StringLength - return the string length
 func StringLength(s string) int {
 	count := 0
 	for range s {
@@ -82,6 +86,7 @@ func StringLength(s string) int {
 	return count
 }
 
+// EncodeString - return the encoded form of a string value
 func EncodeString(s string) string {
 	buf := []rune{}
 	buf = append(buf, '"')
@@ -116,6 +121,7 @@ func EncodeString(s string) string {
 	return string(buf)
 }
 
+// Character - return a new <character> object
 func Character(c rune) *LOB {
 	char := new(LOB)
 	char.Type = CharacterType
@@ -123,6 +129,7 @@ func Character(c rune) *LOB {
 	return char
 }
 
+// ToCharacter - convert object to a <character> object, if possible
 func ToCharacter(c *LOB) (*LOB, error) {
 	switch c.Type {
 	case CharacterType:
@@ -140,13 +147,15 @@ func ToCharacter(c *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "Cannot convert to <character>: ", c)
 }
 
-func AsCharacter(c *LOB) (rune, error) {
+// AsCharacter - return the native rune representation of the character object, if possible
+func AsRuneValue(c *LOB) (rune, error) {
 	if !IsCharacter(c) {
 		return 0, Error(ArgumentErrorKey, "Not a <character>", c)
 	}
 	return rune(c.fval), nil
 }
 
+// StringCharacters - return a slice of <character> objects that represent the string
 func StringCharacters(s *LOB) []*LOB {
 	var chars []*LOB
 	for _, c := range s.text {
@@ -155,6 +164,7 @@ func StringCharacters(s *LOB) []*LOB {
 	return chars
 }
 
+// StringRef - return the <character> object at the specified string index
 func StringRef(s *LOB, idx int) *LOB {
 	//utf8 requires a scan
 	for i, r := range s.text {

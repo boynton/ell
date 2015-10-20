@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import (
 
 // generic file ops
 
+// IsFileReadable - return true of the file is readable
 func IsFileReadable(path string) bool {
 	if info, err := os.Stat(path); err == nil {
 		if info.Mode().IsRegular() {
@@ -38,6 +39,7 @@ func IsFileReadable(path string) bool {
 	return false
 }
 
+// SlurpFile - returnthe file contents as a string
 func SlurpFile(path string) (*LOB, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -46,13 +48,14 @@ func SlurpFile(path string) (*LOB, error) {
 	return String(string(b)), nil
 }
 
+// SpitFile - write the string to the file.
 func SpitFile(path string, data string) error {
 	return ioutil.WriteFile(path, []byte(data), 0644)
 }
 
 // --- reader
 
-//only reads the first item in the input, along with how many characters it read
+// Read - only reads the first item in the input, along with how many characters it read
 // for subsequence calls, you can slice the string to continue
 func Read(input *LOB, keys *LOB) (*LOB, error) {
 	if !IsString(input) {
@@ -70,6 +73,7 @@ func Read(input *LOB, keys *LOB) (*LOB, error) {
 	return obj, nil
 }
 
+// ReadAll - read all items in the input, returning a list of them.
 func ReadAll(input *LOB, keys *LOB) (*LOB, error) {
 	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)

@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,25 +24,25 @@ import (
 )
 
 const (
-	opcodeBad     = iota
-	opcodeLiteral // 1
+	opcodeBad = iota
+	opcodeLiteral
 	opcodeLocal
 	opcodeJumpFalse
 	opcodeJump
-	opcodeTailCall // 5
+	opcodeTailCall
 	opcodeCall
 	opcodeReturn
 	opcodeClosure
 	opcodePop
-	opcodeGlobal // 10
+	opcodeGlobal
 	opcodeDefGlobal
 	opcodeSetLocal
 	opcodeUse
 	opcodeDefMacro
-	opcodeVector // 15
+	opcodeVector
 	opcodeStruct
 	opcodeUndefGlobal
-	opcodeCount //18
+	opcodeCount
 )
 
 //all syms for ops should be 7 chars or less
@@ -63,7 +63,6 @@ var DefmacroSymbol = Intern("defmacro")
 var VectorSymbol = Intern("vector")
 var StructSymbol = Intern("struct")
 var UndefineSymbol = Intern("undefine")
-
 var FuncSymbol = Intern("func")
 
 var opsyms = initOpsyms()
@@ -99,6 +98,7 @@ type Code struct {
 	keys     []*LOB
 }
 
+// MakeCode - create a new code object
 func MakeCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 	var ops []int
 	code := &Code{

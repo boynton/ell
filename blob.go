@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@ limitations under the License.
 
 package ell
 
-import (
-//	"strings"
-)
-
+// Blob - create a new blob, using the specified byte slice as the data. The data is not copied.
 func Blob(bytes []byte) *LOB {
 	b := new(LOB)
 	b.Type = BlobType
@@ -27,6 +24,7 @@ func Blob(bytes []byte) *LOB {
 	return b
 }
 
+// MakeBlob - create a new blob of the given size. It will be initialized to all zeroes
 func MakeBlob(size int) *LOB {
 	el := make([]byte, size)
 	return Blob(el)
@@ -35,7 +33,8 @@ func MakeBlob(size int) *LOB {
 // EmptyBlob - a blob with no bytes
 var EmptyBlob = MakeBlob(0)
 
-func toBlob(obj *LOB) (*LOB, error) {
+// ToBlob - convert argument to a blob, if possible.
+func ToBlob(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case BlobType:
 		return obj, nil

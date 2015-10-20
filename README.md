@@ -24,8 +24,8 @@ back to the shell.
 
 ## Primitive types
 
-Ell defines a variety of native data types, all of which have an external textual representation. This data notation is called
-EllDN, and is a superset of JSON.
+Ell defines a variety of native data types, all of which have an external textual representation. This data
+notation is called [EllDN](https://github.com/boynton/elldn), and is a superset of JSON.
 
 	? 5.2
 	= 5.2
@@ -413,30 +413,32 @@ For example:
 
 ### Continuations
 
+Full continuations (the same as in Scheme) are support via the `callcc` function. A few examples are in
+tests/continuation_test.ell, and a full coroutine scheduler that supports the structured `parallel`
+statement is in lib/scheduler.ell. Ell's `catch` macro and error function are built on continuations.
 
-## More info
+### Socket server, web server
+See tests/sockserver.ell and tests/sockclient for a simple example of a TCP server that uses framed messages,
+and tests/webserver.ell and tests/webclient.ell for example HTTP server/client written in Ell
+
+### Threads and Channels
+
+Lightweight threads and asynchronous communication channels are also supported. See tests/channel_test.ell
+and their usage in tests/sockserver.ell
 
 
+## License
 
-The reader handles all of [EllDN](https://github.com/boynton/elldn) syntax, which is a superset of JSON.
+Copyright 2015 Lee Boynton
 
-Function binding includes option and keyword arguments, as well as rest arguments. See tests/argbinding_test.ell for
-examples of that.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+                                                                                                                                   
+  http://www.apache.org/licenses/LICENSE-2.0
 
-Simple macros are supported, see tests/macro_example.ell and lib/ell.ell for examples of those.
-
-Full continuations are supported. See tests/continuation_test.ell for examples.
-
-Typed objects, called `instances` are also supported. An instance is simply a pairing of type and value.
-They are used by defstruct and deftype, which are defined as macros
-in lib/ell.ell, with some examples also that file, as well as tests/defstruct_examples.ell.
-
-Generic functions with full multimethod dispatch is also supported, defined in lib/ell.ell, with an example in
-tests/multimethod_examples.ell.
-
-Keywords are actually symbols that have trailing colons, so they can be used anywhere symbols are used, except
-the compiler knows they evaluate to themselves. They can be treated as accessor functions on maps, also.
-
-Similarly, types are  symbols surround by angle brackets, and they are also self-evaluating.
-
-The various files in the tests/ directory contain a variety of examples
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

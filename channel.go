@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ import (
 	"fmt"
 )
 
-//
 // this type is similar to what an extension type (outside the ell package) would look like:
-//   the Value field of LOB stores a pointer to the types specific data
+// the Value field of LOB stores a pointer to the types specific data
 
+// ChannelType - the type of Ell's channel object
 var ChannelType = Intern("<channel>")
 
 type channel struct {
@@ -46,10 +46,12 @@ func (ch *channel) String() string {
 	return s + "]"
 }
 
+// Channel - create a new channel with the given buffer size and name
 func Channel(bufsize int, name string) *LOB {
 	return NewObject(ChannelType, &channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)})
 }
 
+// ChannelValue - return the Go channel object for the Ell channel
 func ChannelValue(obj *LOB) chan *LOB {
 	if obj.Value == nil {
 		return nil
@@ -58,6 +60,7 @@ func ChannelValue(obj *LOB) chan *LOB {
 	return v.channel
 }
 
+// CloseChannel - close the channel object
 func CloseChannel(obj *LOB) {
 	v, _ := obj.Value.(*channel)
 	if v != nil {

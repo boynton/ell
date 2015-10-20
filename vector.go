@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"bytes"
 )
 
+// VectorEqual - return true of the two vectors are equal, i.e. the same length and
+// all the elements are also equal
 func VectorEqual(v1 *LOB, v2 *LOB) bool {
 	el1 := v1.elements
 	el2 := v2.elements
@@ -51,6 +53,8 @@ func vectorToString(vec *LOB) string {
 	return buf.String()
 }
 
+// MakeVector - create a new <vector> object of the specified size, with all elements initialized to
+// the specified value
 func MakeVector(size int, init *LOB) *LOB {
 	elements := make([]*LOB, size)
 	for i := 0; i < size; i++ {
@@ -59,16 +63,19 @@ func MakeVector(size int, init *LOB) *LOB {
 	return VectorFromElementsNoCopy(elements)
 }
 
+// Vector - create a new <vector> object from the given element objects.
 func Vector(elements ...*LOB) *LOB {
 	return VectorFromElements(elements, len(elements))
 }
 
+// VectorFromElements - return a new <vector> object from the given slice of elements. The slice is copied.
 func VectorFromElements(elements []*LOB, count int) *LOB {
 	el := make([]*LOB, count)
 	copy(el, elements[0:count])
 	return VectorFromElementsNoCopy(el)
 }
 
+// VectorFromElementsNoCopy - create a new <vector> object from the given slice of elements. The slice is NOT copied.
 func VectorFromElementsNoCopy(elements []*LOB) *LOB {
 	vec := new(LOB)
 	vec.Type = VectorType
@@ -76,10 +83,12 @@ func VectorFromElementsNoCopy(elements []*LOB) *LOB {
 	return vec
 }
 
+// CopyVector - return a copy of the <vector>
 func CopyVector(vec *LOB) *LOB {
 	return VectorFromElements(vec.elements, len(vec.elements))
 }
 
+// ToVector - convert the object to a <vector>, if possible
 func ToVector(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case VectorType:

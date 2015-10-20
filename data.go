@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ type LOB struct {
 	Value        interface{}        // the rest of the data for more complex things
 }
 
+// BoolValue - return native bool value of the object
 func BoolValue(obj *LOB) bool {
 	if obj == True {
 		return true
@@ -46,26 +47,32 @@ func BoolValue(obj *LOB) bool {
 	return false
 }
 
+// RuneValue - return native rune value of the object
 func RuneValue(obj *LOB) rune {
 	return rune(obj.fval)
 }
 
+// IntValue - return native int value of the object
 func IntValue(obj *LOB) int {
 	return int(obj.fval)
 }
 
+// Int64Value - return native int64 value of the object
 func Int64Value(obj *LOB) int64 {
 	return int64(obj.fval)
 }
 
+// Float64Value - return native float64 value of the object
 func Float64Value(obj *LOB) float64 {
 	return obj.fval
 }
 
+// StringValue - return native string value of the object
 func StringValue(obj *LOB) string {
 	return obj.text
 }
 
+// BlobValue - return native []byte value of the object
 func BlobValue(obj *LOB) []byte {
 	b, _ := obj.Value.([]byte)
 	return b
@@ -80,14 +87,7 @@ func NewObject(variant *LOB, value interface{}) *LOB {
 	return lob
 }
 
-/*
-func newLOB(variant *LOB) *LOB {
-	lob := new(LOB)
-	lob.Type = variant
-	return lob
-}
-*/
-
+// Identical - return if two objects are identical
 func Identical(o1 *LOB, o2 *LOB) bool {
 	return o1 == o2
 }

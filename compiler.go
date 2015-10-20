@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ limitations under the License.
 
 package ell
 
+// Compile - compile the source into a code object.
 func Compile(expr *LOB) (*LOB, error) {
 	target := MakeCode(0, nil, nil, "")
 	err := compileExpr(target, EmptyList, expr, false, false, "")

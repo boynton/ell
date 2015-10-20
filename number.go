@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ var One = Number(1)
 // MinusOne is the Ell -1 value
 var MinusOne = Number(-1)
 
+// Number - create a Number object for the given value
 func Number(f float64) *LOB {
 	num := new(LOB)
 	num.Type = NumberType
@@ -38,6 +39,7 @@ func Number(f float64) *LOB {
 	return num
 }
 
+// Round - return the closest integer value to the float value
 func Round(f float64) float64 {
 	if f > 0 {
 		return math.Floor(f + 0.5)
@@ -45,6 +47,7 @@ func Round(f float64) float64 {
 	return math.Ceil(f - 0.5)
 }
 
+// ToNumber - convert object to a number, if possible
 func ToNumber(o *LOB) (*LOB, error) {
 	switch o.Type {
 	case NumberType:
@@ -62,6 +65,7 @@ func ToNumber(o *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "cannot convert to an number: ", o)
 }
 
+// ToInt - convert the object to an integer number, if possible
 func ToInt(o *LOB) (*LOB, error) {
 	switch o.Type {
 	case NumberType:

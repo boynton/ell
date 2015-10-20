@@ -1,5 +1,5 @@
 /*
-Copyright 2014 Lee Boynton
+Copyright 2015 Lee Boynton
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ type macro struct {
 	expander *LOB //a function of one argument
 }
 
+// Macro - create a new Macro
 func Macro(name *LOB, expander *LOB) *macro {
 	return &macro{name, expander}
 }
@@ -33,6 +34,7 @@ func (mac *macro) String() string {
 	return fmt.Sprintf("(macro %v %v)", mac.name, mac.expander)
 }
 
+// Macroexpand - return the expansion of all macros in the object and return the result
 func Macroexpand(expr *LOB) (*LOB, error) {
 	return macroexpandObject(expr)
 }
@@ -123,7 +125,7 @@ func expandSequence(seq *LOB) (*LOB, error) {
 	lst := listFromValues(result)
 	if seq != EmptyList {
 		tmp := Cons(seq, EmptyList)
-		return concat(lst, tmp)
+		return Concat(lst, tmp)
 	}
 	return lst, nil
 }
@@ -255,7 +257,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 				bindings = Cons(Cdr(def), bindings)
 				tmp = Cdr(tmp)
 			}
-			bindings = reverse(bindings)
+			bindings = Reverse(bindings)
 			tmp = Cons(Intern("letrec"), Cons(bindings, tmp)) //scheme specifies letrec*
 			tmp2, err := macroexpandList(tmp)
 			return List(Car(expr), Cadr(expr), tmp2), err
@@ -342,7 +344,7 @@ func crackLetrecBindings(bindings *LOB, tail *LOB) (*LOB, *LOB, bool) {
 		}
 		bindings = Cdr(bindings)
 	}
-	inits = reverse(inits)
+	inits = Reverse(inits)
 	head := inits
 	for inits.cdr != EmptyList {
 		inits = inits.cdr
