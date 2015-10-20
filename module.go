@@ -45,88 +45,71 @@ var EllPath string
 var constantsMap = make(map[*LOB]int, 0)
 var constants = make([]*LOB, 0, 1000)
 var macroMap = make(map[*LOB]*macro, 0)
-var primitives = make([]*Primitive, 0, 1000)
+var primitives = make([]*primitive, 0, 1000)
 
-func defineGlobal(name string, obj *LOB) {
-	sym := intern(name)
+func DefineGlobal(name string, obj *LOB) {
+	sym := Intern(name)
 	if sym == nil {
 		panic("Cannot define a value for this symbol: " + name)
 	}
 	defGlobal(sym, obj)
 }
 
-func definePrimitive(name string, prim *LOB) {
-	sym := intern(name)
-	if global(sym) != nil {
+func DefinePrimitive(name string, prim *LOB) {
+	sym := Intern(name)
+	if GetGlobal(sym) != nil {
 		println("*** Warning: redefining ", name, " with a primitive")
 	}
 	defGlobal(sym, prim)
 }
 
-func DefineFunction(name string, fun PrimCallable, result *LOB, args ...*LOB) {
-	prim := newPrimitive(name, fun, result, args, nil, nil, nil)
-	definePrimitive(name, prim)
+func DefineFunction(name string, fun PrimitiveFunction, result *LOB, args ...*LOB) {
+	prim := Primitive(name, fun, result, args, nil, nil, nil)
+	DefinePrimitive(name, prim)
 }
 
-func defineFunction(name string, fun PrimCallable, result *LOB, args ...*LOB) {
-	prim := newPrimitive(name, fun, result, args, nil, nil, nil)
-	definePrimitive(name, prim)
+func DefineFunctionRestArgs(name string, fun PrimitiveFunction, result *LOB, rest *LOB, args ...*LOB) {
+	prim := Primitive(name, fun, result, args, rest, []*LOB{}, nil)
+	DefinePrimitive(name, prim)
 }
 
-func DefineFunctionRestArgs(name string, fun PrimCallable, result *LOB, rest *LOB, args ...*LOB) {
-	prim := newPrimitive(name, fun, result, args, rest, []*LOB{}, nil)
-	definePrimitive(name, prim)
-}
-func defineFunctionRestArgs(name string, fun PrimCallable, result *LOB, rest *LOB, args ...*LOB) {
-	prim := newPrimitive(name, fun, result, args, rest, []*LOB{}, nil)
-	definePrimitive(name, prim)
+func DefineFunctionOptionalArgs(name string, fun PrimitiveFunction, result *LOB, args []*LOB, defaults ...*LOB) {
+	prim := Primitive(name, fun, result, args, nil, defaults, nil)
+	DefinePrimitive(name, prim)
 }
 
-func DefineFunctionOptionalArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults ...*LOB) {
-	prim := newPrimitive(name, fun, result, args, nil, defaults, nil)
-	definePrimitive(name, prim)
-}
-func defineFunctionOptionalArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults ...*LOB) {
-	prim := newPrimitive(name, fun, result, args, nil, defaults, nil)
-	definePrimitive(name, prim)
+func DefineFunctionKeyArgs(name string, fun PrimitiveFunction, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
+	prim := Primitive(name, fun, result, args, nil, defaults, keys)
+	DefinePrimitive(name, prim)
 }
 
-func DefineFunctionKeyArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
-	prim := newPrimitive(name, fun, result, args, nil, defaults, keys)
-	definePrimitive(name, prim)
-}
-func defineFunctionKeyArgs(name string, fun PrimCallable, result *LOB, args []*LOB, defaults []*LOB, keys []*LOB) {
-	prim := newPrimitive(name, fun, result, args, nil, defaults, keys)
-	definePrimitive(name, prim)
-}
-
-func defineMacro(name string, fun PrimCallable) {
-	sym := intern(name)
-	if getMacro(sym) != nil {
-		println("*** Warning: redefining macro ", name, " -> ", getMacro(sym))
+func DefineMacro(name string, fun PrimitiveFunction) {
+	sym := Intern(name)
+	if GetMacro(sym) != nil {
+		println("*** Warning: redefining macro ", name, " -> ", GetMacro(sym))
 	}
-	prim := newPrimitive(name, fun, AnyType, []*LOB{AnyType}, nil, nil, nil)
+	prim := Primitive(name, fun, AnyType, []*LOB{AnyType}, nil, nil, nil)
 	defMacro(sym, prim)
 }
 
-func getKeywords() []*LOB {
+func GetKeywords() []*LOB {
 	//keywords reserved for the base language that Ell compiles
 	keywords := []*LOB{
-		intern("quote"),
-		intern("fn"),
-		intern("if"),
-		intern("do"),
-		intern("def"),
-		intern("defn"),
-		intern("defmacro"),
-		intern("set!"),
-		intern("code"),
-		intern("use"),
+		Intern("quote"),
+		Intern("fn"),
+		Intern("if"),
+		Intern("do"),
+		Intern("def"),
+		Intern("defn"),
+		Intern("defmacro"),
+		Intern("set!"),
+		Intern("code"),
+		Intern("use"),
 	}
 	return keywords
 }
 
-func getGlobals() []*LOB {
+func Globals() []*LOB {
 	var syms []*LOB
 	for _, sym := range symtab {
 		if sym.car != nil {
@@ -136,7 +119,7 @@ func getGlobals() []*LOB {
 	return syms
 }
 
-func global(sym *LOB) *LOB {
+func GetGlobal(sym *LOB) *LOB {
 	if IsSymbol(sym) {
 		return sym.car
 	}
@@ -153,7 +136,7 @@ func defGlobal(sym *LOB, val *LOB) {
 	delete(macroMap, sym)
 }
 
-func isDefined(sym *LOB) bool {
+func IsDefined(sym *LOB) bool {
 	return sym.car != nil
 }
 
@@ -161,7 +144,7 @@ func undefGlobal(sym *LOB) {
 	sym.car = nil
 }
 
-func macros() []*LOB {
+func Macros() []*LOB {
 	keys := make([]*LOB, 0, len(macroMap))
 	for k := range macroMap {
 		keys = append(keys, k)
@@ -169,7 +152,7 @@ func macros() []*LOB {
 	return keys
 }
 
-func getMacro(sym *LOB) *macro {
+func GetMacro(sym *LOB) *macro {
 	mac, ok := macroMap[sym]
 	if !ok {
 		return nil
@@ -178,7 +161,7 @@ func getMacro(sym *LOB) *macro {
 }
 
 func defMacro(sym *LOB, val *LOB) {
-	macroMap[sym] = newMacro(sym, val)
+	macroMap[sym] = Macro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
@@ -193,8 +176,8 @@ func putConstant(val *LOB) int {
 	return idx
 }
 
-func use(sym *LOB) error {
-	return LoadModule(sym.text)
+func Use(sym *LOB) error {
+	return Load(sym.text)
 }
 
 func importCode(thunk *LOB) (*LOB, error) {
@@ -206,7 +189,7 @@ func importCode(thunk *LOB) (*LOB, error) {
 	return result, nil
 }
 
-func findModuleByName(moduleName string) (string, error) {
+func FindModuleByName(moduleName string) (string, error) {
 	path := strings.Split(EllPath, ":")
 	name := moduleName
 	var lname string
@@ -218,82 +201,82 @@ func findModuleByName(moduleName string) (string, error) {
 	}
 	for _, dirname := range path {
 		filename := filepath.Join(dirname, lname)
-		if fileReadable(filename) {
+		if IsFileReadable(filename) {
 			return filename, nil
 		}
 		filename = filepath.Join(dirname, name)
-		if fileReadable(filename) {
+		if IsFileReadable(filename) {
 			return filename, nil
 		}
 	}
 	return "", Error(IOErrorKey, "Module not found: ", moduleName)
 }
 
-func LoadModule(name string) error {
-	file, err := findModuleFile(name)
+func Load(name string) error {
+	file, err := FindModuleFile(name)
 	if err != nil {
 		return err
 	}
-	return loadFile(file)
+	return LoadFile(file)
 }
 
-func loadFile(file string) error {
+func LoadFile(file string) error {
 	if verbose {
 		println("; loadFile: " + file)
 	} else if interactive {
 		println("[loading " + file + "]")
 	}
-	fileText, err := slurpFile(file)
+	fileText, err := SlurpFile(file)
 	if err != nil {
 		return err
 	}
-	exprs, err := readAll(fileText, nil)
+	exprs, err := ReadAll(fileText, nil)
 	if err != nil {
 		return err
 	}
 	for exprs != EmptyList {
-		expr := car(exprs)
-		_, err = eval(expr)
+		expr := Car(exprs)
+		_, err = Eval(expr)
 		if err != nil {
 			return err
 		}
-		exprs = cdr(exprs)
+		exprs = Cdr(exprs)
 	}
 	return nil
 }
 
-func eval(expr *LOB) (*LOB, error) {
+func Eval(expr *LOB) (*LOB, error) {
 	if debug {
-		println("; eval: ", write(expr))
+		println("; eval: ", Write(expr))
 	}
 	expanded, err := macroexpandObject(expr)
 	if err != nil {
 		return nil, err
 	}
 	if debug {
-		println("; expanded to: ", write(expanded))
+		println("; expanded to: ", Write(expanded))
 	}
-	code, err := compile(expanded)
+	code, err := Compile(expanded)
 	if err != nil {
 		return nil, err
 	}
 	if debug {
-		val := strings.Replace(write(code), "\n", "\n; ", -1)
+		val := strings.Replace(Write(code), "\n", "\n; ", -1)
 		println("; compiled to:\n;  ", val)
 	}
 	return importCode(code)
 }
 
-func findModuleFile(name string) (string, error) {
+func FindModuleFile(name string) (string, error) {
 	i := strings.Index(name, ".")
 	if i < 0 {
-		file, err := findModuleByName(name)
+		file, err := FindModuleByName(name)
 		if err != nil {
 			return "", err
 		}
 		return file, nil
 	}
-	if !fileReadable(name) {
+	if !IsFileReadable(name) {
 		return "", Error(IOErrorKey, "Cannot read file: ", name)
 	}
 	return name, nil
@@ -301,52 +284,52 @@ func findModuleFile(name string) (string, error) {
 
 func compileObject(expr *LOB) (string, error) {
 	if debug {
-		println("; compile: ", write(expr))
+		println("; compile: ", Write(expr))
 	}
 	expanded, err := macroexpandObject(expr)
 	if err != nil {
 		return "", err
 	}
 	if debug {
-		println("; expanded to: ", write(expanded))
+		println("; expanded to: ", Write(expanded))
 	}
-	thunk, err := compile(expanded)
+	thunk, err := Compile(expanded)
 	if err != nil {
 		return "", err
 	}
 	if debug {
-		println("; compiled to: ", write(thunk))
+		println("; compiled to: ", Write(thunk))
 	}
 	return thunk.code.decompile(true) + "\n", nil
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
 func CompileFile(name string) (*LOB, error) {
-	file, err := findModuleFile(name)
+	file, err := FindModuleFile(name)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
 		println("; loadFile: " + file)
 	}
-	fileText, err := slurpFile(file)
+	fileText, err := SlurpFile(file)
 	if err != nil {
 		return nil, err
 	}
 
-	exprs, err := readAll(fileText, nil)
+	exprs, err := ReadAll(fileText, nil)
 	result := ";\n; code generated from " + file + "\n;\n"
 	var lvm string
 	for exprs != EmptyList {
-		expr := car(exprs)
+		expr := Car(exprs)
 		lvm, err = compileObject(expr)
 		if err != nil {
 			return nil, err
 		}
 		result += lvm
-		exprs = cdr(exprs)
+		exprs = Cdr(exprs)
 	}
-	return newString(result), nil
+	return String(result), nil
 }
 
 func Main(ext Extension) {
@@ -383,7 +366,7 @@ func Main(ext Extension) {
 		if !*pNoInit {
 			_, err := os.Stat(ellini)
 			if err == nil {
-				err := LoadModule(ellini)
+				err := Load(ellini)
 				if err != nil {
 					Fatal("*** ", err)
 				}
@@ -413,7 +396,7 @@ func Main(ext Extension) {
 				println(lap)
 			} else {
 				//this executes the file
-				err := LoadModule(filename)
+				err := Load(filename)
 				if err != nil {
 					Fatal("*** ", err.Error())
 				}

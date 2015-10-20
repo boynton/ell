@@ -17,19 +17,15 @@ limitations under the License.
 package ell
 
 func Intern(name string) *LOB {
-	return intern(name)
-}
-
-func intern(name string) *LOB {
 	sym, ok := symtab[name]
 	if !ok {
 		sym = new(LOB)
 		sym.text = name
-		if isValidKeywordName(name) {
+		if IsValidKeywordName(name) {
 			sym.Type = KeywordType
-		} else if isValidTypeName(name) {
+		} else if IsValidTypeName(name) {
 			sym.Type = TypeType
-		} else if isValidSymbolName(name) {
+		} else if IsValidSymbolName(name) {
 			sym.Type = SymbolType
 		} else {
 			panic("invalid symbol/type/keyword name passed to intern: " + name)
@@ -39,11 +35,11 @@ func intern(name string) *LOB {
 	return sym
 }
 
-func isValidSymbolName(name string) bool {
+func IsValidSymbolName(name string) bool {
 	return len(name) > 0
 }
 
-func isValidTypeName(s string) bool {
+func IsValidTypeName(s string) bool {
 	n := len(s)
 	if n > 2 && s[0] == '<' && s[n-1] == '>' {
 		return true
@@ -51,7 +47,7 @@ func isValidTypeName(s string) bool {
 	return false
 }
 
-func isValidKeywordName(s string) bool {
+func IsValidKeywordName(s string) bool {
 	n := len(s)
 	if n > 1 && s[n-1] == ':' {
 		return true
@@ -59,19 +55,19 @@ func isValidKeywordName(s string) bool {
 	return false
 }
 
-func toKeyword(obj *LOB) (*LOB, error) {
+func ToKeyword(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case KeywordType:
 		return obj, nil
 	case TypeType:
-		return intern(obj.text[1:len(obj.text)-1] + ":"), nil
+		return Intern(obj.text[1:len(obj.text)-1] + ":"), nil
 	case SymbolType:
-		return intern(obj.text + ":"), nil
+		return Intern(obj.text + ":"), nil
 	case StringType:
-		if isValidKeywordName(obj.text) {
-			return intern(obj.text), nil
-		} else if isValidSymbolName(obj.text) {
-			return intern(obj.text + ":"), nil
+		if IsValidKeywordName(obj.text) {
+			return Intern(obj.text), nil
+		} else if IsValidSymbolName(obj.text) {
+			return Intern(obj.text + ":"), nil
 		}
 	}
 	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type)
@@ -80,12 +76,12 @@ func toKeyword(obj *LOB) (*LOB, error) {
 func keywordify(s *LOB) *LOB {
 	switch s.Type {
 	case StringType:
-		if !isValidKeywordName(s.text) {
-			return intern(s.text + ":")
+		if !IsValidKeywordName(s.text) {
+			return Intern(s.text + ":")
 		}
-		return intern(s.text)
+		return Intern(s.text)
 	case SymbolType:
-		return intern(s.text + ":")
+		return Intern(s.text + ":")
 	}
 	return s
 }
@@ -95,15 +91,15 @@ func typeNameString(s string) string {
 }
 
 // <type> -> <symbol>
-func typeName(t *LOB) (*LOB, error) {
+func TypeName(t *LOB) (*LOB, error) {
 	if !IsType(t) {
 		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.Type)
 	}
-	return intern(typeNameString(t.text)), nil
+	return Intern(typeNameString(t.text)), nil
 }
 
 // <keyword> -> <symbol>
-func keywordName(t *LOB) (*LOB, error) {
+func KeywordName(t *LOB) (*LOB, error) {
 	if !IsKeyword(t) {
 		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.Type)
 	}
@@ -126,22 +122,22 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 		return obj, nil
 	}
 	if IsKeyword(obj) {
-		return intern(keywordNameString(obj.text)), nil
+		return Intern(keywordNameString(obj.text)), nil
 	}
 	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.Type)
 }
 
-func toSymbol(obj *LOB) (*LOB, error) {
+func ToSymbol(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case KeywordType:
-		return intern(keywordNameString(obj.text)), nil
+		return Intern(keywordNameString(obj.text)), nil
 	case TypeType:
-		return intern(typeNameString(obj.text)), nil
+		return Intern(typeNameString(obj.text)), nil
 	case SymbolType:
 		return obj, nil
 	case StringType:
-		if isValidSymbolName(obj.text) {
-			return intern(obj.text), nil
+		if IsValidSymbolName(obj.text) {
+			return Intern(obj.text), nil
 		}
 	}
 	return nil, Error(ArgumentErrorKey, "to-symbol expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type)
@@ -165,7 +161,7 @@ func initSymbolTable() map[string]*LOB {
 	return syms
 }
 
-func symbols() []*LOB {
+func Symbols() []*LOB {
 	syms := make([]*LOB, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
@@ -173,7 +169,7 @@ func symbols() []*LOB {
 	return syms
 }
 
-func symbol(names []*LOB) (*LOB, error) {
+func Symbol(names []*LOB) (*LOB, error) {
 	size := len(names)
 	if size < 1 {
 		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")
@@ -190,5 +186,5 @@ func symbol(names []*LOB) (*LOB, error) {
 		}
 		name += s
 	}
-	return intern(name), nil
+	return Intern(name), nil
 }

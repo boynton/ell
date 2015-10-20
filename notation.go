@@ -29,7 +29,7 @@ import (
 
 // generic file ops
 
-func fileReadable(path string) bool {
+func IsFileReadable(path string) bool {
 	if info, err := os.Stat(path); err == nil {
 		if info.Mode().IsRegular() {
 			return true
@@ -38,44 +38,29 @@ func fileReadable(path string) bool {
 	return false
 }
 
-func slurpFile(path string) (*LOB, error) {
+func SlurpFile(path string) (*LOB, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return EmptyString, err
 	}
-	return newString(string(b)), nil
+	return String(string(b)), nil
 }
 
-func spitFile(path string, data string) error {
+func SpitFile(path string, data string) error {
 	return ioutil.WriteFile(path, []byte(data), 0644)
 }
 
 // --- reader
 
-func keysOptionValue(options *LOB) (*LOB, error) {
-	if options != nil {
-		t, err := Get(options, intern("keys:"))
-		if err == nil && IsType(t) {
-			switch t {
-			case SymbolType, KeywordType, StringType:
-				return t, nil
-			default:
-				return nil, Error(ArgumentErrorKey, "Bad option value for keys: ", t)
-			}
-		}
-	}
-	return Null, nil
-}
-
 //only reads the first item in the input, along with how many characters it read
 // for subsequence calls, you can slice the string to continue
-func read(input *LOB) (*LOB, error) {
+func Read(input *LOB, keys *LOB) (*LOB, error) {
 	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read invalid input: ", input)
 	}
 	r := strings.NewReader(input.text)
 	reader := newDataReader(r)
-	obj, err := reader.readData(AnyType)
+	obj, err := reader.readData(keys)
 	if err != nil {
 		if err == io.EOF {
 			return Null, nil
@@ -85,7 +70,7 @@ func read(input *LOB) (*LOB, error) {
 	return obj, nil
 }
 
-func readAll(input *LOB, keys *LOB) (*LOB, error) {
+func ReadAll(input *LOB, keys *LOB) (*LOB, error) {
 	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)
 	}
@@ -95,10 +80,10 @@ func readAll(input *LOB, keys *LOB) (*LOB, error) {
 	val, err := reader.readData(keys)
 	for err == nil {
 		if lst == EmptyList {
-			lst = list(val)
+			lst = List(val)
 			tail = lst
 		} else {
-			tail.cdr = list(val)
+			tail.cdr = List(val)
 			tail = tail.cdr
 		}
 		val, err = reader.readData(keys)
@@ -159,29 +144,29 @@ func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
 			if o == nil {
 				return o, nil
 			}
-			return list(symQuote, o), nil
+			return List(QuoteSymbol, o), nil
 		case '`':
 			o, err := dr.readData(keys)
 			if err != nil {
 				return nil, err
 			}
-			return list(symQuasiquote, o), nil
+			return List(QuasiquoteSymbol, o), nil
 		case '~':
 			c, e := dr.getChar()
 			if e != nil {
 				return nil, e
 			}
-			sym := symUnquote
+			sym := UnquoteSymbol
 			if c != '@' {
 				dr.ungetChar()
 			} else {
-				sym = symUnquoteSplicing
+				sym = UnquoteSymbolSplicing
 			}
 			o, err := dr.readData(keys)
 			if err != nil {
 				return nil, err
 			}
-			return list(sym, o), nil
+			return List(sym, o), nil
 		case '#':
 			return dr.decodeReaderMacro(keys)
 		case '(':
@@ -263,8 +248,7 @@ func (dr *dataReader) decodeString() (*LOB, error) {
 		}
 		c, e = dr.getChar()
 	}
-	s := newString(string(buf))
-	return s, e
+	return String(string(buf)), e
 }
 
 func (dr *dataReader) decodeList(keys *LOB) (*LOB, error) {
@@ -280,7 +264,7 @@ func (dr *dataReader) decodeVector(keys *LOB) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return vector(items...), nil
+	return Vector(items...), nil
 }
 
 func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
@@ -315,7 +299,7 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 			return nil, Error(SyntaxErrorKey, "Unexpected ':' in struct")
 		}
 		if c == '}' {
-			return newStruct(items)
+			return Struct(items)
 		}
 		dr.ungetChar()
 		element, err := dr.readData(nil)
@@ -325,17 +309,17 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 		if keys != nil && keys != AnyType {
 			switch keys {
 			case KeywordType:
-				element, err = toKeyword(element)
+				element, err = ToKeyword(element)
 				if err != nil {
 					return nil, err
 				}
 			case SymbolType:
-				element, err = toSymbol(element)
+				element, err = ToSymbol(element)
 				if err != nil {
 					return nil, err
 				}
 			case StringType:
-				element, err = toString(element)
+				element, err = ToString(element)
 				if err != nil {
 					return nil, err
 				}
@@ -414,12 +398,12 @@ func (dr *dataReader) decodeAtom(firstChar byte) (*LOB, error) {
 		if keyword {
 			return nil, Error(SyntaxErrorKey, "Keyword cannot have a name that looks like a number: ", s, ":")
 		}
-		return newFloat64(f), nil
+		return Number(f), nil
 	}
 	if keyword {
 		s += ":"
 	}
-	sym := intern(s)
+	sym := Intern(s)
 	return sym, nil
 }
 
@@ -528,7 +512,7 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 			return nil, e
 		}
 		if isWhitespace(c) || isDelimiter(c) {
-			return newCharacter(rune(c)), nil
+			return Character(rune(c)), nil
 		}
 		c2, e := dr.getChar()
 		if e != nil {
@@ -554,11 +538,11 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 			if e != nil {
 				return nil, e
 			}
-			return newCharacter(r), nil
+			return Character(r), nil
 		} else if e == nil {
 			dr.ungetChar()
 		}
-		return newCharacter(rune(c)), nil
+		return Character(rune(c)), nil
 	case '!': //to handle shell scripts, handle #! as a comment
 		err := dr.decodeComment()
 		return Null, err
@@ -573,7 +557,7 @@ func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
 		if err != nil {
 			return nil, err
 		}
-		if isValidTypeName(atom) {
+		if IsValidTypeName(atom) {
 			val, err := dr.readData(keys)
 			if err != nil {
 				return nil, Error(SyntaxErrorKey, "Bad reader macro: #", atom, " ...")
@@ -596,11 +580,11 @@ func isDelimiter(b byte) bool {
 
 const defaultIndentSize = "    "
 
-func write(obj *LOB) string {
+func Write(obj *LOB) string {
 	return writeIndent(obj, "")
 }
 
-func pretty(obj *LOB) string {
+func Pretty(obj *LOB) string {
 	return writeIndent(obj, defaultIndentSize)
 }
 
@@ -609,11 +593,11 @@ func writeIndent(obj *LOB, indentSize string) string {
 	return s
 }
 
-func writeAll(obj *LOB) string {
+func WriteAll(obj *LOB) string {
 	return writeAllIndent(obj, "")
 }
 
-func prettyAll(obj *LOB) string {
+func PrettyAll(obj *LOB) string {
 	return writeAllIndent(obj, "    ")
 }
 
@@ -621,11 +605,11 @@ func writeAllIndent(obj *LOB, indent string) string {
 	if IsList(obj) {
 		var buf bytes.Buffer
 		for obj != EmptyList {
-			o := car(obj)
+			o := Car(obj)
 			s, _ := writeToString(o, false, indent)
 			buf.WriteString(s)
 			buf.WriteString("\n")
-			obj = cdr(obj)
+			obj = Cdr(obj)
 		}
 		return buf.String()
 	}
@@ -659,13 +643,13 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 		return writeList(obj, indent, indentSize), nil
 	case KeywordType:
 		if json {
-			return encodeString(unkeywordedString(obj)), nil
+			return EncodeString(unkeywordedString(obj)), nil
 		}
 		return obj.String(), nil
 	case SymbolType, TypeType:
 		return obj.String(), nil
 	case StringType:
-		return encodeString(obj.text), nil
+		return EncodeString(obj.text), nil
 	case VectorType:
 		return writeVector(obj, json, indent, indentSize)
 	case StructType:
@@ -713,14 +697,14 @@ func writeList(lst *LOB, indent string, indentSize string) string {
 		return "()"
 	}
 	if lst.cdr != EmptyList {
-		if lst.car == symQuote {
-			return "'" + cadr(lst).String()
-		} else if lst.car == symQuasiquote {
-			return "`" + cadr(lst).String()
-		} else if lst.car == symUnquote {
-			return "~" + cadr(lst).String()
-		} else if lst.car == symUnquoteSplicing {
-			return "~@" + cadr(lst).String()
+		if lst.car == QuoteSymbol {
+			return "'" + Cadr(lst).String()
+		} else if lst.car == QuasiquoteSymbol {
+			return "`" + Cadr(lst).String()
+		} else if lst.car == UnquoteSymbol {
+			return "~" + Cadr(lst).String()
+		} else if lst.car == UnquoteSymbolSplicing {
+			return "~@" + Cadr(lst).String()
 		}
 	}
 	var buf bytes.Buffer

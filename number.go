@@ -23,90 +23,63 @@ import (
 )
 
 // Zero is the Ell 0 value
-var Zero = newInt(0)
+var Zero = Number(0)
 
 // One is the Ell 1 value
-var One = newInt(1)
+var One = Number(1)
 
 // MinusOne is the Ell -1 value
-var MinusOne = newInt(-1)
+var MinusOne = Number(-1)
 
-func NewFloat64(f float64) *LOB {
-	num := newLOB(NumberType)
-	num.fval = f
-	return num
-}
-func newFloat64(f float64) *LOB {
-	num := newLOB(NumberType)
+func Number(f float64) *LOB {
+	num := new(LOB)
+	num.Type = NumberType
 	num.fval = f
 	return num
 }
 
-func NewInt64(i int64) *LOB {
-	num := newLOB(NumberType)
-	num.fval = float64(i)
-	return num
-}
-func newInt64(i int64) *LOB {
-	num := newLOB(NumberType)
-	num.fval = float64(i)
-	return num
-}
-
-func NewInt(i int) *LOB {
-	num := newLOB(NumberType)
-	num.fval = float64(i)
-	return num
-}
-
-func newInt(i int) *LOB {
-	num := newLOB(NumberType)
-	num.fval = float64(i)
-	return num
-}
-
-func round(f float64) float64 {
+func Round(f float64) float64 {
 	if f > 0 {
 		return math.Floor(f + 0.5)
 	}
 	return math.Ceil(f - 0.5)
 }
 
-func toNumber(o *LOB) (*LOB, error) {
+func ToNumber(o *LOB) (*LOB, error) {
 	switch o.Type {
 	case NumberType:
 		return o, nil
 	case CharacterType:
-		return newFloat64(o.fval), nil
+		return Number(o.fval), nil
 	case BooleanType:
-		return newFloat64(o.fval), nil
+		return Number(o.fval), nil
 	case StringType:
 		f, err := strconv.ParseFloat(o.text, 64)
 		if err == nil {
-			return newFloat64(f), nil
+			return Number(f), nil
 		}
 	}
 	return nil, Error(ArgumentErrorKey, "cannot convert to an number: ", o)
 }
 
-func toInt(o *LOB) (*LOB, error) {
+func ToInt(o *LOB) (*LOB, error) {
 	switch o.Type {
 	case NumberType:
-		return newFloat64(round(o.fval)), nil
+		return Number(Round(o.fval)), nil
 	case CharacterType:
-		return newFloat64(o.fval), nil
+		return Number(o.fval), nil
 	case BooleanType:
-		return newFloat64(o.fval), nil
+		return Number(o.fval), nil
 	case StringType:
-		f, err := strconv.ParseFloat(o.text, 64)
+		n, err := strconv.ParseInt(o.text, 10, 64)
 		if err == nil {
-			return newFloat64(f), nil
+			return Number(float64(n)), nil
 		}
 	}
 	return nil, Error(ArgumentErrorKey, "cannot convert to an integer: ", o)
 }
 
-func isInt(obj *LOB) bool {
+func IsInt(obj *LOB) bool {
 	if obj.Type == NumberType {
 		f := obj.fval
 		if math.Trunc(f) == f {
@@ -116,35 +89,35 @@ func isInt(obj *LOB) bool {
 	return false
 }
 
-func isFloat(obj *LOB) bool {
+func IsFloat(obj *LOB) bool {
 	if obj.Type == NumberType {
-		return !isInt(obj)
+		return !IsInt(obj)
 	}
 	return false
 }
 
-func floatValue(obj *LOB) (float64, error) {
+func AsFloat64Value(obj *LOB) (float64, error) {
 	if obj.Type == NumberType {
 		return obj.fval, nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
-func int64Value(obj *LOB) (int64, error) {
+func AsInt64Value(obj *LOB) (int64, error) {
 	if obj.Type == NumberType {
 		return int64(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
-func intValue(obj *LOB) (int, error) {
+func AsIntValue(obj *LOB) (int, error) {
 	if obj.Type == NumberType {
 		return int(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
-func byteValue(obj *LOB) (byte, error) {
+func AsByteValue(obj *LOB) (byte, error) {
 	if obj.Type == NumberType {
 		return byte(obj.fval), nil
 	}
@@ -154,7 +127,7 @@ func byteValue(obj *LOB) (byte, error) {
 const epsilon = 0.000000001
 
 // Equal returns true if the object is equal to the argument, within epsilon
-func numberEqual(f1 float64, f2 float64) bool {
+func NumberEqual(f1 float64, f2 float64) bool {
 	if f1 == f2 {
 		return true
 	}
@@ -166,19 +139,19 @@ func numberEqual(f1 float64, f2 float64) bool {
 
 var randomGenerator = rand.New(rand.NewSource(1))
 
-func randomSeed(n int64) {
+func RandomSeed(n int64) {
 	randomGenerator = rand.New(rand.NewSource(n))
 }
 
-func random(min float64, max float64) *LOB {
-	return newFloat64(min + (randomGenerator.Float64() * (max - min)))
+func Random(min float64, max float64) *LOB {
+	return Number(min + (randomGenerator.Float64() * (max - min)))
 }
 
-func randomList(size int, min float64, max float64) *LOB {
+func RandomList(size int, min float64, max float64) *LOB {
 	result := EmptyList
 	tail := EmptyList
 	for i := 0; i < size; i++ {
-		tmp := list(random(min, max))
+		tmp := List(Random(min, max))
 		if result == EmptyList {
 			result = tmp
 			tail = tmp

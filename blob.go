@@ -20,26 +20,27 @@ import (
 //	"strings"
 )
 
-func newBlob(bytes []byte) *LOB {
-	b := newLOB(BlobType)
-	b.text = string(bytes)
+func Blob(bytes []byte) *LOB {
+	b := new(LOB)
+	b.Type = BlobType
+	b.Value = bytes
 	return b
 }
 
-func makeBlob(size int) *LOB {
+func MakeBlob(size int) *LOB {
 	el := make([]byte, size)
-	return newBlob(el)
+	return Blob(el)
 }
 
 // EmptyBlob - a blob with no bytes
-var EmptyBlob = makeBlob(0)
+var EmptyBlob = MakeBlob(0)
 
 func toBlob(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case BlobType:
 		return obj, nil
 	case StringType:
-		return newBlob([]byte(obj.text)), nil //this copies the data
+		return Blob([]byte(obj.text)), nil //this copies the data
 	case VectorType:
 		return vectorToBlob(obj)
 	default:
@@ -52,11 +53,11 @@ func vectorToBlob(obj *LOB) (*LOB, error) {
 	n := len(el)
 	b := make([]byte, n, n)
 	for i := 0; i < n; i++ {
-		val, err := byteValue(el[i])
+		val, err := AsByteValue(el[i])
 		if err != nil {
 			return nil, err
 		}
 		b[i] = val
 	}
-	return newBlob(b), nil
+	return Blob(b), nil
 }

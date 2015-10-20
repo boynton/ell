@@ -20,76 +20,61 @@ import (
 	"bytes"
 )
 
-func cons(car *LOB, cdr *LOB) *LOB {
-	result := newLOB(ListType)
+func Cons(car *LOB, cdr *LOB) *LOB {
+	result := new(LOB)
+	result.Type = ListType
 	result.car = car
 	result.cdr = cdr
 	return result
 }
 
-func car(lst *LOB) *LOB {
+func Car(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return Null
 	}
 	return lst.car
 }
 
-func setCar(lst *LOB, obj *LOB) error {
-	if lst == EmptyList {
-		return Error(ArgumentErrorKey, "set-car! expected a non-empty <list>")
-	}
-	lst.car = obj
-	return nil
-}
-
-func cdr(lst *LOB) *LOB {
+func Cdr(lst *LOB) *LOB {
 	if lst == EmptyList {
 		return lst
 	}
 	return lst.cdr
 }
 
-func setCdr(lst *LOB, obj *LOB) error {
-	if lst == EmptyList {
-		return Error(ArgumentErrorKey, "set-cdr! expected a non-empty <list>")
-	}
-	lst.cdr = obj
-	return nil
+func Caar(lst *LOB) *LOB {
+	return Car(Car(lst))
+}
+func Cadr(lst *LOB) *LOB {
+	return Car(Cdr(lst))
+}
+func Cdar(lst *LOB) *LOB {
+	return Car(Cdr(lst))
+}
+func Cddr(lst *LOB) *LOB {
+	return Cdr(Cdr(lst))
+}
+func Cadar(lst *LOB) *LOB {
+	return Car(Cdr(Car(lst)))
+}
+func Caddr(lst *LOB) *LOB {
+	return Car(Cdr(Cdr(lst)))
+}
+func Cdddr(lst *LOB) *LOB {
+	return Cdr(Cdr(Cdr(lst)))
+}
+func Cadddr(lst *LOB) *LOB {
+	return Car(Cdr(Cdr(Cdr(lst))))
+}
+func Cddddr(lst *LOB) *LOB {
+	return Cdr(Cdr(Cdr(Cdr(lst))))
 }
 
-func caar(lst *LOB) *LOB {
-	return car(car(lst))
-}
-func cadr(lst *LOB) *LOB {
-	return car(cdr(lst))
-}
-func cdar(lst *LOB) *LOB {
-	return car(cdr(lst))
-}
-func cddr(lst *LOB) *LOB {
-	return cdr(cdr(lst))
-}
-func cadar(lst *LOB) *LOB {
-	return car(cdr(car(lst)))
-}
-func caddr(lst *LOB) *LOB {
-	return car(cdr(cdr(lst)))
-}
-func cdddr(lst *LOB) *LOB {
-	return cdr(cdr(cdr(lst)))
-}
-func cadddr(lst *LOB) *LOB {
-	return car(cdr(cdr(cdr(lst))))
-}
-func cddddr(lst *LOB) *LOB {
-	return cdr(cdr(cdr(cdr(lst))))
-}
-
-var symList = intern("list")
-var symQuote = intern("quote")
-var symQuasiquote = intern("quasiquote")
-var symUnquote = intern("unquote")
-var symUnquoteSplicing = intern("unquote-splicing")
+var ListSymbol = Intern("list")
+var QuoteSymbol = Intern("quote")
+var QuasiquoteSymbol = Intern("quasiquote")
+var UnquoteSymbol = Intern("unquote")
+var UnquoteSymbolSplicing = Intern("unquote-splicing")
 
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
@@ -99,7 +84,7 @@ func initEmpty() *LOB {
 }
 
 // Equal returns true if the object is equal to the argument
-func listEqual(lst *LOB, a *LOB) bool {
+func ListEqual(lst *LOB, a *LOB) bool {
 	for lst != EmptyList {
 		if a == EmptyList {
 			return false
@@ -118,22 +103,22 @@ func listEqual(lst *LOB, a *LOB) bool {
 
 func listToString(lst *LOB) string {
 	var buf bytes.Buffer
-	if lst != EmptyList && lst.cdr != EmptyList && cddr(lst) == EmptyList {
-		if lst.car == symQuote {
+	if lst != EmptyList && lst.cdr != EmptyList && Cddr(lst) == EmptyList {
+		if lst.car == QuoteSymbol {
 			buf.WriteString("'")
-			buf.WriteString(cadr(lst).String())
+			buf.WriteString(Cadr(lst).String())
 			return buf.String()
-		} else if lst.car == symQuasiquote {
+		} else if lst.car == QuasiquoteSymbol {
 			buf.WriteString("`")
-			buf.WriteString(cadr(lst).String())
+			buf.WriteString(Cadr(lst).String())
 			return buf.String()
-		} else if lst.car == symUnquote {
+		} else if lst.car == UnquoteSymbol {
 			buf.WriteString("~")
-			buf.WriteString(cadr(lst).String())
+			buf.WriteString(Cadr(lst).String())
 			return buf.String()
-		} else if lst.car == symUnquoteSplicing {
+		} else if lst.car == UnquoteSymbolSplicing {
 			buf.WriteString("~")
-			buf.WriteString(cadr(lst).String())
+			buf.WriteString(Cadr(lst).String())
 			return buf.String()
 		}
 	}
@@ -149,7 +134,7 @@ func listToString(lst *LOB) string {
 	return buf.String()
 }
 
-func listLength(lst *LOB) int {
+func ListLength(lst *LOB) int {
 	if lst == EmptyList {
 		return 0
 	}
@@ -162,10 +147,10 @@ func listLength(lst *LOB) int {
 	return count
 }
 
-func newList(count int, val *LOB) *LOB {
+func MakeList(count int, val *LOB) *LOB {
 	result := EmptyList
 	for i := 0; i < count; i++ {
-		result = cons(val, result)
+		result = Cons(val, result)
 	}
 	return result
 }
@@ -174,15 +159,12 @@ func listFromValues(values []*LOB) *LOB {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
-		p = cons(v, p)
+		p = Cons(v, p)
 	}
 	return p
 }
 
 func List(values ...*LOB) *LOB {
-	return listFromValues(values)
-}
-func list(values ...*LOB) *LOB {
 	return listFromValues(values)
 }
 
@@ -192,10 +174,10 @@ func listToVector(lst *LOB) *LOB {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
 	}
-	return vectorFromElementsNoCopy(elems)
+	return VectorFromElementsNoCopy(elems)
 }
 
-func toList(obj *LOB) (*LOB, error) {
+func ToList(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case ListType:
 		return obj, nil
@@ -212,7 +194,7 @@ func toList(obj *LOB) (*LOB, error) {
 func reverse(lst *LOB) *LOB {
 	rev := EmptyList
 	for lst != EmptyList {
-		rev = cons(lst.car, rev)
+		rev = Cons(lst.car, rev)
 		lst = lst.cdr
 	}
 	return rev
@@ -227,10 +209,10 @@ func flatten(lst *LOB) *LOB {
 		case ListType:
 			item = flatten(item)
 		case VectorType:
-			litem, _ := toList(item)
+			litem, _ := ToList(item)
 			item = flatten(litem)
 		default:
-			item = list(item)
+			item = List(item)
 		}
 		if tail == EmptyList {
 			result = item
@@ -253,7 +235,7 @@ func concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
 	}
 	lst := seq2
 	for rev != EmptyList {
-		lst = cons(rev.car, lst)
+		lst = Cons(rev.car, lst)
 		rev = rev.cdr
 	}
 	return lst, nil

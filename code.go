@@ -46,47 +46,47 @@ const (
 )
 
 //all syms for ops should be 7 chars or less
-var symOpLiteral = intern("literal")
-var symOpLocal = intern("local")
-var symOpJumpFalse = intern("jumpfalse")
-var symOpJump = intern("jump")
-var symOpTailCall = intern("tailcall")
-var symOpCall = intern("call")
-var symOpReturn = intern("return")
-var symOpClosure = intern("closure")
-var symOpPop = intern("pop")
-var symOpGlobal = intern("global")
-var symOpDefGlobal = intern("defglobal")
-var symOpSetLocal = intern("setlocal")
-var symOpUse = intern("use")
-var symOpDefMacro = intern("defmacro")
-var symOpVector = intern("vector")
-var symOpStruct = intern("struct")
-var symOpUndefGlobal = intern("undefine")
+var LiteralSymbol = Intern("literal")
+var LocalSymbol = Intern("local")
+var JumpfalseSymbol = Intern("jumpfalse")
+var JumpSymbol = Intern("jump")
+var TailcallSymbol = Intern("tailcall")
+var CallSymbol = Intern("call")
+var ReturnSymbol = Intern("return")
+var ClosureSymbol = Intern("closure")
+var PopSymbol = Intern("pop")
+var GlobalSymbol = Intern("global")
+var DefglobalSymbol = Intern("defglobal")
+var SetlocalSymbol = Intern("setlocal")
+var UseSymbol = Intern("use")
+var DefmacroSymbol = Intern("defmacro")
+var VectorSymbol = Intern("vector")
+var StructSymbol = Intern("struct")
+var UndefineSymbol = Intern("undefine")
 
-var symOpFunction = intern("func")
+var FuncSymbol = Intern("func")
 
 var opsyms = initOpsyms()
 
 func initOpsyms() []*LOB {
 	syms := make([]*LOB, opcodeCount)
-	syms[opcodeLiteral] = symOpLiteral
-	syms[opcodeLocal] = symOpLocal
-	syms[opcodeJumpFalse] = symOpJumpFalse
-	syms[opcodeJump] = symOpJump
-	syms[opcodeTailCall] = symOpTailCall
-	syms[opcodeCall] = symOpCall
-	syms[opcodeReturn] = symOpReturn
-	syms[opcodeClosure] = symOpClosure
-	syms[opcodePop] = symOpPop
-	syms[opcodeGlobal] = symOpGlobal
-	syms[opcodeDefGlobal] = symOpDefGlobal
-	syms[opcodeSetLocal] = symOpSetLocal
-	syms[opcodeUse] = symOpUse
-	syms[opcodeDefMacro] = symOpDefMacro
-	syms[opcodeVector] = symOpVector
-	syms[opcodeStruct] = symOpStruct
-	syms[opcodeUndefGlobal] = symOpUndefGlobal
+	syms[opcodeLiteral] = LiteralSymbol
+	syms[opcodeLocal] = LocalSymbol
+	syms[opcodeJumpFalse] = JumpfalseSymbol
+	syms[opcodeJump] = JumpSymbol
+	syms[opcodeTailCall] = TailcallSymbol
+	syms[opcodeCall] = CallSymbol
+	syms[opcodeReturn] = ReturnSymbol
+	syms[opcodeClosure] = ClosureSymbol
+	syms[opcodePop] = PopSymbol
+	syms[opcodeGlobal] = GlobalSymbol
+	syms[opcodeDefGlobal] = DefglobalSymbol
+	syms[opcodeSetLocal] = SetlocalSymbol
+	syms[opcodeUse] = UseSymbol
+	syms[opcodeDefMacro] = DefmacroSymbol
+	syms[opcodeVector] = VectorSymbol
+	syms[opcodeStruct] = StructSymbol
+	syms[opcodeUndefGlobal] = UndefineSymbol
 	return syms
 }
 
@@ -99,7 +99,7 @@ type Code struct {
 	keys     []*LOB
 }
 
-func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
+func MakeCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 	var ops []int
 	code := &Code{
 		name,
@@ -108,7 +108,8 @@ func newCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
 	}
-	result := newLOB(CodeType)
+	result := new(LOB)
+	result.Type = CodeType
 	result.code = code
 	return result
 }
@@ -125,9 +126,9 @@ func (code *Code) signature() string {
 	//used as:
 	// (declare cons (<any> <list>) <list>)
 	if code.name != "" {
-		val := global(intern("*declarations*")) //so if this this has not been defined, we'll just skip it
+		val := GetGlobal(Intern("*declarations*")) //so if this this has not been defined, we'll just skip it
 		if val != nil && IsStruct(val) {
-			sig, _ := Get(val, intern(code.name))
+			sig, _ := Get(val, Intern(code.name))
 			if sig != Null {
 				return sig.String()
 			}
@@ -153,7 +154,7 @@ func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "("+symOpFunction.text+" (\"\" 0 [] [])", "(code", 1)
+	return strings.Replace(s, "("+FuncSymbol.text+" (\"\" 0 [] [])", "(code", 1)
 }
 
 func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
@@ -161,7 +162,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	offset := 0
 	max := len(code.ops)
 	prefix := " "
-	buf.WriteString(indent + "(" + symOpFunction.text + " (")
+	buf.WriteString(indent + "(" + FuncSymbol.text + " (")
 	buf.WriteString(fmt.Sprintf("%q ", code.name))
 	buf.WriteString(strconv.Itoa(code.argc))
 	if code.defaults != nil {
@@ -189,7 +190,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			buf.WriteString(s + ")")
 			offset++
 		case opcodeLiteral, opcodeDefGlobal, opcodeUse, opcodeGlobal, opcodeUndefGlobal, opcodeDefMacro:
-			buf.WriteString(s + " " + write(constants[code.ops[offset+1]]) + ")")
+			buf.WriteString(s + " " + Write(constants[code.ops[offset+1]]) + ")")
 			offset += 2
 		case opcodeCall, opcodeTailCall, opcodeJumpFalse, opcodeJump, opcodeVector, opcodeStruct:
 			buf.WriteString(s + " " + strconv.Itoa(code.ops[offset+1]) + ")")
@@ -225,16 +226,16 @@ func (code *Code) String() string {
 
 func (code *Code) loadOps(lst *LOB) error {
 	for lst != EmptyList {
-		instr := car(lst)
-		op := car(instr)
+		instr := Car(lst)
+		op := Car(instr)
 		switch op {
-		case symOpClosure:
-			lstFunc := cadr(instr)
-			if car(lstFunc) != symOpFunction {
+		case ClosureSymbol:
+			lstFunc := Cadr(instr)
+			if Car(lstFunc) != FuncSymbol {
 				return Error(SyntaxErrorKey, instr)
 			}
-			lstFunc = cdr(lstFunc)
-			funcParams := car(lstFunc)
+			lstFunc = Cdr(lstFunc)
+			funcParams := Car(lstFunc)
 			var argc int
 			var name string
 			var defaults []*LOB
@@ -242,7 +243,7 @@ func (code *Code) loadOps(lst *LOB) error {
 			var err error
 			if IsSymbol(funcParams) {
 				//legacy form, just the argc
-				argc, err = intValue(funcParams)
+				argc, err = AsIntValue(funcParams)
 				if err != nil {
 					return err
 				}
@@ -250,104 +251,104 @@ func (code *Code) loadOps(lst *LOB) error {
 					argc = -argc - 1
 					defaults = make([]*LOB, 0)
 				}
-			} else if IsList(funcParams) && listLength(funcParams) == 4 {
+			} else if IsList(funcParams) && ListLength(funcParams) == 4 {
 				tmp := funcParams
-				a := car(tmp)
-				tmp = cdr(tmp)
-				name, err = asString(a)
+				a := Car(tmp)
+				tmp = Cdr(tmp)
+				name, err = AsStringValue(a)
 				if err != nil {
 					return Error(SyntaxErrorKey, funcParams)
 				}
-				a = car(tmp)
-				tmp = cdr(tmp)
-				argc, err = intValue(a)
+				a = Car(tmp)
+				tmp = Cdr(tmp)
+				argc, err = AsIntValue(a)
 				if err != nil {
 					return Error(SyntaxErrorKey, funcParams)
 				}
-				a = car(tmp)
-				tmp = cdr(tmp)
+				a = Car(tmp)
+				tmp = Cdr(tmp)
 				if IsVector(a) {
 					defaults = a.elements
 				}
-				a = car(tmp)
+				a = Car(tmp)
 				if IsVector(a) {
 					keys = a.elements
 				}
 			} else {
 				return Error(SyntaxErrorKey, funcParams)
 			}
-			fun := newCode(argc, defaults, keys, name)
-			fun.code.loadOps(cdr(lstFunc))
+			fun := MakeCode(argc, defaults, keys, name)
+			fun.code.loadOps(Cdr(lstFunc))
 			code.emitClosure(fun)
-		case symOpLiteral:
-			code.emitLiteral(cadr(instr))
-		case symOpLocal:
-			i, err := intValue(cadr(instr))
+		case LiteralSymbol:
+			code.emitLiteral(Cadr(instr))
+		case LocalSymbol:
+			i, err := AsIntValue(Cadr(instr))
 			if err != nil {
 				return err
 			}
-			j, err := intValue(caddr(instr))
+			j, err := AsIntValue(Caddr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitLocal(i, j)
-		case symOpSetLocal:
-			i, err := intValue(cadr(instr))
+		case SetlocalSymbol:
+			i, err := AsIntValue(Cadr(instr))
 			if err != nil {
 				return err
 			}
-			j, err := intValue(caddr(instr))
+			j, err := AsIntValue(Caddr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitSetLocal(i, j)
-		case symOpGlobal:
-			sym := cadr(instr)
+		case GlobalSymbol:
+			sym := Cadr(instr)
 			if IsSymbol(sym) {
 				code.emitGlobal(sym)
 			} else {
-				return Error(symOpGlobal, " argument 1 not a symbol: ", sym)
+				return Error(GlobalSymbol, " argument 1 not a symbol: ", sym)
 			}
-		case symOpUndefGlobal:
-			code.emitUndefGlobal(cadr(instr))
-		case symOpJump:
-			loc, err := intValue(cadr(instr))
+		case UndefineSymbol:
+			code.emitUndefGlobal(Cadr(instr))
+		case JumpSymbol:
+			loc, err := AsIntValue(Cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitJump(loc)
-		case symOpJumpFalse:
-			loc, err := intValue(cadr(instr))
+		case JumpfalseSymbol:
+			loc, err := AsIntValue(Cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitJumpFalse(loc)
-		case symOpCall:
-			argc, err := intValue(cadr(instr))
+		case CallSymbol:
+			argc, err := AsIntValue(Cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitCall(argc)
-		case symOpTailCall:
-			argc, err := intValue(cadr(instr))
+		case TailcallSymbol:
+			argc, err := AsIntValue(Cadr(instr))
 			if err != nil {
 				return err
 			}
 			code.emitTailCall(argc)
-		case symOpReturn:
+		case ReturnSymbol:
 			code.emitReturn()
-		case symOpPop:
+		case PopSymbol:
 			code.emitPop()
-		case symOpDefGlobal:
-			code.emitDefGlobal(cadr(instr))
-		case symOpDefMacro:
-			code.emitDefMacro(cadr(instr))
-		case symOpUse:
-			code.emitUse(cadr(instr))
+		case DefglobalSymbol:
+			code.emitDefGlobal(Cadr(instr))
+		case DefmacroSymbol:
+			code.emitDefMacro(Cadr(instr))
+		case UseSymbol:
+			code.emitUse(Cadr(instr))
 		default:
 			panic(fmt.Sprintf("Bad instruction: %v", op))
 		}
-		lst = cdr(lst)
+		lst = Cdr(lst)
 	}
 	return nil
 }

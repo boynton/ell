@@ -20,7 +20,7 @@ import (
 	"bytes"
 )
 
-func vectorEqual(v1 *LOB, v2 *LOB) bool {
+func VectorEqual(v1 *LOB, v2 *LOB) bool {
 	el1 := v1.elements
 	el2 := v2.elements
 	count := len(el1)
@@ -51,35 +51,36 @@ func vectorToString(vec *LOB) string {
 	return buf.String()
 }
 
-func newVector(size int, init *LOB) *LOB {
+func MakeVector(size int, init *LOB) *LOB {
 	elements := make([]*LOB, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
-	return vectorFromElementsNoCopy(elements)
+	return VectorFromElementsNoCopy(elements)
 }
 
-func vector(elements ...*LOB) *LOB {
-	return vectorFromElements(elements, len(elements))
+func Vector(elements ...*LOB) *LOB {
+	return VectorFromElements(elements, len(elements))
 }
 
-func vectorFromElements(elements []*LOB, count int) *LOB {
+func VectorFromElements(elements []*LOB, count int) *LOB {
 	el := make([]*LOB, count)
 	copy(el, elements[0:count])
-	return vectorFromElementsNoCopy(el)
+	return VectorFromElementsNoCopy(el)
 }
 
-func vectorFromElementsNoCopy(elements []*LOB) *LOB {
-	vec := newLOB(VectorType)
+func VectorFromElementsNoCopy(elements []*LOB) *LOB {
+	vec := new(LOB)
+	vec.Type = VectorType
 	vec.elements = elements
 	return vec
 }
 
-func copyVector(vec *LOB) *LOB {
-	return vectorFromElements(vec.elements, len(vec.elements))
+func CopyVector(vec *LOB) *LOB {
+	return VectorFromElements(vec.elements, len(vec.elements))
 }
 
-func toVector(obj *LOB) (*LOB, error) {
+func ToVector(obj *LOB) (*LOB, error) {
 	switch obj.Type {
 	case VectorType:
 		return obj, nil

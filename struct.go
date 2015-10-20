@@ -22,23 +22,23 @@ import (
 
 // Key - the key type for Structs. The string value and Ell type string are combined, so we can extract
 // the type later when enumerating keys. Map keys cannot LOBs, they are not "comparable" in golang.
-type Key struct {
+type structKey struct {
 	keyValue string
 	keyType  string
 }
 
-func newKey(v *LOB) Key {
-	return Key{v.text, v.Type.text}
+func newStructKey(v *LOB) structKey {
+	return structKey{v.text, v.Type.text}
 }
 
-func (k Key) toLOB() *LOB {
+func (k structKey) toLOB() *LOB {
 	if k.keyType == "<string>" {
-		return newString(k.keyValue)
+		return String(k.keyValue)
 	}
-	return intern(k.keyValue)
+	return Intern(k.keyValue)
 }
 
-func isValidStructKey(o *LOB) bool {
+func IsValidStructKey(o *LOB) bool {
 	switch o.Type {
 	case StringType, SymbolType, KeywordType, TypeType:
 		return true
@@ -47,32 +47,29 @@ func isValidStructKey(o *LOB) bool {
 }
 
 // EmptyStruct - a <struct> with no bindings
-var EmptyStruct = makeStruct(0)
+var EmptyStruct = MakeStruct(0)
 
 func MakeStruct(capacity int) *LOB {
-	strct := newLOB(StructType)
-	strct.bindings = make(map[Key]*LOB, capacity)
-	return strct
-}
-func makeStruct(capacity int) *LOB {
-	strct := newLOB(StructType)
-	strct.bindings = make(map[Key]*LOB, capacity)
+	strct := new(LOB)
+	strct.Type = StructType
+	strct.bindings = make(map[structKey]*LOB, capacity)
 	return strct
 }
 
-func newStruct(fieldvals []*LOB) (*LOB, error) {
-	strct := newLOB(StructType)
-	strct.bindings = make(map[Key]*LOB)
+func Struct(fieldvals []*LOB) (*LOB, error) {
+	strct := new(LOB)
+	strct.Type = StructType
+	strct.bindings = make(map[structKey]*LOB)
 	count := len(fieldvals)
 	i := 0
-	var bindings map[Key]*LOB
+	var bindings map[structKey]*LOB
 	for i < count {
 		o := Value(fieldvals[i])
 		i++
 		switch o.Type {
 		case StructType: // not a valid key, just copy bindings from it
 			if bindings == nil {
-				bindings = make(map[Key]*LOB, len(o.bindings))
+				bindings = make(map[structKey]*LOB, len(o.bindings))
 			}
 			for k, v := range o.bindings {
 				bindings[k] = v
@@ -82,23 +79,23 @@ func newStruct(fieldvals []*LOB) (*LOB, error) {
 				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in arglist: ", o)
 			}
 			if bindings == nil {
-				bindings = make(map[Key]*LOB)
+				bindings = make(map[structKey]*LOB)
 			}
-			bindings[newKey(o)] = fieldvals[i]
+			bindings[newStructKey(o)] = fieldvals[i]
 			i++
 		default:
 			return nil, Error(ArgumentErrorKey, "Bad struct key: ", o)
 		}
 	}
 	if bindings == nil {
-		strct.bindings = make(map[Key]*LOB)
+		strct.bindings = make(map[structKey]*LOB)
 	} else {
 		strct.bindings = bindings
 	}
 	return strct, nil
 }
 
-func structLength(strct *LOB) int {
+func StructLength(strct *LOB) int {
 	return len(strct.bindings)
 }
 
@@ -114,7 +111,7 @@ func Get(obj *LOB, key *LOB) (*LOB, error) {
 func structGet(s *LOB, key *LOB) *LOB {
 	switch key.Type {
 	case KeywordType, SymbolType, TypeType, StringType:
-		k := newKey(key)
+		k := newStructKey(key)
 		result, ok := s.bindings[k]
 		if ok {
 			return result
@@ -132,12 +129,12 @@ func Has(obj *LOB, key *LOB) (bool, error) {
 }
 
 func Put(obj *LOB, key *LOB, val *LOB) {
-	k := newKey(key)
+	k := newStructKey(key)
 	obj.bindings[k] = val
 }
 
 func Unput(obj *LOB, key *LOB) {
-	k := newKey(key)
+	k := newStructKey(key)
 	delete(obj.bindings, k)
 }
 
@@ -184,17 +181,17 @@ func validateKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newStruct(tmp)
+	return Struct(tmp)
 }
 
 func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
-	count := listLength(args)
+	count := ListLength(args)
 	bindings := make([]*LOB, 0, count)
 	for args != EmptyList {
-		key := car(args)
+		key := Car(args)
 		switch key.Type {
 		case SymbolType:
-			key = intern(key.text + ":")
+			key = Intern(key.text + ":")
 			fallthrough
 		case KeywordType:
 			if !sliceContains(keys, key) {
@@ -204,10 +201,10 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 			if args == EmptyList {
 				return nil, Error(ArgumentErrorKey, key, " mismatched keyword/value pair in parameter")
 			}
-			bindings = slicePut(bindings, key, car(args))
+			bindings = slicePut(bindings, key, Car(args))
 		case StructType:
 			for k, v := range key.bindings {
-				sym := intern(k.keyValue)
+				sym := Intern(k.keyValue)
 				if sliceContains(keys, sym) {
 					bindings = slicePut(bindings, sym, v)
 				}
@@ -220,29 +217,8 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 	return bindings, nil
 }
 
-func structAssoc(bindings []*LOB, key *LOB, val *LOB) []*LOB {
-	slen := len(bindings)
-	switch key.Type {
-	case KeywordType, SymbolType, TypeType: //these are all intern'ed, so pointer equality works
-		for i := 0; i < slen; i += 2 {
-			if bindings[i] == key {
-				bindings[i+1] = val
-				return bindings
-			}
-		}
-	case StringType:
-		for i := 0; i < slen; i += 2 {
-			if Equal(bindings[i], key) {
-				bindings[i+1] = val
-				return bindings
-			}
-		}
-	}
-	return append(append(bindings, key), val)
-}
-
 // Equal returns true if the object is equal to the argument
-func structEqual(s1 *LOB, s2 *LOB) bool {
+func StructEqual(s1 *LOB, s2 *LOB) bool {
 	bindings1 := s1.bindings
 	size := len(bindings1)
 	bindings2 := s2.bindings
@@ -283,12 +259,12 @@ func structToList(s *LOB) (*LOB, error) {
 	result := EmptyList
 	tail := EmptyList
 	for k, v := range s.bindings {
-		tmp := list(k.toLOB(), v)
+		tmp := List(k.toLOB(), v)
 		if result == EmptyList {
-			result = list(tmp)
+			result = List(tmp)
 			tail = result
 		} else {
-			tail.cdr = list(tmp)
+			tail.cdr = List(tmp)
 			tail = tail.cdr
 		}
 	}
@@ -300,10 +276,10 @@ func structToVector(s *LOB) *LOB {
 	el := make([]*LOB, size)
 	j := 0
 	for k, v := range s.bindings {
-		el[j] = vector(k.toLOB(), v)
+		el[j] = Vector(k.toLOB(), v)
 		j++
 	}
-	return vectorFromElements(el, size)
+	return VectorFromElements(el, size)
 }
 
 func structKeyList(s *LOB) *LOB {
@@ -312,10 +288,10 @@ func structKeyList(s *LOB) *LOB {
 	for k := range s.bindings {
 		key := k.toLOB()
 		if result == EmptyList {
-			result = list(key)
+			result = List(key)
 			tail = result
 		} else {
-			tail.cdr = list(key)
+			tail.cdr = List(key)
 			tail = tail.cdr
 		}
 	}
@@ -327,10 +303,10 @@ func structValueList(s *LOB) *LOB {
 	tail := EmptyList
 	for _, v := range s.bindings {
 		if result == EmptyList {
-			result = list(v)
+			result = List(v)
 			tail = result
 		} else {
-			tail.cdr = list(v)
+			tail.cdr = List(v)
 			tail = tail.cdr
 		}
 	}
@@ -338,8 +314,9 @@ func structValueList(s *LOB) *LOB {
 }
 
 func listToStruct(lst *LOB) (*LOB, error) {
-	strct := newLOB(StructType)
-	strct.bindings = make(map[Key]*LOB)
+	strct := new(LOB)
+	strct.Type = StructType
+	strct.bindings = make(map[structKey]*LOB)
 	for lst != EmptyList {
 		k := lst.car
 		lst = lst.cdr
@@ -348,7 +325,7 @@ func listToStruct(lst *LOB) (*LOB, error) {
 			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
-			if !isValidStructKey(k.car) {
+			if !IsValidStructKey(k.car) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.car)
 			}
 			Put(strct, k.car, k.cdr.car)
@@ -358,12 +335,12 @@ func listToStruct(lst *LOB) (*LOB, error) {
 			if n != 2 {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
-			if !isValidStructKey(elements[0]) {
+			if !IsValidStructKey(elements[0]) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", elements[0])
 			}
 			Put(strct, elements[0], elements[1])
 		default:
-			if !isValidStructKey(k) {
+			if !IsValidStructKey(k) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k)
 			}
 			if lst == EmptyList {
@@ -378,8 +355,9 @@ func listToStruct(lst *LOB) (*LOB, error) {
 
 func vectorToStruct(vec *LOB) (*LOB, error) {
 	count := len(vec.elements)
-	strct := newLOB(StructType)
-	strct.bindings = make(map[Key]*LOB, count)
+	strct := new(LOB)
+	strct.Type = StructType
+	strct.bindings = make(map[structKey]*LOB, count)
 	i := 0
 	for i < count {
 		k := vec.elements[i]
@@ -389,7 +367,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 			if EmptyList == k || EmptyList == k.cdr || EmptyList != k.cdr.cdr {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
-			if !isValidStructKey(k.car) {
+			if !IsValidStructKey(k.car) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.car)
 			}
 			Put(strct, k.car, k.cdr.car)
@@ -399,13 +377,13 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 			if n != 2 {
 				return nil, Error(ArgumentErrorKey, "Bad struct binding: ", k)
 			}
-			if !isValidStructKey(elements[0]) {
+			if !IsValidStructKey(elements[0]) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k.elements[0])
 			}
 			Put(strct, elements[0], elements[1])
 		case StringType, SymbolType, KeywordType, TypeType:
 		default:
-			if !isValidStructKey(k) {
+			if !IsValidStructKey(k) {
 				return nil, Error(ArgumentErrorKey, "Bad struct key: ", k)
 			}
 			if i == count {
@@ -418,7 +396,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 	return strct, nil
 }
 
-func toStruct(obj *LOB) (*LOB, error) {
+func ToStruct(obj *LOB) (*LOB, error) {
 	val := Value(obj)
 	switch val.Type {
 	case StructType:

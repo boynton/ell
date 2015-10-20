@@ -24,15 +24,15 @@ import (
 // this type is similar to what an extension type (outside the ell package) would look like:
 //   the Value field of LOB stores a pointer to the types specific data
 
-var ChannelType = intern("<channel>")
+var ChannelType = Intern("<channel>")
 
-type Channel struct {
+type channel struct {
 	name    string
 	bufsize int
 	channel chan *LOB // non-nil for channels
 }
 
-func (ch *Channel) String() string {
+func (ch *channel) String() string {
 	s := "#[channel"
 	if ch.name != "" {
 		s += " " + ch.name
@@ -46,45 +46,25 @@ func (ch *Channel) String() string {
 	return s + "]"
 }
 
-func NewChannel(bufsize int, name string) *LOB {
-	lob := newLOB(ChannelType)
-	lob.Value = &Channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)}
-	return lob
-}
-func newChannel(bufsize int, name string) *LOB {
-	lob := newLOB(ChannelType)
-	lob.Value = &Channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)}
-	return lob
+func Channel(bufsize int, name string) *LOB {
+	return NewObject(ChannelType, &channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)})
 }
 
-func ChannelHandle(channel *LOB) chan *LOB {
-	ch := ChannelValue(channel)
-	if ch == nil {
-		return nil
-	}
-	return ch.channel
-}
-func channelHandle(channel *LOB) chan *LOB {
-	ch := ChannelValue(channel)
-	if ch == nil {
-		return nil
-	}
-	return ch.channel
-}
-
-func ChannelValue(obj *LOB) *Channel {
+func ChannelValue(obj *LOB) chan *LOB {
 	if obj.Value == nil {
 		return nil
 	}
-	v, _ := obj.Value.(*Channel)
-	return v
+	v, _ := obj.Value.(*channel)
+	return v.channel
 }
 
-func closeChannel(obj *LOB) {
-	c := ChannelValue(obj)
-	//	c, _ := ch.Value.(*Channel)
-	if c.channel != nil {
-		close(c.channel)
-		c.channel = nil
+func CloseChannel(obj *LOB) {
+	v, _ := obj.Value.(*channel)
+	if v != nil {
+		c := v.channel
+		if c != nil {
+			v.channel = nil
+			close(c)
+		}
 	}
 }

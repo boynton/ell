@@ -23,20 +23,20 @@ import (
 )
 
 // LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
-// the variant is a type object i.e. intern("<string>")
+// the variant is a type object i.e. Intern("<string>")
 type LOB struct {
-	Type         *LOB          // i.e. <string>
-	code         *Code         // non-nil for closure, code
-	frame        *Frame        // non-nil for closure, continuation
-	primitive    *Primitive    // non-nil for primitives
-	continuation *Continuation // non-nil for continuation
-	car          *LOB          // non-nil for instances and lists
-	cdr          *LOB          // non-nil for slists, nil for everything else
-	bindings     map[Key]*LOB  // non-nil for struct
-	elements     []*LOB        // non-nil for vector
-	fval         float64       // number
-	text         string        // string, symbol, keyword, type, blob, channel
-	Value        interface{}   // the rest of the data for more complex things
+	Type         *LOB               // i.e. <string>
+	code         *Code              // non-nil for closure, code
+	frame        *frame             // non-nil for closure, continuation
+	primitive    *primitive         // non-nil for primitives
+	continuation *continuation      // non-nil for continuation
+	car          *LOB               // non-nil for instances and lists
+	cdr          *LOB               // non-nil for slists, nil for everything else
+	bindings     map[structKey]*LOB // non-nil for struct
+	elements     []*LOB             // non-nil for vector
+	fval         float64            // number
+	text         string             // string, symbol, keyword, type
+	Value        interface{}        // the rest of the data for more complex things
 }
 
 func BoolValue(obj *LOB) bool {
@@ -67,20 +67,26 @@ func StringValue(obj *LOB) string {
 }
 
 func BlobValue(obj *LOB) []byte {
-	return []byte(obj.text)
+	b, _ := obj.Value.([]byte)
+	return b
 }
 
+// NewObject is the constructor for externally defined objects, where the
+// value is an interface{}.
 func NewObject(variant *LOB, value interface{}) *LOB {
-	lob := newLOB(variant)
+	lob := new(LOB)
+	lob.Type = variant
 	lob.Value = value
 	return lob
 }
 
+/*
 func newLOB(variant *LOB) *LOB {
 	lob := new(LOB)
 	lob.Type = variant
 	return lob
 }
+*/
 
 func Identical(o1 *LOB, o2 *LOB) bool {
 	return o1 == o2
@@ -104,7 +110,7 @@ func (lob *LOB) String() string {
 	case NumberType:
 		return strconv.FormatFloat(lob.fval, 'f', -1, 64)
 	case BlobType:
-		return fmt.Sprintf("#[blob %d bytes]", len(lob.text))
+		return fmt.Sprintf("#[blob %d bytes]", len(BlobValue(lob)))
 	case StringType, SymbolType, KeywordType, TypeType:
 		return lob.text
 	case ListType:
@@ -118,7 +124,7 @@ func (lob *LOB) String() string {
 	case CodeType:
 		return lob.code.String()
 	case ErrorType:
-		return "#<error>" + write(lob.car)
+		return "#<error>" + Write(lob.car)
 		//	case ChannelType:
 		//		return ChannelValue(lob).String()
 	default:
@@ -128,57 +134,57 @@ func (lob *LOB) String() string {
 			}
 			return "#[" + typeNameString(lob.Type.text) + "]"
 		}
-		return "#" + lob.Type.text + write(lob.car)
+		return "#" + lob.Type.text + Write(lob.car)
 	}
 }
 
 // TypeType is the metatype, the type of all types
-var TypeType *LOB // bootstrapped in initSymbolTable => intern("<type>")
+var TypeType *LOB // bootstrapped in initSymbolTable => Intern("<type>")
 
 // KeywordType is the type of all keywords
-var KeywordType *LOB // bootstrapped in initSymbolTable => intern("<keyword>")
+var KeywordType *LOB // bootstrapped in initSymbolTable => Intern("<keyword>")
 
 // SymbolType is the type of all symbols
-var SymbolType *LOB // bootstrapped in initSymbolTable = intern("<symbol>")
+var SymbolType *LOB // bootstrapped in initSymbolTable = Intern("<symbol>")
 
 // NullType the type of the null object
-var NullType = intern("<null>")
+var NullType = Intern("<null>")
 
 // BooleanType is the type of true and false
-var BooleanType = intern("<boolean>")
+var BooleanType = Intern("<boolean>")
 
 // CharacterType is the type of all characters
-var CharacterType = intern("<character>")
+var CharacterType = Intern("<character>")
 
 // NumberType is the type of all numbers
-var NumberType = intern("<number>")
+var NumberType = Intern("<number>")
 
 // StringType is the type of all strings
-var StringType = intern("<string>")
+var StringType = Intern("<string>")
 
 // BlobType is the type of all bytearrays
-var BlobType = intern("<blob>")
+var BlobType = Intern("<blob>")
 
 // ListType is the type of all lists
-var ListType = intern("<list>")
+var ListType = Intern("<list>")
 
 // VectorType is the type of all vectors
-var VectorType = intern("<vector>")
+var VectorType = Intern("<vector>")
 
 // VectorType is the type of all structs
-var StructType = intern("<struct>")
+var StructType = Intern("<struct>")
 
 // FunctionType is the type of all functions
-var FunctionType = intern("<function>")
+var FunctionType = Intern("<function>")
 
 // CodeType is the type of compiled code
-var CodeType = intern("<code>")
+var CodeType = Intern("<code>")
 
 // ErrorType is the type of all errors
-var ErrorType = intern("<error>")
+var ErrorType = Intern("<error>")
 
 // AnyType is a pseudo type specifier indicating any type
-var AnyType = intern("<any>")
+var AnyType = Intern("<any>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
 var Null = &LOB{Type: NullType}
@@ -247,15 +253,15 @@ func Equal(o1 *LOB, o2 *LOB) bool {
 	case BooleanType, CharacterType:
 		return int(o1.fval) == int(o2.fval)
 	case NumberType:
-		return numberEqual(o1.fval, o2.fval)
+		return NumberEqual(o1.fval, o2.fval)
 	case StringType:
 		return o1.text == o2.text
 	case ListType:
-		return listEqual(o1, o2)
+		return ListEqual(o1, o2)
 	case VectorType:
-		return vectorEqual(o1, o2)
+		return VectorEqual(o1, o2)
 	case StructType:
-		return structEqual(o1, o2)
+		return StructEqual(o1, o2)
 	case SymbolType, KeywordType, TypeType:
 		return o1 == o2
 	case NullType:
@@ -288,7 +294,8 @@ func Instance(tag *LOB, val *LOB) (*LOB, error) {
 	if IsPrimitiveType(tag) {
 		return val, nil
 	}
-	result := newLOB(tag)
+	result := new(LOB)
+	result.Type = tag
 	result.car = val
 	return result, nil
 }
@@ -301,13 +308,14 @@ func Value(obj *LOB) *LOB {
 }
 
 //
-// Error - creates a new Error from the arguments. The first is an actual Ell object, the rest are interpreted as/converted to strings
+// Error - creates a new Error from the arguments. The first is an actual Ell keyword object,
+// the rest are interpreted as/converted to strings
 //
 func Error(errkey *LOB, args ...interface{}) error {
 	var buf bytes.Buffer
 	for _, o := range args {
 		if l, ok := o.(*LOB); ok {
-			buf.WriteString(fmt.Sprintf("%v", write(l)))
+			buf.WriteString(fmt.Sprintf("%v", Write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
 		}
@@ -315,11 +323,11 @@ func Error(errkey *LOB, args ...interface{}) error {
 	if errkey.Type != KeywordType {
 		errkey = ErrorKey
 	}
-	return newError(errkey, newString(buf.String()))
+	return MakeError(errkey, String(buf.String()))
 }
 
-func newError(elements ...*LOB) *LOB {
-	data := vector(elements...)
+func MakeError(elements ...*LOB) *LOB {
+	data := Vector(elements...)
 	return &LOB{Type: ErrorType, car: data}
 }
 
@@ -336,12 +344,12 @@ func theError(o interface{}) (*LOB, bool) {
 
 }
 
-func isError(o interface{}) bool {
+func IsError(o interface{}) bool {
 	_, ok := theError(o)
 	return ok
 }
 
-func errorData(err *LOB) *LOB {
+func ErrorData(err *LOB) *LOB {
 	return err.car
 }
 
@@ -358,22 +366,22 @@ func (lob *LOB) Error() string {
 }
 
 // ErrorKey - used to generic errors
-var ErrorKey = intern("error:")
+var ErrorKey = Intern("error:")
 
 // ArgumentErrorKey
-var ArgumentErrorKey = intern("argument-error:")
+var ArgumentErrorKey = Intern("argument-error:")
 
 // SyntaxErrorKey
-var SyntaxErrorKey = intern("syntax-error:")
+var SyntaxErrorKey = Intern("syntax-error:")
 
 // MacroErrorKey
-var MacroErrorKey = intern("macro-error:")
+var MacroErrorKey = Intern("macro-error:")
 
 // IOErrorKey
-var IOErrorKey = intern("io-error:")
+var IOErrorKey = Intern("io-error:")
 
 // HttpErrorKey
-var HTTPErrorKey = intern("http-error:")
+var HTTPErrorKey = Intern("http-error:")
 
 // InterruptKey
-var InterruptKey = intern("interrupt:")
+var InterruptKey = Intern("interrupt:")

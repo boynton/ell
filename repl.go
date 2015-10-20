@@ -50,17 +50,17 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		if whole == "" {
 			return "", false, nil
 		}
-		lexpr, err := read(newString(whole))
+		lexpr, err := Read(String(whole), AnyType)
 		ell.buf = ""
 		if err == nil {
-			val, err := eval(lexpr)
+			val, err := Eval(lexpr)
 			if err == nil {
 				result := ""
 				if val == nil {
 					result = " !!! whoops, result is nil, that isn't right"
 					panic("here")
 				} else {
-					result = "= " + write(val)
+					result = "= " + Write(val)
 				}
 				return result, false, nil
 			}
@@ -147,13 +147,13 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 	prefix, funPosition := ell.completePrefix(expr)
 	candidates := map[*LOB]bool{}
 	if funPosition {
-		for _, sym := range getKeywords() {
+		for _, sym := range GetKeywords() {
 			str := sym.String()
 			if strings.HasPrefix(str, prefix) {
 				candidates[sym] = true
 			}
 		}
-		for _, sym := range macros() {
+		for _, sym := range Macros() {
 			_, ok := candidates[sym]
 			if !ok {
 				str := sym.String()
@@ -163,7 +163,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 			}
 		}
 	}
-	for _, sym := range getGlobals() {
+	for _, sym := range Globals() {
 		_, ok := candidates[sym]
 		if !ok {
 			_, ok := candidates[sym]
@@ -171,7 +171,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 				str := sym.String()
 				if strings.HasPrefix(str, prefix) {
 					if funPosition {
-						val := global(sym)
+						val := GetGlobal(sym)
 						if IsFunction(val) {
 							candidates[sym] = true
 						}
@@ -195,7 +195,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 }
 
 func (ell *ellHandler) Prompt() string {
-	prompt := global(intern("*prompt*"))
+	prompt := GetGlobal(Intern("*prompt*"))
 	if prompt != nil {
 		return prompt.String()
 	}

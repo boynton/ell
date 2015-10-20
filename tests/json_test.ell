@@ -5,8 +5,8 @@
 ;;(println "ell: " ell-ref)
 ;;(println "json: " json-ref)
 
-(def j1 (car (read json-ref))) ; but we get strings when reading, not keywords. Because JSON has no restrictions on key strings
-(def j2 (car (read (string (json j1)))))
+(def j1 (read json-ref)) ; but we get strings when reading, not keywords. Because JSON has no restrictions on key strings
+(def j2 (read (string (json j1))))
 (println j1)
 (println j2)
 (assert-equal j1 j2)

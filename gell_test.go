@@ -20,7 +20,7 @@ import (
 )
 
 func testType(t *testing.T, name string, sym *LOB) {
-	if sym != intern(name) {
+	if sym != Intern(name) {
 		t.Error("type is not ", name, ":", sym)
 	}
 }
@@ -30,6 +30,7 @@ func testIdentical(t *testing.T, o1 *LOB, o2 *LOB) {
 		t.Error("objects should be identical but are not:", o1, "and", o2)
 	}
 }
+
 func testNotIdentical(t *testing.T, o1 *LOB, o2 *LOB) {
 	if o1 == o2 {
 		t.Error("objects should not be identical but are:", o1, "and", o2)
@@ -40,7 +41,7 @@ func TestNull(t *testing.T) {
 	n1 := Null
 	testIdentical(t, n1, Null)
 	testNotIdentical(t, Null, nil)
-	testType(t, "<null>", Null.variant)
+	testType(t, "<null>", Null.Type)
 	if n1 != Null {
 		t.Error("nil isn't Null")
 	}
@@ -49,16 +50,16 @@ func TestNull(t *testing.T) {
 func TestBooleans(t *testing.T) {
 	b1 := True
 	b2 := False
-	testType(t, "<boolean>", True.variant)
-	testType(t, "<boolean>", False.variant)
-	testIdentical(t, True.variant, False.variant)
+	testType(t, "<boolean>", True.Type)
+	testType(t, "<boolean>", False.Type)
+	testIdentical(t, True.Type, False.Type)
 	testIdentical(t, b1, True)
 	testIdentical(t, b2, False)
 	testNotIdentical(t, b1, b2)
-	if !isBoolean(b1) {
+	if !IsBoolean(b1) {
 		t.Error("boolean value isn't:", b1)
 	}
-	if !isBoolean(b2) {
+	if !IsBoolean(b2) {
 		t.Error("boolean value isn't:", b2)
 	}
 }

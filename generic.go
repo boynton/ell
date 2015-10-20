@@ -22,7 +22,7 @@ func methodSignature(formalArgs *LOB) (*LOB, error) {
 		s := formalArgs.car //might be a symbol, might be a list
 		tname := ""
 		if s.Type == ListType { //specialized
-			t := cadr(s)
+			t := Cadr(s)
 			if t.Type != TypeType {
 				return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
 			}
@@ -35,7 +35,7 @@ func methodSignature(formalArgs *LOB) (*LOB, error) {
 		sig += tname
 		formalArgs = formalArgs.cdr
 	}
-	return intern(sig), nil
+	return Intern(sig), nil
 }
 
 func arglistSignature(args []*LOB) string {
@@ -80,25 +80,25 @@ func arglistSignatures(args []*LOB) []*LOB {
 		stringSigs := signatureCombos(argtypes)
 		sigs = make([]*LOB, 0, len(stringSigs))
 		for _, sig := range stringSigs {
-			sigs = append(sigs, intern(sig))
+			sigs = append(sigs, Intern(sig))
 		}
 		cachedSigs[key] = sigs
 	}
 	return sigs
 }
 
-var symGenfns = intern("*genfns*")
-var keyMethods = intern("methods:")
+var GenfnsSymbol = Intern("*genfns*")
+var MethodsKeyword = Intern("methods:")
 
 func getfn(sym *LOB, args []*LOB) (*LOB, error) {
 	sigs := arglistSignatures(args)
-	gfs := global(symGenfns)
+	gfs := GetGlobal(GenfnsSymbol)
 	if gfs != nil && gfs.Type == StructType {
 		gf := structGet(gfs, sym)
 		if gf == Null {
 			return nil, Error(ErrorKey, "Not a generic function: ", sym)
 		}
-		methods := structGet(Value(gf), keyMethods)
+		methods := structGet(Value(gf), MethodsKeyword)
 		if methods.Type == StructType {
 			for _, sig := range sigs {
 				fun := structGet(methods, sig)
