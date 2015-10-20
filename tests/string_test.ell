@@ -12,6 +12,7 @@
 (assert (= 9 (string-length u)))
 (assert (equal? '(#\H #\e #\l #\l #\o #\, #\space #\x4E16 #\x754C) (to-list u)) "(to-string (to-list u)) failed")
 
-
+(def b (to-blob s))
+(assert (equal? (to-string b) s) "to blob and back to string")
 
 (println "[string_test OK]")

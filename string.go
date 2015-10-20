@@ -43,7 +43,9 @@ func ToString(a *LOB) (*LOB, error) {
 		return String(string([]rune{rune(a.fval)})), nil
 	case StringType:
 		return a, nil
-	case SymbolType, KeywordType, TypeType, BlobType:
+	case BlobType:
+		return String(string(BlobValue(a))), nil
+	case SymbolType, KeywordType, TypeType:
 		return String(a.text), nil
 	case NumberType, BooleanType:
 		return String(a.String()), nil
