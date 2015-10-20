@@ -45,7 +45,7 @@ func checkInterrupt() bool {
 }
 
 func str(o interface{}) string {
-	if lob, ok := o.(*LOB); ok {
+	if lob, ok := o.(*Object); ok {
 		return lob.String()
 	}
 	return fmt.Sprintf("%v", o)
@@ -75,24 +75,24 @@ func Fatal(args ...interface{}) {
 // Continuation -
 type continuation struct {
 	ops   []int
-	stack []*LOB
+	stack []*Object
 	pc    int
 }
 
-func Closure(code *Code, frame *frame) *LOB {
-	fun := new(LOB)
+func Closure(code *Code, frame *frame) *Object {
+	fun := new(Object)
 	fun.Type = FunctionType
 	fun.code = code
 	fun.frame = frame
 	return fun
 }
 
-func Continuation(frame *frame, ops []int, pc int, stack []*LOB) *LOB {
-	fun := new(LOB)
+func Continuation(frame *frame, ops []int, pc int, stack []*Object) *Object {
+	fun := new(Object)
 	fun.Type = FunctionType
 	cont := new(continuation)
 	cont.ops = ops
-	cont.stack = make([]*LOB, len(stack))
+	cont.stack = make([]*Object, len(stack))
 	copy(cont.stack, stack)
 	cont.pc = pc
 	fun.frame = frame
@@ -112,15 +112,15 @@ func VM(stackSize int) *vm {
 }
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &LOB{Type: FunctionType}
+var Apply = &Object{Type: FunctionType}
 
 // CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &LOB{Type: FunctionType}
+var CallCC = &Object{Type: FunctionType}
 
 // Apply is a primitive instruction to apply a function to a list of arguments
-var Spawn = &LOB{Type: FunctionType}
+var Spawn = &Object{Type: FunctionType}
 
-func functionSignature(f *LOB) string {
+func functionSignature(f *Object) string {
 	if f.primitive != nil {
 		return f.primitive.signature
 	}
@@ -142,7 +142,7 @@ func functionSignature(f *LOB) string {
 	panic("Bad function")
 }
 
-func functionToString(f *LOB) string {
+func functionToString(f *Object) string {
 	if f.primitive != nil {
 		return "#[function " + f.primitive.name + "]"
 	}
@@ -169,7 +169,7 @@ func functionToString(f *LOB) string {
 }
 
 // PrimitiveFunction is the native go function signature for all Ell primitive functions
-type PrimitiveFunction func(argv []*LOB) (*LOB, error)
+type PrimitiveFunction func(argv []*Object) (*Object, error)
 
 // Primitive - a primitive function, written in Go, callable by VM
 type primitive struct { // <function>
@@ -177,15 +177,15 @@ type primitive struct { // <function>
 	fun       PrimitiveFunction
 	signature string
 	idx       int
-	argc      int    // -1 means the primitive itself checks the args (legacy mode)
-	result    *LOB   // if set the type of the result
-	args      []*LOB // if set, the length must be for total args (both required and optional). The type (or <any>) for each
-	rest      *LOB   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
-	defaults  []*LOB // if set, then that many optional args beyond argc have these default values
-	keys      []*LOB // if set, then it must match the size of defaults, and these are the keys
+	argc      int       // -1 means the primitive itself checks the args (legacy mode)
+	result    *Object   // if set the type of the result
+	args      []*Object // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	rest      *Object   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
+	defaults  []*Object // if set, then that many optional args beyond argc have these default values
+	keys      []*Object // if set, then it must match the size of defaults, and these are the keys
 }
 
-func functionSignatureFromTypes(result *LOB, args []*LOB, rest *LOB) string {
+func functionSignatureFromTypes(result *Object, args []*Object, rest *Object) string {
 	sig := "("
 	for i, t := range args {
 		if !IsType(t) {
@@ -213,7 +213,7 @@ func functionSignatureFromTypes(result *LOB, args []*LOB, rest *LOB) string {
 	return sig
 }
 
-func Primitive(name string, fun PrimitiveFunction, result *LOB, args []*LOB, rest *LOB, defaults []*LOB, keys []*LOB) *LOB {
+func Primitive(name string, fun PrimitiveFunction, result *Object, args []*Object, rest *Object, defaults []*Object, keys []*Object) *Object {
 	//the rest type indicates arguments past the end of args will all have the given type. the length must be checked by primitive
 	// -> they are all optional, then. So, (<any>+) must be expressed as (<any> <any>*)
 	idx := len(primitives)
@@ -243,7 +243,7 @@ func Primitive(name string, fun PrimitiveFunction, result *LOB, args []*LOB, res
 	signature := functionSignatureFromTypes(result, args, rest)
 	prim := &primitive{name, fun, signature, idx, argc, result, args, rest, defaults, keys}
 	primitives = append(primitives, prim)
-	return &LOB{Type: FunctionType, primitive: prim}
+	return &Object{Type: FunctionType, primitive: prim}
 }
 
 type frame struct {
@@ -251,8 +251,8 @@ type frame struct {
 	previous  *frame
 	code      *Code
 	ops       []int
-	elements  []*LOB
-	firstfive [5]*LOB
+	elements  []*Object
+	firstfive [5]*Object
 	pc        int
 }
 
@@ -286,7 +286,7 @@ func showEnv(f *frame) string {
 	return s
 }
 
-func buildFrame(env *frame, pc int, ops []int, fun *LOB, argc int, stack []*LOB, sp int) (*frame, error) {
+func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*Object, sp int) (*frame, error) {
 	f := new(frame)
 	f.previous = env
 	f.pc = pc
@@ -302,7 +302,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LOB, argc int, stack []*LOB,
 		if argc <= 5 {
 			f.elements = f.firstfive[:]
 		} else {
-			f.elements = make([]*LOB, argc)
+			f.elements = make([]*Object, argc)
 		}
 		copy(f.elements, stack[sp:sp+argc])
 		return f, nil
@@ -321,12 +321,12 @@ func buildFrame(env *frame, pc int, ops []int, fun *LOB, argc int, stack []*LOB,
 		return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
-	el := make([]*LOB, totalArgc)
+	el := make([]*Object, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
 		restElements := stack[end : sp+argc]
-		el[expectedArgc] = listFromValues(restElements)
+		el[expectedArgc] = ListFromValues(restElements)
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
@@ -364,7 +364,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *LOB, argc int, stack []*LOB,
 }
 
 func addContext(env *frame, err error) error {
-	if e, ok := err.(*LOB); ok {
+	if e, ok := err.(*Object); ok {
 		if env.code != nil {
 			if env.code.name != "throw" {
 				e.text = env.code.name
@@ -378,7 +378,7 @@ func addContext(env *frame, err error) error {
 	return err
 }
 
-func (vm *vm) keywordCall(fun *LOB, argc int, pc int, stack []*LOB, sp int) (int, int, error) {
+func (vm *vm) keywordCall(fun *Object, argc int, pc int, stack []*Object, sp int) (int, int, error) {
 	if argc != 1 {
 		return 0, 0, Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 	}
@@ -404,7 +404,7 @@ func argcError(name string, min int, max int, provided int) error {
 	return Error(ArgumentErrorKey, fmt.Sprintf("%s expected %s, got %d", name, s, provided))
 }
 
-func (vm *vm) callPrimitive(prim *primitive, argv []*LOB) (*LOB, error) {
+func (vm *vm) callPrimitive(prim *primitive, argv []*Object) (*Object, error) {
 	if prim.defaults != nil {
 		return vm.callPrimitiveWithDefaults(prim, argv)
 	}
@@ -421,7 +421,7 @@ func (vm *vm) callPrimitive(prim *primitive, argv []*LOB) (*LOB, error) {
 	return prim.fun(argv)
 }
 
-func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*LOB) (*LOB, error) {
+func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Object, error) {
 	provided := len(argv)
 	minargc := prim.argc
 	if len(prim.defaults) == 0 {
@@ -450,7 +450,7 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*LOB) (*LOB, err
 	if provided < minargc {
 		return nil, argcError(prim.name, minargc, maxargc, provided)
 	}
-	newargs := make([]*LOB, maxargc)
+	newargs := make([]*Object, maxargc)
 	if prim.keys != nil {
 		j := 0
 		copy(newargs, argv[:minargc])
@@ -504,7 +504,7 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*LOB) (*LOB, err
 	return prim.fun(argv)
 }
 
-func (vm *vm) funcall(fun *LOB, argc int, ops []int, savedPc int, stack []*LOB, sp int, env *frame) ([]int, int, int, *frame, error) {
+func (vm *vm) funcall(fun *Object, argc int, ops []int, savedPc int, stack []*Object, sp int, env *frame) ([]int, int, int, *frame, error) {
 opcodeCallAgain:
 	if fun.Type == FunctionType {
 		if fun.code != nil {
@@ -525,7 +525,7 @@ opcodeCallAgain:
 				if argc <= 5 {
 					f.elements = f.firstfive[:argc]
 				} else {
-					f.elements = make([]*LOB, argc)
+					f.elements = make([]*Object, argc)
 				}
 				endSp := sp + argc
 				copy(f.elements, stack[sp:endSp])
@@ -624,7 +624,7 @@ opcodeCallAgain:
 	return vm.catch(err, stack, env)
 }
 
-func (vm *vm) tailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *frame) ([]int, int, int, *frame, error) {
+func (vm *vm) tailcall(fun *Object, argc int, ops []int, stack []*Object, sp int, env *frame) ([]int, int, int, *frame, error) {
 opcodeTailCallAgain:
 	if fun.Type == FunctionType {
 		if fun.code != nil {
@@ -728,7 +728,7 @@ opcodeTailCallAgain:
 	return vm.catch(err, stack, env)
 }
 
-func (vm *vm) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp int, env *frame) ([]int, int, int, *frame, error) {
+func (vm *vm) keywordTailcall(fun *Object, argc int, ops []int, stack []*Object, sp int, env *frame) ([]int, int, int, *frame, error) {
 	if argc != 1 {
 		err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
 		return vm.catch(err, stack, env)
@@ -741,8 +741,8 @@ func (vm *vm) keywordTailcall(fun *LOB, argc int, ops []int, stack []*LOB, sp in
 	return env.ops, env.pc, sp, env.previous, nil
 }
 
-func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
-	args := []*LOB{arg}
+func execCompileTime(code *Code, arg *Object) (*Object, error) {
+	args := []*Object{arg}
 	prev := verbose
 	verbose = false
 	res, err := exec(code, args)
@@ -750,8 +750,8 @@ func execCompileTime(code *Code, arg *LOB) (*LOB, error) {
 	return res, err
 }
 
-func (vm *vm) catch(err error, stack []*LOB, env *frame) ([]int, int, int, *frame, error) {
-	errobj, ok := err.(*LOB)
+func (vm *vm) catch(err error, stack []*Object, env *frame) ([]int, int, int, *frame, error) {
+	errobj, ok := err.(*Object)
 	if !ok {
 		errobj = MakeError(ErrorKey, String(err.Error()))
 	}
@@ -768,7 +768,7 @@ func (vm *vm) catch(err error, stack []*LOB, env *frame) ([]int, int, int, *fram
 	return nil, 0, 0, nil, addContext(env, err)
 }
 
-func (vm *vm) spawn(fun *LOB, argc int, stack []*LOB, sp int) error {
+func (vm *vm) spawn(fun *Object, argc int, stack []*Object, sp int) error {
 	if fun.Type == FunctionType {
 		if fun.code != nil {
 			env, err := buildFrame(nil, 0, nil, fun, argc, stack, sp)
@@ -792,13 +792,13 @@ func (vm *vm) spawn(fun *LOB, argc int, stack []*LOB, sp int) error {
 	return Error(ArgumentErrorKey, "Bad function for spawn: ", fun)
 }
 
-func exec(code *Code, args []*LOB) (*LOB, error) {
+func exec(code *Code, args []*Object) (*Object, error) {
 	vm := VM(defaultStackSize)
 	if len(args) != code.argc {
 		return nil, Error(ArgumentErrorKey, "Wrong number of arguments")
 	}
 	env := new(frame)
-	env.elements = make([]*LOB, len(args))
+	env.elements = make([]*Object, len(args))
 	copy(env.elements, args)
 	env.code = code
 	startTime := time.Now()
@@ -819,11 +819,11 @@ func exec(code *Code, args []*LOB) (*LOB, error) {
 	return result, err
 }
 
-func (vm *vm) exec(code *Code, env *frame) (*LOB, error) {
+func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 	if !optimize || verbose || trace {
 		return vm.instrumentedExec(code, env)
 	}
-	stack := make([]*LOB, vm.stackSize)
+	stack := make([]*Object, vm.stackSize)
 	sp := vm.stackSize
 	ops := code.ops
 	pc := 0
@@ -864,7 +864,7 @@ func (vm *vm) exec(code *Code, env *frame) (*LOB, error) {
 					return nil, err
 				}
 			}
-		} else if op == opcodeGlobal { //GLOBAL
+		} else if op == opcodeGlobal { //GObjectAL
 			sym := constants[ops[pc+1]]
 			sp--
 			stack[sp] = sym.car
@@ -1011,7 +1011,7 @@ func (vm *vm) exec(code *Code, env *frame) (*LOB, error) {
 
 const stackColumn = 40
 
-func showInstruction(pc int, op int, args string, stack []*LOB, sp int) {
+func showInstruction(pc int, op int, args string, stack []*Object, sp int) {
 	var body string
 	body = leftJustified(fmt.Sprintf("%d ", pc), 8) + leftJustified(opsyms[op].text, 10) + args
 	println(leftJustified(body, stackColumn), showStack(stack, sp))
@@ -1059,7 +1059,7 @@ func truncatedObjectString(s string, limit int) string {
 	}
 	return s
 }
-func showStack(stack []*LOB, sp int) string {
+func showStack(stack []*Object, sp int) string {
 	end := len(stack)
 	s := "["
 	limit := 5
@@ -1076,8 +1076,8 @@ func showStack(stack []*LOB, sp int) string {
 	return s + tail + " ]"
 }
 
-func (vm *vm) instrumentedExec(code *Code, env *frame) (*LOB, error) {
-	stack := make([]*LOB, vm.stackSize)
+func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
+	stack := make([]*Object, vm.stackSize)
 	sp := vm.stackSize
 	ops := code.ops
 	pc := 0
@@ -1123,7 +1123,7 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*LOB, error) {
 					return nil, err
 				}
 			}
-		} else if op == opcodeGlobal { //GLOBAL
+		} else if op == opcodeGlobal { //GObjectAL
 			sym := constants[ops[pc+1]]
 			if sym.car == nil {
 				err := Error(ErrorKey, "Undefined symbol: ", sym)

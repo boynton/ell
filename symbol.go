@@ -17,10 +17,10 @@ limitations under the License.
 package ell
 
 // Intern - internalize the name into the global symbol table
-func Intern(name string) *LOB {
+func Intern(name string) *Object {
 	sym, ok := symtab[name]
 	if !ok {
-		sym = new(LOB)
+		sym = new(Object)
 		sym.text = name
 		if IsValidKeywordName(name) {
 			sym.Type = KeywordType
@@ -56,7 +56,7 @@ func IsValidKeywordName(s string) bool {
 	return false
 }
 
-func ToKeyword(obj *LOB) (*LOB, error) {
+func ToKeyword(obj *Object) (*Object, error) {
 	switch obj.Type {
 	case KeywordType:
 		return obj, nil
@@ -74,7 +74,7 @@ func ToKeyword(obj *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type)
 }
 
-func keywordify(s *LOB) *LOB {
+func keywordify(s *Object) *Object {
 	switch s.Type {
 	case StringType:
 		if !IsValidKeywordName(s.text) {
@@ -92,7 +92,7 @@ func typeNameString(s string) string {
 }
 
 // <type> -> <symbol>
-func TypeName(t *LOB) (*LOB, error) {
+func TypeName(t *Object) (*Object, error) {
 	if !IsType(t) {
 		return nil, Error(ArgumentErrorKey, "type-name expected a <type>, got a ", t.Type)
 	}
@@ -100,7 +100,7 @@ func TypeName(t *LOB) (*LOB, error) {
 }
 
 // <keyword> -> <symbol>
-func KeywordName(t *LOB) (*LOB, error) {
+func KeywordName(t *Object) (*Object, error) {
 	if !IsKeyword(t) {
 		return nil, Error(ArgumentErrorKey, "keyword-name expected a <keyword>, got a ", t.Type)
 	}
@@ -111,14 +111,14 @@ func keywordNameString(s string) string {
 	return s[:len(s)-1]
 }
 
-func unkeywordedString(k *LOB) string {
+func unkeywordedString(k *Object) string {
 	if IsKeyword(k) {
 		return keywordNameString(k.text)
 	}
 	return k.text
 }
 
-func unkeyworded(obj *LOB) (*LOB, error) {
+func unkeyworded(obj *Object) (*Object, error) {
 	if IsSymbol(obj) {
 		return obj, nil
 	}
@@ -128,7 +128,7 @@ func unkeyworded(obj *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.Type)
 }
 
-func ToSymbol(obj *LOB) (*LOB, error) {
+func ToSymbol(obj *Object) (*Object, error) {
 	switch obj.Type {
 	case KeywordType:
 		return Intern(keywordNameString(obj.text)), nil
@@ -147,30 +147,30 @@ func ToSymbol(obj *LOB) (*LOB, error) {
 //the global symbol table. symbols for the basic types defined in this file are precached
 var symtab = initSymbolTable()
 
-func initSymbolTable() map[string]*LOB {
-	syms := make(map[string]*LOB, 0)
-	TypeType = &LOB{text: "<type>"}
+func initSymbolTable() map[string]*Object {
+	syms := make(map[string]*Object, 0)
+	TypeType = &Object{text: "<type>"}
 	TypeType.Type = TypeType //mutate to bootstrap type type
 	syms[TypeType.text] = TypeType
 
-	KeywordType = &LOB{Type: TypeType, text: "<keyword>"}
+	KeywordType = &Object{Type: TypeType, text: "<keyword>"}
 	syms[KeywordType.text] = KeywordType
 
-	SymbolType = &LOB{Type: TypeType, text: "<symbol>"}
+	SymbolType = &Object{Type: TypeType, text: "<symbol>"}
 	syms[SymbolType.text] = SymbolType
 
 	return syms
 }
 
-func Symbols() []*LOB {
-	syms := make([]*LOB, 0, len(symtab))
+func Symbols() []*Object {
+	syms := make([]*Object, 0, len(symtab))
 	for _, sym := range symtab {
 		syms = append(syms, sym)
 	}
 	return syms
 }
 
-func Symbol(names []*LOB) (*LOB, error) {
+func Symbol(names []*Object) (*Object, error) {
 	size := len(names)
 	if size < 1 {
 		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")

@@ -21,8 +21,8 @@ import (
 )
 
 // Cons - create a new list consisting of the first object and the rest of the list
-func Cons(car *LOB, cdr *LOB) *LOB {
-	result := new(LOB)
+func Cons(car *Object, cdr *Object) *Object {
+	result := new(Object)
 	result.Type = ListType
 	result.car = car
 	result.cdr = cdr
@@ -30,7 +30,7 @@ func Cons(car *LOB, cdr *LOB) *LOB {
 }
 
 // Car - return the first object in a list
-func Car(lst *LOB) *LOB {
+func Car(lst *Object) *Object {
 	if lst == EmptyList {
 		return Null
 	}
@@ -38,7 +38,7 @@ func Car(lst *LOB) *LOB {
 }
 
 // Cdr - return the rest of the list
-func Cdr(lst *LOB) *LOB {
+func Cdr(lst *Object) *Object {
 	if lst == EmptyList {
 		return lst
 	}
@@ -46,47 +46,47 @@ func Cdr(lst *LOB) *LOB {
 }
 
 // Caar - return the Car of the Car of the list
-func Caar(lst *LOB) *LOB {
+func Caar(lst *Object) *Object {
 	return Car(Car(lst))
 }
 
 // Cadr - return the Car of the Cdr of the list
-func Cadr(lst *LOB) *LOB {
+func Cadr(lst *Object) *Object {
 	return Car(Cdr(lst))
 }
 
 // Cdar - return the Cdr of the Car of the list
-func Cdar(lst *LOB) *LOB {
+func Cdar(lst *Object) *Object {
 	return Car(Cdr(lst))
 }
 
 // Cddr - return the Cdr of the Cdr of the list
-func Cddr(lst *LOB) *LOB {
+func Cddr(lst *Object) *Object {
 	return Cdr(Cdr(lst))
 }
 
 // Cadar - return the Car of the Cdr of the Car of the list
-func Cadar(lst *LOB) *LOB {
+func Cadar(lst *Object) *Object {
 	return Car(Cdr(Car(lst)))
 }
 
 // Caddr - return the Car of the Cdr of the Cdr of the list
-func Caddr(lst *LOB) *LOB {
+func Caddr(lst *Object) *Object {
 	return Car(Cdr(Cdr(lst)))
 }
 
 // Cdddr - return the Cdr of the Cdr of the Cdr of the list
-func Cdddr(lst *LOB) *LOB {
+func Cdddr(lst *Object) *Object {
 	return Cdr(Cdr(Cdr(lst)))
 }
 
 // Cadddr - return the Car of the Cdr of the Cdr of the Cdr of the list
-func Cadddr(lst *LOB) *LOB {
+func Cadddr(lst *Object) *Object {
 	return Car(Cdr(Cdr(Cdr(lst))))
 }
 
 // Cddddr - return the Cdr of the Cdr of the Cdr of the Cdr of the list
-func Cddddr(lst *LOB) *LOB {
+func Cddddr(lst *Object) *Object {
 	return Cdr(Cdr(Cdr(Cdr(lst))))
 }
 
@@ -99,12 +99,12 @@ var UnquoteSymbolSplicing = Intern("unquote-splicing")
 // EmptyList - the value of (), terminates linked lists
 var EmptyList = initEmpty()
 
-func initEmpty() *LOB {
-	return &LOB{Type: ListType} //car and cdr are both nil
+func initEmpty() *Object {
+	return &Object{Type: ListType} //car and cdr are both nil
 }
 
 // ListEqual returns true if the object is equal to the argument
-func ListEqual(lst *LOB, a *LOB) bool {
+func ListEqual(lst *Object, a *Object) bool {
 	for lst != EmptyList {
 		if a == EmptyList {
 			return false
@@ -121,7 +121,7 @@ func ListEqual(lst *LOB, a *LOB) bool {
 	return false
 }
 
-func listToString(lst *LOB) string {
+func listToString(lst *Object) string {
 	var buf bytes.Buffer
 	if lst != EmptyList && lst.cdr != EmptyList && Cddr(lst) == EmptyList {
 		if lst.car == QuoteSymbol {
@@ -154,7 +154,7 @@ func listToString(lst *LOB) string {
 	return buf.String()
 }
 
-func ListLength(lst *LOB) int {
+func ListLength(lst *Object) int {
 	if lst == EmptyList {
 		return 0
 	}
@@ -167,7 +167,7 @@ func ListLength(lst *LOB) int {
 	return count
 }
 
-func MakeList(count int, val *LOB) *LOB {
+func MakeList(count int, val *Object) *Object {
 	result := EmptyList
 	for i := 0; i < count; i++ {
 		result = Cons(val, result)
@@ -175,7 +175,7 @@ func MakeList(count int, val *LOB) *LOB {
 	return result
 }
 
-func listFromValues(values []*LOB) *LOB {
+func ListFromValues(values []*Object) *Object {
 	p := EmptyList
 	for i := len(values) - 1; i >= 0; i-- {
 		v := values[i]
@@ -184,12 +184,12 @@ func listFromValues(values []*LOB) *LOB {
 	return p
 }
 
-func List(values ...*LOB) *LOB {
-	return listFromValues(values)
+func List(values ...*Object) *Object {
+	return ListFromValues(values)
 }
 
-func listToVector(lst *LOB) *LOB {
-	var elems []*LOB
+func listToVector(lst *Object) *Object {
+	var elems []*Object
 	for lst != EmptyList {
 		elems = append(elems, lst.car)
 		lst = lst.cdr
@@ -198,12 +198,12 @@ func listToVector(lst *LOB) *LOB {
 }
 
 // ToList - conver the argument to a List, if possible
-func ToList(obj *LOB) (*LOB, error) {
+func ToList(obj *Object) (*Object, error) {
 	switch obj.Type {
 	case ListType:
 		return obj, nil
 	case VectorType:
-		return listFromValues(obj.elements), nil
+		return ListFromValues(obj.elements), nil
 	case StructType:
 		return structToList(obj)
 	case StringType:
@@ -212,7 +212,7 @@ func ToList(obj *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "to-list cannot accept ", obj.Type)
 }
 
-func Reverse(lst *LOB) *LOB {
+func Reverse(lst *Object) *Object {
 	rev := EmptyList
 	for lst != EmptyList {
 		rev = Cons(lst.car, rev)
@@ -221,7 +221,7 @@ func Reverse(lst *LOB) *LOB {
 	return rev
 }
 
-func Flatten(lst *LOB) *LOB {
+func Flatten(lst *Object) *Object {
 	result := EmptyList
 	tail := EmptyList
 	for lst != EmptyList {
@@ -249,7 +249,7 @@ func Flatten(lst *LOB) *LOB {
 	return result
 }
 
-func Concat(seq1 *LOB, seq2 *LOB) (*LOB, error) {
+func Concat(seq1 *Object, seq2 *Object) (*Object, error) {
 	rev := Reverse(seq1)
 	if rev == EmptyList {
 		return seq2, nil

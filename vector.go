@@ -22,7 +22,7 @@ import (
 
 // VectorEqual - return true of the two vectors are equal, i.e. the same length and
 // all the elements are also equal
-func VectorEqual(v1 *LOB, v2 *LOB) bool {
+func VectorEqual(v1 *Object, v2 *Object) bool {
 	el1 := v1.elements
 	el2 := v2.elements
 	count := len(el1)
@@ -37,7 +37,7 @@ func VectorEqual(v1 *LOB, v2 *LOB) bool {
 	return true
 }
 
-func vectorToString(vec *LOB) string {
+func vectorToString(vec *Object) string {
 	el := vec.elements
 	var buf bytes.Buffer
 	buf.WriteString("[")
@@ -55,8 +55,8 @@ func vectorToString(vec *LOB) string {
 
 // MakeVector - create a new <vector> object of the specified size, with all elements initialized to
 // the specified value
-func MakeVector(size int, init *LOB) *LOB {
-	elements := make([]*LOB, size)
+func MakeVector(size int, init *Object) *Object {
+	elements := make([]*Object, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
@@ -64,32 +64,32 @@ func MakeVector(size int, init *LOB) *LOB {
 }
 
 // Vector - create a new <vector> object from the given element objects.
-func Vector(elements ...*LOB) *LOB {
+func Vector(elements ...*Object) *Object {
 	return VectorFromElements(elements, len(elements))
 }
 
 // VectorFromElements - return a new <vector> object from the given slice of elements. The slice is copied.
-func VectorFromElements(elements []*LOB, count int) *LOB {
-	el := make([]*LOB, count)
+func VectorFromElements(elements []*Object, count int) *Object {
+	el := make([]*Object, count)
 	copy(el, elements[0:count])
 	return VectorFromElementsNoCopy(el)
 }
 
 // VectorFromElementsNoCopy - create a new <vector> object from the given slice of elements. The slice is NOT copied.
-func VectorFromElementsNoCopy(elements []*LOB) *LOB {
-	vec := new(LOB)
+func VectorFromElementsNoCopy(elements []*Object) *Object {
+	vec := new(Object)
 	vec.Type = VectorType
 	vec.elements = elements
 	return vec
 }
 
 // CopyVector - return a copy of the <vector>
-func CopyVector(vec *LOB) *LOB {
+func CopyVector(vec *Object) *Object {
 	return VectorFromElements(vec.elements, len(vec.elements))
 }
 
 // ToVector - convert the object to a <vector>, if possible
-func ToVector(obj *LOB) (*LOB, error) {
+func ToVector(obj *Object) (*Object, error) {
 	switch obj.Type {
 	case VectorType:
 		return obj, nil

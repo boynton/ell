@@ -22,25 +22,27 @@ import (
 	"strconv"
 )
 
-// LOB type is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
-// the variant is a type object i.e. Intern("<string>")
-type LOB struct {
-	Type         *LOB               // i.e. <string>
-	code         *Code              // non-nil for closure, code
-	frame        *frame             // non-nil for closure, continuation
-	primitive    *primitive         // non-nil for primitives
-	continuation *continuation      // non-nil for continuation
-	car          *LOB               // non-nil for instances and lists
-	cdr          *LOB               // non-nil for slists, nil for everything else
-	bindings     map[structKey]*LOB // non-nil for struct
-	elements     []*LOB             // non-nil for vector
-	fval         float64            // number
-	text         string             // string, symbol, keyword, type
-	Value        interface{}        // the rest of the data for more complex things
+// Object is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
+// the variant is a type object i.e. Intern("<string>"). For arbitrary embedded extension types, the Value field
+// is an interface{}. It is used for Channels internally, but is generally useful for app-specific native types
+// when extending Ell.
+type Object struct {
+	Type         *Object               // i.e. <string>
+	code         *Code                 // non-nil for closure, code
+	frame        *frame                // non-nil for closure, continuation
+	primitive    *primitive            // non-nil for primitives
+	continuation *continuation         // non-nil for continuation
+	car          *Object               // non-nil for instances and lists
+	cdr          *Object               // non-nil for slists, nil for everything else
+	bindings     map[structKey]*Object // non-nil for struct
+	elements     []*Object             // non-nil for vector
+	fval         float64               // number
+	text         string                // string, symbol, keyword, type
+	Value        interface{}           // the rest of the data for more complex things
 }
 
 // BoolValue - return native bool value of the object
-func BoolValue(obj *LOB) bool {
+func BoolValue(obj *Object) bool {
 	if obj == True {
 		return true
 	}
@@ -48,47 +50,47 @@ func BoolValue(obj *LOB) bool {
 }
 
 // RuneValue - return native rune value of the object
-func RuneValue(obj *LOB) rune {
+func RuneValue(obj *Object) rune {
 	return rune(obj.fval)
 }
 
 // IntValue - return native int value of the object
-func IntValue(obj *LOB) int {
+func IntValue(obj *Object) int {
 	return int(obj.fval)
 }
 
 // Int64Value - return native int64 value of the object
-func Int64Value(obj *LOB) int64 {
+func Int64Value(obj *Object) int64 {
 	return int64(obj.fval)
 }
 
 // Float64Value - return native float64 value of the object
-func Float64Value(obj *LOB) float64 {
+func Float64Value(obj *Object) float64 {
 	return obj.fval
 }
 
 // StringValue - return native string value of the object
-func StringValue(obj *LOB) string {
+func StringValue(obj *Object) string {
 	return obj.text
 }
 
 // BlobValue - return native []byte value of the object
-func BlobValue(obj *LOB) []byte {
+func BlobValue(obj *Object) []byte {
 	b, _ := obj.Value.([]byte)
 	return b
 }
 
 // NewObject is the constructor for externally defined objects, where the
 // value is an interface{}.
-func NewObject(variant *LOB, value interface{}) *LOB {
-	lob := new(LOB)
+func NewObject(variant *Object, value interface{}) *Object {
+	lob := new(Object)
 	lob.Type = variant
 	lob.Value = value
 	return lob
 }
 
 // Identical - return if two objects are identical
-func Identical(o1 *LOB, o2 *LOB) bool {
+func Identical(o1 *Object, o2 *Object) bool {
 	return o1 == o2
 }
 
@@ -96,7 +98,7 @@ type stringable interface {
 	String() string
 }
 
-func (lob *LOB) String() string {
+func (lob *Object) String() string {
 	switch lob.Type {
 	case NullType:
 		return "null"
@@ -139,13 +141,13 @@ func (lob *LOB) String() string {
 }
 
 // TypeType is the metatype, the type of all types
-var TypeType *LOB // bootstrapped in initSymbolTable => Intern("<type>")
+var TypeType *Object // bootstrapped in initSymbolTable => Intern("<type>")
 
 // KeywordType is the type of all keywords
-var KeywordType *LOB // bootstrapped in initSymbolTable => Intern("<keyword>")
+var KeywordType *Object // bootstrapped in initSymbolTable => Intern("<keyword>")
 
 // SymbolType is the type of all symbols
-var SymbolType *LOB // bootstrapped in initSymbolTable = Intern("<symbol>")
+var SymbolType *Object // bootstrapped in initSymbolTable = Intern("<symbol>")
 
 // NullType the type of the null object
 var NullType = Intern("<null>")
@@ -187,62 +189,62 @@ var ErrorType = Intern("<error>")
 var AnyType = Intern("<any>")
 
 // Null is Ell's version of nil. It means "nothing" and is not the same as EmptyList. It is a singleton.
-var Null = &LOB{Type: NullType}
+var Null = &Object{Type: NullType}
 
-func IsNull(obj *LOB) bool {
+func IsNull(obj *Object) bool {
 	return obj == Null
 }
 
 // True is the singleton boolean true value
-var True = &LOB{Type: BooleanType, fval: 1}
+var True = &Object{Type: BooleanType, fval: 1}
 
 // False is the singleton boolean false value
-var False = &LOB{Type: BooleanType, fval: 0}
+var False = &Object{Type: BooleanType, fval: 0}
 
-func IsBoolean(obj *LOB) bool {
+func IsBoolean(obj *Object) bool {
 	return obj.Type == BooleanType
 }
 
-func IsCharacter(obj *LOB) bool {
+func IsCharacter(obj *Object) bool {
 	return obj.Type == CharacterType
 }
-func IsNumber(obj *LOB) bool {
+func IsNumber(obj *Object) bool {
 	return obj.Type == NumberType
 }
-func IsString(obj *LOB) bool {
+func IsString(obj *Object) bool {
 	return obj.Type == StringType
 }
-func IsList(obj *LOB) bool {
+func IsList(obj *Object) bool {
 	return obj.Type == ListType
 }
-func IsVector(obj *LOB) bool {
+func IsVector(obj *Object) bool {
 	return obj.Type == VectorType
 }
-func IsStruct(obj *LOB) bool {
+func IsStruct(obj *Object) bool {
 	return obj.Type == StructType
 }
-func IsFunction(obj *LOB) bool {
+func IsFunction(obj *Object) bool {
 	return obj.Type == FunctionType
 }
-func IsCode(obj *LOB) bool {
+func IsCode(obj *Object) bool {
 	return obj.Type == CodeType
 }
-func IsSymbol(obj *LOB) bool {
+func IsSymbol(obj *Object) bool {
 	return obj.Type == SymbolType
 }
-func IsKeyword(obj *LOB) bool {
+func IsKeyword(obj *Object) bool {
 	return obj.Type == KeywordType
 }
-func IsType(obj *LOB) bool {
+func IsType(obj *Object) bool {
 	return obj.Type == TypeType
 }
 
 //instances have arbitrary Type symbols, all we can check is that the instanceValue is set
-func IsInstance(obj *LOB) bool {
+func IsInstance(obj *Object) bool {
 	return obj.car != nil && obj.cdr == nil
 }
 
-func Equal(o1 *LOB, o2 *LOB) bool {
+func Equal(o1 *Object, o2 *Object) bool {
 	if o1 == o2 {
 		return true
 	}
@@ -276,7 +278,7 @@ func Equal(o1 *LOB, o2 *LOB) bool {
 	}
 }
 
-func IsPrimitiveType(tag *LOB) bool {
+func IsPrimitiveType(tag *Object) bool {
 	switch tag {
 	case NullType, BooleanType, CharacterType, NumberType, StringType, ListType, VectorType, StructType:
 		return true
@@ -287,20 +289,20 @@ func IsPrimitiveType(tag *LOB) bool {
 	}
 }
 
-func Instance(tag *LOB, val *LOB) (*LOB, error) {
+func Instance(tag *Object, val *Object) (*Object, error) {
 	if !IsType(tag) {
 		return nil, Error(ArgumentErrorKey, TypeType.text, tag)
 	}
 	if IsPrimitiveType(tag) {
 		return val, nil
 	}
-	result := new(LOB)
+	result := new(Object)
 	result.Type = tag
 	result.car = val
 	return result, nil
 }
 
-func Value(obj *LOB) *LOB {
+func Value(obj *Object) *Object {
 	if obj.cdr == nil && obj.car != nil {
 		return obj.car
 	}
@@ -311,10 +313,10 @@ func Value(obj *LOB) *LOB {
 // Error - creates a new Error from the arguments. The first is an actual Ell keyword object,
 // the rest are interpreted as/converted to strings
 //
-func Error(errkey *LOB, args ...interface{}) error {
+func Error(errkey *Object, args ...interface{}) error {
 	var buf bytes.Buffer
 	for _, o := range args {
-		if l, ok := o.(*LOB); ok {
+		if l, ok := o.(*Object); ok {
 			buf.WriteString(fmt.Sprintf("%v", Write(l)))
 		} else {
 			buf.WriteString(fmt.Sprintf("%v", o))
@@ -326,16 +328,16 @@ func Error(errkey *LOB, args ...interface{}) error {
 	return MakeError(errkey, String(buf.String()))
 }
 
-func MakeError(elements ...*LOB) *LOB {
+func MakeError(elements ...*Object) *Object {
 	data := Vector(elements...)
-	return &LOB{Type: ErrorType, car: data}
+	return &Object{Type: ErrorType, car: data}
 }
 
-func theError(o interface{}) (*LOB, bool) {
+func theError(o interface{}) (*Object, bool) {
 	if o == nil {
 		return nil, false
 	}
-	if err, ok := o.(*LOB); ok {
+	if err, ok := o.(*Object); ok {
 		if err.Type == ErrorType {
 			return err, true
 		}
@@ -349,12 +351,12 @@ func IsError(o interface{}) bool {
 	return ok
 }
 
-func ErrorData(err *LOB) *LOB {
+func ErrorData(err *Object) *Object {
 	return err.car
 }
 
 // Error
-func (lob *LOB) Error() string {
+func (lob *Object) Error() string {
 	if lob.Type == ErrorType {
 		s := lob.car.String()
 		if lob.text != "" {

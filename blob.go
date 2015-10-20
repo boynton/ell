@@ -17,15 +17,15 @@ limitations under the License.
 package ell
 
 // Blob - create a new blob, using the specified byte slice as the data. The data is not copied.
-func Blob(bytes []byte) *LOB {
-	b := new(LOB)
+func Blob(bytes []byte) *Object {
+	b := new(Object)
 	b.Type = BlobType
 	b.Value = bytes
 	return b
 }
 
 // MakeBlob - create a new blob of the given size. It will be initialized to all zeroes
-func MakeBlob(size int) *LOB {
+func MakeBlob(size int) *Object {
 	el := make([]byte, size)
 	return Blob(el)
 }
@@ -34,7 +34,7 @@ func MakeBlob(size int) *LOB {
 var EmptyBlob = MakeBlob(0)
 
 // ToBlob - convert argument to a blob, if possible.
-func ToBlob(obj *LOB) (*LOB, error) {
+func ToBlob(obj *Object) (*Object, error) {
 	switch obj.Type {
 	case BlobType:
 		return obj, nil
@@ -47,7 +47,7 @@ func ToBlob(obj *LOB) (*LOB, error) {
 	}
 }
 
-func vectorToBlob(obj *LOB) (*LOB, error) {
+func vectorToBlob(obj *Object) (*Object, error) {
 	el := obj.elements
 	n := len(el)
 	b := make([]byte, n, n)

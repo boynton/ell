@@ -16,7 +16,7 @@ limitations under the License.
 
 package ell
 
-func methodSignature(formalArgs *LOB) (*LOB, error) {
+func methodSignature(formalArgs *Object) (*Object, error) {
 	sig := ""
 	for formalArgs != EmptyList {
 		s := formalArgs.car //might be a symbol, might be a list
@@ -38,7 +38,7 @@ func methodSignature(formalArgs *LOB) (*LOB, error) {
 	return Intern(sig), nil
 }
 
-func arglistSignature(args []*LOB) string {
+func arglistSignature(args []*Object) string {
 	sig := ""
 	for _, arg := range args {
 		sig += arg.Type.text
@@ -46,7 +46,7 @@ func arglistSignature(args []*LOB) string {
 	return sig
 }
 
-func signatureCombos(argtypes []*LOB) []string {
+func signatureCombos(argtypes []*Object) []string {
 	switch len(argtypes) {
 	case 0:
 		return []string{}
@@ -67,18 +67,18 @@ func signatureCombos(argtypes []*LOB) []string {
 	}
 }
 
-var cachedSigs = make(map[string][]*LOB)
+var cachedSigs = make(map[string][]*Object)
 
-func arglistSignatures(args []*LOB) []*LOB {
+func arglistSignatures(args []*Object) []*Object {
 	key := arglistSignature(args)
 	sigs, ok := cachedSigs[key]
 	if !ok {
-		var argtypes []*LOB
+		var argtypes []*Object
 		for _, arg := range args {
 			argtypes = append(argtypes, arg.Type)
 		}
 		stringSigs := signatureCombos(argtypes)
-		sigs = make([]*LOB, 0, len(stringSigs))
+		sigs = make([]*Object, 0, len(stringSigs))
 		for _, sig := range stringSigs {
 			sigs = append(sigs, Intern(sig))
 		}
@@ -90,7 +90,7 @@ func arglistSignatures(args []*LOB) []*LOB {
 var GenfnsSymbol = Intern("*genfns*")
 var MethodsKeyword = Intern("methods:")
 
-func getfn(sym *LOB, args []*LOB) (*LOB, error) {
+func getfn(sym *Object, args []*Object) (*Object, error) {
 	sigs := arglistSignatures(args)
 	gfs := GetGlobal(GenfnsSymbol)
 	if gfs != nil && gfs.Type == StructType {

@@ -21,12 +21,12 @@ import (
 )
 
 type macro struct {
-	name     *LOB
-	expander *LOB //a function of one argument
+	name     *Object
+	expander *Object //a function of one argument
 }
 
 // Macro - create a new Macro
-func Macro(name *LOB, expander *LOB) *macro {
+func Macro(name *Object, expander *Object) *macro {
 	return &macro{name, expander}
 }
 
@@ -35,11 +35,11 @@ func (mac *macro) String() string {
 }
 
 // Macroexpand - return the expansion of all macros in the object and return the result
-func Macroexpand(expr *LOB) (*LOB, error) {
+func Macroexpand(expr *Object) (*Object, error) {
 	return macroexpandObject(expr)
 }
 
-func macroexpandObject(expr *LOB) (*LOB, error) {
+func macroexpandObject(expr *Object) (*Object, error) {
 	if IsList(expr) {
 		if expr != EmptyList {
 			return macroexpandList(expr)
@@ -48,7 +48,7 @@ func macroexpandObject(expr *LOB) (*LOB, error) {
 	return expr, nil
 }
 
-func macroexpandList(expr *LOB) (*LOB, error) {
+func macroexpandList(expr *Object) (*Object, error) {
 	if expr == EmptyList {
 		return expr, nil
 	}
@@ -78,7 +78,7 @@ func macroexpandList(expr *LOB) (*LOB, error) {
 	return Cons(head, tail), nil
 }
 
-func (mac *macro) expand(expr *LOB) (*LOB, error) {
+func (mac *macro) expand(expr *Object) (*Object, error) {
 	expander := mac.expander
 	if expander.Type == FunctionType {
 		if expander.code != nil {
@@ -93,7 +93,7 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 				return nil, err
 			}
 		} else if expander.primitive != nil {
-			args := []*LOB{expr}
+			args := []*Object{expr}
 			expanded, err := expander.primitive.fun(args)
 			if err == nil {
 				return macroexpandObject(expanded)
@@ -104,8 +104,8 @@ func (mac *macro) expand(expr *LOB) (*LOB, error) {
 	return nil, Error(MacroErrorKey, "Bad macro expander function: ", expander)
 }
 
-func expandSequence(seq *LOB) (*LOB, error) {
-	var result []*LOB
+func expandSequence(seq *Object) (*Object, error) {
+	var result []*Object
 	if seq == nil {
 		panic("Whoops: should be (), not nil!")
 	}
@@ -122,7 +122,7 @@ func expandSequence(seq *LOB) (*LOB, error) {
 		}
 		seq = Cdr(seq)
 	}
-	lst := listFromValues(result)
+	lst := ListFromValues(result)
 	if seq != EmptyList {
 		tmp := Cons(seq, EmptyList)
 		return Concat(lst, tmp)
@@ -130,7 +130,7 @@ func expandSequence(seq *LOB) (*LOB, error) {
 	return lst, nil
 }
 
-func expandIf(expr *LOB) (*LOB, error) {
+func expandIf(expr *Object) (*Object, error) {
 	i := ListLength(expr)
 	if i == 4 {
 		tmp, err := expandSequence(Cdr(expr))
@@ -150,7 +150,7 @@ func expandIf(expr *LOB) (*LOB, error) {
 	}
 }
 
-func expandUndef(expr *LOB) (*LOB, error) {
+func expandUndef(expr *Object) (*Object, error) {
 	if ListLength(expr) != 2 || !IsSymbol(Cadr(expr)) {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
@@ -160,7 +160,7 @@ func expandUndef(expr *LOB) (*LOB, error) {
 // (defn f (x) (+ 1 x))
 //  ->
 // (def f (fn (x) (+ 1 x)))
-func expandDefn(expr *LOB) (*LOB, error) {
+func expandDefn(expr *Object) (*Object, error) {
 	exprLen := ListLength(expr)
 	if exprLen >= 4 {
 		name := Cadr(expr)
@@ -180,7 +180,7 @@ func expandDefn(expr *LOB) (*LOB, error) {
 	return nil, Error(SyntaxErrorKey, expr)
 }
 
-func expandDefmacro(expr *LOB) (*LOB, error) {
+func expandDefmacro(expr *Object) (*Object, error) {
 	exprLen := ListLength(expr)
 	if exprLen >= 4 {
 		name := Cadr(expr)
@@ -209,7 +209,7 @@ func expandDefmacro(expr *LOB) (*LOB, error) {
 //(defmacro (defmacro expr)
 //  `(defmacro ~(cadr expr) (fn (expr) (apply (fn ~(caddr expr) ~@(cdddr expr)) (cdr expr)))))
 
-func expandDef(expr *LOB) (*LOB, error) {
+func expandDef(expr *Object) (*Object, error) {
 	exprLen := ListLength(expr)
 	if exprLen != 3 {
 		return nil, Error(SyntaxErrorKey, expr)
@@ -232,7 +232,7 @@ func expandDef(expr *LOB) (*LOB, error) {
 	return List(Car(expr), name, val), nil
 }
 
-func expandFn(expr *LOB) (*LOB, error) {
+func expandFn(expr *Object) (*Object, error) {
 	exprLen := ListLength(expr)
 	if exprLen < 3 {
 		return nil, Error(SyntaxErrorKey, expr)
@@ -267,7 +267,7 @@ func expandFn(expr *LOB) (*LOB, error) {
 	return Cons(Car(expr), Cons(args, body)), nil
 }
 
-func expandSetBang(expr *LOB) (*LOB, error) {
+func expandSetBang(expr *Object) (*Object, error) {
 	exprLen := ListLength(expr)
 	if exprLen != 3 {
 		return nil, Error(SyntaxErrorKey, expr)
@@ -283,7 +283,7 @@ func expandSetBang(expr *LOB) (*LOB, error) {
 	return List(Car(expr), Cadr(expr), val), nil
 }
 
-func expandPrimitive(fn *LOB, expr *LOB) (*LOB, error) {
+func expandPrimitive(fn *Object, expr *Object) (*Object, error) {
 	switch fn {
 	case Intern("quote"):
 		return expr, nil
@@ -317,8 +317,8 @@ func expandPrimitive(fn *LOB, expr *LOB) (*LOB, error) {
 	}
 }
 
-func crackLetrecBindings(bindings *LOB, tail *LOB) (*LOB, *LOB, bool) {
-	var names []*LOB
+func crackLetrecBindings(bindings *Object, tail *Object) (*Object, *Object, bool) {
+	var names []*Object
 	inits := EmptyList
 	for bindings != EmptyList {
 		if IsList(bindings) {
@@ -350,10 +350,10 @@ func crackLetrecBindings(bindings *LOB, tail *LOB) (*LOB, *LOB, bool) {
 		inits = inits.cdr
 	}
 	inits.cdr = tail
-	return listFromValues(names), head, true
+	return ListFromValues(names), head, true
 }
 
-func expandLetrec(expr *LOB) (*LOB, error) {
+func expandLetrec(expr *Object) (*Object, error) {
 	// (letrec () expr ...) -> (do expr ...)
 	// (letrec ((x 1) (y 2)) expr ...) -> ((fn (x y) (set! x 1) (set! y 2) expr ...) nil nil)
 	body := Cddr(expr)
@@ -376,9 +376,9 @@ func expandLetrec(expr *LOB) (*LOB, error) {
 	return Cons(code, values), nil
 }
 
-func crackLetBindings(bindings *LOB) (*LOB, *LOB, bool) {
-	var names []*LOB
-	var values []*LOB
+func crackLetBindings(bindings *Object) (*Object, *Object, bool) {
+	var names []*Object
+	var values []*Object
 	for bindings != EmptyList {
 		tmp := Car(bindings)
 		if IsList(tmp) {
@@ -398,10 +398,10 @@ func crackLetBindings(bindings *LOB) (*LOB, *LOB, bool) {
 		}
 		return nil, nil, false
 	}
-	return listFromValues(names), listFromValues(values), true
+	return ListFromValues(names), ListFromValues(values), true
 }
 
-func expandLet(expr *LOB) (*LOB, error) {
+func expandLet(expr *Object) (*Object, error) {
 	// (let () expr ...) -> (do expr ...)
 	// (let ((x 1) (y 2)) expr ...) -> ((fn (x y) expr ...) 1 2)
 	// (let label ((x 1) (y 2)) expr ...) -> (fn (label) expr
@@ -428,7 +428,7 @@ func expandLet(expr *LOB) (*LOB, error) {
 	return Cons(code, values), nil
 }
 
-func expandNamedLet(expr *LOB) (*LOB, error) {
+func expandNamedLet(expr *Object) (*Object, error) {
 	name := Cadr(expr)
 	bindings := Caddr(expr)
 	if !IsList(bindings) {
@@ -443,7 +443,7 @@ func expandNamedLet(expr *LOB) (*LOB, error) {
 	return macroexpandList(tmp)
 }
 
-func crackDoBindings(bindings *LOB) (*LOB, *LOB, *LOB, bool) {
+func crackDoBindings(bindings *Object) (*Object, *Object, *Object, bool) {
 	names := EmptyList
 	inits := EmptyList
 	steps := EmptyList
@@ -479,8 +479,8 @@ func crackDoBindings(bindings *LOB) (*LOB, *LOB, *LOB, bool) {
 	return names, inits, steps, true
 }
 
-func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
-	var result *LOB
+func nextCondClause(expr *Object, clauses *Object, count int) (*Object, error) {
+	var result *Object
 	var err error
 	tmpsym := Intern("__tmp__")
 	ifsym := Intern("if")
@@ -540,7 +540,7 @@ func nextCondClause(expr *LOB, clauses *LOB, count int) (*LOB, error) {
 	return macroexpandObject(result)
 }
 
-func expandCond(expr *LOB) (*LOB, error) {
+func expandCond(expr *Object) (*Object, error) {
 	i := ListLength(expr)
 	if i < 2 {
 		return nil, Error(SyntaxErrorKey, expr)
@@ -558,14 +558,14 @@ func expandCond(expr *LOB) (*LOB, error) {
 	}
 }
 
-func expandQuasiquote(expr *LOB) (*LOB, error) {
+func expandQuasiquote(expr *Object) (*Object, error) {
 	if ListLength(expr) != 2 {
 		return nil, Error(SyntaxErrorKey, expr)
 	}
 	return expandQQ(Cadr(expr))
 }
 
-func expandQQ(expr *LOB) (*LOB, error) {
+func expandQQ(expr *Object) (*Object, error) {
 	switch expr.Type {
 	case ListType:
 		if expr == EmptyList {
@@ -593,8 +593,8 @@ func expandQQ(expr *LOB) (*LOB, error) {
 	}
 }
 
-func expandQQList(lst *LOB) (*LOB, error) {
-	var tmp *LOB
+func expandQQList(lst *Object) (*Object, error) {
+	var tmp *Object
 	var err error
 	result := List(Intern("concat"))
 	tail := result

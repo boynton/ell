@@ -21,7 +21,7 @@ import (
 )
 
 // this type is similar to what an extension type (outside the ell package) would look like:
-// the Value field of LOB stores a pointer to the types specific data
+// the Value field of Object stores a pointer to the types specific data
 
 // ChannelType - the type of Ell's channel object
 var ChannelType = Intern("<channel>")
@@ -29,7 +29,7 @@ var ChannelType = Intern("<channel>")
 type channel struct {
 	name    string
 	bufsize int
-	channel chan *LOB // non-nil for channels
+	channel chan *Object // non-nil for channels
 }
 
 func (ch *channel) String() string {
@@ -47,12 +47,12 @@ func (ch *channel) String() string {
 }
 
 // Channel - create a new channel with the given buffer size and name
-func Channel(bufsize int, name string) *LOB {
-	return NewObject(ChannelType, &channel{name: name, bufsize: bufsize, channel: make(chan *LOB, bufsize)})
+func Channel(bufsize int, name string) *Object {
+	return NewObject(ChannelType, &channel{name: name, bufsize: bufsize, channel: make(chan *Object, bufsize)})
 }
 
 // ChannelValue - return the Go channel object for the Ell channel
-func ChannelValue(obj *LOB) chan *LOB {
+func ChannelValue(obj *Object) chan *Object {
 	if obj.Value == nil {
 		return nil
 	}
@@ -61,7 +61,7 @@ func ChannelValue(obj *LOB) chan *LOB {
 }
 
 // CloseChannel - close the channel object
-func CloseChannel(obj *LOB) {
+func CloseChannel(obj *Object) {
 	v, _ := obj.Value.(*channel)
 	if v != nil {
 		c := v.channel

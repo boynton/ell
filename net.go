@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*LOB, error) {
+func httpClientOperation(method string, url string, headers *Object, data *Object) (*Object, error) {
 	client := &http.Client{}
 	var bodyReader io.Reader
 	bodyLen := 0
@@ -42,7 +42,7 @@ func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*L
 	req, err := http.NewRequest(method, url, bodyReader)
 	if headers != nil {
 		for k, v := range headers.bindings {
-			ks := k.toLOB().text
+			ks := k.toObject().text
 			if v.Type == ListType {
 				vs := v.car.String()
 				req.Header.Set(ks, vs)
@@ -72,11 +72,11 @@ func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*L
 			if len(res.Header) > 0 {
 				headers = MakeStruct(len(res.Header))
 				for k, v := range res.Header {
-					var values []*LOB
+					var values []*Object
 					for _, val := range v {
 						values = append(values, String(val))
 					}
-					Put(headers, String(k), listFromValues(values))
+					Put(headers, String(k), ListFromValues(values))
 				}
 				Put(s, Intern("headers:"), headers)
 			}
@@ -86,17 +86,17 @@ func httpClientOperation(method string, url string, headers *LOB, data *LOB) (*L
 	return nil, err
 }
 
-func httpServer(port int, handler *LOB) (*LOB, error) {
+func httpServer(port int, handler *Object) (*Object, error) {
 	glue := func(w http.ResponseWriter, r *http.Request) {
 		headers := MakeStruct(10)
 		for k, v := range r.Header {
-			var values []*LOB
+			var values []*Object
 			for _, val := range v {
 				values = append(values, String(val))
 			}
-			Put(headers, String(k), listFromValues(values))
+			Put(headers, String(k), ListFromValues(values))
 		}
-		var body *LOB
+		var body *Object
 		switch strings.ToUpper(r.Method) {
 		case "POST", "PUT":
 			bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -107,8 +107,8 @@ func httpServer(port int, handler *LOB) (*LOB, error) {
 			}
 			body = Blob(bodyBytes)
 		}
-		req, _ := Struct([]*LOB{Intern("headers:"), headers, Intern("body:"), body})
-		args := []*LOB{req}
+		req, _ := Struct([]*Object{Intern("headers:"), headers, Intern("body:"), body})
+		args := []*Object{req}
 		res, err := exec(handler.code, args)
 		if err != nil {
 			w.WriteHeader(500)
@@ -132,7 +132,7 @@ func httpServer(port int, handler *LOB) (*LOB, error) {
 		if IsStruct(headers) {
 			//fix: multiple values for a header
 			for k, v := range headers.bindings {
-				ks := headerString(k.toLOB())
+				ks := headerString(k.toObject())
 				vs := v.String()
 				w.Header().Set(ks, vs)
 			}
@@ -154,7 +154,7 @@ func httpServer(port int, handler *LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func headerString(obj *LOB) string {
+func headerString(obj *Object) string {
 	switch obj.Type {
 	case StringType, SymbolType:
 		return obj.text
@@ -171,21 +171,21 @@ func headerString(obj *LOB) string {
 
 var TcpConnectionType = Intern("<tcp-connection>")
 
-func Connection(con net.Conn, endpoint string) *LOB {
+func Connection(con net.Conn, endpoint string) *Object {
 	inchan := Channel(10, "input")
 	outchan := Channel(10, "output")
 	go tcpReader(con, inchan)
 	go tcpWriter(con, outchan)
 	name := fmt.Sprintf("connection on %s", endpoint)
-	connection := new(LOB)
+	connection := new(Object)
 	connection.Type = TcpConnectionType
-	s, _ := Struct([]*LOB{Intern("input:"), inchan, Intern("output:"), outchan, Intern("name:"), String(name)})
+	s, _ := Struct([]*Object{Intern("input:"), inchan, Intern("output:"), outchan, Intern("name:"), String(name)})
 	connection.car = s
 	connection.Value = con
 	return connection
 }
 
-func closeConnection(conobj *LOB) {
+func closeConnection(conobj *Object) {
 	if conobj.Value != nil {
 		inchan, err := Get(conobj, Intern("input:"))
 		if err == nil {
@@ -206,7 +206,7 @@ func closeConnection(conobj *LOB) {
 // MaxFrameSize is an arbitrary limit to the tcp server framesize, to avoid trouble
 const MaxFrameSize = 1000000
 
-func tcpReader(conn net.Conn, inchan *LOB) {
+func tcpReader(conn net.Conn, inchan *Object) {
 	r := bufio.NewReader(conn)
 	for {
 		count, err := binary.ReadVarint(r)
@@ -241,9 +241,9 @@ func tcpReader(conn net.Conn, inchan *LOB) {
 	}
 }
 
-func tcpWriter(con net.Conn, outchan *LOB) {
+func tcpWriter(con net.Conn, outchan *Object) {
 	for {
-		var packet *LOB
+		var packet *Object
 		ch := ChannelValue(outchan)
 		if ch != nil {
 			packet = <-ch
@@ -268,7 +268,7 @@ func tcpWriter(con net.Conn, outchan *LOB) {
 	}
 }
 
-func tcpListener(listener net.Listener, acceptChannel *LOB, endpoint string) (*LOB, error) {
+func tcpListener(listener net.Listener, acceptChannel *Object, endpoint string) (*Object, error) {
 	for {
 		con, err := listener.Accept()
 		if err != nil {

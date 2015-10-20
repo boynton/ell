@@ -32,11 +32,15 @@ var One = Number(1)
 var MinusOne = Number(-1)
 
 // Number - create a Number object for the given value
-func Number(f float64) *LOB {
-	num := new(LOB)
+func Number(f float64) *Object {
+	num := new(Object)
 	num.Type = NumberType
 	num.fval = f
 	return num
+}
+
+func Int(n int64) *Object {
+	return Number(float64(n))
 }
 
 // Round - return the closest integer value to the float value
@@ -48,7 +52,7 @@ func Round(f float64) float64 {
 }
 
 // ToNumber - convert object to a number, if possible
-func ToNumber(o *LOB) (*LOB, error) {
+func ToNumber(o *Object) (*Object, error) {
 	switch o.Type {
 	case NumberType:
 		return o, nil
@@ -66,7 +70,7 @@ func ToNumber(o *LOB) (*LOB, error) {
 }
 
 // ToInt - convert the object to an integer number, if possible
-func ToInt(o *LOB) (*LOB, error) {
+func ToInt(o *Object) (*Object, error) {
 	switch o.Type {
 	case NumberType:
 		return Number(Round(o.fval)), nil
@@ -83,7 +87,7 @@ func ToInt(o *LOB) (*LOB, error) {
 	return nil, Error(ArgumentErrorKey, "cannot convert to an integer: ", o)
 }
 
-func IsInt(obj *LOB) bool {
+func IsInt(obj *Object) bool {
 	if obj.Type == NumberType {
 		f := obj.fval
 		if math.Trunc(f) == f {
@@ -93,35 +97,35 @@ func IsInt(obj *LOB) bool {
 	return false
 }
 
-func IsFloat(obj *LOB) bool {
+func IsFloat(obj *Object) bool {
 	if obj.Type == NumberType {
 		return !IsInt(obj)
 	}
 	return false
 }
 
-func AsFloat64Value(obj *LOB) (float64, error) {
+func AsFloat64Value(obj *Object) (float64, error) {
 	if obj.Type == NumberType {
 		return obj.fval, nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
-func AsInt64Value(obj *LOB) (int64, error) {
+func AsInt64Value(obj *Object) (int64, error) {
 	if obj.Type == NumberType {
 		return int64(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
-func AsIntValue(obj *LOB) (int, error) {
+func AsIntValue(obj *Object) (int, error) {
 	if obj.Type == NumberType {
 		return int(obj.fval), nil
 	}
 	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
 }
 
-func AsByteValue(obj *LOB) (byte, error) {
+func AsByteValue(obj *Object) (byte, error) {
 	if obj.Type == NumberType {
 		return byte(obj.fval), nil
 	}
@@ -147,11 +151,11 @@ func RandomSeed(n int64) {
 	randomGenerator = rand.New(rand.NewSource(n))
 }
 
-func Random(min float64, max float64) *LOB {
+func Random(min float64, max float64) *Object {
 	return Number(min + (randomGenerator.Float64() * (max - min)))
 }
 
-func RandomList(size int, min float64, max float64) *LOB {
+func RandomList(size int, min float64, max float64) *Object {
 	result := EmptyList
 	tail := EmptyList
 	for i := 0; i < size; i++ {

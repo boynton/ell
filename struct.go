@@ -21,17 +21,17 @@ import (
 )
 
 // Key - the key type for Structs. The string value and Ell type string are combined, so we can extract
-// the type later when enumerating keys. Map keys cannot LOBs, they are not "comparable" in golang.
+// the type later when enumerating keys. Map keys cannot Objects, they are not "comparable" in golang.
 type structKey struct {
 	keyValue string
 	keyType  string
 }
 
-func newStructKey(v *LOB) structKey {
+func newStructKey(v *Object) structKey {
 	return structKey{v.text, v.Type.text}
 }
 
-func (k structKey) toLOB() *LOB {
+func (k structKey) toObject() *Object {
 	if k.keyType == "<string>" {
 		return String(k.keyValue)
 	}
@@ -39,7 +39,7 @@ func (k structKey) toLOB() *LOB {
 }
 
 // IsValidStructKey - return true of the object is a valid <struct> key.
-func IsValidStructKey(o *LOB) bool {
+func IsValidStructKey(o *Object) bool {
 	switch o.Type {
 	case StringType, SymbolType, KeywordType, TypeType:
 		return true
@@ -51,28 +51,28 @@ func IsValidStructKey(o *LOB) bool {
 var EmptyStruct = MakeStruct(0)
 
 // MakeStruct - create an empty <struct> object with the specified capacity
-func MakeStruct(capacity int) *LOB {
-	strct := new(LOB)
+func MakeStruct(capacity int) *Object {
+	strct := new(Object)
 	strct.Type = StructType
-	strct.bindings = make(map[structKey]*LOB, capacity)
+	strct.bindings = make(map[structKey]*Object, capacity)
 	return strct
 }
 
 // Struct - create a new <struct> object from the arguments, which can be other structs, or key/value pairs
-func Struct(fieldvals []*LOB) (*LOB, error) {
-	strct := new(LOB)
+func Struct(fieldvals []*Object) (*Object, error) {
+	strct := new(Object)
 	strct.Type = StructType
-	strct.bindings = make(map[structKey]*LOB)
+	strct.bindings = make(map[structKey]*Object)
 	count := len(fieldvals)
 	i := 0
-	var bindings map[structKey]*LOB
+	var bindings map[structKey]*Object
 	for i < count {
 		o := Value(fieldvals[i])
 		i++
 		switch o.Type {
 		case StructType: // not a valid key, just copy bindings from it
 			if bindings == nil {
-				bindings = make(map[structKey]*LOB, len(o.bindings))
+				bindings = make(map[structKey]*Object, len(o.bindings))
 			}
 			for k, v := range o.bindings {
 				bindings[k] = v
@@ -82,7 +82,7 @@ func Struct(fieldvals []*LOB) (*LOB, error) {
 				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in arglist: ", o)
 			}
 			if bindings == nil {
-				bindings = make(map[structKey]*LOB)
+				bindings = make(map[structKey]*Object)
 			}
 			bindings[newStructKey(o)] = fieldvals[i]
 			i++
@@ -91,7 +91,7 @@ func Struct(fieldvals []*LOB) (*LOB, error) {
 		}
 	}
 	if bindings == nil {
-		strct.bindings = make(map[structKey]*LOB)
+		strct.bindings = make(map[structKey]*Object)
 	} else {
 		strct.bindings = bindings
 	}
@@ -99,14 +99,14 @@ func Struct(fieldvals []*LOB) (*LOB, error) {
 }
 
 // StructLength - return the length (field count) of the <struct> object
-func StructLength(strct *LOB) int {
+func StructLength(strct *Object) int {
 	return len(strct.bindings)
 }
 
 // Get - return the value for the key of the object. The Value() function is first called to
 // handle typed instances of <struct>.
 // This is called by the VM, when a keyword is used as a function.
-func Get(obj *LOB, key *LOB) (*LOB, error) {
+func Get(obj *Object, key *Object) (*Object, error) {
 	s := Value(obj)
 	if s.Type != StructType {
 		return nil, Error(ArgumentErrorKey, "get expected a <struct> argument, got a ", obj.Type)
@@ -114,7 +114,7 @@ func Get(obj *LOB, key *LOB) (*LOB, error) {
 	return structGet(s, key), nil
 }
 
-func structGet(s *LOB, key *LOB) *LOB {
+func structGet(s *Object, key *Object) *Object {
 	switch key.Type {
 	case KeywordType, SymbolType, TypeType, StringType:
 		k := newStructKey(key)
@@ -126,7 +126,7 @@ func structGet(s *LOB, key *LOB) *LOB {
 	return Null
 }
 
-func Has(obj *LOB, key *LOB) (bool, error) {
+func Has(obj *Object, key *Object) (bool, error) {
 	tmp, err := Get(obj, key)
 	if err != nil || tmp == Null {
 		return false, err
@@ -134,17 +134,17 @@ func Has(obj *LOB, key *LOB) (bool, error) {
 	return true, nil
 }
 
-func Put(obj *LOB, key *LOB, val *LOB) {
+func Put(obj *Object, key *Object, val *Object) {
 	k := newStructKey(key)
 	obj.bindings[k] = val
 }
 
-func Unput(obj *LOB, key *LOB) {
+func Unput(obj *Object, key *Object) {
 	k := newStructKey(key)
 	delete(obj.bindings, k)
 }
 
-func sliceContains(slice []*LOB, obj *LOB) bool {
+func sliceContains(slice []*Object, obj *Object) bool {
 	for _, o := range slice {
 		if o == obj {
 			return true
@@ -153,7 +153,7 @@ func sliceContains(slice []*LOB, obj *LOB) bool {
 	return false
 }
 
-func sliceGet(bindings []*LOB, key *LOB) *LOB {
+func sliceGet(bindings []*Object, key *Object) *Object {
 	size := len(bindings)
 	for i := 0; i < size; i += 2 {
 		if key == bindings[i] {
@@ -163,7 +163,7 @@ func sliceGet(bindings []*LOB, key *LOB) *LOB {
 	return Null
 }
 
-func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
+func slicePut(bindings []*Object, key *Object, val *Object) []*Object {
 	size := len(bindings)
 	for i := 0; i < size; i += 2 {
 		if key == bindings[i] {
@@ -174,15 +174,15 @@ func slicePut(bindings []*LOB, key *LOB, val *LOB) []*LOB {
 	return append(append(bindings, key), val)
 }
 
-func validateKeywordArgList(args *LOB, keys []*LOB) (*LOB, error) {
+func validateKeywordArgList(args *Object, keys []*Object) (*Object, error) {
 	tmp, err := validateKeywordArgBindings(args, keys)
 	if err != nil {
 		return nil, err
 	}
-	return listFromValues(tmp), nil
+	return ListFromValues(tmp), nil
 }
 
-func validateKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
+func validateKeywordArgs(args *Object, keys []*Object) (*Object, error) {
 	tmp, err := validateKeywordArgBindings(args, keys)
 	if err != nil {
 		return nil, err
@@ -190,9 +190,9 @@ func validateKeywordArgs(args *LOB, keys []*LOB) (*LOB, error) {
 	return Struct(tmp)
 }
 
-func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
+func validateKeywordArgBindings(args *Object, keys []*Object) ([]*Object, error) {
 	count := ListLength(args)
-	bindings := make([]*LOB, 0, count)
+	bindings := make([]*Object, 0, count)
 	for args != EmptyList {
 		key := Car(args)
 		switch key.Type {
@@ -224,7 +224,7 @@ func validateKeywordArgBindings(args *LOB, keys []*LOB) ([]*LOB, error) {
 }
 
 // Equal returns true if the object is equal to the argument
-func StructEqual(s1 *LOB, s2 *LOB) bool {
+func StructEqual(s1 *Object, s2 *Object) bool {
 	bindings1 := s1.bindings
 	size := len(bindings1)
 	bindings2 := s2.bindings
@@ -243,7 +243,7 @@ func StructEqual(s1 *LOB, s2 *LOB) bool {
 	return false
 }
 
-func structToString(s *LOB) string {
+func structToString(s *Object) string {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
@@ -261,11 +261,11 @@ func structToString(s *LOB) string {
 	return buf.String()
 }
 
-func structToList(s *LOB) (*LOB, error) {
+func structToList(s *Object) (*Object, error) {
 	result := EmptyList
 	tail := EmptyList
 	for k, v := range s.bindings {
-		tmp := List(k.toLOB(), v)
+		tmp := List(k.toObject(), v)
 		if result == EmptyList {
 			result = List(tmp)
 			tail = result
@@ -277,22 +277,22 @@ func structToList(s *LOB) (*LOB, error) {
 	return result, nil
 }
 
-func structToVector(s *LOB) *LOB {
+func structToVector(s *Object) *Object {
 	size := len(s.bindings)
-	el := make([]*LOB, size)
+	el := make([]*Object, size)
 	j := 0
 	for k, v := range s.bindings {
-		el[j] = Vector(k.toLOB(), v)
+		el[j] = Vector(k.toObject(), v)
 		j++
 	}
 	return VectorFromElements(el, size)
 }
 
-func structKeyList(s *LOB) *LOB {
+func structKeyList(s *Object) *Object {
 	result := EmptyList
 	tail := EmptyList
 	for k := range s.bindings {
-		key := k.toLOB()
+		key := k.toObject()
 		if result == EmptyList {
 			result = List(key)
 			tail = result
@@ -304,7 +304,7 @@ func structKeyList(s *LOB) *LOB {
 	return result
 }
 
-func structValueList(s *LOB) *LOB {
+func structValueList(s *Object) *Object {
 	result := EmptyList
 	tail := EmptyList
 	for _, v := range s.bindings {
@@ -319,10 +319,10 @@ func structValueList(s *LOB) *LOB {
 	return result
 }
 
-func listToStruct(lst *LOB) (*LOB, error) {
-	strct := new(LOB)
+func listToStruct(lst *Object) (*Object, error) {
+	strct := new(Object)
 	strct.Type = StructType
-	strct.bindings = make(map[structKey]*LOB)
+	strct.bindings = make(map[structKey]*Object)
 	for lst != EmptyList {
 		k := lst.car
 		lst = lst.cdr
@@ -359,11 +359,11 @@ func listToStruct(lst *LOB) (*LOB, error) {
 	return strct, nil
 }
 
-func vectorToStruct(vec *LOB) (*LOB, error) {
+func vectorToStruct(vec *Object) (*Object, error) {
 	count := len(vec.elements)
-	strct := new(LOB)
+	strct := new(Object)
 	strct.Type = StructType
-	strct.bindings = make(map[structKey]*LOB, count)
+	strct.bindings = make(map[structKey]*Object, count)
 	i := 0
 	for i < count {
 		k := vec.elements[i]
@@ -402,7 +402,7 @@ func vectorToStruct(vec *LOB) (*LOB, error) {
 	return strct, nil
 }
 
-func ToStruct(obj *LOB) (*LOB, error) {
+func ToStruct(obj *Object) (*Object, error) {
 	val := Value(obj)
 	switch val.Type {
 	case StructType:

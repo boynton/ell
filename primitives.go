@@ -137,7 +137,7 @@ func Init(ext Extension) {
 	DefineFunction("vector?", ellVectorP, BooleanType, AnyType)
 	DefineFunction("to-vector", ellToVector, VectorType, AnyType)
 	DefineFunctionRestArgs("vector", ellVector, VectorType, AnyType)
-	DefineFunctionOptionalArgs("make-vector", ellMakeVector, VectorType, []*LOB{NumberType, AnyType}, Null)
+	DefineFunctionOptionalArgs("make-vector", ellMakeVector, VectorType, []*Object{NumberType, AnyType}, Null)
 	DefineFunction("vector-length", ellVectorLength, NumberType, VectorType)
 	DefineFunction("vector-ref", ellVectorRef, AnyType, VectorType, NumberType)
 	DefineFunction("vector-set!", ellVectorSetBang, NullType, VectorType, NumberType, AnyType)
@@ -158,11 +158,11 @@ func Init(ext Extension) {
 	DefineFunction("function-signature", ellFunctionSignature, StringType, FunctionType)
 	DefineFunctionRestArgs("validate-keyword-arg-list", ellValidateKeywordArgList, ListType, KeywordType, ListType)
 	DefineFunction("slurp", ellSlurp, StringType, StringType)
-	DefineFunctionKeyArgs("read", ellRead, AnyType, []*LOB{StringType, TypeType}, []*LOB{AnyType}, []*LOB{Intern("keys:")})
-	DefineFunctionKeyArgs("read-all", ellReadAll, AnyType, []*LOB{StringType, TypeType}, []*LOB{AnyType}, []*LOB{Intern("keys:")})
+	DefineFunctionKeyArgs("read", ellRead, AnyType, []*Object{StringType, TypeType}, []*Object{AnyType}, []*Object{Intern("keys:")})
+	DefineFunctionKeyArgs("read-all", ellReadAll, AnyType, []*Object{StringType, TypeType}, []*Object{AnyType}, []*Object{Intern("keys:")})
 	DefineFunction("spit", ellSpit, NullType, StringType, StringType)
-	DefineFunctionKeyArgs("write", ellWrite, NullType, []*LOB{AnyType, StringType}, []*LOB{EmptyString}, []*LOB{Intern("indent:")})
-	DefineFunctionKeyArgs("write-all", ellWriteAll, NullType, []*LOB{AnyType, StringType}, []*LOB{EmptyString}, []*LOB{Intern("indent:")})
+	DefineFunctionKeyArgs("write", ellWrite, NullType, []*Object{AnyType, StringType}, []*Object{EmptyString}, []*Object{Intern("indent:")})
+	DefineFunctionKeyArgs("write-all", ellWriteAll, NullType, []*Object{AnyType, StringType}, []*Object{EmptyString}, []*Object{Intern("indent:")})
 	DefineFunctionRestArgs("print", ellPrint, NullType, AnyType)
 	DefineFunctionRestArgs("println", ellPrintln, NullType, AnyType)
 	DefineFunction("macroexpand", ellMacroexpand, AnyType, AnyType)
@@ -172,7 +172,7 @@ func Init(ext Extension) {
 	DefineFunction("error?", ellErrorP, BooleanType, AnyType)
 	DefineFunction("uncaught-error", ellUncaughtError, NullType, ErrorType) //doesn't return
 
-	DefineFunctionKeyArgs("json", ellJSON, StringType, []*LOB{AnyType, StringType}, []*LOB{EmptyString}, []*LOB{Intern("indent:")})
+	DefineFunctionKeyArgs("json", ellJSON, StringType, []*Object{AnyType, StringType}, []*Object{EmptyString}, []*Object{Intern("indent:")})
 
 	DefineFunctionRestArgs("getfn", ellGetFn, FunctionType, AnyType, SymbolType)
 	DefineFunction("method-signature", ellMethodSignature, TypeType, ListType)
@@ -181,9 +181,9 @@ func Init(ext Extension) {
 	DefineFunction("since", ellSince, NumberType, NumberType)
 	DefineFunction("sleep", ellSleep, NumberType, NumberType)
 
-	DefineFunctionKeyArgs("channel", ellChannel, ChannelType, []*LOB{StringType, NumberType}, []*LOB{EmptyString, Zero}, []*LOB{Intern("name:"), Intern("bufsize:")})
-	DefineFunctionOptionalArgs("send", ellSend, NullType, []*LOB{ChannelType, AnyType, NumberType}, MinusOne)
-	DefineFunctionOptionalArgs("recv", ellReceive, AnyType, []*LOB{ChannelType, NumberType}, MinusOne)
+	DefineFunctionKeyArgs("channel", ellChannel, ChannelType, []*Object{StringType, NumberType}, []*Object{EmptyString, Zero}, []*Object{Intern("name:"), Intern("bufsize:")})
+	DefineFunctionOptionalArgs("send", ellSend, NullType, []*Object{ChannelType, AnyType, NumberType}, MinusOne)
+	DefineFunctionOptionalArgs("recv", ellReceive, AnyType, []*Object{ChannelType, NumberType}, MinusOne)
 	DefineFunction("close", ellClose, NullType, AnyType)
 
 	DefineFunction("set-random-seed!", ellSetRandomSeedBang, NullType, NumberType)
@@ -198,9 +198,9 @@ func Init(ext Extension) {
 
 	DefineFunction("serve", ellHTTPServer, AnyType, NumberType, FunctionType)
 	DefineFunctionKeyArgs("http", ellHTTPClient, StructType,
-		[]*LOB{StringType, StringType, StructType, BlobType}, //(http "url" method: "PUT" headers: {} body: #[blob])
-		[]*LOB{String("GET"), EmptyStruct, EmptyBlob},
-		[]*LOB{Intern("method:"), Intern("headers:"), Intern("body:")})
+		[]*Object{StringType, StringType, StructType, BlobType}, //(http "url" method: "PUT" headers: {} body: #[blob])
+		[]*Object{String("GET"), EmptyStruct, EmptyBlob},
+		[]*Object{Intern("method:"), Intern("headers:"), Intern("body:")})
 
 	err := Load("ell")
 	if err != nil {
@@ -224,36 +224,36 @@ func Cleanup() {
 //expanders - these only gets called from the macro expander itself, so we know the single arg is an *LList
 //
 
-func ellLetrec(argv []*LOB) (*LOB, error) {
+func ellLetrec(argv []*Object) (*Object, error) {
 	return expandLetrec(argv[0])
 }
 
-func ellLet(argv []*LOB) (*LOB, error) {
+func ellLet(argv []*Object) (*Object, error) {
 	return expandLet(argv[0])
 }
 
-func ellCond(argv []*LOB) (*LOB, error) {
+func ellCond(argv []*Object) (*Object, error) {
 	return expandCond(argv[0])
 }
 
-func ellQuasiquote(argv []*LOB) (*LOB, error) {
+func ellQuasiquote(argv []*Object) (*Object, error) {
 	return expandQuasiquote(argv[0])
 }
 
 // functions
 
-func ellVersion(argv []*LOB) (*LOB, error) {
+func ellVersion(argv []*Object) (*Object, error) {
 	return String(Version), nil
 }
 
-func ellDefinedP(argv []*LOB) (*LOB, error) {
+func ellDefinedP(argv []*Object) (*Object, error) {
 	if IsDefined(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellSlurp(argv []*LOB) (*LOB, error) {
+func ellSlurp(argv []*Object) (*Object, error) {
 	url := argv[0].text
 	if strings.HasPrefix(url, "http:") || strings.HasPrefix(url, "https:") {
 		res, err := httpClientOperation("GET", url, nil, nil)
@@ -270,7 +270,7 @@ func ellSlurp(argv []*LOB) (*LOB, error) {
 	return SlurpFile(argv[0].text)
 }
 
-func ellSpit(argv []*LOB) (*LOB, error) {
+func ellSpit(argv []*Object) (*Object, error) {
 	url := argv[0].text
 	data := argv[1].text
 	err := SpitFile(url, data)
@@ -280,19 +280,19 @@ func ellSpit(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellRead(argv []*LOB) (*LOB, error) {
+func ellRead(argv []*Object) (*Object, error) {
 	return Read(argv[0], argv[1])
 }
 
-func ellReadAll(argv []*LOB) (*LOB, error) {
+func ellReadAll(argv []*Object) (*Object, error) {
 	return ReadAll(argv[0], argv[1])
 }
 
-func ellMacroexpand(argv []*LOB) (*LOB, error) {
+func ellMacroexpand(argv []*Object) (*Object, error) {
 	return Macroexpand(argv[0])
 }
 
-func ellCompile(argv []*LOB) (*LOB, error) {
+func ellCompile(argv []*Object) (*Object, error) {
 	expanded, err := Macroexpand(argv[0])
 	if err != nil {
 		return nil, err
@@ -300,134 +300,134 @@ func ellCompile(argv []*LOB) (*LOB, error) {
 	return Compile(expanded)
 }
 
-func ellType(argv []*LOB) (*LOB, error) {
+func ellType(argv []*Object) (*Object, error) {
 	return argv[0].Type, nil
 }
 
-func ellValue(argv []*LOB) (*LOB, error) {
+func ellValue(argv []*Object) (*Object, error) {
 	return Value(argv[0]), nil
 }
 
-func ellInstance(argv []*LOB) (*LOB, error) {
+func ellInstance(argv []*Object) (*Object, error) {
 	return Instance(argv[0], argv[1])
 }
 
-func ellValidateKeywordArgList(argv []*LOB) (*LOB, error) {
+func ellValidateKeywordArgList(argv []*Object) (*Object, error) {
 	//(validate-keyword-arg-list '(x: 23) x: y:) -> (x:)
 	//(validate-keyword-arg-list '(x: 23 z: 100) x: y:) -> error("bad keyword z: in argument list")
 	return validateKeywordArgList(argv[0], argv[1:])
 }
 
-func ellKeys(argv []*LOB) (*LOB, error) {
+func ellKeys(argv []*Object) (*Object, error) {
 	return structKeyList(argv[0]), nil
 }
 
-func ellValues(argv []*LOB) (*LOB, error) {
+func ellValues(argv []*Object) (*Object, error) {
 	return structValueList(argv[0]), nil
 }
 
-func ellStruct(argv []*LOB) (*LOB, error) {
+func ellStruct(argv []*Object) (*Object, error) {
 	return Struct(argv)
 }
-func ellMakeStruct(argv []*LOB) (*LOB, error) {
+func ellMakeStruct(argv []*Object) (*Object, error) {
 	return MakeStruct(int(argv[0].fval)), nil
 }
 
-func ellToStruct(argv []*LOB) (*LOB, error) {
+func ellToStruct(argv []*Object) (*Object, error) {
 	//how about a keys: keyword argument to force a key type, like read does?
 	return ToStruct(argv[0])
 }
 
-func ellIdenticalP(argv []*LOB) (*LOB, error) {
+func ellIdenticalP(argv []*Object) (*Object, error) {
 	if argv[0] == argv[1] {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellEqualP(argv []*LOB) (*LOB, error) {
+func ellEqualP(argv []*Object) (*Object, error) {
 	if Equal(argv[0], argv[1]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNumEqual(argv []*LOB) (*LOB, error) {
+func ellNumEqual(argv []*Object) (*Object, error) {
 	if NumberEqual(argv[0].fval, argv[1].fval) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNumLess(argv []*LOB) (*LOB, error) {
+func ellNumLess(argv []*Object) (*Object, error) {
 	if argv[0].fval < argv[1].fval {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNumLessEqual(argv []*LOB) (*LOB, error) {
+func ellNumLessEqual(argv []*Object) (*Object, error) {
 	if argv[0].fval <= argv[1].fval {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNumGreater(argv []*LOB) (*LOB, error) {
+func ellNumGreater(argv []*Object) (*Object, error) {
 	if argv[0].fval > argv[1].fval {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNumGreaterEqual(argv []*LOB) (*LOB, error) {
+func ellNumGreaterEqual(argv []*Object) (*Object, error) {
 	if argv[0].fval >= argv[1].fval {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellWrite(argv []*LOB) (*LOB, error) {
+func ellWrite(argv []*Object) (*Object, error) {
 	return String(writeIndent(argv[0], argv[1].text)), nil
 }
 
-func ellWriteAll(argv []*LOB) (*LOB, error) {
+func ellWriteAll(argv []*Object) (*Object, error) {
 	return String(writeAllIndent(argv[0], argv[1].text)), nil
 }
 
-func ellMakeError(argv []*LOB) (*LOB, error) {
+func ellMakeError(argv []*Object) (*Object, error) {
 	return MakeError(argv...), nil
 }
 
-func ellErrorP(argv []*LOB) (*LOB, error) {
+func ellErrorP(argv []*Object) (*Object, error) {
 	if IsError(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellUncaughtError(argv []*LOB) (*LOB, error) {
+func ellUncaughtError(argv []*Object) (*Object, error) {
 	return nil, argv[0]
 }
 
-func ellToString(argv []*LOB) (*LOB, error) {
+func ellToString(argv []*Object) (*Object, error) {
 	return ToString(argv[0])
 }
 
-func ellPrint(argv []*LOB) (*LOB, error) {
+func ellPrint(argv []*Object) (*Object, error) {
 	for _, o := range argv {
 		fmt.Printf("%v", o)
 	}
 	return Null, nil
 }
 
-func ellPrintln(argv []*LOB) (*LOB, error) {
+func ellPrintln(argv []*Object) (*Object, error) {
 	ellPrint(argv)
 	fmt.Println("")
 	return Null, nil
 }
 
-func ellConcat(argv []*LOB) (*LOB, error) {
+func ellConcat(argv []*Object) (*Object, error) {
 	result := EmptyList
 	tail := result
 	for _, lst := range argv {
@@ -445,15 +445,15 @@ func ellConcat(argv []*LOB) (*LOB, error) {
 	return result, nil
 }
 
-func ellReverse(argv []*LOB) (*LOB, error) {
+func ellReverse(argv []*Object) (*Object, error) {
 	return Reverse(argv[0]), nil
 }
 
-func ellFlatten(argv []*LOB) (*LOB, error) {
+func ellFlatten(argv []*Object) (*Object, error) {
 	return Flatten(argv[0]), nil
 }
 
-func ellList(argv []*LOB) (*LOB, error) {
+func ellList(argv []*Object) (*Object, error) {
 	argc := len(argv)
 	p := EmptyList
 	for i := argc - 1; i >= 0; i-- {
@@ -462,72 +462,72 @@ func ellList(argv []*LOB) (*LOB, error) {
 	return p, nil
 }
 
-func ellListLength(argv []*LOB) (*LOB, error) {
+func ellListLength(argv []*Object) (*Object, error) {
 	return Number(float64(ListLength(argv[0]))), nil
 }
 
-func ellNumberP(argv []*LOB) (*LOB, error) {
+func ellNumberP(argv []*Object) (*Object, error) {
 	if IsNumber(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellToNumber(argv []*LOB) (*LOB, error) {
+func ellToNumber(argv []*Object) (*Object, error) {
 	return ToNumber(argv[0])
 }
 
-func ellIntP(argv []*LOB) (*LOB, error) {
+func ellIntP(argv []*Object) (*Object, error) {
 	if IsInt(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellFloatP(argv []*LOB) (*LOB, error) {
+func ellFloatP(argv []*Object) (*Object, error) {
 	if IsFloat(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellInt(argv []*LOB) (*LOB, error) {
+func ellInt(argv []*Object) (*Object, error) {
 	return ToInt(argv[0])
 }
 
-func ellFloor(argv []*LOB) (*LOB, error) {
+func ellFloor(argv []*Object) (*Object, error) {
 	return Number(math.Floor(argv[0].fval)), nil
 }
 
-func ellCeiling(argv []*LOB) (*LOB, error) {
+func ellCeiling(argv []*Object) (*Object, error) {
 	return Number(math.Ceil(argv[0].fval)), nil
 }
 
-func ellInc(argv []*LOB) (*LOB, error) {
+func ellInc(argv []*Object) (*Object, error) {
 	return Number(argv[0].fval + 1), nil
 }
 
-func ellDec(argv []*LOB) (*LOB, error) {
+func ellDec(argv []*Object) (*Object, error) {
 	return Number(argv[0].fval - 1), nil
 }
 
-func ellAdd(argv []*LOB) (*LOB, error) {
+func ellAdd(argv []*Object) (*Object, error) {
 	return Number(argv[0].fval + argv[1].fval), nil
 }
 
-func ellSub(argv []*LOB) (*LOB, error) {
+func ellSub(argv []*Object) (*Object, error) {
 	return Number(argv[0].fval - argv[1].fval), nil
 }
 
-func ellMul(argv []*LOB) (*LOB, error) {
+func ellMul(argv []*Object) (*Object, error) {
 	return Number(argv[0].fval * argv[1].fval), nil
 }
 
-func ellDiv(argv []*LOB) (*LOB, error) {
+func ellDiv(argv []*Object) (*Object, error) {
 	return Number(argv[0].fval / argv[1].fval), nil
 }
 
-func ellQuotient(argv []*LOB) (*LOB, error) {
+func ellQuotient(argv []*Object) (*Object, error) {
 	denom := int64(argv[1].fval)
 	if denom == 0 {
 		return nil, Error(ArgumentErrorKey, "quotient: divide by zero")
@@ -536,7 +536,7 @@ func ellQuotient(argv []*LOB) (*LOB, error) {
 	return Number(float64(n)), nil
 }
 
-func ellRemainder(argv []*LOB) (*LOB, error) {
+func ellRemainder(argv []*Object) (*Object, error) {
 	denom := int64(argv[1].fval)
 	if denom == 0 {
 		return nil, Error(ArgumentErrorKey, "remainder: divide by zero")
@@ -545,72 +545,72 @@ func ellRemainder(argv []*LOB) (*LOB, error) {
 	return Number(float64(n)), nil
 }
 
-func ellAbs(argv []*LOB) (*LOB, error) {
+func ellAbs(argv []*Object) (*Object, error) {
 	return Number(math.Abs(argv[0].fval)), nil
 }
 
-func ellExp(argv []*LOB) (*LOB, error) {
+func ellExp(argv []*Object) (*Object, error) {
 	return Number(math.Exp(argv[0].fval)), nil
 }
 
-func ellLog(argv []*LOB) (*LOB, error) {
+func ellLog(argv []*Object) (*Object, error) {
 	return Number(math.Log(argv[0].fval)), nil
 }
 
-func ellSin(argv []*LOB) (*LOB, error) {
+func ellSin(argv []*Object) (*Object, error) {
 	return Number(math.Sin(argv[0].fval)), nil
 }
 
-func ellCos(argv []*LOB) (*LOB, error) {
+func ellCos(argv []*Object) (*Object, error) {
 	return Number(math.Cos(argv[0].fval)), nil
 }
 
-func ellTan(argv []*LOB) (*LOB, error) {
+func ellTan(argv []*Object) (*Object, error) {
 	return Number(math.Tan(argv[0].fval)), nil
 }
 
-func ellAsin(argv []*LOB) (*LOB, error) {
+func ellAsin(argv []*Object) (*Object, error) {
 	return Number(math.Asin(argv[0].fval)), nil
 }
 
-func ellAcos(argv []*LOB) (*LOB, error) {
+func ellAcos(argv []*Object) (*Object, error) {
 	return Number(math.Acos(argv[0].fval)), nil
 }
 
-func ellAtan(argv []*LOB) (*LOB, error) {
+func ellAtan(argv []*Object) (*Object, error) {
 	return Number(math.Atan(argv[0].fval)), nil
 }
 
-func ellAtan2(argv []*LOB) (*LOB, error) {
+func ellAtan2(argv []*Object) (*Object, error) {
 	return Number(math.Atan2(argv[0].fval, argv[1].fval)), nil
 }
 
-func ellVector(argv []*LOB) (*LOB, error) {
+func ellVector(argv []*Object) (*Object, error) {
 	return Vector(argv...), nil
 }
 
-func ellToVector(argv []*LOB) (*LOB, error) {
+func ellToVector(argv []*Object) (*Object, error) {
 	return ToVector(argv[0])
 }
 
-func ellMakeVector(argv []*LOB) (*LOB, error) {
+func ellMakeVector(argv []*Object) (*Object, error) {
 	vlen := int(argv[0].fval)
 	init := argv[1]
 	return MakeVector(vlen, init), nil
 }
 
-func ellVectorP(argv []*LOB) (*LOB, error) {
+func ellVectorP(argv []*Object) (*Object, error) {
 	if IsVector(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellVectorLength(argv []*LOB) (*LOB, error) {
+func ellVectorLength(argv []*Object) (*Object, error) {
 	return Number(float64(len(argv[0].elements))), nil
 }
 
-func ellVectorRef(argv []*LOB) (*LOB, error) {
+func ellVectorRef(argv []*Object) (*Object, error) {
 	el := argv[0].elements
 	idx := int(argv[1].fval)
 	if idx < 0 || idx >= len(el) {
@@ -619,7 +619,7 @@ func ellVectorRef(argv []*LOB) (*LOB, error) {
 	return el[idx], nil
 }
 
-func ellVectorSetBang(argv []*LOB) (*LOB, error) {
+func ellVectorSetBang(argv []*Object) (*Object, error) {
 	sealed := int(argv[0].fval)
 	if sealed != 0 {
 		return nil, Error(ArgumentErrorKey, "vector-set! on sealed vector")
@@ -633,114 +633,114 @@ func ellVectorSetBang(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellZeroP(argv []*LOB) (*LOB, error) {
+func ellZeroP(argv []*Object) (*Object, error) {
 	if NumberEqual(argv[0].fval, 0.0) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNot(argv []*LOB) (*LOB, error) {
+func ellNot(argv []*Object) (*Object, error) {
 	if argv[0] == False {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellNullP(argv []*LOB) (*LOB, error) {
+func ellNullP(argv []*Object) (*Object, error) {
 	if argv[0] == Null {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellBooleanP(argv []*LOB) (*LOB, error) {
+func ellBooleanP(argv []*Object) (*Object, error) {
 	if IsBoolean(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellSymbolP(argv []*LOB) (*LOB, error) {
+func ellSymbolP(argv []*Object) (*Object, error) {
 	if IsSymbol(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellSymbol(argv []*LOB) (*LOB, error) {
+func ellSymbol(argv []*Object) (*Object, error) {
 	if len(argv) < 1 {
 		return nil, Error(ArgumentErrorKey, "symbol expected at least 1 argument, got none")
 	}
 	return Symbol(argv)
 }
 
-func ellKeywordP(argv []*LOB) (*LOB, error) {
+func ellKeywordP(argv []*Object) (*Object, error) {
 	if IsKeyword(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellKeywordName(argv []*LOB) (*LOB, error) {
+func ellKeywordName(argv []*Object) (*Object, error) {
 	return KeywordName(argv[0])
 }
 
-func ellTypeP(argv []*LOB) (*LOB, error) {
+func ellTypeP(argv []*Object) (*Object, error) {
 	if IsType(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellTypeName(argv []*LOB) (*LOB, error) {
+func ellTypeName(argv []*Object) (*Object, error) {
 	return TypeName(argv[0])
 }
 
-func ellStringP(argv []*LOB) (*LOB, error) {
+func ellStringP(argv []*Object) (*Object, error) {
 	if IsString(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellCharacterP(argv []*LOB) (*LOB, error) {
+func ellCharacterP(argv []*Object) (*Object, error) {
 	if IsCharacter(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellToCharacter(argv []*LOB) (*LOB, error) {
+func ellToCharacter(argv []*Object) (*Object, error) {
 	return ToCharacter(argv[0])
 }
 
-func ellFunctionP(argv []*LOB) (*LOB, error) {
+func ellFunctionP(argv []*Object) (*Object, error) {
 	if IsFunction(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellFunctionSignature(argv []*LOB) (*LOB, error) {
+func ellFunctionSignature(argv []*Object) (*Object, error) {
 	return String(functionSignature(argv[0])), nil
 }
 
-func ellListP(argv []*LOB) (*LOB, error) {
+func ellListP(argv []*Object) (*Object, error) {
 	if IsList(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellEmptyP(argv []*LOB) (*LOB, error) {
+func ellEmptyP(argv []*Object) (*Object, error) {
 	if argv[0] == EmptyList {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellString(argv []*LOB) (*LOB, error) {
+func ellString(argv []*Object) (*Object, error) {
 	s := ""
 	for _, ss := range argv {
 		s += ss.String()
@@ -748,11 +748,11 @@ func ellString(argv []*LOB) (*LOB, error) {
 	return String(s), nil
 }
 
-func ellStringLength(argv []*LOB) (*LOB, error) {
+func ellStringLength(argv []*Object) (*Object, error) {
 	return Number(float64(StringLength(argv[0].text))), nil
 }
 
-func ellCar(argv []*LOB) (*LOB, error) {
+func ellCar(argv []*Object) (*Object, error) {
 	lst := argv[0]
 	if lst == EmptyList {
 		return Null, nil
@@ -760,7 +760,7 @@ func ellCar(argv []*LOB) (*LOB, error) {
 	return lst.car, nil
 }
 
-func ellCdr(argv []*LOB) (*LOB, error) {
+func ellCdr(argv []*Object) (*Object, error) {
 	lst := argv[0]
 	if lst == EmptyList {
 		return lst, nil
@@ -768,7 +768,7 @@ func ellCdr(argv []*LOB) (*LOB, error) {
 	return lst.cdr, nil
 }
 
-func ellSetCarBang(argv []*LOB) (*LOB, error) {
+func ellSetCarBang(argv []*Object) (*Object, error) {
 	lst := argv[0]
 	if lst == EmptyList {
 		return nil, Error(ArgumentErrorKey, "set-car! expected a non-empty <list>")
@@ -781,7 +781,7 @@ func ellSetCarBang(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellSetCdrBang(argv []*LOB) (*LOB, error) {
+func ellSetCdrBang(argv []*Object) (*Object, error) {
 	lst := argv[0]
 	if lst == EmptyList {
 		return nil, Error(ArgumentErrorKey, "set-cdr! expected a non-empty <list>")
@@ -794,26 +794,26 @@ func ellSetCdrBang(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellCons(argv []*LOB) (*LOB, error) {
+func ellCons(argv []*Object) (*Object, error) {
 	return Cons(argv[0], argv[1]), nil
 }
 
-func ellStructP(argv []*LOB) (*LOB, error) {
+func ellStructP(argv []*Object) (*Object, error) {
 	if IsStruct(argv[0]) {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellGet(argv []*LOB) (*LOB, error) {
+func ellGet(argv []*Object) (*Object, error) {
 	return structGet(argv[0], argv[1]), nil
 }
 
-func ellStructLength(argv []*LOB) (*LOB, error) {
+func ellStructLength(argv []*Object) (*Object, error) {
 	return Number(float64(StructLength(argv[0]))), nil
 }
 
-func ellHasP(argv []*LOB) (*LOB, error) {
+func ellHasP(argv []*Object) (*Object, error) {
 	b, err := Has(argv[0], argv[1])
 	if err != nil {
 		return nil, err
@@ -824,7 +824,7 @@ func ellHasP(argv []*LOB) (*LOB, error) {
 	return False, nil
 }
 
-func ellSeal(argv []*LOB) (*LOB, error) {
+func ellSeal(argv []*Object) (*Object, error) {
 	switch argv[0].Type {
 	case StructType, VectorType, ListType:
 		argv[0].fval = 1
@@ -834,7 +834,7 @@ func ellSeal(argv []*LOB) (*LOB, error) {
 	}
 }
 
-func ellPutBang(argv []*LOB) (*LOB, error) {
+func ellPutBang(argv []*Object) (*Object, error) {
 	key := argv[1]
 	if !IsValidStructKey(key) {
 		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
@@ -847,7 +847,7 @@ func ellPutBang(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellUnputBang(argv []*LOB) (*LOB, error) {
+func ellUnputBang(argv []*Object) (*Object, error) {
 	key := argv[1]
 	if !IsValidStructKey(key) {
 		return nil, Error(ArgumentErrorKey, "Bad struct key: ", key)
@@ -860,19 +860,19 @@ func ellUnputBang(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellToList(argv []*LOB) (*LOB, error) {
+func ellToList(argv []*Object) (*Object, error) {
 	return ToList(argv[0])
 }
 
-func ellSplit(argv []*LOB) (*LOB, error) {
+func ellSplit(argv []*Object) (*Object, error) {
 	return StringSplit(argv[0], argv[1])
 }
 
-func ellJoin(argv []*LOB) (*LOB, error) {
+func ellJoin(argv []*Object) (*Object, error) {
 	return StringJoin(argv[0], argv[1])
 }
 
-func ellJSON(argv []*LOB) (*LOB, error) {
+func ellJSON(argv []*Object) (*Object, error) {
 	s, err := writeToString(argv[0], true, argv[1].text)
 	if err != nil {
 		return nil, err
@@ -880,7 +880,7 @@ func ellJSON(argv []*LOB) (*LOB, error) {
 	return String(s), nil
 }
 
-func ellGetFn(argv []*LOB) (*LOB, error) {
+func ellGetFn(argv []*Object) (*Object, error) {
 	if len(argv) < 1 {
 		return nil, Error(ArgumentErrorKey, "getfn expected at least 1 argument, got none")
 	}
@@ -891,17 +891,17 @@ func ellGetFn(argv []*LOB) (*LOB, error) {
 	return getfn(sym, argv[1:])
 }
 
-func ellMethodSignature(argv []*LOB) (*LOB, error) {
+func ellMethodSignature(argv []*Object) (*Object, error) {
 	return methodSignature(argv[0])
 }
 
-func ellChannel(argv []*LOB) (*LOB, error) {
+func ellChannel(argv []*Object) (*Object, error) {
 	name := argv[0].text
 	bufsize := int(argv[1].fval)
 	return Channel(bufsize, name), nil
 }
 
-func ellClose(argv []*LOB) (*LOB, error) {
+func ellClose(argv []*Object) (*Object, error) {
 	switch argv[0].Type {
 	case ChannelType:
 		CloseChannel(argv[0])
@@ -913,7 +913,7 @@ func ellClose(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellSend(argv []*LOB) (*LOB, error) {
+func ellSend(argv []*Object) (*Object, error) {
 	ch := ChannelValue(argv[0])
 	if ch != nil { //not closed
 		val := argv[1]
@@ -939,7 +939,7 @@ func ellSend(argv []*LOB) (*LOB, error) {
 	return False, nil
 }
 
-func ellReceive(argv []*LOB) (*LOB, error) {
+func ellReceive(argv []*Object) (*Object, error) {
 	ch := ChannelValue(argv[0])
 	if ch != nil { //not closed
 		timeout := argv[1].fval
@@ -970,12 +970,12 @@ func ellReceive(argv []*LOB) (*LOB, error) {
 	return Null, nil
 }
 
-func ellSetRandomSeedBang(argv []*LOB) (*LOB, error) {
+func ellSetRandomSeedBang(argv []*Object) (*Object, error) {
 	RandomSeed(int64(argv[0].fval))
 	return Null, nil
 }
 
-func ellRandom(argv []*LOB) (*LOB, error) {
+func ellRandom(argv []*Object) (*Object, error) {
 	min := 0.0
 	max := 1.0
 	argc := len(argv)
@@ -992,7 +992,7 @@ func ellRandom(argv []*LOB) (*LOB, error) {
 	return Random(min, max), nil
 }
 
-func ellRandomList(argv []*LOB) (*LOB, error) {
+func ellRandomList(argv []*Object) (*Object, error) {
 	count := int(argv[0].fval)
 	min := 0.0
 	max := 1.0
@@ -1010,7 +1010,7 @@ func ellRandomList(argv []*LOB) (*LOB, error) {
 	return RandomList(count, min, max), nil
 }
 
-func ellUUIDFromTime(argv []*LOB) (*LOB, error) {
+func ellUUIDFromTime(argv []*Object) (*Object, error) {
 	var u uuid.UUID
 	argc := len(argv)
 	switch argc {
@@ -1031,33 +1031,36 @@ func ellUUIDFromTime(argv []*LOB) (*LOB, error) {
 	return String(u.String()), nil
 }
 
-func ellTimestamp(argv []*LOB) (*LOB, error) {
-	t := time.Now().UTC()
+func Timestamp(t time.Time) *Object {
 	format := "%d-%02d-%02dT%02d:%02d:%02d.%03dZ"
-	return String(fmt.Sprintf(format, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000000)), nil
+	return String(fmt.Sprintf(format, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000000))
 }
 
-func ellBlobP(argv []*LOB) (*LOB, error) {
+func ellTimestamp(argv []*Object) (*Object, error) {
+	return Timestamp(time.Now().UTC()), nil
+}
+
+func ellBlobP(argv []*Object) (*Object, error) {
 	if argv[0].Type == BlobType {
 		return True, nil
 	}
 	return False, nil
 }
 
-func ellToBlob(argv []*LOB) (*LOB, error) {
+func ellToBlob(argv []*Object) (*Object, error) {
 	return ToBlob(argv[0])
 }
 
-func ellMakeBlob(argv []*LOB) (*LOB, error) {
+func ellMakeBlob(argv []*Object) (*Object, error) {
 	size := int(argv[0].fval)
 	return MakeBlob(size), nil
 }
 
-func ellBlobLength(argv []*LOB) (*LOB, error) {
+func ellBlobLength(argv []*Object) (*Object, error) {
 	return Number(float64(len(BlobValue(argv[0])))), nil
 }
 
-func ellBlobRef(argv []*LOB) (*LOB, error) {
+func ellBlobRef(argv []*Object) (*Object, error) {
 	el := BlobValue(argv[0])
 	idx := int(argv[1].fval)
 	if idx < 0 || idx >= len(el) {
@@ -1066,7 +1069,7 @@ func ellBlobRef(argv []*LOB) (*LOB, error) {
 	return Number(float64(el[idx])), nil
 }
 
-func ellListen(argv []*LOB) (*LOB, error) {
+func ellListen(argv []*Object) (*Object, error) {
 	port := fmt.Sprintf(":%d", int(argv[0].fval))
 	listener, err := net.Listen("tcp", port)
 	if err != nil {
@@ -1077,7 +1080,7 @@ func ellListen(argv []*LOB) (*LOB, error) {
 	return acceptChan, nil
 }
 
-func ellConnect(argv []*LOB) (*LOB, error) {
+func ellConnect(argv []*Object) (*Object, error) {
 	host := argv[0].text
 	port := int(argv[1].fval)
 	endpoint := fmt.Sprintf("%s:%d", host, port)
@@ -1088,7 +1091,7 @@ func ellConnect(argv []*LOB) (*LOB, error) {
 	return Connection(con, endpoint), nil
 }
 
-func ellHTTPServer(argv []*LOB) (*LOB, error) {
+func ellHTTPServer(argv []*Object) (*Object, error) {
 	port := int(argv[0].fval)
 	handler := argv[1] // a function of one <struct> argument
 	if handler.code == nil || handler.code.argc != 1 {
@@ -1097,7 +1100,7 @@ func ellHTTPServer(argv []*LOB) (*LOB, error) {
 	return httpServer(port, handler)
 }
 
-func ellHTTPClient(argv []*LOB) (*LOB, error) {
+func ellHTTPClient(argv []*Object) (*Object, error) {
 	url := argv[0].text
 	method := strings.ToUpper(argv[1].text)
 	headers := argv[2]
@@ -1121,17 +1124,17 @@ func now() float64 {
 	return float64(now.UnixNano()) / float64(time.Second)
 }
 
-func ellNow(argv []*LOB) (*LOB, error) {
+func ellNow(argv []*Object) (*Object, error) {
 	return Number(now()), nil
 }
 
-func ellSince(argv []*LOB) (*LOB, error) {
+func ellSince(argv []*Object) (*Object, error) {
 	then := argv[0].fval
 	dur := now() - then
 	return Number(dur), nil
 }
 
-func ellSleep(argv []*LOB) (*LOB, error) {
+func ellSleep(argv []*Object) (*Object, error) {
 	dur := time.Duration(argv[0].fval * float64(time.Second))
 	time.Sleep(dur) //!! this is not interruptable, fairly risky in a REPL
 	return Number(now()), nil

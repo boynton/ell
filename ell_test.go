@@ -19,19 +19,19 @@ import (
 	"testing"
 )
 
-func testType(t *testing.T, name string, sym *LOB) {
+func testType(t *testing.T, name string, sym *Object) {
 	if sym != Intern(name) {
 		t.Error("type is not ", name, ":", sym)
 	}
 }
 
-func testIdentical(t *testing.T, o1 *LOB, o2 *LOB) {
+func testIdentical(t *testing.T, o1 *Object, o2 *Object) {
 	if o1 != o2 {
 		t.Error("objects should be identical but are not:", o1, "and", o2)
 	}
 }
 
-func testNotIdentical(t *testing.T, o1 *LOB, o2 *LOB) {
+func testNotIdentical(t *testing.T, o1 *Object, o2 *Object) {
 	if o1 == o2 {
 		t.Error("objects should not be identical but are:", o1, "and", o2)
 	}

@@ -17,7 +17,7 @@ limitations under the License.
 package ell
 
 // Compile - compile the source into a code object.
-func Compile(expr *LOB) (*LOB, error) {
+func Compile(expr *Object) (*Object, error) {
 	target := MakeCode(0, nil, nil, "")
 	err := compileExpr(target, EmptyList, expr, false, false, "")
 	if err != nil {
@@ -27,7 +27,7 @@ func Compile(expr *LOB) (*LOB, error) {
 	return target, nil
 }
 
-func calculateLocation(sym *LOB, env *LOB) (int, int, bool) {
+func calculateLocation(sym *Object, env *Object) (int, int, bool) {
 	i := 0
 	for env != EmptyList {
 		j := 0
@@ -45,7 +45,7 @@ func calculateLocation(sym *LOB, env *LOB) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult bool, context string) error {
+func compileExpr(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
 	if IsKeyword(expr) || IsType(expr) {
 		if !ignoreResult {
 			target.code.emitLiteral(expr)
@@ -233,9 +233,9 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 	} else if IsStruct(expr) {
 		//struct literal: the elements are evaluated
 		vlen := len(expr.bindings) * 2
-		vals := make([]*LOB, 0, vlen)
+		vals := make([]*Object, 0, vlen)
 		for k, v := range expr.bindings {
-			vals = append(vals, k.toLOB())
+			vals = append(vals, k.toObject())
 			vals = append(vals, v)
 		}
 		for i := vlen - 1; i >= 0; i-- {
@@ -260,11 +260,11 @@ func compileExpr(target *LOB, env *LOB, expr *LOB, isTail bool, ignoreResult boo
 	return nil
 }
 
-func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreResult bool, context string) error {
+func compileFn(target *Object, env *Object, args *Object, body *Object, isTail bool, ignoreResult bool, context string) error {
 	argc := 0
-	var syms []*LOB
-	var defaults []*LOB
-	var keys []*LOB
+	var syms []*Object
+	var defaults []*Object
+	var keys []*Object
 	tmp := args
 	rest := false
 	if !IsSymbol(args) {
@@ -275,7 +275,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 				if Cdr(tmp) != EmptyList {
 					return Error(SyntaxErrorKey, tmp)
 				}
-				defaults = make([]*LOB, 0, len(a.elements))
+				defaults = make([]*Object, 0, len(a.elements))
 				for _, sym := range a.elements {
 					def := Null
 					if IsList(sym) {
@@ -296,10 +296,10 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 					return Error(SyntaxErrorKey, tmp)
 				}
 				slen := len(a.bindings)
-				defaults = make([]*LOB, 0, slen)
-				keys = make([]*LOB, 0, slen)
+				defaults = make([]*Object, 0, slen)
+				keys = make([]*Object, 0, slen)
 				for k, defValue := range a.bindings {
-					sym := k.toLOB()
+					sym := k.toObject()
 					if IsList(sym) && Car(sym) == Intern("quote") && Cdr(sym) != EmptyList {
 						sym = Cadr(sym)
 					} else {
@@ -327,7 +327,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 			} else {
 				if rest {
 					syms = append(syms, a) //note: added, but argv not incremented
-					defaults = make([]*LOB, 0)
+					defaults = make([]*Object, 0)
 					tmp = EmptyList
 					break
 				}
@@ -340,12 +340,12 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 	if tmp != EmptyList { //entire arglist bound to a single variable
 		if IsSymbol(tmp) {
 			syms = append(syms, tmp) //note: added, but argv not incremented
-			defaults = make([]*LOB, 0)
+			defaults = make([]*Object, 0)
 		} else {
 			return Error(SyntaxErrorKey, tmp)
 		}
 	}
-	args = listFromValues(syms) //why not just use the vector format in general?
+	args = ListFromValues(syms) //why not just use the vector format in general?
 	newEnv := Cons(args, env)
 	fnCode := MakeCode(argc, defaults, keys, context)
 	err := compileSequence(fnCode, newEnv, body, true, false, context)
@@ -360,7 +360,7 @@ func compileFn(target *LOB, env *LOB, args *LOB, body *LOB, isTail bool, ignoreR
 	return err
 }
 
-func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResult bool, context string) error {
+func compileSequence(target *Object, env *Object, exprs *Object, isTail bool, ignoreResult bool, context string) error {
 	if exprs != EmptyList {
 		for Cdr(exprs) != EmptyList {
 			err := compileExpr(target, env, Car(exprs), false, true, context)
@@ -374,7 +374,7 @@ func compileSequence(target *LOB, env *LOB, exprs *LOB, isTail bool, ignoreResul
 	return Error(SyntaxErrorKey, Cons(Intern("do"), exprs))
 }
 
-func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) (*LOB, *LOB) {
+func optimizeFuncall(target *Object, env *Object, fn *Object, args *Object, isTail bool, ignoreResult bool, context string) (*Object, *Object) {
 	size := ListLength(args)
 	if size == 2 {
 		switch fn {
@@ -393,7 +393,7 @@ func optimizeFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ign
 	return fn, args
 }
 
-func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, ignoreResult bool, context string) error {
+func compileFuncall(target *Object, env *Object, fn *Object, args *Object, isTail bool, ignoreResult bool, context string) error {
 	argc := ListLength(args)
 	if argc < 0 {
 		return Error(SyntaxErrorKey, Cons(fn, args))
@@ -419,7 +419,7 @@ func compileFuncall(target *LOB, env *LOB, fn *LOB, args *LOB, isTail bool, igno
 	return nil
 }
 
-func compileArgs(target *LOB, env *LOB, args *LOB, context string) error {
+func compileArgs(target *Object, env *Object, args *Object, context string) error {
 	if args != EmptyList {
 		err := compileArgs(target, env, Cdr(args), context)
 		if err != nil {
@@ -430,7 +430,7 @@ func compileArgs(target *LOB, env *LOB, args *LOB, context string) error {
 	return nil
 }
 
-func compileIfElse(target *LOB, env *LOB, predicate *LOB, Consequent *LOB, antecedentOptional *LOB, isTail bool, ignoreResult bool, context string) error {
+func compileIfElse(target *Object, env *Object, predicate *Object, Consequent *Object, antecedentOptional *Object, isTail bool, ignoreResult bool, context string) error {
 	antecedent := Null
 	if antecedentOptional != EmptyList {
 		antecedent = Car(antecedentOptional)
@@ -458,7 +458,7 @@ func compileIfElse(target *LOB, env *LOB, predicate *LOB, Consequent *LOB, antec
 	return err
 }
 
-func compileUse(target *LOB, rest *LOB) error {
+func compileUse(target *Object, rest *Object) error {
 	lstlen := ListLength(rest)
 	if lstlen != 1 {
 		//to do: other options for use.

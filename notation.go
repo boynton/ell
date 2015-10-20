@@ -40,7 +40,7 @@ func IsFileReadable(path string) bool {
 }
 
 // SlurpFile - returnthe file contents as a string
-func SlurpFile(path string) (*LOB, error) {
+func SlurpFile(path string) (*Object, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return EmptyString, err
@@ -57,7 +57,7 @@ func SpitFile(path string, data string) error {
 
 // Read - only reads the first item in the input, along with how many characters it read
 // for subsequence calls, you can slice the string to continue
-func Read(input *LOB, keys *LOB) (*LOB, error) {
+func Read(input *Object, keys *Object) (*Object, error) {
 	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read invalid input: ", input)
 	}
@@ -74,7 +74,7 @@ func Read(input *LOB, keys *LOB) (*LOB, error) {
 }
 
 // ReadAll - read all items in the input, returning a list of them.
-func ReadAll(input *LOB, keys *LOB) (*LOB, error) {
+func ReadAll(input *Object, keys *Object) (*Object, error) {
 	if !IsString(input) {
 		return nil, Error(ArgumentErrorKey, "read-all invalid input: ", input)
 	}
@@ -124,7 +124,7 @@ func (dr *dataReader) ungetChar() error {
 	return e
 }
 
-func (dr *dataReader) readData(keys *LOB) (*LOB, error) {
+func (dr *dataReader) readData(keys *Object) (*Object, error) {
 	//c, n, e := dr.in.ReadRune()
 	c, e := dr.getChar()
 	for e == nil {
@@ -202,7 +202,7 @@ func (dr *dataReader) decodeComment() error {
 	return e
 }
 
-func (dr *dataReader) decodeString() (*LOB, error) {
+func (dr *dataReader) decodeString() (*Object, error) {
 	buf := []byte{}
 	c, e := dr.getChar()
 	escape := false
@@ -255,15 +255,15 @@ func (dr *dataReader) decodeString() (*LOB, error) {
 	return String(string(buf)), e
 }
 
-func (dr *dataReader) decodeList(keys *LOB) (*LOB, error) {
+func (dr *dataReader) decodeList(keys *Object) (*Object, error) {
 	items, err := dr.decodeSequence(')', keys)
 	if err != nil {
 		return nil, err
 	}
-	return listFromValues(items), nil
+	return ListFromValues(items), nil
 }
 
-func (dr *dataReader) decodeVector(keys *LOB) (*LOB, error) {
+func (dr *dataReader) decodeVector(keys *Object) (*Object, error) {
 	items, err := dr.decodeSequence(']', keys)
 	if err != nil {
 		return nil, err
@@ -290,8 +290,8 @@ func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
 	return 0, err
 }
 
-func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
-	items := []*LOB{}
+func (dr *dataReader) decodeStruct(keys *Object) (*Object, error) {
+	items := []*Object{}
 	var err error
 	var c byte
 	for err == nil {
@@ -347,9 +347,9 @@ func (dr *dataReader) decodeStruct(keys *LOB) (*LOB, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeSequence(endChar byte, keys *LOB) ([]*LOB, error) {
+func (dr *dataReader) decodeSequence(endChar byte, keys *Object) ([]*Object, error) {
 	c, err := dr.getChar()
-	items := []*LOB{}
+	items := []*Object{}
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -376,7 +376,7 @@ func (dr *dataReader) decodeSequence(endChar byte, keys *LOB) ([]*LOB, error) {
 	return nil, err
 }
 
-func (dr *dataReader) decodeAtom(firstChar byte) (*LOB, error) {
+func (dr *dataReader) decodeAtom(firstChar byte) (*Object, error) {
 	s, err := dr.decodeAtomString(firstChar)
 	if err != nil {
 		return nil, err
@@ -504,7 +504,7 @@ func namedChar(name string) (rune, error) {
 	}
 }
 
-func (dr *dataReader) decodeReaderMacro(keys *LOB) (*LOB, error) {
+func (dr *dataReader) decodeReaderMacro(keys *Object) (*Object, error) {
 	c, e := dr.getChar()
 	if e != nil {
 		return nil, e
@@ -584,28 +584,28 @@ func isDelimiter(b byte) bool {
 
 const defaultIndentSize = "    "
 
-func Write(obj *LOB) string {
+func Write(obj *Object) string {
 	return writeIndent(obj, "")
 }
 
-func Pretty(obj *LOB) string {
+func Pretty(obj *Object) string {
 	return writeIndent(obj, defaultIndentSize)
 }
 
-func writeIndent(obj *LOB, indentSize string) string {
+func writeIndent(obj *Object, indentSize string) string {
 	s, _ := writeToString(obj, false, indentSize)
 	return s
 }
 
-func WriteAll(obj *LOB) string {
+func WriteAll(obj *Object) string {
 	return writeAllIndent(obj, "")
 }
 
-func PrettyAll(obj *LOB) string {
+func PrettyAll(obj *Object) string {
 	return writeAllIndent(obj, "    ")
 }
 
-func writeAllIndent(obj *LOB, indent string) string {
+func writeAllIndent(obj *Object, indent string) string {
 	if IsList(obj) {
 		var buf bytes.Buffer
 		for obj != EmptyList {
@@ -624,7 +624,7 @@ func writeAllIndent(obj *LOB, indent string) string {
 	return s
 }
 
-func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
+func writeToString(obj *Object, json bool, indentSize string) (string, error) {
 	elldn, err := writeData(obj, json, "", indentSize)
 	if err != nil {
 		return "", err
@@ -635,7 +635,7 @@ func writeToString(obj *LOB, json bool, indentSize string) (string, error) {
 	return elldn, nil
 }
 
-func writeData(obj *LOB, json bool, indent string, indentSize string) (string, error) {
+func writeData(obj *Object, json bool, indent string, indentSize string) (string, error) {
 	//an error is never returned for non-json
 	switch obj.Type {
 	case BooleanType, NullType, NumberType:
@@ -696,7 +696,7 @@ func writeData(obj *LOB, json bool, indent string, indentSize string) (string, e
 	}
 }
 
-func writeList(lst *LOB, indent string, indentSize string) string {
+func writeList(lst *Object, indent string, indentSize string) string {
 	if lst == EmptyList {
 		return "()"
 	}
@@ -736,7 +736,7 @@ func writeList(lst *LOB, indent string, indentSize string) string {
 	return buf.String()
 }
 
-func writeVector(vec *LOB, json bool, indent string, indentSize string) (string, error) {
+func writeVector(vec *Object, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	vlen := len(vec.elements)
@@ -774,7 +774,7 @@ func writeVector(vec *LOB, json bool, indent string, indentSize string) (string,
 	return buf.String(), nil
 }
 
-func writeStruct(strct *LOB, json bool, indent string, indentSize string) (string, error) {
+func writeStruct(strct *Object, json bool, indent string, indentSize string) (string, error) {
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	size := len(strct.bindings)
@@ -801,7 +801,7 @@ func writeStruct(strct *LOB, json bool, indent string, indentSize string) (strin
 		} else {
 			buf.WriteString(delim)
 		}
-		s, err := writeData(k.toLOB(), json, nextIndent, indentSize)
+		s, err := writeData(k.toObject(), json, nextIndent, indentSize)
 		if err != nil {
 			return "", err
 		}

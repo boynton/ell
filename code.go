@@ -67,8 +67,8 @@ var FuncSymbol = Intern("func")
 
 var opsyms = initOpsyms()
 
-func initOpsyms() []*LOB {
-	syms := make([]*LOB, opcodeCount)
+func initOpsyms() []*Object {
+	syms := make([]*Object, opcodeCount)
 	syms[opcodeLiteral] = LiteralSymbol
 	syms[opcodeLocal] = LocalSymbol
 	syms[opcodeJumpFalse] = JumpfalseSymbol
@@ -94,12 +94,12 @@ type Code struct {
 	name     string
 	ops      []int
 	argc     int
-	defaults []*LOB
-	keys     []*LOB
+	defaults []*Object
+	keys     []*Object
 }
 
 // MakeCode - create a new code object
-func MakeCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
+func MakeCode(argc int, defaults []*Object, keys []*Object, name string) *Object {
 	var ops []int
 	code := &Code{
 		name,
@@ -108,7 +108,7 @@ func MakeCode(argc int, defaults []*LOB, keys []*LOB, name string) *LOB {
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
 	}
-	result := new(LOB)
+	result := new(Object)
 	result.Type = CodeType
 	result.code = code
 	return result
@@ -224,7 +224,7 @@ func (code *Code) String() string {
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *Code) loadOps(lst *LOB) error {
+func (code *Code) loadOps(lst *Object) error {
 	for lst != EmptyList {
 		instr := Car(lst)
 		op := Car(instr)
@@ -238,8 +238,8 @@ func (code *Code) loadOps(lst *LOB) error {
 			funcParams := Car(lstFunc)
 			var argc int
 			var name string
-			var defaults []*LOB
-			var keys []*LOB
+			var defaults []*Object
+			var keys []*Object
 			var err error
 			if IsSymbol(funcParams) {
 				//legacy form, just the argc
@@ -249,7 +249,7 @@ func (code *Code) loadOps(lst *LOB) error {
 				}
 				if argc < 0 {
 					argc = -argc - 1
-					defaults = make([]*LOB, 0)
+					defaults = make([]*Object, 0)
 				}
 			} else if IsList(funcParams) && ListLength(funcParams) == 4 {
 				tmp := funcParams
@@ -353,12 +353,12 @@ func (code *Code) loadOps(lst *LOB) error {
 	return nil
 }
 
-func (code *Code) emitLiteral(val *LOB) {
+func (code *Code) emitLiteral(val *Object) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *Code) emitGlobal(sym *LOB) {
+func (code *Code) emitGlobal(sym *Object) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
@@ -386,19 +386,19 @@ func (code *Code) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *Code) emitDefGlobal(sym *LOB) {
+func (code *Code) emitDefGlobal(sym *Object) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitUndefGlobal(sym *LOB) {
+func (code *Code) emitUndefGlobal(sym *Object) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitDefMacro(sym *LOB) {
+func (code *Code) emitDefMacro(sym *Object) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitClosure(newCode *LOB) {
+func (code *Code) emitClosure(newCode *Object) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, putConstant(newCode))
 }
@@ -425,7 +425,7 @@ func (code *Code) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *Code) emitUse(sym *LOB) {
+func (code *Code) emitUse(sym *Object) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, putConstant(sym))
 }

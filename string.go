@@ -24,15 +24,15 @@ import (
 var EmptyString = String("")
 
 // String - create a new string object
-func String(s string) *LOB {
-	str := new(LOB)
+func String(s string) *Object {
+	str := new(Object)
 	str.Type = StringType
 	str.text = s
 	return str
 }
 
 // AsStringValue - return the native string representation of the object, if possible
-func AsStringValue(obj *LOB) (string, error) {
+func AsStringValue(obj *Object) (string, error) {
 	if !IsString(obj) {
 		return "", Error(ArgumentErrorKey, StringType, obj)
 	}
@@ -40,7 +40,7 @@ func AsStringValue(obj *LOB) (string, error) {
 }
 
 // ToString - convert the object to a string, if possible
-func ToString(a *LOB) (*LOB, error) {
+func ToString(a *Object) (*Object, error) {
 	switch a.Type {
 	case CharacterType:
 		return String(string([]rune{rune(a.fval)})), nil
@@ -122,15 +122,15 @@ func EncodeString(s string) string {
 }
 
 // Character - return a new <character> object
-func Character(c rune) *LOB {
-	char := new(LOB)
+func Character(c rune) *Object {
+	char := new(Object)
 	char.Type = CharacterType
 	char.fval = float64(c)
 	return char
 }
 
 // ToCharacter - convert object to a <character> object, if possible
-func ToCharacter(c *LOB) (*LOB, error) {
+func ToCharacter(c *Object) (*Object, error) {
 	switch c.Type {
 	case CharacterType:
 		return c, nil
@@ -148,7 +148,7 @@ func ToCharacter(c *LOB) (*LOB, error) {
 }
 
 // AsCharacter - return the native rune representation of the character object, if possible
-func AsRuneValue(c *LOB) (rune, error) {
+func AsRuneValue(c *Object) (rune, error) {
 	if !IsCharacter(c) {
 		return 0, Error(ArgumentErrorKey, "Not a <character>", c)
 	}
@@ -156,8 +156,8 @@ func AsRuneValue(c *LOB) (rune, error) {
 }
 
 // StringCharacters - return a slice of <character> objects that represent the string
-func StringCharacters(s *LOB) []*LOB {
-	var chars []*LOB
+func StringCharacters(s *Object) []*Object {
+	var chars []*Object
 	for _, c := range s.text {
 		chars = append(chars, Character(c))
 	}
@@ -165,7 +165,7 @@ func StringCharacters(s *LOB) []*LOB {
 }
 
 // StringRef - return the <character> object at the specified string index
-func StringRef(s *LOB, idx int) *LOB {
+func StringRef(s *Object, idx int) *Object {
 	//utf8 requires a scan
 	for i, r := range s.text {
 		if i == idx {
@@ -175,15 +175,15 @@ func StringRef(s *LOB, idx int) *LOB {
 	return Null
 }
 
-func stringToVector(s *LOB) *LOB {
+func stringToVector(s *Object) *Object {
 	return Vector(StringCharacters(s)...)
 }
 
-func stringToList(s *LOB) *LOB {
+func stringToList(s *Object) *Object {
 	return List(StringCharacters(s)...)
 }
 
-func StringSplit(obj *LOB, delims *LOB) (*LOB, error) {
+func StringSplit(obj *Object, delims *Object) (*Object, error) {
 	if !IsString(obj) {
 		return nil, Error(ArgumentErrorKey, "split expected a <string> for argument 1, got ", obj)
 	}
@@ -204,7 +204,7 @@ func StringSplit(obj *LOB, delims *LOB) (*LOB, error) {
 	return lst, nil
 }
 
-func StringJoin(seq *LOB, delims *LOB) (*LOB, error) {
+func StringJoin(seq *Object, delims *Object) (*Object, error) {
 	if !IsString(delims) {
 		return nil, Error(ArgumentErrorKey, "join expected a <string> for argument 2, got ", delims)
 	}
