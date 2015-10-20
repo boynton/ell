@@ -69,6 +69,7 @@ func Println(args ...interface{}) {
 
 func Fatal(args ...interface{}) {
 	Println(args...)
+	Cleanup()
 	exit(1)
 }
 

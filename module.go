@@ -17,8 +17,6 @@ limitations under the License.
 package ell
 
 import (
-	"flag"
-	//"github.com/davecheney/profile"
 	"os"
 	"path/filepath"
 	"strings"
@@ -345,19 +343,17 @@ func CompileFile(name string) (*Object, error) {
 	return String(result), nil
 }
 
-func Main(ext Extension) {
-	pCompile := flag.Bool("c", false, "compile the file and output lap")
-	pOptimize := flag.Bool("o", false, "optimize execution speed, should work for correct code, but doesn't check everything")
-	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
-	pDebug := flag.Bool("d", false, "debug mode, print extra information about compilation")
-	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
-	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
-	flag.Parse()
-	args := flag.Args()
+type Extension interface {
+	Init() error
+	Cleanup()
+}
 
+var extension Extension
+
+func Init(ext Extension) {
+	extension = ext
 	LoadPath = os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")
-	ellini := filepath.Join(home, ".ell")
 	if LoadPath == "" {
 		LoadPath = "."
 		homelib := filepath.Join(home, "lib/ell")
@@ -374,50 +370,29 @@ func Main(ext Extension) {
 			}
 		}
 	}
-	if *pVerbose || *pDebug {
+	if verbose || debug {
 		Println("[LoadPath ", LoadPath, "]")
 	}
-	Init(ext)
-	if len(args) < 1 {
-		if !*pNoInit {
-			_, err := os.Stat(ellini)
-			if err == nil {
-				err := Load(ellini)
-				if err != nil {
-					Fatal("*** ", err)
-				}
-			}
-		}
-		SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, true)
-		ReadEvalPrintLoop()
-	} else {
-		SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, false)
-		/*
-			if len(os.Args) > 2 {
-				cfg := profile.Config{
-					CPUProfile:     true,
-					ProfilePath:    ".",  // store profiles in current directory
-					NoShutdownHook: true, // do not hook SIGINT
-				}
-				defer profile.Start(&cfg).Stop()
-			}
-		*/
-		for _, filename := range args {
-			if *pCompile {
-				//just compile and print LAP code
-				lap, err := CompileFile(filename)
-				if err != nil {
-					Fatal("*** ", err)
-				}
-				println(lap)
-			} else {
-				//this executes the file
-				err := Load(filename)
-				if err != nil {
-					Fatal("*** ", err.Error())
-				}
-			}
+	InitPrimitives()
+	if extension != nil {
+		err := extension.Init()
+		if err != nil {
+			Fatal("*** ", err)
 		}
 	}
-	Cleanup()
+}
+
+func Cleanup() {
+	if extension != nil {
+		extension.Cleanup()
+	}
+}
+
+func Run(args []string) {
+	for _, filename := range args {
+		err := Load(filename)
+		if err != nil {
+			Fatal("*** ", err.Error())
+		}
+	}
 }

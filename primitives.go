@@ -27,17 +27,8 @@ import (
 	"time"
 )
 
-type Extension interface {
-	Init() error
-	Cleanup()
-}
-
-var extension Extension
-
 // InitEnvironment - defines the global functions/variables/macros for the top level environment
-func Init(ext Extension) {
-	extension = ext
-
+func InitPrimitives() {
 	DefineMacro("let", ellLet)
 	DefineMacro("letrec", ellLetrec)
 	DefineMacro("cond", ellCond)
@@ -205,18 +196,6 @@ func Init(ext Extension) {
 	err := Load("ell")
 	if err != nil {
 		Fatal("*** ", err)
-	}
-	if extension != nil {
-		err := extension.Init()
-		if err != nil {
-			Fatal("*** ", err)
-		}
-	}
-}
-
-func Cleanup() {
-	if extension != nil {
-		extension.Cleanup()
 	}
 }
 
