@@ -388,7 +388,7 @@ func Cleanup() {
 	}
 }
 
-func Run(args []string) {
+func Run(args ...string) {
 	for _, filename := range args {
 		err := Load(filename)
 		if err != nil {

@@ -57,7 +57,7 @@ func main() {
 					defer profile.Start(&cfg).Stop()
 				}
 			*/
-			ell.Run(args)
+			ell.Run(args...)
 		}
 	} else {
 		if !*pNoInit {
