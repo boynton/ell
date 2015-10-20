@@ -40,8 +40,8 @@ func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 // Version - this version of ell
 const Version = "ell v0.2"
 
-// EllPath is the path where the library *.ell files can be found
-var EllPath string
+// LoadPath is the path where the library *.ell files can be found
+var LoadPath string
 
 var constantsMap = make(map[*LOB]int, 0)
 var constants = make([]*LOB, 0, 1000)
@@ -203,7 +203,7 @@ func importCode(thunk *LOB) (*LOB, error) {
 }
 
 func FindModuleByName(moduleName string) (string, error) {
-	path := strings.Split(EllPath, ":")
+	path := strings.Split(LoadPath, ":")
 	name := moduleName
 	var lname string
 	if strings.HasSuffix(name, ".ell") {
@@ -355,24 +355,27 @@ func Main(ext Extension) {
 	flag.Parse()
 	args := flag.Args()
 
-	EllPath = os.Getenv("ELL_PATH")
+	LoadPath = os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")
 	ellini := filepath.Join(home, ".ell")
-	if EllPath == "" {
-		EllPath = "."
+	if LoadPath == "" {
+		LoadPath = "."
 		homelib := filepath.Join(home, "lib/ell")
 		_, err := os.Stat(homelib)
 		if err == nil {
-			EllPath += ":" + homelib
+			LoadPath += ":" + homelib
 		}
 		gopath := os.Getenv("GOPATH")
 		if gopath != "" {
-			golibdir := filepath.Join(gopath, "src/github.com/boynton/gell/lib")
+			golibdir := filepath.Join(gopath, "src/github.com/boynton/ell/lib")
 			_, err := os.Stat(golibdir)
 			if err == nil {
-				EllPath += ":" + golibdir
+				LoadPath += ":" + golibdir
 			}
 		}
+	}
+	if *pVerbose || *pDebug {
+		Println("[LoadPath ", LoadPath, "]")
 	}
 	Init(ext)
 	if len(args) < 1 {
