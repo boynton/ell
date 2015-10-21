@@ -33,12 +33,11 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	interactive := len(args) == 0
-	ell.SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
 	ell.Init(nil)
 
 	if len(args) > 0 {
 		if *pCompile {
-			//just compile and print LAP code
+			//just compile and print LVM code
 			for _, filename := range args {
 				lap, err := ell.CompileFile(filename)
 				if err != nil {
@@ -57,6 +56,7 @@ func main() {
 					defer profile.Start(&cfg).Stop()
 				}
 			*/
+			ell.SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
 			ell.Run(args...)
 		}
 	} else {
@@ -71,6 +71,7 @@ func main() {
 				}
 			}
 		}
+		ell.SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
 		ell.ReadEvalPrintLoop()
 	}
 	ell.Cleanup()

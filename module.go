@@ -200,8 +200,14 @@ func importCode(thunk *Object) (*Object, error) {
 	return result, nil
 }
 
+var loadPathSymbol = Intern("*load-path*")
+
 func FindModuleByName(moduleName string) (string, error) {
-	path := strings.Split(LoadPath, ":")
+	loadPath := GetGlobal(loadPathSymbol)
+	if loadPath == nil {
+		loadPath = String(".")
+	}
+	path := strings.Split(StringValue(loadPath), ":")
 	name := moduleName
 	var lname string
 	if strings.HasSuffix(name, ".ell") {
@@ -350,29 +356,36 @@ type Extension interface {
 
 var extension Extension
 
+func AddEllDirectory(dirname string) {
+	loadPath := dirname
+	tmp := GetGlobal(loadPathSymbol)
+	if tmp != nil {
+		loadPath = dirname + ":" + StringValue(tmp)
+	}
+	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
+}
+
 func Init(ext Extension) {
 	extension = ext
-	LoadPath = os.Getenv("ELL_PATH")
+	loadPath := os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")
-	if LoadPath == "" {
-		LoadPath = "."
+	if loadPath == "" {
+		loadPath = "."
 		homelib := filepath.Join(home, "lib/ell")
 		_, err := os.Stat(homelib)
 		if err == nil {
-			LoadPath += ":" + homelib
+			loadPath += ":" + homelib
 		}
 		gopath := os.Getenv("GOPATH")
 		if gopath != "" {
 			golibdir := filepath.Join(gopath, "src/github.com/boynton/ell/lib")
 			_, err := os.Stat(golibdir)
 			if err == nil {
-				LoadPath += ":" + golibdir
+				loadPath += ":" + golibdir
 			}
 		}
 	}
-	if verbose || debug {
-		Println("[LoadPath ", LoadPath, "]")
-	}
+	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
 	InitPrimitives()
 	if extension != nil {
 		err := extension.Init()
