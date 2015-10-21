@@ -222,7 +222,18 @@ func ellQuasiquote(argv []*Object) (*Object, error) {
 // functions
 
 func ellVersion(argv []*Object) (*Object, error) {
-	return String(Version), nil
+	s := Version
+	if len(extensions) > 0 {
+		s += " (with "
+		for i, ext := range extensions {
+			if i > 0 {
+				s += ", "
+			}
+			s += ext.String()
+		}
+		s += ")"
+	}
+	return String(s), nil
 }
 
 func ellDefinedP(argv []*Object) (*Object, error) {
@@ -1098,23 +1109,22 @@ func Now() float64 {
 	return float64(now.UnixNano()) / float64(time.Second)
 }
 
-func now() float64 {
-	now := time.Now()
-	return float64(now.UnixNano()) / float64(time.Second)
-}
-
 func ellNow(argv []*Object) (*Object, error) {
-	return Number(now()), nil
+	return Number(Now()), nil
 }
 
 func ellSince(argv []*Object) (*Object, error) {
 	then := argv[0].fval
-	dur := now() - then
+	dur := Now() - then
 	return Number(dur), nil
 }
 
-func ellSleep(argv []*Object) (*Object, error) {
-	dur := time.Duration(argv[0].fval * float64(time.Second))
+func Sleep(delayInSeconds float64) {
+	dur := time.Duration(delayInSeconds * float64(time.Second))
 	time.Sleep(dur) //!! this is not interruptable, fairly risky in a REPL
-	return Number(now()), nil
+}
+
+func ellSleep(argv []*Object) (*Object, error) {
+	Sleep(argv[0].fval)
+	return Number(Now()), nil
 }

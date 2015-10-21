@@ -17,6 +17,8 @@ limitations under the License.
 package ell
 
 import (
+	"flag"
+	//"github.com/davecheney/profile"
 	"os"
 	"path/filepath"
 	"strings"
@@ -352,9 +354,10 @@ func CompileFile(name string) (*Object, error) {
 type Extension interface {
 	Init() error
 	Cleanup()
+	String() string
 }
 
-var extension Extension
+var extensions []Extension
 
 func AddEllDirectory(dirname string) {
 	loadPath := dirname
@@ -365,8 +368,8 @@ func AddEllDirectory(dirname string) {
 	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
 }
 
-func Init(ext Extension) {
-	extension = ext
+func Init(extns ...Extension) {
+	extensions = extns
 	loadPath := os.Getenv("ELL_PATH")
 	home := os.Getenv("HOME")
 	if loadPath == "" {
@@ -387,8 +390,8 @@ func Init(ext Extension) {
 	}
 	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
 	InitPrimitives()
-	if extension != nil {
-		err := extension.Init()
+	for _, ext := range extensions {
+		err := ext.Init()
 		if err != nil {
 			Fatal("*** ", err)
 		}
@@ -396,8 +399,8 @@ func Init(ext Extension) {
 }
 
 func Cleanup() {
-	if extension != nil {
-		extension.Cleanup()
+	for _, ext := range extensions {
+		ext.Cleanup()
 	}
 }
 
@@ -408,4 +411,57 @@ func Run(args ...string) {
 			Fatal("*** ", err.Error())
 		}
 	}
+}
+
+func Main(extns ...Extension) {
+	pCompile := flag.Bool("c", false, "compile the file and output lap")
+	pOptimize := flag.Bool("o", false, "optimize execution speed, should work for correct code, but doesn't check everything")
+	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
+	pDebug := flag.Bool("d", false, "debug mode, print extra information about compilation")
+	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
+	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
+	flag.Parse()
+	args := flag.Args()
+	interactive := len(args) == 0
+	Init(extns...)
+	if len(args) > 0 {
+		if *pCompile {
+			//just compile and print LVM code
+			for _, filename := range args {
+				lap, err := CompileFile(filename)
+				if err != nil {
+					Fatal("*** ", err)
+				}
+				Println(lap)
+			}
+		} else {
+			/*
+				if len(os.Args) > 2 {
+					cfg := profile.Config{
+						CPUProfile:     true,
+						ProfilePath:    ".",  // store profiles in current directory
+						NoShutdownHook: true, // do not hook SIGINT
+					}
+					defer profile.Start(&cfg).Stop()
+				}
+			*/
+			SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
+			Run(args...)
+		}
+	} else {
+		if !*pNoInit {
+			home := os.Getenv("HOME")
+			ellini := filepath.Join(home, ".ell")
+			_, err := os.Stat(ellini)
+			if err == nil {
+				err := Load(ellini)
+				if err != nil {
+					Fatal("*** ", err)
+				}
+			}
+		}
+		SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
+		ReadEvalPrintLoop()
+	}
+	Cleanup()
 }
