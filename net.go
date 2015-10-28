@@ -107,7 +107,10 @@ func httpServer(port int, handler *Object) (*Object, error) {
 			}
 			body = Blob(bodyBytes)
 		}
-		req, _ := Struct([]*Object{Intern("headers:"), headers, Intern("body:"), body})
+		req, _ := Struct([]*Object{Intern("headers:"), headers})
+		if body != nil {
+			Put(req, Intern("body:"), body)
+		}
 		args := []*Object{req}
 		res, err := exec(handler.code, args)
 		if err != nil {
