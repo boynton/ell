@@ -42,6 +42,8 @@ func AsStringValue(obj *Object) (string, error) {
 // ToString - convert the object to a string, if possible
 func ToString(a *Object) (*Object, error) {
 	switch a.Type {
+	case NullType:
+		return a, nil
 	case CharacterType:
 		return String(string([]rune{rune(a.fval)})), nil
 	case StringType:
