@@ -268,6 +268,10 @@ func compileFn(target *Object, env *Object, args *Object, body *Object, isTail b
 	tmp := args
 	rest := false
 	if !IsSymbol(args) {
+		if IsVector(tmp) {
+			//clojure style. Should this be an error?
+			tmp, _ = ToList(tmp)
+		}
 		for tmp != EmptyList {
 			a := Car(tmp)
 			if IsVector(a) {
