@@ -1,10 +1,10 @@
 GOPATH=$(HOME)
 PKG=github.com/boynton/ell
 all:
-	go install $(PKG)
+	go install $(PKG)/cmd/ell
 
 clean:
-	go clean $(PKG)
+	go clean $(PKG)/...
 	rm -rf *~
 
 check:
