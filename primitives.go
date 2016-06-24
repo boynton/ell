@@ -69,6 +69,7 @@ func InitPrimitives() {
 	DefineFunction("join", ellJoin, ListType, ListType, StringType) // <list|vector> for both arg1 and result could work
 	DefineFunction("character?", ellCharacterP, BooleanType, AnyType)
 	DefineFunction("to-character", ellToCharacter, CharacterType, AnyType)
+	DefineFunction("substring", ellSubstring, StringType, StringType, NumberType, NumberType)
 
 	DefineFunction("blob?", ellBlobP, BooleanType, AnyType)
 	DefineFunction("to-blob", ellToBlob, BlobType, AnyType)
@@ -703,6 +704,23 @@ func ellCharacterP(argv []*Object) (*Object, error) {
 
 func ellToCharacter(argv []*Object) (*Object, error) {
 	return ToCharacter(argv[0])
+}
+
+func ellSubstring(argv []*Object) (*Object, error) {
+	s := argv[0].text
+	start := int(argv[1].fval)
+	end := int(argv[2].fval)
+	if start < 0 {
+		start = 0
+	} else if start > len(s) {
+		return String(""), nil
+	}
+	if end < start {
+		return String(""), nil
+	} else if end > len(s) {
+		end = len(s)
+	}
+	return String(s[start:end]), nil
 }
 
 func ellFunctionP(argv []*Object) (*Object, error) {
