@@ -97,7 +97,8 @@ func httpServer(port int, handler *Object) (*Object, error) {
 			Put(headers, String(k), ListFromValues(values))
 		}
 		var body *Object
-		switch strings.ToUpper(r.Method) {
+		method := strings.ToUpper(r.Method)
+		switch method {
 		case "POST", "PUT":
 			bodyBytes, err := ioutil.ReadAll(r.Body)
 			if err != nil {
@@ -110,6 +111,20 @@ func httpServer(port int, handler *Object) (*Object, error) {
 		req, _ := Struct([]*Object{Intern("headers:"), headers})
 		if body != nil {
 			Put(req, Intern("body:"), body)
+		}
+		Put(req, Intern("method:"), String(method))
+		Put(req, Intern("path:"), String(r.URL.Path))
+		if r.URL.Scheme != "" {
+			Put(req, Intern("scheme:"), String(r.URL.Scheme))
+		}
+		if r.URL.User != nil {
+			//this is a *url.Userinfo
+		}
+		if r.URL.Host != "" {
+			Put(req, Intern("host:"), String(r.URL.Host))
+		}
+		if r.URL.RawQuery != "" {
+			Put(req, Intern("query:"), String(r.URL.RawQuery))
 		}
 		args := []*Object{req}
 		res, err := exec(handler.code, args)
