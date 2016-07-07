@@ -58,6 +58,7 @@ func InitPrimitives() {
 	DefineFunction("type-name", ellTypeName, SymbolType, TypeType)
 	DefineFunction("keyword?", ellKeywordP, BooleanType, AnyType)
 	DefineFunction("keyword-name", ellKeywordName, SymbolType, KeywordType)
+	DefineFunction("to-keyword", ellToKeyword, KeywordType, AnyType)
 	DefineFunction("symbol?", ellSymbolP, BooleanType, AnyType)
 	DefineFunctionRestArgs("symbol", ellSymbol, SymbolType, AnyType, AnyType) //"(<any> <any>*) <symbol>")
 
@@ -162,6 +163,7 @@ func InitPrimitives() {
 
 	DefineFunctionRestArgs("make-error", ellMakeError, ErrorType, AnyType)
 	DefineFunction("error?", ellErrorP, BooleanType, AnyType)
+	DefineFunction("error-data", ellErrorData, AnyType, ErrorType)
 	DefineFunction("uncaught-error", ellUncaughtError, NullType, ErrorType) //doesn't return
 
 	DefineFunctionKeyArgs("json", ellJSON, StringType, []*Object{AnyType, StringType}, []*Object{EmptyString}, []*Object{Intern("indent:")})
@@ -395,6 +397,10 @@ func ellErrorP(argv []*Object) (*Object, error) {
 		return True, nil
 	}
 	return False, nil
+}
+
+func ellErrorData(argv []*Object) (*Object, error) {
+	return ErrorData(argv[0]), nil
 }
 
 func ellUncaughtError(argv []*Object) (*Object, error) {
@@ -675,6 +681,10 @@ func ellKeywordP(argv []*Object) (*Object, error) {
 
 func ellKeywordName(argv []*Object) (*Object, error) {
 	return KeywordName(argv[0])
+}
+
+func ellToKeyword(argv []*Object) (*Object, error) {
+	return ToKeyword(argv[0])
 }
 
 func ellTypeP(argv []*Object) (*Object, error) {
