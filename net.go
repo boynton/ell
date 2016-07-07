@@ -141,12 +141,6 @@ func httpServer(port int, handler *Object) (*Object, error) {
 		headers = structGet(res, Intern("headers:"))
 		body = structGet(res, Intern("body:"))
 		status := structGet(res, Intern("status:"))
-		if status != nil {
-			nstatus := int(status.fval)
-			if nstatus != 0 && nstatus != 200 {
-				w.WriteHeader(nstatus)
-			}
-		}
 		if IsStruct(headers) {
 			//fix: multiple values for a header
 			for k, v := range headers.bindings {
@@ -158,8 +152,21 @@ func httpServer(port int, handler *Object) (*Object, error) {
 		if IsString(body) {
 			bodylen := len(body.text)
 			w.Header().Set("Content-length", fmt.Sprint(bodylen))
+			if status != nil {
+				nstatus := int(status.fval)
+				if nstatus != 0 && nstatus != 200 {
+					w.WriteHeader(nstatus)
+				}
+			}
 			if bodylen > 0 {
 				w.Write([]byte(body.text))
+			}
+		} else {
+			if status != nil {
+				nstatus := int(status.fval)
+				if nstatus != 0 && nstatus != 200 {
+					w.WriteHeader(nstatus)
+				}
 			}
 		}
 	}
