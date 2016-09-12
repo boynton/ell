@@ -197,7 +197,7 @@ func listToVector(lst *Object) *Object {
 	return VectorFromElementsNoCopy(elems)
 }
 
-// ToList - conver the argument to a List, if possible
+// ToList - convert the argument to a List, if possible
 func ToList(obj *Object) (*Object, error) {
 	switch obj.Type {
 	case ListType:
