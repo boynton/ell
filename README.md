@@ -78,9 +78,9 @@ than quoting every interior item):
 
 	? [1 two 3]
 	 *** [error: Undefined symbol: two] 
-	? [1 'two 3]      ; you can quote jsut what needs to be quoted
+	? [1 'two 3]      ; you can quote just what needs to be quoted
 	= [1 two 3]
-	? '[1 two 3]      ; or jsut quote the whole thing
+	? '[1 two 3]      ; or just quote the whole thing
 	= [1 two 3]
 	? {x 2}
 	 *** [error: Undefined symbol: x]
