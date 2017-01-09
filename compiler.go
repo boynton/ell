@@ -45,8 +45,133 @@ func calculateLocation(sym *Object, env *Object) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileExpr(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
-	if IsKeyword(expr) || IsType(expr) {
+func compileSelfEvalLiteral(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+	if !ignoreResult {
+		target.code.emitLiteral(expr)
+		if isTail {
+			target.code.emitReturn()
+		}
+	}
+	return nil
+}
+
+func compileSymbol(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+	if GetMacro(expr) != nil {
+		return Error(Intern("macro-error"), "Cannot use macro as a value: ", expr)
+	}
+	if i, j, ok := calculateLocation(expr, env); ok {
+		target.code.emitLocal(i, j)
+	} else {
+		target.code.emitGlobal(expr)
+	}
+	if ignoreResult {
+		target.code.emitPop()
+	} else if isTail {
+		target.code.emitReturn()
+	}
+	return nil
+}
+
+func compileQuote(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+	if lstlen != 2 {
+		return Error(SyntaxErrorKey, expr)
+	}
+	if !ignoreResult {
+		target.code.emitLiteral(Cadr(expr))
+		if isTail {
+			target.code.emitReturn()
+		}
+	}
+	return nil
+}
+
+func compileDef(target *Object, env *Object, lst *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+	if lstlen < 3 {
+		return Error(SyntaxErrorKey, lst)
+	}
+	sym := Cadr(lst)
+	val := Caddr(lst)
+	err := compileExpr(target, env, val, false, false, sym.String())
+	if err == nil {
+		target.code.emitDefGlobal(sym)
+		if ignoreResult {
+			target.code.emitPop()
+		} else if isTail {
+			target.code.emitReturn()
+		}
+	}
+	return err
+}
+
+func compileUndef(target *Object, env *Object, lst *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+	if lstlen != 2 {
+		return Error(SyntaxErrorKey, lst)
+	}
+	sym := Cadr(lst)
+	if !IsSymbol(sym) {
+		return Error(SyntaxErrorKey, lst)
+	}
+	target.code.emitUndefGlobal(sym)
+	if ignoreResult {
+	} else {
+		target.code.emitLiteral(sym)
+		if isTail {
+			target.code.emitReturn()
+		}
+	}
+	return nil
+}
+
+func compileMacro(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+	if lstlen != 3 {
+		return Error(SyntaxErrorKey, expr)
+	}
+	var sym = Cadr(expr)
+	if !IsSymbol(sym) {
+		return Error(SyntaxErrorKey, expr)
+	}
+	err := compileExpr(target, env, Caddr(expr), false, false, sym.String())
+	if err != nil {
+		return err
+	}
+	if err == nil {
+		target.code.emitDefMacro(sym)
+		if ignoreResult {
+			target.code.emitPop()
+		} else if isTail {
+			target.code.emitReturn()
+		}
+	}
+	return err
+}
+
+func compileSet(target *Object, env *Object, lst *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+	if lstlen != 3 {
+		return Error(SyntaxErrorKey, lst)
+	}
+	var sym = Cadr(lst)
+	if !IsSymbol(sym) {
+		return Error(SyntaxErrorKey, lst)
+	}
+	err := compileExpr(target, env, Caddr(lst), false, false, context)
+	if err != nil {
+		return err
+	}
+	if i, j, ok := calculateLocation(sym, env); ok {
+		target.code.emitSetLocal(i, j)
+	} else {
+		target.code.emitDefGlobal(sym) //fix, should be SetGlobal
+	}
+	if ignoreResult {
+		target.code.emitPop()
+	} else if isTail {
+		target.code.emitReturn()
+	}
+	return nil
+}
+
+func compileList(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+	if expr == EmptyList {
 		if !ignoreResult {
 			target.code.emitLiteral(expr)
 			if isTail {
@@ -54,202 +179,118 @@ func compileExpr(target *Object, env *Object, expr *Object, isTail bool, ignoreR
 			}
 		}
 		return nil
-	} else if IsSymbol(expr) {
-		if GetMacro(expr) != nil {
-			return Error(Intern("macro-error"), "Cannot use macro as a value: ", expr)
+	}
+	lst := expr
+	lstlen := ListLength(lst)
+	if lstlen == 0 {
+		return Error(SyntaxErrorKey, lst)
+	}
+	fn := Car(lst)
+	switch fn {
+	case Intern("quote"):
+		// (quote <datum>)
+		return compileQuote(target, env, expr, isTail, ignoreResult, context, lstlen)
+	case Intern("do"): // a sequence of expressions, for side-effect only
+		// (do <expr> ...)
+		return compileSequence(target, env, Cdr(lst), isTail, ignoreResult, context)
+	case Intern("if"):
+		// (if <pred> <Consequent>)
+		// (if <pred> <Consequent> <antecedent>)
+		if lstlen == 3 || lstlen == 4 {
+			return compileIfElse(target, env, Cadr(expr), Caddr(expr), Cdddr(expr), isTail, ignoreResult, context)
 		}
-		if i, j, ok := calculateLocation(expr, env); ok {
-			target.code.emitLocal(i, j)
-		} else {
-			target.code.emitGlobal(expr)
-		}
-		if ignoreResult {
-			target.code.emitPop()
-		} else if isTail {
-			target.code.emitReturn()
-		}
-		return nil
-	} else if IsList(expr) {
-		if expr == EmptyList {
-			if !ignoreResult {
-				target.code.emitLiteral(expr)
-				if isTail {
-					target.code.emitReturn()
-				}
-			}
-			return nil
-		}
-		lst := expr
-		lstlen := ListLength(lst)
-		if lstlen == 0 {
-			return Error(SyntaxErrorKey, lst)
-		}
-		fn := Car(lst)
-		switch fn {
-		case Intern("quote"):
-			// (quote <datum>)
-			if lstlen != 2 {
-				return Error(SyntaxErrorKey, expr)
-			}
-			if !ignoreResult {
-				target.code.emitLiteral(Cadr(lst))
-				if isTail {
-					target.code.emitReturn()
-				}
-			}
-			return nil
-		case Intern("do"): // a sequence of expressions, for side-effect only
-			// (do <expr> ...)
-			return compileSequence(target, env, Cdr(lst), isTail, ignoreResult, context)
-		case Intern("if"):
-			// (if <pred> <Consequent>)
-			// (if <pred> <Consequent> <antecedent>)
-			if lstlen == 3 || lstlen == 4 {
-				return compileIfElse(target, env, Cadr(expr), Caddr(expr), Cdddr(expr), isTail, ignoreResult, context)
-			}
+		return Error(SyntaxErrorKey, expr)
+	case Intern("def"):
+		// (def <name> <val>)
+		return compileDef(target, env, expr, isTail, ignoreResult, context, lstlen)
+	case Intern("undef"):
+		// (undef <name>)
+		return compileUndef(target, env, expr, isTail, ignoreResult, context, lstlen)
+	case Intern("defmacro"):
+		// (defmacro <name> (fn args & body))
+		return compileMacro(target, env, expr, isTail, ignoreResult, context, lstlen)
+	case Intern("fn"):
+		// (fn ()  <expr> ...)
+		// (fn (sym ...)  <expr> ...) ;; binds arguments to successive syms
+		// (fn (sym ... & rsym)  <expr> ...) ;; all args after the & are collected and bound to rsym
+		// (fn (sym ... [sym sym])  <expr> ...) ;; all args up to the vector are required, the rest are optional
+		// (fn (sym ... [(sym val) sym])  <expr> ...) ;; default values can be provided to optional args
+		// (fn (sym ... {sym: def sym: def})  <expr> ...) ;; required args, then keyword args
+		// (fn (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
+		// (fn sym <expr> ...) ;; all args in a list, bound to sym
+		if lstlen < 3 {
 			return Error(SyntaxErrorKey, expr)
-		case Intern("def"):
-			// (def <name> <val>)
-			if lstlen < 3 {
-				return Error(SyntaxErrorKey, expr)
-			}
-			sym := Cadr(lst)
-			val := Caddr(lst)
-			err := compileExpr(target, env, val, false, false, sym.String())
-			if err == nil {
-				target.code.emitDefGlobal(sym)
-				if ignoreResult {
-					target.code.emitPop()
-				} else if isTail {
-					target.code.emitReturn()
-				}
-			}
-			return err
-		case Intern("undef"):
-			if lstlen != 2 {
-				return Error(SyntaxErrorKey, expr)
-			}
-			sym := Cadr(lst)
-			if !IsSymbol(sym) {
-				return Error(SyntaxErrorKey, expr)
-			}
-			target.code.emitUndefGlobal(sym)
-			if ignoreResult {
-			} else {
-				target.code.emitLiteral(sym)
-				if isTail {
-					target.code.emitReturn()
-				}
-			}
-			return nil
-		case Intern("defmacro"):
-			// (defmacro <name> (fn args & body))
-			if lstlen != 3 {
-				return Error(SyntaxErrorKey, expr)
-			}
-			var sym = Cadr(lst)
-			if !IsSymbol(sym) {
-				return Error(SyntaxErrorKey, expr)
-			}
-			err := compileExpr(target, env, Caddr(expr), false, false, sym.String())
-			if err != nil {
-				return err
-			}
-			if err == nil {
-				target.code.emitDefMacro(sym)
-				if ignoreResult {
-					target.code.emitPop()
-				} else if isTail {
-					target.code.emitReturn()
-				}
-			}
-			return err
-		case Intern("fn"):
-			// (fn ()  <expr> ...)
-			// (fn (sym ...)  <expr> ...) ;; binds arguments to successive syms
-			// (fn (sym ... & rsym)  <expr> ...) ;; all args after the & are collected and bound to rsym
-			// (fn (sym ... [sym sym])  <expr> ...) ;; all args up to the vector are required, the rest are optional
-			// (fn (sym ... [(sym val) sym])  <expr> ...) ;; default values can be provided to optional args
-			// (fn (sym ... {sym: def sym: def})  <expr> ...) ;; required args, then keyword args
-			// (fn (& sym)  <expr> ...) ;; all args in a list, bound to sym. Same as the following form.
-			// (fn sym <expr> ...) ;; all args in a list, bound to sym
-			if lstlen < 3 {
-				return Error(SyntaxErrorKey, expr)
-			}
-			body := Cddr(lst)
-			args := Cadr(lst)
-			return compileFn(target, env, args, body, isTail, ignoreResult, context)
-		case Intern("set!"):
-			// (set! <sym> <val>)
-			if lstlen != 3 {
-				return Error(SyntaxErrorKey, expr)
-			}
-			var sym = Cadr(lst)
-			if !IsSymbol(sym) {
-				return Error(SyntaxErrorKey, expr)
-			}
-			err := compileExpr(target, env, Caddr(lst), false, false, context)
-			if err != nil {
-				return err
-			}
-			if i, j, ok := calculateLocation(sym, env); ok {
-				target.code.emitSetLocal(i, j)
-			} else {
-				target.code.emitDefGlobal(sym) //fix, should be SetGlobal
-			}
-			if ignoreResult {
-				target.code.emitPop()
-			} else if isTail {
-				target.code.emitReturn()
-			}
-			return nil
-		case Intern("code"):
-			// (code <instruction> ...)
-			return target.code.loadOps(Cdr(expr))
-		case Intern("use"):
-			// (use module_name)
-			return compileUse(target, Cdr(lst))
-		default: // a funcall
-			// (<fn>)
-			// (<fn> <arg> ...)
-			fn, args := optimizeFuncall(target, env, fn, Cdr(lst), isTail, ignoreResult, context)
-			return compileFuncall(target, env, fn, args, isTail, ignoreResult, context)
 		}
+		body := Cddr(lst)
+		args := Cadr(lst)
+		return compileFn(target, env, args, body, isTail, ignoreResult, context)
+	case Intern("set!"):
+		// (set! <sym> <val>)
+		return compileSet(target, env, expr, isTail, ignoreResult, context, lstlen)
+	case Intern("code"):
+		// (code <instruction> ...)
+		return target.code.loadOps(Cdr(expr))
+	case Intern("use"):
+		// (use module_name)
+		return compileUse(target, Cdr(lst))
+	default: // a funcall
+		// (<fn>)
+		// (<fn> <arg> ...)
+		fn, args := optimizeFuncall(target, env, fn, Cdr(lst), isTail, ignoreResult, context)
+		return compileFuncall(target, env, fn, args, isTail, ignoreResult, context)
+	}
+}
+
+func compileVector(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+	//vector literal: the elements are evaluated
+	vlen := len(expr.elements)
+	for i := vlen - 1; i >= 0; i-- {
+		obj := expr.elements[i]
+		err := compileExpr(target, env, obj, false, false, context)
+		if err != nil {
+			return err
+		}
+	}
+	target.code.emitVector(vlen)
+	if isTail {
+		target.code.emitReturn()
+	}
+	return nil
+}
+
+func compileStruct(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+	//struct literal: the elements are evaluated
+	vlen := len(expr.bindings) * 2
+	vals := make([]*Object, 0, vlen)
+	for k, v := range expr.bindings {
+		vals = append(vals, k.toObject())
+		vals = append(vals, v)
+	}
+	for i := vlen - 1; i >= 0; i-- {
+		obj := vals[i]
+		err := compileExpr(target, env, obj, false, false, context)
+		if err != nil {
+			return err
+		}
+	}
+	target.code.emitStruct(vlen)
+	if isTail {
+		target.code.emitReturn()
+	}
+	return nil
+}
+
+func compileExpr(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+	if IsKeyword(expr) || IsType(expr) {
+		return compileSelfEvalLiteral(target, env, expr, isTail, ignoreResult, context)
+	} else if IsSymbol(expr) {
+		return compileSymbol(target, env, expr, isTail, ignoreResult, context)
+	} else if IsList(expr) {
+		return compileList(target, env, expr, isTail, ignoreResult, context)
 	} else if IsVector(expr) {
-		//vector literal: the elements are evaluated
-		vlen := len(expr.elements)
-		for i := vlen - 1; i >= 0; i-- {
-			obj := expr.elements[i]
-			err := compileExpr(target, env, obj, false, false, context)
-			if err != nil {
-				return err
-			}
-		}
-		target.code.emitVector(vlen)
-		if isTail {
-			target.code.emitReturn()
-		}
-		return nil
+		return compileVector(target, env, expr, isTail, ignoreResult, context)
 	} else if IsStruct(expr) {
-		//struct literal: the elements are evaluated
-		vlen := len(expr.bindings) * 2
-		vals := make([]*Object, 0, vlen)
-		for k, v := range expr.bindings {
-			vals = append(vals, k.toObject())
-			vals = append(vals, v)
-		}
-		for i := vlen - 1; i >= 0; i-- {
-			obj := vals[i]
-			err := compileExpr(target, env, obj, false, false, context)
-			if err != nil {
-				return err
-			}
-		}
-		target.code.emitStruct(vlen)
-		if isTail {
-			target.code.emitReturn()
-		}
-		return nil
+		return compileStruct(target, env, expr, isTail, ignoreResult, context)
 	}
 	if !ignoreResult {
 		target.code.emitLiteral(expr)
@@ -341,7 +382,7 @@ func compileFn(target *Object, env *Object, args *Object, body *Object, isTail b
 			tmp = Cdr(tmp)
 		}
 	}
-	if tmp != EmptyList { //entire arglist bound to a single variable
+	if tmp != EmptyList { //remainder of the arglist bound to a single variable
 		if IsSymbol(tmp) {
 			syms = append(syms, tmp) //note: added, but argv not incremented
 			defaults = make([]*Object, 0)

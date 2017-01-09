@@ -288,6 +288,14 @@ func structToVector(s *Object) *Object {
 	return VectorFromElements(el, size)
 }
 
+func StructKeys(s *Object) *Object {
+	return structKeyList(s)
+}
+
+func StructValues(s *Object) *Object {
+	return structValueList(s)
+}
+
 func structKeyList(s *Object) *Object {
 	result := EmptyList
 	tail := EmptyList

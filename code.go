@@ -45,7 +45,6 @@ const (
 	opcodeCount
 )
 
-//all syms for ops should be 7 chars or less
 var LiteralSymbol = Intern("literal")
 var LocalSymbol = Intern("local")
 var JumpfalseSymbol = Intern("jumpfalse")

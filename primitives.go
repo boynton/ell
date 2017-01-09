@@ -23,6 +23,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -196,6 +197,7 @@ func InitPrimitives() {
 		[]*Object{String("GET"), EmptyStruct, EmptyBlob},
 		[]*Object{Intern("method:"), Intern("headers:"), Intern("body:")})
 
+	DefineFunction("getenv", ellGetenv, StringType, StringType)
 	err := Load("ell")
 	if err != nil {
 		Fatal("*** ", err)
@@ -1155,4 +1157,12 @@ func Sleep(delayInSeconds float64) {
 func ellSleep(argv []*Object) (*Object, error) {
 	Sleep(argv[0].fval)
 	return Number(Now()), nil
+}
+
+func ellGetenv(argv []*Object) (*Object, error) {
+	s := os.Getenv(argv[0].text)
+	if s == "" {
+		return Null, nil
+	}
+	return String(s), nil
 }
