@@ -1,10 +1,10 @@
 ;; ---------------------------
 
 (defn http-ok (obj)
-  {status: 200 headers: {"Content-type" "application/json"} body: (json obj)})
+  {status: 200 headers: {"Content-type" "application/json"} body: (string (json obj) "\n")})
 
 (defn http-created (loc obj)
-  {status: 201 headers: {"Content-type" "application/json" "Location" loc} body: (json obj)})
+  {status: 201 headers: {"Content-type" "application/json" "Location" loc} body: (string (json obj) "\n")})
 
 (defn http-no-content ()
   {status: 204})
@@ -19,6 +19,8 @@
 (defn http-not-yet-implemented-handler ()
   (http-fail 501 "Not yet implemented"))
 
+(defn http-requires-body? (method)
+  (or (equal? "POST" method) (equal? "PUT" method)))
 
 (defn http-match-path (path template params)
   (if (empty? path)
@@ -34,35 +36,36 @@
                     (http-match-path (cdr path) (cdr template) params)))))))
 
 
-(defn http-requires-body? (method)
-  (or (equal? "POST" method) (equal? "PUT" method)))
-
-(defn http-match (method path body handlers)
+(defn http-match (handlers path body)
   (let ((plen (length path)))
-    (let loop ((lst (get handlers method)))
+    (let loop ((lst handlers))
       (if (empty? lst)
           null
           (let ((h (car lst)))
-            (if (= (length (path: h)) plen)
-                (let ((r (http-match-path path (path: h) '())))
-                  (if (not (null? r))
-                      (if (http-requires-body? method)
-                          {params: (reverse (cons (read (to-string body)) (reverse r))) handler: (handler: h)}
-                          {params: r handler: (handler: h)})
-                      (loop (cdr lst))))
-                (loop (cdr lst))))))))
+            (let ((handler (car h)) (hmethod (cadr h)) (hpath (cdr h)))
+              (if (= (length hpath) plen)
+                  (let ((r (http-match-path path hpath '())))
+                    (if (not (null? r))
+                        (if (http-requires-body? hmethod)
+                            {params: (reverse (cons (read (to-string body)) (reverse r))) handler: handler}
+                            {params: r handler: handler})
+                        (loop (cdr lst))))
+                  (loop (cdr lst)))))))))
+
+(defn http-parse-path (path)
+  (cdr (split path "/")))
 
 (defn http-route (request handlers)
-  (let ((method (method: request)))
-    (let ((resource (http-match method (cdr (split (path: request) "/")) (body: request) handlers)))
-      (if (not (null? resource))
-          (apply (handler: resource) (params: resource))
-          (http-not-found-handler)))))
+  (let ((resource (http-match handlers (cons (method: request) (http-parse-path (path: request))) (body: request))))
+    (println "[" (handler: resource) (params: resource))
+    (if (not (null? resource))
+        (apply (handler: resource) (params: resource))
+        (http-not-found-handler))))
 
 ;;BUG: the serve primitive cannot handle closures as its request handler argument. That function must not have an env.
 ;;workaround: assign the handlers to a global variable that the fn refers to.
 (def static-handler null)
-(defn http-serve (port handlers)
+(defn http-serve (port & handlers)
   (set! static-handler handlers)
   (serve port (fn (request)
     (let ((res (catch (http-route request static-handler))))
@@ -71,3 +74,14 @@
              (println "Server Error: " res)
              (http-fail 500 (error-data res)))
         res)))))
+
+(defmacro handler (fun meth & keys)
+  `(list ~fun ~meth ~@keys))
+
+;;example usage:
+;;(http-server 8080
+;;  (handler create-item "POST" "item")
+;;  (handler read-item "GET" "item" id:)
+;;  (handler update-item "PUT" "item" id:)
+;;  (handler delete-item "DELETE" "item" id:)
+;;  (handler list-items "GET" "item"))

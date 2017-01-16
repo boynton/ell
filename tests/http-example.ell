@@ -2,8 +2,7 @@
 
 (def library {}) ;;simple in-memory storage
 
-;; Create
-(defn post-book-handler (book)
+(defn create-book (book)
   (let ((id (get book "id")))
     (if (has? library id)
         (http-fail 409 (string "Already exists: " id))
@@ -11,36 +10,29 @@
           (put! library id book)
           (http-created (string "http://localhost:8080/book/" id) book)))))
 
-;; Read
-(defn get-book-handler (id)
+(defn read-book (id)
   (if (has? library id)
       (http-ok (get library id))
       (http-fail 404 (string "Not found: " id))))
 
-;; Update
-(defn put-book-handler (id book)
+(defn update-book (id book)
   (if (has? library id)
       (do
         (put! library id book)
         (http-ok book))
       (http-fail 404 (string "Not found: " id))))
 
-;; Delete
-(defn delete-book-handler (id)
+(defn delete-book (id)
   (if (has? library id)
-      (do (unput! library id) (no-content))
+      (do (unput! library id) (http-no-content))
       (http-fail 404 (string "Not found: " id))))
 
-;; List
-(defn get-book-list-handler ()
+(defn list-books ()
   (http-ok (keys library)))
 
-;; The glue
-(http-serve 8080 {
-   "GET" (list {path: '("book" id:) handler: get-book-handler}, {path: '("book") handler: get-book-list-handler})
-   "POST" (list {path: '("book") handler: post-book-handler})
-   "DELETE" (list {path: '("book" id:) handler: delete-book-handler})
-   "PUT" (list {path: '("book" id:) handler: put-book-handler})
-})
-
-
+(http-serve 8080
+            (handler create-book "POST" "book")
+            (handler read-book "GET" "book" id:)
+            (handler update-book "PUT" "book" id:)
+            (handler delete-book "DELETE" "book" id:)
+            (handler list-books "GET" "book"))
