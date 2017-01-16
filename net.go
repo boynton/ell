@@ -172,7 +172,7 @@ func httpServer(port int, handler *Object) (*Object, error) {
 	}
 	http.HandleFunc("/", glue)
 	//if verbose {
-	println("[web server running at ", fmt.Sprintf(":%d", port), "]")
+	fmt.Printf("[web server running at http://localhost:%d]\n", port)
 	//}
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	//no way to stop it
