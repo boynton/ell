@@ -11,7 +11,7 @@
   
 (defn http-fail (status data)
   (let ((d {status: status data: data}))
-    {status: status headers: {"Content-type" "application/json"} body: (json d)}))
+    {status: status headers: {"Content-type" "application/json"} body: (string (json d) "\n")}))
 
 (defn http-not-found-handler ()
   (http-fail 404 "Not found"))
