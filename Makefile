@@ -3,6 +3,9 @@ PKG=github.com/boynton/ell
 all:
 	go install $(PKG)/cmd/ell
 
+dep:
+	go get -d $(PKG)/cmd/ell
+
 test:
 	go test $(PKG)
 

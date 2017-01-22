@@ -17,11 +17,13 @@ limitations under the License.
 package ell
 
 import (
-	"flag"
-	//"github.com/davecheney/profile"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	//"github.com/pkg/profile"
+	"github.com/boynton/cli"
 )
 
 var verbose bool
@@ -414,18 +416,41 @@ func Run(args ...string) {
 }
 
 func Main(extns ...Extension) {
-	pCompile := flag.Bool("c", false, "compile the file and output lap")
-	pOptimize := flag.Bool("o", false, "optimize execution speed, should work for correct code, but doesn't check everything")
-	pVerbose := flag.Bool("v", false, "verbose mode, print extra information")
-	pDebug := flag.Bool("d", false, "debug mode, print extra information about compilation")
-	pTrace := flag.Bool("t", false, "trace VM instructions as they get executed")
-	pNoInit := flag.Bool("i", false, "disable initialization from the $HOME/.ell file")
-	flag.Parse()
-	args := flag.Args()
+	var help, compile, optimize, verbose, debug, trace, noInit bool
+	var path string
+	cmd := cli.New("ell", "The Ell Language compiler, VM, and runtime")
+	cmd.BoolOption(&help, "help", false, "Show help")
+	cmd.BoolOption(&compile, "compile", false, "compile the file and output lap")
+	cmd.BoolOption(&optimize, "optimize", false, "optimize execution speed, should work for correct code, relax some checks")
+	cmd.BoolOption(&verbose, "verbose", false, "verbose mode, print extra information")
+	cmd.BoolOption(&debug, "debug", false, "debug mode, print extra information about compilation")
+	cmd.BoolOption(&trace, "trace", false, "trace VM instructions as they get executed")
+	cmd.BoolOption(&noInit, "noinit", false, "disable initialization from the $HOME/.ell file")
+	//var prof bool
+	//cmd.BoolOption(&prof, "profile", false, "profile the code")
+	cmd.StringOption(&path, "path", "", "add directories to ell load path")
+	args, _ := cmd.Parse()
+	if help {
+		fmt.Println(cmd.Usage())
+		os.Exit(1)
+	}
 	interactive := len(args) == 0
 	Init(extns...)
+	if path != "" {
+		for _, p := range strings.Split(path, ":") {
+			filepath := ExpandFilePath(p)
+			if IsDirectoryReadable(filepath) {
+				AddEllDirectory(filepath)
+				if debug {
+					Println("[added directory to path: '", filepath, "']")
+				}
+			} else if debug {
+				Println("[directory not readable, cannot add to path: '", filepath, "']")
+			}
+		}
+	}
 	if len(args) > 0 {
-		if *pCompile {
+		if compile {
 			//just compile and print LVM code
 			for _, filename := range args {
 				lap, err := CompileFile(filename)
@@ -435,21 +460,14 @@ func Main(extns ...Extension) {
 				Println(lap)
 			}
 		} else {
-			/*
-				if len(os.Args) > 2 {
-					cfg := profile.Config{
-						CPUProfile:     true,
-						ProfilePath:    ".",  // store profiles in current directory
-						NoShutdownHook: true, // do not hook SIGINT
-					}
-					defer profile.Start(&cfg).Stop()
-				}
-			*/
-			SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
+			//if prof {
+			//	defer profile.Start(profile.CPUProfile).Stop()
+			//}
+			SetFlags(optimize, verbose, debug, trace, interactive)
 			Run(args...)
 		}
 	} else {
-		if !*pNoInit {
+		if !noInit {
 			home := os.Getenv("HOME")
 			ellini := filepath.Join(home, ".ell")
 			_, err := os.Stat(ellini)
@@ -460,7 +478,7 @@ func Main(extns ...Extension) {
 				}
 			}
 		}
-		SetFlags(*pOptimize, *pVerbose, *pDebug, *pTrace, interactive)
+		SetFlags(optimize, verbose, debug, trace, interactive)
 		ReadEvalPrintLoop()
 	}
 	Cleanup()

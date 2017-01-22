@@ -29,6 +29,16 @@ import (
 
 // generic file ops
 
+// IsDirectoryReadable - return true of the directory is readable
+func IsDirectoryReadable(path string) bool {
+	if info, err := os.Stat(path); err == nil {
+		if info.Mode().IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
 // IsFileReadable - return true of the file is readable
 func IsFileReadable(path string) bool {
 	if info, err := os.Stat(path); err == nil {
@@ -39,8 +49,19 @@ func IsFileReadable(path string) bool {
 	return false
 }
 
+func ExpandFilePath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home := os.Getenv("HOME")
+		if home != "" {
+			return home + path[1:]
+		}
+	}
+	return path
+}
+
 // SlurpFile - returnthe file contents as a string
 func SlurpFile(path string) (*Object, error) {
+	path = ExpandFilePath(path)
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return EmptyString, err
@@ -50,6 +71,7 @@ func SlurpFile(path string) (*Object, error) {
 
 // SpitFile - write the string to the file.
 func SpitFile(path string, data string) error {
+	path = ExpandFilePath(path)
 	return ioutil.WriteFile(path, []byte(data), 0644)
 }
 
