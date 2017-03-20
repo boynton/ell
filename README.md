@@ -93,21 +93,21 @@ than quoting every interior item):
 
 The complete list of primitive types in Ell is:
 
-* <null>
-* <boolean>
-* <character>
-* <string>
-* <blob>
-* <symbol>
-* <keyword>
-* <type>
-* <list>
-* <vector>
-* <struct>
-* <function>
-* <code>
-* <error>
-* <channel>
+* `<null>`
+* `<boolean>`
+* `<character>`
+* `<string>`
+* `<blob>`
+* `<symbol>`
+* `<keyword>`
+* `<type>`
+* `<list>`
+* `<vector>`
+* `<struct>`
+* `<function>`
+* `<code>`
+* `<error>`
+* `<channel>`
 
 You can define additional types in terms of other types, this is discussed later.
 
