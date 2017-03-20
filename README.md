@@ -113,15 +113,15 @@ You can define additional types in terms of other types, this is discussed later
 
 ## Core expressions
 
-* _symbol_ - variable reference
-* (quote _expr_) - literal data
-* (do _expr_ ...) - expression sequencing
-* (if _predicate_ _consequent_ _antecedent_) - conditional
-* (_function_ _expr_ ...) - function call
-* (fn (_arg_ ...) _expr_ ...) - function creation
-* (set! _name_ _expr_) - sets the lexically apparent variable to the value
-* (def _name_ _expr_) - define value. At the top level, sets the global variable. Inside a function, creates a new frame with the binding.
-* (defmacro _name_ (_arg_) _expr_ ...) - define a new macro
+* `_symbol_` - variable reference
+* `(quote _expr_)` - literal data
+* `(do _expr_ ...)` - expression sequencing
+* `(if _predicate_ _consequent_ _antecedent_)` - conditional
+* `(_function_ _expr_ ...)` - function call
+* `(fn (_arg_ ...) _expr_ ...)` - function creation
+* `(set! _name_ _expr_)` - sets the lexically apparent variable to the value
+* `(def _name_ _expr_)` - define value. At the top level, sets the global variable. Inside a function, creates a new frame with the binding.
+* `(defmacro _name_ (_arg_) _expr_ ...)` - define a new macro
 
 ### Variables and literals
 
