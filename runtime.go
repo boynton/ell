@@ -757,7 +757,7 @@ func (vm *vm) catch(err error, stack []*Object, env *frame) ([]int, int, int, *f
 		errobj = MakeError(ErrorKey, String(err.Error()))
 	}
 	handler := GetGlobal(Intern("*top-handler*"))
-	if handler.Type == FunctionType {
+	if handler != nil && handler.Type == FunctionType {
 		if handler.code != nil {
 			if handler.code.argc == 1 {
 				sp := len(stack) - 1
