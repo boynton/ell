@@ -90,7 +90,7 @@ func StringLength(s string) int {
 
 // EncodeString - return the encoded form of a string value
 func EncodeString(s string) string {
-	buf := []rune{}
+	var buf []rune
 	buf = append(buf, '"')
 	for _, c := range s {
 		switch c {

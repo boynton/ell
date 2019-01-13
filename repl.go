@@ -44,7 +44,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		return "", true, nil
 	} else if closes > opens {
 		ell.buf = ""
-		return "", false, errors.New("Unbalanced ')'")
+		return "", false, errors.New("unbalanced ')' encountered")
 	} else {
 		//this is the normal case
 		if whole == "" {
@@ -141,7 +141,7 @@ func (ell *ellHandler) completePrefix(expr string) (string, bool) {
 }
 
 func (ell *ellHandler) Complete(expr string) (string, []string) {
-	matches := []string{}
+	var matches []string
 	addendum := ""
 	prefix, funPosition := ell.completePrefix(expr)
 	candidates := map[*Object]bool{}

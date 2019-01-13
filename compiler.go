@@ -55,7 +55,7 @@ func compileSelfEvalLiteral(target *Object, expr *Object, isTail bool, ignoreRes
 	return nil
 }
 
-func compileSymbol(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+func compileSymbol(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool) error {
 	if GetMacro(expr) != nil {
 		return Error(Intern("macro-error"), "Cannot use macro as a value: ", expr)
 	}
@@ -288,7 +288,7 @@ func compileExpr(target *Object, env *Object, expr *Object, isTail bool, ignoreR
 	if IsKeyword(expr) || IsType(expr) {
 		return compileSelfEvalLiteral(target, expr, isTail, ignoreResult)
 	} else if IsSymbol(expr) {
-		return compileSymbol(target, env, expr, isTail, ignoreResult, context)
+		return compileSymbol(target, env, expr, isTail, ignoreResult)
 	} else if IsList(expr) {
 		return compileList(target, env, expr, isTail, ignoreResult, context)
 	} else if IsVector(expr) {

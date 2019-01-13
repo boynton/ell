@@ -225,7 +225,7 @@ func (dr *dataReader) decodeComment() error {
 }
 
 func (dr *dataReader) decodeString() (*Object, error) {
-	buf := []byte{}
+	var buf []byte
 	c, e := dr.getChar()
 	escape := false
 	for e == nil {
@@ -313,7 +313,7 @@ func (dr *dataReader) skipToData(skipColon bool) (byte, error) {
 }
 
 func (dr *dataReader) decodeStruct(keys *Object) (*Object, error) {
-	items := []*Object{}
+	var items []*Object
 	var err error
 	var c byte
 	for err == nil {
@@ -371,7 +371,7 @@ func (dr *dataReader) decodeStruct(keys *Object) (*Object, error) {
 
 func (dr *dataReader) decodeSequence(endChar byte, keys *Object) ([]*Object, error) {
 	c, err := dr.getChar()
-	items := []*Object{}
+	var items []*Object
 	for err == nil {
 		if isWhitespace(c) {
 			c, err = dr.getChar()
@@ -434,7 +434,7 @@ func (dr *dataReader) decodeAtom(firstChar byte) (*Object, error) {
 }
 
 func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
-	buf := []byte{}
+	var buf []byte
 	if firstChar != 0 {
 		if firstChar == ':' {
 			return "", Error(SyntaxErrorKey, "Invalid keyword: colons only valid at the end of symbols")
@@ -465,7 +465,7 @@ func (dr *dataReader) decodeAtomString(firstChar byte) (string, error) {
 }
 
 func (dr *dataReader) decodeType(firstChar byte) (string, error) {
-	buf := []byte{}
+	var buf []byte
 	if firstChar != '<' {
 		return "", Error(SyntaxErrorKey, "Invalid type name")
 	}
