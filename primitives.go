@@ -226,7 +226,7 @@ func ellQuasiquote(argv []*Object) (*Object, error) {
 
 // functions
 
-func ellVersion(argv []*Object) (*Object, error) {
+func ellVersion(_ []*Object) (*Object, error) {
 	s := Version
 	if len(extensions) > 0 {
 		s += " (with "
@@ -1056,7 +1056,7 @@ func Timestamp(t time.Time) *Object {
 	return String(fmt.Sprintf(format, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000000))
 }
 
-func ellTimestamp(argv []*Object) (*Object, error) {
+func ellTimestamp(_ []*Object) (*Object, error) {
 	return Timestamp(time.Now().UTC()), nil
 }
 
@@ -1139,7 +1139,7 @@ func Now() float64 {
 	return float64(now.UnixNano()) / float64(time.Second)
 }
 
-func ellNow(argv []*Object) (*Object, error) {
+func ellNow(_ []*Object) (*Object, error) {
 	return Number(Now()), nil
 }
 

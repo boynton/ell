@@ -88,8 +88,7 @@ func greatestCommonPrefixLength(s1 string, s2 string) int {
 	return max
 }
 
-func greatestCommonPrefix(prefix string, matches []string) string {
-	//i.e. start = "pri", matches = ["print", "println"] -> "print"
+func greatestCommonPrefix(matches []string) string {
 	switch len(matches) {
 	case 0:
 		return ""
@@ -187,7 +186,7 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 
 	}
 	sort.Strings(matches)
-	gcp := greatestCommonPrefix(prefix, matches)
+	gcp := greatestCommonPrefix(matches)
 	if len(gcp) > len(prefix) {
 		addendum = gcp[len(prefix):]
 	}

@@ -96,6 +96,7 @@ The complete list of primitive types in Ell is:
 * `<null>`
 * `<boolean>`
 * `<character>`
+* `<number>`
 * `<string>`
 * `<blob>`
 * `<symbol>`

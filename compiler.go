@@ -45,7 +45,7 @@ func calculateLocation(sym *Object, env *Object) (int, int, bool) {
 	return -1, -1, false
 }
 
-func compileSelfEvalLiteral(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
+func compileSelfEvalLiteral(target *Object, expr *Object, isTail bool, ignoreResult bool) error {
 	if !ignoreResult {
 		target.code.emitLiteral(expr)
 		if isTail {
@@ -72,7 +72,7 @@ func compileSymbol(target *Object, env *Object, expr *Object, isTail bool, ignor
 	return nil
 }
 
-func compileQuote(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+func compileQuote(target *Object, expr *Object, isTail bool, ignoreResult bool, lstlen int) error {
 	if lstlen != 2 {
 		return Error(SyntaxErrorKey, expr)
 	}
@@ -85,7 +85,7 @@ func compileQuote(target *Object, env *Object, expr *Object, isTail bool, ignore
 	return nil
 }
 
-func compileDef(target *Object, env *Object, lst *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+func compileDef(target *Object, env *Object, lst *Object, isTail bool, ignoreResult bool, lstlen int) error {
 	if lstlen < 3 {
 		return Error(SyntaxErrorKey, lst)
 	}
@@ -103,7 +103,7 @@ func compileDef(target *Object, env *Object, lst *Object, isTail bool, ignoreRes
 	return err
 }
 
-func compileUndef(target *Object, env *Object, lst *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+func compileUndef(target *Object, lst *Object, isTail bool, ignoreResult bool, lstlen int) error {
 	if lstlen != 2 {
 		return Error(SyntaxErrorKey, lst)
 	}
@@ -122,7 +122,7 @@ func compileUndef(target *Object, env *Object, lst *Object, isTail bool, ignoreR
 	return nil
 }
 
-func compileMacro(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string, lstlen int) error {
+func compileMacro(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, lstlen int) error {
 	if lstlen != 3 {
 		return Error(SyntaxErrorKey, expr)
 	}
@@ -189,7 +189,7 @@ func compileList(target *Object, env *Object, expr *Object, isTail bool, ignoreR
 	switch fn {
 	case Intern("quote"):
 		// (quote <datum>)
-		return compileQuote(target, env, expr, isTail, ignoreResult, context, lstlen)
+		return compileQuote(target, expr, isTail, ignoreResult, lstlen)
 	case Intern("do"): // a sequence of expressions, for side-effect only
 		// (do <expr> ...)
 		return compileSequence(target, env, Cdr(lst), isTail, ignoreResult, context)
@@ -202,13 +202,13 @@ func compileList(target *Object, env *Object, expr *Object, isTail bool, ignoreR
 		return Error(SyntaxErrorKey, expr)
 	case Intern("def"):
 		// (def <name> <val>)
-		return compileDef(target, env, expr, isTail, ignoreResult, context, lstlen)
+		return compileDef(target, env, expr, isTail, ignoreResult, lstlen)
 	case Intern("undef"):
 		// (undef <name>)
-		return compileUndef(target, env, expr, isTail, ignoreResult, context, lstlen)
+		return compileUndef(target, expr, isTail, ignoreResult, lstlen)
 	case Intern("defmacro"):
 		// (defmacro <name> (fn args & body))
-		return compileMacro(target, env, expr, isTail, ignoreResult, context, lstlen)
+		return compileMacro(target, env, expr, isTail, ignoreResult, lstlen)
 	case Intern("fn"):
 		// (fn ()  <expr> ...)
 		// (fn (sym ...)  <expr> ...) ;; binds arguments to successive syms
@@ -236,7 +236,7 @@ func compileList(target *Object, env *Object, expr *Object, isTail bool, ignoreR
 	default: // a funcall
 		// (<fn>)
 		// (<fn> <arg> ...)
-		fn, args := optimizeFuncall(target, env, fn, Cdr(lst), isTail, ignoreResult, context)
+		fn, args := optimizeFuncall(fn, Cdr(lst))
 		return compileFuncall(target, env, fn, args, isTail, ignoreResult, context)
 	}
 }
@@ -251,9 +251,11 @@ func compileVector(target *Object, env *Object, expr *Object, isTail bool, ignor
 			return err
 		}
 	}
-	target.code.emitVector(vlen)
-	if isTail {
-		target.code.emitReturn()
+	if !ignoreResult {
+		target.code.emitVector(vlen)
+		if isTail {
+			target.code.emitReturn()
+		}
 	}
 	return nil
 }
@@ -273,16 +275,18 @@ func compileStruct(target *Object, env *Object, expr *Object, isTail bool, ignor
 			return err
 		}
 	}
-	target.code.emitStruct(vlen)
-	if isTail {
-		target.code.emitReturn()
+	if !ignoreResult {
+		target.code.emitStruct(vlen)
+		if isTail {
+			target.code.emitReturn()
+		}
 	}
 	return nil
 }
 
 func compileExpr(target *Object, env *Object, expr *Object, isTail bool, ignoreResult bool, context string) error {
 	if IsKeyword(expr) || IsType(expr) {
-		return compileSelfEvalLiteral(target, env, expr, isTail, ignoreResult, context)
+		return compileSelfEvalLiteral(target, expr, isTail, ignoreResult)
 	} else if IsSymbol(expr) {
 		return compileSymbol(target, env, expr, isTail, ignoreResult, context)
 	} else if IsList(expr) {
@@ -419,7 +423,7 @@ func compileSequence(target *Object, env *Object, exprs *Object, isTail bool, ig
 	return Error(SyntaxErrorKey, Cons(Intern("do"), exprs))
 }
 
-func optimizeFuncall(target *Object, env *Object, fn *Object, args *Object, isTail bool, ignoreResult bool, context string) (*Object, *Object) {
+func optimizeFuncall(fn *Object, args *Object) (*Object, *Object) {
 	size := ListLength(args)
 	if size == 2 {
 		switch fn {

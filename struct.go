@@ -153,16 +153,6 @@ func sliceContains(slice []*Object, obj *Object) bool {
 	return false
 }
 
-func sliceGet(bindings []*Object, key *Object) *Object {
-	size := len(bindings)
-	for i := 0; i < size; i += 2 {
-		if key == bindings[i] {
-			return bindings[i+1]
-		}
-	}
-	return Null
-}
-
 func slicePut(bindings []*Object, key *Object, val *Object) []*Object {
 	size := len(bindings)
 	for i := 0; i < size; i += 2 {
@@ -180,14 +170,6 @@ func validateKeywordArgList(args *Object, keys []*Object) (*Object, error) {
 		return nil, err
 	}
 	return ListFromValues(tmp), nil
-}
-
-func validateKeywordArgs(args *Object, keys []*Object) (*Object, error) {
-	tmp, err := validateKeywordArgBindings(args, keys)
-	if err != nil {
-		return nil, err
-	}
-	return Struct(tmp)
 }
 
 func validateKeywordArgBindings(args *Object, keys []*Object) ([]*Object, error) {

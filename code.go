@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	opcodeBad = iota
-	opcodeLiteral
+	opcodeLiteral = iota
 	opcodeLocal
 	opcodeJumpFalse
 	opcodeJump

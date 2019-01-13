@@ -40,7 +40,7 @@ func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 }
 
 // Version - this version of ell
-const Version = "ell v0.2"
+const Version = "ell v0.3"
 
 // LoadPath is the path where the library *.ell files can be found
 var LoadPath string
@@ -136,11 +136,6 @@ func GetGlobal(sym *Object) *Object {
 		return sym.car
 	}
 	return nil
-}
-
-type binding struct {
-	sym *Object
-	val *Object
 }
 
 func defGlobal(sym *Object, val *Object) {
