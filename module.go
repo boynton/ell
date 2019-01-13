@@ -433,14 +433,14 @@ func Main(extns ...Extension) {
 	Init(extns...)
 	if path != "" {
 		for _, p := range strings.Split(path, ":") {
-			filepath := ExpandFilePath(p)
-			if IsDirectoryReadable(filepath) {
-				AddEllDirectory(filepath)
+			expandedPath := ExpandFilePath(p)
+			if IsDirectoryReadable(expandedPath) {
+				AddEllDirectory(expandedPath)
 				if debug {
-					Println("[added directory to path: '", filepath, "']")
+					Println("[added directory to path: '", expandedPath, "']")
 				}
 			} else if debug {
-				Println("[directory not readable, cannot add to path: '", filepath, "']")
+				Println("[directory not readable, cannot add to path: '", expandedPath, "']")
 			}
 		}
 	}
