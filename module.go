@@ -42,9 +42,6 @@ func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 // Version - this version of ell
 const Version = "ell v0.3"
 
-// LoadPath is the path where the library *.ell files can be found
-var LoadPath string
-
 var constantsMap = make(map[*Object]int, 0)
 var constants = make([]*Object, 0, 1000)
 var macroMap = make(map[*Object]*macro, 0)

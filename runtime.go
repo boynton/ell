@@ -274,19 +274,6 @@ func (frame *frame) String() string {
 	return buf.String()
 }
 
-func showEnv(f *frame) string {
-	tmp := f
-	s := ""
-	for {
-		s = s + fmt.Sprintf(" %v", tmp.elements)
-		if tmp.locals == nil {
-			break
-		}
-		tmp = tmp.locals
-	}
-	return s
-}
-
 func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*Object, sp int) (*frame, error) {
 	f := new(frame)
 	f.previous = env

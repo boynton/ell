@@ -90,7 +90,6 @@ func Cddddr(lst *Object) *Object {
 	return Cdr(Cdr(Cdr(Cdr(lst))))
 }
 
-var ListSymbol = Intern("list")
 var QuoteSymbol = Intern("quote")
 var QuasiquoteSymbol = Intern("quasiquote")
 var UnquoteSymbol = Intern("unquote")

@@ -74,19 +74,6 @@ func ToKeyword(obj *Object) (*Object, error) {
 	return nil, Error(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", obj.Type)
 }
 
-func keywordify(s *Object) *Object {
-	switch s.Type {
-	case StringType:
-		if !IsValidKeywordName(s.text) {
-			return Intern(s.text + ":")
-		}
-		return Intern(s.text)
-	case SymbolType:
-		return Intern(s.text + ":")
-	}
-	return s
-}
-
 func typeNameString(s string) string {
 	return s[1 : len(s)-1]
 }

@@ -443,42 +443,6 @@ func expandNamedLet(expr *Object) (*Object, error) {
 	return macroexpandList(tmp)
 }
 
-func crackDoBindings(bindings *Object) (*Object, *Object, *Object, bool) {
-	names := EmptyList
-	inits := EmptyList
-	steps := EmptyList
-	for bindings != EmptyList {
-		tmp := Car(bindings)
-		if !IsList(tmp) {
-			return nil, nil, nil, false
-		}
-		if !IsSymbol(Car(tmp)) {
-			return nil, nil, nil, false
-		}
-		if !IsList(Cdr(tmp)) {
-			return nil, nil, nil, false
-		}
-		names = Cons(Car(tmp), names)
-		inits = Cons(Cadr(tmp), inits)
-		if Cddr(tmp) != EmptyList {
-			steps = Cons(Caddr(tmp), steps)
-		} else {
-			steps = Cons(Car(tmp), steps)
-		}
-		bindings = Cdr(bindings)
-	}
-	var err error
-	inits, err = macroexpandList(inits)
-	if err != nil {
-		return nil, nil, nil, false
-	}
-	steps, err = macroexpandList(steps)
-	if err != nil {
-		return nil, nil, nil, false
-	}
-	return names, inits, steps, true
-}
-
 func nextCondClause(expr *Object, clauses *Object, count int) (*Object, error) {
 	var result *Object
 	var err error
