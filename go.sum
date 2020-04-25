@@ -1,0 +1,8 @@
+github.com/boynton/cli v0.0.0-20170122194616-c91dc790ccff h1:ZrmfQrRSCPO614Lc4DVtL143gItFDWv3NMco2Y8NJFQ=
+github.com/boynton/cli v0.0.0-20170122194616-c91dc790ccff/go.mod h1:z+pVRzwPnv1tl+u7/ahL8qroYewU6fz/6wXUEr9C6GI=
+github.com/boynton/repl v0.0.0-20170116235056-348863958e3e h1:lFJi7V/jlH3FDeZxW0o/oMfKAjPyc/yifX2z8eBeLt8=
+github.com/boynton/repl v0.0.0-20170116235056-348863958e3e/go.mod h1:Crc/GCZ3NXDVCio7Yr0o+SSrytpcFhLmVCIzi0s49t4=
+github.com/google/uuid v1.0.0 h1:b4Gk+7WdP/d3HZH8EJsZpvV7EtDOgaZLtnaNGIu1adA=
+github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
+github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=

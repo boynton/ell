@@ -87,11 +87,16 @@
 ;;
 ;; reduce
 ;;
-(defn reduce (fun init coll)
-  (let loop ((result init) (remaining coll))
-    (if (empty? remaining)
-        result
-        (loop (fun result (car remaining)) (cdr remaining)))))
+(defn reduce (f val lst)
+  (if (empty? lst)
+      val
+      (reduce f (f val (car lst)) (cdr lst))))
+
+;;(defn reduce (fun init coll)
+;;  (let loop ((result init) (remaining coll))
+;;    (if (empty? remaining)
+;;        result
+;;        (loop (fun result (car remaining)) (cdr remaining)))))
 
 ;;
 ;; Create a type based on some other type, from the predicate
@@ -322,11 +327,6 @@
 (defmethod length ((vec <vector>)) (vector-length vec))
 (defmethod length ((str <string>)) (string-length str))
 (defmethod length ((strct <struct>)) (struct-length strct))
-
-(defn reduce (f val lst)
-  (if (empty? lst)
-      val
-      (reduce f (f val (car lst)) (cdr lst))))
 
 (defn sum (& args)
   (reduce + 0 args))

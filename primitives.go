@@ -198,6 +198,8 @@ func InitPrimitives() {
 		[]*Object{Intern("method:"), Intern("headers:"), Intern("body:")})
 
 	DefineFunction("getenv", ellGetenv, StringType, StringType)
+	DefineFunction("load", ellLoad, StringType, AnyType)
+
 	err := Load("ell")
 	if err != nil {
 		Fatal("*** ", err)
@@ -293,6 +295,11 @@ func ellCompile(argv []*Object) (*Object, error) {
 		return nil, err
 	}
 	return Compile(expanded)
+}
+
+func ellLoad(argv []*Object) (*Object, error) {
+	err := Load(argv[0].text)
+	return argv[0], err
 }
 
 func ellType(argv []*Object) (*Object, error) {
