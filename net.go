@@ -40,6 +40,9 @@ func httpClientOperation(method string, url string, headers *Object, data *Objec
 		}
 	}
 	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		return nil, err
+	}
 	if headers != nil {
 		for k, v := range headers.bindings {
 			ks := k.toObject().text
