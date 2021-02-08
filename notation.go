@@ -19,8 +19,10 @@ package ell
 import (
 	"bufio"
 	"bytes"
+	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -31,6 +33,14 @@ import (
 
 // IsDirectoryReadable - return true of the directory is readable
 func IsDirectoryReadable(path string) bool {
+	if strings.HasPrefix(path, "@/") {
+		p := "lib" + path[1:]
+		if info, err := fs.Stat(sysFS, p); err == nil {
+			if info.Mode().IsDir() {
+				return true
+			}
+		}
+	}
 	if info, err := os.Stat(path); err == nil {
 		if info.Mode().IsDir() {
 			return true
@@ -41,6 +51,14 @@ func IsDirectoryReadable(path string) bool {
 
 // IsFileReadable - return true of the file is readable
 func IsFileReadable(path string) bool {
+	if strings.HasPrefix(path, "@/") {
+		p := "lib" + path[1:]
+		if info, err := fs.Stat(sysFS, p); err == nil {
+			if info.Mode().IsRegular() {
+				return true
+			}
+		}
+	}
 	if info, err := os.Stat(path); err == nil {
 		if info.Mode().IsRegular() {
 			return true
@@ -59,11 +77,20 @@ func ExpandFilePath(path string) string {
 	return path
 }
 
+//go:embed lib
+var sysFS embed.FS
+
 // SlurpFile - returnthe file contents as a string
 func SlurpFile(path string) (*Object, error) {
 	path = ExpandFilePath(path)
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
+	var b []byte
+	var err error
+	if strings.HasPrefix(path, "@/") {
+		b, err = fs.ReadFile(sysFS, "lib" + path[1:])
+	} else {
+		b, err = ioutil.ReadFile(path)
+	}
+		if err != nil {
 		return EmptyString, err
 	}
 	return String(string(b)), nil

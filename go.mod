@@ -1,6 +1,6 @@
 module github.com/boynton/ell
 
-go 1.13
+go 1.16
 
 require (
 	github.com/boynton/cli v0.0.0-20170122194616-c91dc790ccff

@@ -196,9 +196,14 @@ func importCode(thunk *Object) (*Object, error) {
 	return result, nil
 }
 
+
+
 var loadPathSymbol = Intern("*load-path*")
 
 func FindModuleByName(moduleName string) (string, error) {
+	if moduleName == "ell" || moduleName == "ell.ell" {
+		return "@/ell.ell", nil
+	}
 	loadPath := GetGlobal(loadPathSymbol)
 	if loadPath == nil {
 		loadPath = String(".")
@@ -373,15 +378,8 @@ func Init(extns ...Extension) {
 		if err == nil {
 			loadPath += ":" + homelib
 		}
-		gopath := os.Getenv("GOPATH")
-		if gopath != "" {
-			golibdir := filepath.Join(gopath, "src/github.com/boynton/ell/lib")
-			_, err := os.Stat(golibdir)
-			if err == nil {
-				loadPath += ":" + golibdir
-			}
-		}
 	}
+	loadPath += ":@/"
 	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
 	InitPrimitives()
 	for _, ext := range extensions {
