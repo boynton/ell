@@ -3,4 +3,5 @@ _*
 .#*
 \#*
 bin
+.goreleaser.yml
 
