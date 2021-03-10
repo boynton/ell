@@ -1,10 +1,13 @@
-GOPATH=$(HOME)
-PKG=github.com/boynton/ell
+NAME=ell
+PKG=github.com/boynton/$(NAME)
+CMD=$(PKG)/cmd/$(NAME)
+VERSION="v1.0.0"
 all:
-	go install $(PKG)/cmd/ell
+	go build -ldflags "-X $(PKG).Version=`git describe --tag`" -o bin/$(NAME) $(CMD)
 
-dep:
-	go get -d $(PKG)/cmd/ell
+release::
+	git tag -a $(VERSION) -m "$(VERSION)"
+	git push origin $(VERSION)
 
 test:
 	go test $(PKG)
@@ -13,5 +16,8 @@ clean:
 	go clean $(PKG)/...
 	rm -rf *~
 
-check:
-	(cd $(GOPATH)/src/$(PKG); go vet $(PKG); go fmt $(PKG))
+proper::
+	go fmt $(PKG)
+	go vet $(PKG)
+	go fmt $(CMD)
+	go vet $(CMD)

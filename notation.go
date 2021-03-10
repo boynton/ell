@@ -86,11 +86,11 @@ func SlurpFile(path string) (*Object, error) {
 	var b []byte
 	var err error
 	if strings.HasPrefix(path, "@/") {
-		b, err = fs.ReadFile(sysFS, "lib" + path[1:])
+		b, err = fs.ReadFile(sysFS, "lib"+path[1:])
 	} else {
 		b, err = ioutil.ReadFile(path)
 	}
-		if err != nil {
+	if err != nil {
 		return EmptyString, err
 	}
 	return String(string(b)), nil

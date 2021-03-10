@@ -229,7 +229,7 @@ func ellQuasiquote(argv []*Object) (*Object, error) {
 // functions
 
 func ellVersion(_ []*Object) (*Object, error) {
-	s := Version
+	s := "ell " + Version
 	if len(extensions) > 0 {
 		s += " (with "
 		for i, ext := range extensions {

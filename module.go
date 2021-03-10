@@ -40,7 +40,7 @@ func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 }
 
 // Version - this version of ell
-const Version = "ell v0.3"
+var Version = "(development version)"
 
 var constantsMap = make(map[*Object]int, 0)
 var constants = make([]*Object, 0, 1000)
@@ -195,8 +195,6 @@ func importCode(thunk *Object) (*Object, error) {
 	}
 	return result, nil
 }
-
-
 
 var loadPathSymbol = Intern("*load-path*")
 
