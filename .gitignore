@@ -3,5 +3,7 @@ _*
 .#*
 \#*
 bin
+dist
 .goreleaser.yml
 
+ell.prof

@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 
-	//"github.com/pkg/profile"
 	"github.com/boynton/cli"
 )
 
@@ -229,6 +229,9 @@ func FindModuleByName(moduleName string) (string, error) {
 }
 
 func Load(name string) error {
+	if verbose {
+		fmt.Println("; [loading " + name + "]")
+	}
 	file, err := FindModuleFile(name)
 	if err != nil {
 		return err
@@ -414,8 +417,8 @@ func Main(extns ...Extension) {
 	cmd.BoolOption(&debug, "debug", false, "debug mode, print extra information about compilation")
 	cmd.BoolOption(&trace, "trace", false, "trace VM instructions as they get executed")
 	cmd.BoolOption(&noInit, "noinit", false, "disable initialization from the $HOME/.ell file")
-	//var prof bool
-	//cmd.BoolOption(&prof, "profile", false, "profile the code")
+	var prof string
+	cmd.StringOption(&prof, "profile", "", "profile the code to the specified file")
 	cmd.StringOption(&path, "path", "", "add directories to ell load path")
 	args, _ := cmd.Parse()
 	if help {
@@ -448,9 +451,14 @@ func Main(extns ...Extension) {
 				Println(lap)
 			}
 		} else {
-			//if prof {
-			//	defer profile.Start(profile.CPUProfile).Stop()
-			//}
+			if prof != "" {
+				f, err := os.Create(prof)
+				if err != nil {
+					Fatal("*** ", err)
+				}
+				pprof.StartCPUProfile(f)
+				defer pprof.StopCPUProfile()
+			}
 			SetFlags(optimize, verbose, debug, trace, interactive)
 			Run(args...)
 		}

@@ -534,21 +534,11 @@ func ellDiv(argv []*Object) (*Object, error) {
 }
 
 func ellQuotient(argv []*Object) (*Object, error) {
-	denom := int64(argv[1].fval)
-	if denom == 0 {
-		return nil, Error(ArgumentErrorKey, "quotient: divide by zero")
-	}
-	n := int64(argv[0].fval) / denom
-	return Number(float64(n)), nil
+	return Number(math.Floor(argv[0].fval / argv[1].fval)), nil
 }
 
 func ellRemainder(argv []*Object) (*Object, error) {
-	denom := int64(argv[1].fval)
-	if denom == 0 {
-		return nil, Error(ArgumentErrorKey, "remainder: divide by zero")
-	}
-	n := int64(argv[0].fval) % denom
-	return Number(float64(n)), nil
+	return Number(float64(int64(argv[0].fval) % int64(argv[1].fval))), nil
 }
 
 func ellAbs(argv []*Object) (*Object, error) {

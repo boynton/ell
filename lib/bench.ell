@@ -3,11 +3,12 @@
 ;;
 ;; `time ell bench`
 ;;
+;; Apple M1 (go1.16 darwin/arm64)          3.58s
 ;; Apple M1 (docker aarch64 linux)         3.92s
-;; Apple M1 (Rosetta 2)                    5.779s
-;; Intel Core i9-9980HK 2.4GHz             5.811s
-;; Intel Xeon E5-1650 v2 3.5GHz            7.610s
-;; Intel Core i7-7660U 2.5GHz              8.584s
+;; Apple M1 (Rosetta 2)                    5.78s
+;; Intel Core i9-9980HK 2.4GHz             5.81s
+;; Intel Xeon E5-1650 v2 3.5GHz            7.61s
+;; Intel Core i7-7660U 2.5GHz              8.58s
 ;;
 (use sort)
 (use pi)
