@@ -1,9 +1,9 @@
 ;;
 ;; A rough clone of bench.scm in github.com/boynton/scheme, which has a long history of results.
 ;;
-;; `time ell bench`
+;; `time ell --optimize bench`
 ;;
-;; Apple M1 (go1.16 darwin/arm64)          3.58s
+;; Apple M1 (go1.16 darwin/arm64)          3.31s
 ;; Apple M1 (docker aarch64 linux)         3.92s
 ;; Apple M1 (Rosetta 2)                    5.78s
 ;; Intel Core i9-9980HK 2.4GHz             5.81s

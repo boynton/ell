@@ -815,6 +815,7 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 	sp := vm.stackSize
 	ops := code.ops
 	pc := 0
+	var val *Object
 	var err error
 	for {
 		op := ops[pc]
@@ -823,7 +824,13 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 			fun := stack[sp]
 			if fun.primitive != nil {
 				nextSp := sp + argc
-				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
+				prim := fun.primitive
+				argv := stack[sp+1:nextSp+1]
+				if prim.defaults != nil {
+					val, err = vm.callPrimitiveWithDefaults(prim, argv)
+				} else {
+					val, err = prim.fun(argv)
+				}
 				if err != nil {
 					ops, pc, sp, env, err = vm.catch(err, stack, env)
 					if err != nil {
@@ -885,7 +892,13 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 			argc := ops[pc+1]
 			if fun.primitive != nil {
 				nextSp := sp + argc
-				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
+				prim := fun.primitive
+				argv := stack[sp+1:nextSp+1]
+				if prim.defaults != nil {
+					val, err = vm.callPrimitiveWithDefaults(prim, argv)
+				} else {
+					val, err = prim.fun(argv)
+				}
 				if err != nil {
 					ops, pc, sp, env, err = vm.catch(err, stack, env)
 					if err != nil {
