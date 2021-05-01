@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"strconv"
 
-	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
+	. "github.com/boynton/ell/data"
 )
 
 // Zero is the Ell 0 value
@@ -158,3 +158,28 @@ func RandomList(size int, min float64, max float64) *List {
 	}
 	return result
 }
+
+// IntValue - return native int value of the object
+func IntValue(obj Value) int {
+	if p, ok := obj.(*Number); ok {
+		return int(p.Value)
+	}
+	return 0
+}
+
+// Int64Value - return native int64 value of the object
+func Int64Value(obj Value) int64 {
+	if p, ok := obj.(*Number); ok {
+		return int64(p.Value)
+	}
+	return 0
+}
+
+// Float64Value - return native float64 value of the object
+func Float64Value(obj Value) float64 {
+	if p, ok := obj.(*Number); ok {
+		return p.Value
+	}
+	return 0
+}
+

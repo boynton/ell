@@ -236,13 +236,6 @@ func NewConnection(con net.Conn, endpoint string) Value {
 		Out: outchan,
 		Con: con,
 	}
-	/*	connection := new(Object)
-	connection.Type = TcpConnectionType
-	s, _ := Struct([]Value{Intern("input:"), inchan, Intern("output:"), outchan, Intern("name:"), String(name)})
-	connection.car = s
-	connection.Value = con
-	return connection
-	*/
 }
 
 func closeConnection(obj Value) {

@@ -18,87 +18,9 @@ package ell
 
 import (
 	"bytes"
-	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
+
+	. "github.com/boynton/ell/data"
 )
-/*
-// Key - the key type for Structs. The string value and Ell type string are combined, so we can extract
-// the type later when enumerating keys. Map keys cannot Objects, they are not "comparable" in golang.
-type structKey struct {
-	keyValue string
-	keyType  string
-}
-
-func newStructKey(v *Object) structKey {
-	return structKey{v.text, v.Type.text}
-}
-
-func (k structKey) toObject() *Object {
-	if k.keyType == "<string>" {
-		return String(k.keyValue)
-	}
-	return Intern(k.keyValue)
-}
-
-// IsValidStructKey - return true of the object is a valid <struct> key.
-func IsValidStructKey(o *Object) bool {
-	switch o.Type {
-	case StringType, SymbolType, KeywordType, TypeType:
-		return true
-	}
-	return false
-}
-
-// EmptyStruct - a <struct> with no bindings
-var EmptyStruct = MakeStruct(0)
-
-// MakeStruct - create an empty <struct> object with the specified capacity
-func MakeStruct(capacity int) *Object {
-	strct := new(Object)
-	strct.Type = StructType
-	strct.bindings = make(map[structKey]*Object, capacity)
-	return strct
-}
-
-// Struct - create a new <struct> object from the arguments, which can be other structs, or key/value pairs
-func Struct(fieldvals []*Object) (*Object, error) {
-	strct := new(Object)
-	strct.Type = StructType
-	strct.bindings = make(map[structKey]*Object)
-	count := len(fieldvals)
-	i := 0
-	var bindings map[structKey]*Object
-	for i < count {
-		o := Value(fieldvals[i])
-		i++
-		switch o.Type {
-		case StructType: // not a valid key, just copy bindings from it
-			if bindings == nil {
-				bindings = make(map[structKey]*Object, len(o.bindings))
-			}
-			for k, v := range o.bindings {
-				bindings[k] = v
-			}
-		case StringType, SymbolType, KeywordType, TypeType:
-			if i == count {
-				return nil, Error(ArgumentErrorKey, "Mismatched keyword/value in arglist: ", o)
-			}
-			if bindings == nil {
-				bindings = make(map[structKey]*Object)
-			}
-			bindings[newStructKey(o)] = fieldvals[i]
-			i++
-		default:
-			return nil, Error(ArgumentErrorKey, "Bad struct key: ", o)
-		}
-	}
-	if bindings == nil {
-		strct.bindings = make(map[structKey]*Object)
-	} else {
-		strct.bindings = bindings
-	}
-	return strct, nil
-}
-*/
 
 // StructLength - return the length (field count) of the <struct> object
 func StructLength(strct *Struct) int {

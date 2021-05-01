@@ -19,7 +19,7 @@ package ell
 import (
 	"strings"
 
-	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
+	. "github.com/boynton/ell/data"
 )
 
 
@@ -76,52 +76,6 @@ func ToString(a Value) (*String, error) {
 		return nil, NewError(ArgumentErrorKey, "to-string: cannot convert argument to <string>: ", a)
 	}
 }
-
-/*
-// StringLength - return the string length
-func StringLength(s string) int {
-	count := 0
-	for range s {
-		count++
-	}
-	return count
-}
-
-// EncodeString - return the encoded form of a string value
-func EncodeString(s string) string {
-	var buf []rune
-	buf = append(buf, '"')
-	for _, c := range s {
-		switch c {
-		case '"':
-			buf = append(buf, '\\')
-			buf = append(buf, '"')
-		case '\\':
-			buf = append(buf, '\\')
-			buf = append(buf, '\\')
-		case '\n':
-			buf = append(buf, '\\')
-			buf = append(buf, 'n')
-		case '\t':
-			buf = append(buf, '\\')
-			buf = append(buf, 't')
-		case '\f':
-			buf = append(buf, '\\')
-			buf = append(buf, 'f')
-		case '\b':
-			buf = append(buf, '\\')
-			buf = append(buf, 'b')
-		case '\r':
-			buf = append(buf, '\\')
-			buf = append(buf, 'r')
-		default:
-			buf = append(buf, c)
-		}
-	}
-	buf = append(buf, '"')
-	return string(buf)
-}
-*/
 	
 // ToCharacter - convert object to a <character> object, if possible
 func ToCharacter(c Value) (*Character, error) {
@@ -140,15 +94,6 @@ func ToCharacter(c Value) (*Character, error) {
 	}
 	return nil, NewError(ArgumentErrorKey, "Cannot convert to <character>: ", c)
 }
-/*
-// AsCharacter - return the native rune representation of the character object, if possible
-func AsRuneValue(c Object) (rune, error) {
-	if !IsCharacter(c) {
-		return 0, Error(ArgumentErrorKey, "Not a <character>", c)
-	}
-	return rune(c.fval), nil
-}
-*/
 
 // StringCharacters - return a slice of <character> objects that represent the string
 func StringCharacters(s *String) []Value {
@@ -238,3 +183,28 @@ func StringJoin(seq Value, delims Value) (*String, error) {
 		return nil, NewError(ArgumentErrorKey, "join expected a <list> or <vector> for argument 1, got a ", seq.Type)
 	}
 }
+
+// RuneValue - return native rune value of the object
+func RuneValue(obj Value) rune {
+	if p, ok := obj.(*Character); ok {
+		return p.Value
+	}
+	return 0
+}
+
+// StringValue - return native string value of the object
+func StringValue(obj Value) string {
+	switch p := obj.(type) {
+	case *String:
+		return p.Value
+	case *Symbol:
+		return p.Name()
+	case *Keyword:
+		return p.Name()
+	case *Type:
+		return p.Name()
+	default:
+		return p.String()
+	}
+}
+

@@ -18,7 +18,6 @@ package ell
 
 import (
 	"errors"
-	"github.com/boynton/repl"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -26,6 +25,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/boynton/repl"
 	. "github.com/boynton/ell/data"
 )
 

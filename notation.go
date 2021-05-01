@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 	
-	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
+	. "github.com/boynton/ell/data"
 )
 
 // IsDirectoryReadable - return true of the directory is readable

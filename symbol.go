@@ -22,22 +22,6 @@ import(
 	. "github.com/boynton/ell/data"
 )
 
-/*
-// <type> -> <symbol>
-func TypeName(t Value) (Value, error) {
-	return t.ToSymbol()
-}
-
-// <keyword> -> <symbol>
-func KeywordName(t Value) (Value, error) {
-	return t.ToSymbol()
-}
-
-func Symbols() []Value {
-	return data.Symbols()
-}
-*/
-
 func NewSymbol(names []Value) (Value, error) {
 	size := len(names)
 	if size < 1 {
@@ -82,14 +66,3 @@ func Unkeyworded(symOrKeyword Value) (Value, error) {
 	}
     return Null, NewError(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", symOrKeyword.Type())
 }
-/*
-func UnkeywordedName(obj symOrKeyword) (string, error) {
-	if sym, ok := obj.(*Symbol); ok {
-		return sym.Name(), nil
-	}
-	if kw, ok := obj.(*Keyword); ok {
-		return kw.Name(), nill
-	}
-    return Null, NewError(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", obj.Type())
-}	
-*/

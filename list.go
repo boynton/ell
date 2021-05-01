@@ -17,7 +17,7 @@ limitations under the License.
 package ell
 
 import (
-	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
+	. "github.com/boynton/ell/data"
 )
 
 // Car - return the first object in a list
@@ -93,41 +93,6 @@ func ListEqual(l1 Value, l2 Value) bool {
 	}
 	return false
 }
-
-/*
-   func listToString(lst *Object) string {
-	var buf bytes.Buffer
-	if lst != EmptyList && lst.cdr != EmptyList && Cddr(lst) == EmptyList {
-		if lst.car == QuoteSymbol {
-			buf.WriteString("'")
-			buf.WriteString(Cadr(lst).String())
-			return buf.String()
-		} else if lst.car == QuasiquoteSymbol {
-			buf.WriteString("`")
-			buf.WriteString(Cadr(lst).String())
-			return buf.String()
-		} else if lst.car == UnquoteSymbol {
-			buf.WriteString("~")
-			buf.WriteString(Cadr(lst).String())
-			return buf.String()
-		} else if lst.car == UnquoteSymbolSplicing {
-			buf.WriteString("~")
-			buf.WriteString(Cadr(lst).String())
-			return buf.String()
-		}
-	}
-	buf.WriteString("(")
-	delim := ""
-	for lst != EmptyList {
-		buf.WriteString(delim)
-		delim = " "
-		buf.WriteString(lst.car.String())
-		lst = lst.cdr
-	}
-	buf.WriteString(")")
-	return buf.String()
-}
-*/
 
 func ListLength(o Value) int {
 	if lst, ok := o.(*List); ok {
