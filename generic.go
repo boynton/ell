@@ -16,69 +16,81 @@ limitations under the License.
 
 package ell
 
-func methodSignature(formalArgs *Object) (*Object, error) {
+import(
+	. "github.com/boynton/ell/data"
+)
+
+func methodSignature(formalArgs *List) (Value, error) {
 	sig := ""
 	for formalArgs != EmptyList {
-		s := formalArgs.car //might be a symbol, might be a list
+		s := formalArgs.Car //might be a symbol, might be a list
 		tname := ""
-		if s.Type == ListType { //specialized
-			t := Cadr(s)
-			if t.Type != TypeType {
-				return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
+		if lst, ok := s.(*List); ok { //specialized
+			t := Cadr(lst)
+			if tp, ok := t.(*Type); ok {
+				tname = tp.Name()
+			} else {
+				return nil, NewError(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
 			}
-			tname = t.text
-		} else if s.Type == SymbolType { //unspecialized
+		} else if s.Type() == SymbolType { //unspecialized
 			tname = "<any>"
 		} else {
-			return nil, Error(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
+			return nil, NewError(SyntaxErrorKey, "Specialized argument must be of the form <symbol> or (<symbol> <type>), got ", s)
 		}
 		sig += tname
-		formalArgs = formalArgs.cdr
+		formalArgs = formalArgs.Cdr
 	}
 	return Intern(sig), nil
 }
 
-func arglistSignature(args []*Object) string {
+func arglistSignature(args []Value) string {
 	sig := ""
 	for _, arg := range args {
-		sig += arg.Type.text
+		sig += (arg.Type().(*Type)).Name()
 	}
 	return sig
 }
 
-func signatureCombos(argtypes []*Object) []string {
+func signatureCombos(argtypes []Value) []string {
 	switch len(argtypes) {
 	case 0:
 		return []string{}
 	case 1:
-		return []string{argtypes[0].text, AnyType.text}
+		return []string{TypeNameString(argtypes[0]), TypeNameString(AnyType)}
 	default:
 		//get the combinations of the tail, and concat both the type and <any> onto each of those combos
 		rest := signatureCombos(argtypes[1:]) // ["<number>" "<any>"]
 		result := make([]string, 0, len(rest)*2)
 		this := argtypes[0]
 		for _, s := range rest {
-			result = append(result, this.text+s)
+			result = append(result, TypeNameString(this)+s)
 		}
 		for _, s := range rest {
-			result = append(result, AnyType.text+s)
+			result = append(result, TypeNameString(AnyType)+s)
 		}
 		return result
 	}
 }
 
-var cachedSigs = make(map[string][]*Object)
+func TypeNameString(tval Value) string {
+	if tp, ok := tval.(*Type); ok {
+		return tp.Name()
+	}
+	return ""
+}
 
-func arglistSignatures(args []*Object) []*Object {
+var cachedSigs = make(map[string][]Value)
+
+func arglistSignatures(args []Value) []Value {
 	key := arglistSignature(args)
 	sigs, ok := cachedSigs[key]
 	if !ok {
-		var argtypes []*Object
+		var argtypes []Value
 		for _, arg := range args {
-			argtypes = append(argtypes, arg.Type)
+			argtypes = append(argtypes, arg.Type())
 		}
 		stringSigs := signatureCombos(argtypes)
-		sigs = make([]*Object, 0, len(stringSigs))
+		sigs = make([]Value, 0, len(stringSigs))
 		for _, sig := range stringSigs {
 			sigs = append(sigs, Intern(sig))
 		}
@@ -90,23 +102,26 @@ func arglistSignatures(args []*Object) []*Object {
 var GenfnsSymbol = Intern("*genfns*")
 var MethodsKeyword = Intern("methods:")
 
-func getfn(sym *Object, args []*Object) (*Object, error) {
+func getfn(sym Value, args []Value) (Value, error) {
 	sigs := arglistSignatures(args)
 	gfs := GetGlobal(GenfnsSymbol)
-	if gfs != nil && gfs.Type == StructType {
-		gf := structGet(gfs, sym)
-		if gf == Null {
-			return nil, Error(ErrorKey, "Not a generic function: ", sym)
-		}
-		methods := structGet(Value(gf), MethodsKeyword)
-		if methods.Type == StructType {
-			for _, sig := range sigs {
-				fun := structGet(methods, sig)
-				if fun != Null {
-					return fun, nil
+	if p, ok := gfs.(*Struct); ok {
+		gf := p.Get(sym)
+		if p2, ok := gf.(*Instance); ok {
+			if p3, ok := p2.Value.(*Struct); ok {
+				methods := p3.Get(MethodsKeyword)
+				if p3, ok := methods.(*Struct); ok {
+					for _, sig := range sigs {
+						fun := p3.Get(sig)
+						if fun != Null {
+							return fun, nil
+						}
+					}
 				}
 			}
+		} else {
+			return nil, NewError(ErrorKey, "Not a generic function: ", sym)
 		}
 	}
-	return nil, Error(ErrorKey, "Generic function ", sym, ", has no matching method for: ", args)
+	return nil, NewError(ErrorKey, "Generic function ", sym, ", has no matching method for: ", args)
 }

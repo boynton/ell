@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	. "github.com/boynton/ell/data"
 )
 
 var trace bool
@@ -28,6 +30,7 @@ var optimize bool
 
 var interrupted = false
 var interrupts chan os.Signal
+var InterruptKey = Intern("interrupt:")
 
 func checkInterrupt() bool {
 	if interrupts != nil {
@@ -45,7 +48,7 @@ func checkInterrupt() bool {
 }
 
 func str(o interface{}) string {
-	if lob, ok := o.(*Object); ok {
+	if lob, ok := o.(Value); ok {
 		return lob.String()
 	}
 	return fmt.Sprintf("%v", o)
@@ -74,31 +77,29 @@ func Fatal(args ...interface{}) {
 }
 
 // Continuation -
-type continuation struct {
+type Continuation struct {
 	ops   []int
-	stack []*Object
+	stack []Value
 	pc    int
 }
 
-func Closure(code *Code, frame *frame) *Object {
-	fun := new(Object)
-	fun.Type = FunctionType
-	fun.code = code
-	fun.frame = frame
-	return fun
+func Closure(code *Code, frame *Frame) *Function {
+	return &Function{
+		code: code,
+		frame: frame,
+	}
 }
 
-func Continuation(frame *frame, ops []int, pc int, stack []*Object) *Object {
-	fun := new(Object)
-	fun.Type = FunctionType
-	cont := new(continuation)
+func NewContinuation(frame *Frame, ops []int, pc int, stack []Value) *Function {
+	cont := new(Continuation)
 	cont.ops = ops
-	cont.stack = make([]*Object, len(stack))
+	cont.stack = make([]Value, len(stack))
 	copy(cont.stack, stack)
 	cont.pc = pc
-	fun.frame = frame
-	fun.continuation = cont
-	return fun
+	return &Function{
+		frame: frame,
+		continuation: cont,
+	}
 }
 
 const defaultStackSize = 1000
@@ -112,38 +113,29 @@ func VM(stackSize int) *vm {
 	return &vm{stackSize}
 }
 
-// Apply is a primitive instruction to apply a function to a list of arguments
-var Apply = &Object{Type: FunctionType}
+var FunctionType Value = Intern("<function>")
 
-// CallCC is a primitive instruction to executable (restore) a continuation
-var CallCC = &Object{Type: FunctionType}
-
-// Apply is a primitive instruction to apply a function to a list of arguments
-var Spawn = &Object{Type: FunctionType}
-
-func functionSignature(f *Object) string {
-	if f.primitive != nil {
-		return f.primitive.signature
-	}
-	if f.code != nil {
-		return f.code.signature()
-	}
-	if f.continuation != nil {
-		return "(<function>) <any>"
-	}
-	if f == Apply {
-		return "(<any>*) <list>"
-	}
-	if f == CallCC {
-		return "(<function>) <any>"
-	}
-	if f == Spawn {
-		return "(<function> <any>*) <null>"
-	}
-	panic("Bad function")
+type Function struct {
+	name string
+	code *Code
+	frame *Frame
+	primitive *Primitive
+	continuation *Continuation
 }
 
-func functionToString(f *Object) string {
+func (f *Function) Type() Value {
+	return FunctionType
+}
+
+func IsFunction(v Value) bool {
+	return v.Type() == FunctionType
+}
+
+func (f *Function) Equals(another Value) bool {
+	return false
+}
+
+func (f *Function) String() string {
 	if f.primitive != nil {
 		return "#[function " + f.primitive.name + "]"
 	}
@@ -169,24 +161,56 @@ func functionToString(f *Object) string {
 	panic("Bad function")
 }
 
+// Apply is a primitive instruction to apply a function to a list of arguments
+var Apply = &Function{}
+
+// CallCC is a primitive instruction to executable (restore) a continuation
+var CallCC = &Function{}
+
+// Apply is a primitive instruction to apply a function to a list of arguments
+var Spawn = &Function{}
+
+func functionSignature(f *Function) string {
+	if f.primitive != nil {
+		return f.primitive.signature
+	}
+	if f.code != nil {
+		return f.code.signature()
+	}
+	if f.continuation != nil {
+		return "(<function>) <any>"
+	}
+	if f == Apply {
+		return "(<any>*) <list>"
+	}
+	if f == CallCC {
+		return "(<function>) <any>"
+	}
+	if f == Spawn {
+		return "(<function> <any>*) <null>"
+	}
+	panic("Bad function")
+}
+
+
 // PrimitiveFunction is the native go function signature for all Ell primitive functions
-type PrimitiveFunction func(argv []*Object) (*Object, error)
+type PrimitiveFunction func(argv []Value) (Value, error)
 
 // Primitive - a primitive function, written in Go, callable by VM
-type primitive struct { // <function>
+type Primitive struct { // <function>
 	name      string
 	fun       PrimitiveFunction
 	signature string
-	idx       int
+	//	idx       int
 	argc      int       // -1 means the primitive itself checks the args (legacy mode)
-	result    *Object   // if set the type of the result
-	args      []*Object // if set, the length must be for total args (both required and optional). The type (or <any>) for each
-	rest      *Object   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
-	defaults  []*Object // if set, then that many optional args beyond argc have these default values
-	keys      []*Object // if set, then it must match the size of defaults, and these are the keys
+	result    Value   // if set the type of the result
+	args      []Value // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	rest      Value   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
+	defaults  []Value // if set, then that many optional args beyond argc have these default values
+	keys      []Value // if set, then it must match the size of defaults, and these are the keys
 }
 
-func functionSignatureFromTypes(result *Object, args []*Object, rest *Object) string {
+func functionSignatureFromTypes(result Value, args []Value, rest Value) string {
 	sig := "("
 	for i, t := range args {
 		if !IsType(t) {
@@ -195,7 +219,7 @@ func functionSignatureFromTypes(result *Object, args []*Object, rest *Object) st
 		if i > 0 {
 			sig += " "
 		}
-		sig += t.text
+		sig += t.String()
 	}
 	if rest != nil {
 		if !IsType(rest) {
@@ -204,20 +228,20 @@ func functionSignatureFromTypes(result *Object, args []*Object, rest *Object) st
 		if sig != "(" {
 			sig += " "
 		}
-		sig += rest.text + "*"
+		sig += rest.String() + "*"
 	}
 	sig += ") "
 	if !IsType(result) {
 		panic("not a type: " + result.String())
 	}
-	sig += result.text
+	sig += result.String()
 	return sig
 }
 
-func Primitive(name string, fun PrimitiveFunction, result *Object, args []*Object, rest *Object, defaults []*Object, keys []*Object) *Object {
+func NewPrimitive(name string, fun PrimitiveFunction, result Value, args []Value, rest Value, defaults []Value, keys []Value) *Function {
 	//the rest type indicates arguments past the end of args will all have the given type. the length must be checked by primitive
 	// -> they are all optional, then. So, (<any>+) must be expressed as (<any> <any>*)
-	idx := len(primitives)
+	//	idx := len(primitives)
 	argc := len(args)
 	if defaults != nil {
 		defc := len(defaults)
@@ -232,8 +256,8 @@ func Primitive(name string, fun PrimitiveFunction, result *Object, args []*Objec
 		argc = argc - defc
 		for i := 0; i < defc; i++ {
 			t := args[argc+i]
-			if t != AnyType && defaults[i].Type != t {
-				panic("argument default's type (" + defaults[i].Type.text + ") doesn't match declared type (" + t.text + ")")
+			if t != AnyType && defaults[i].Type() != t {
+				panic("argument default's type (" + TypeNameOf(defaults[i]) + ") doesn't match declared type (" + t.String() + ")")
 			}
 		}
 	} else {
@@ -242,22 +266,22 @@ func Primitive(name string, fun PrimitiveFunction, result *Object, args []*Objec
 		}
 	}
 	signature := functionSignatureFromTypes(result, args, rest)
-	prim := &primitive{name, fun, signature, idx, argc, result, args, rest, defaults, keys}
+	prim := &Primitive{name, fun, signature, argc, result, args, rest, defaults, keys}
 	primitives = append(primitives, prim)
-	return &Object{Type: FunctionType, primitive: prim}
+	return &Function{primitive: prim}
 }
 
-type frame struct {
-	locals    *frame
-	previous  *frame
+type Frame struct {
+	locals    *Frame
+	previous  *Frame
 	code      *Code
 	ops       []int
-	elements  []*Object
-	firstfive [5]*Object
+	elements  []Value
+	firstfive [5]Value
 	pc        int
 }
 
-func (frame *frame) String() string {
+func (frame *Frame) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("#[frame ")
 	if frame.code != nil {
@@ -274,23 +298,24 @@ func (frame *frame) String() string {
 	return buf.String()
 }
 
-func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*Object, sp int) (*frame, error) {
-	f := new(frame)
-	f.previous = env
-	f.pc = pc
-	f.ops = ops
-	f.locals = fun.frame
-	f.code = fun.code
+func buildFrame(env *Frame, pc int, ops []int, fun *Function, argc int, stack []Value, sp int) (*Frame, error) {
+	f := &Frame{
+		previous: env,
+		pc: pc,
+		ops: ops,
+		locals: fun.frame,
+		code: fun.code,
+	}
 	expectedArgc := fun.code.argc
 	defaults := fun.code.defaults
 	if defaults == nil {
 		if argc != expectedArgc {
-			return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+			return nil, NewError(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 		}
 		if argc <= 5 {
 			f.elements = f.firstfive[:]
 		} else {
-			f.elements = make([]*Object, argc)
+			f.elements = make([]Value, argc)
 		}
 		copy(f.elements, stack[sp:sp+argc])
 		return f, nil
@@ -304,12 +329,12 @@ func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*O
 	}
 	if argc < expectedArgc {
 		if extra > 0 {
-			return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
+			return nil, NewError(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected at least ", expectedArgc, ", got ", argc, ")")
 		}
-		return nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+		return nil, NewError(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 	}
 	totalArgc := expectedArgc + extra
-	el := make([]*Object, totalArgc)
+	el := make([]Value, totalArgc)
 	end := sp + expectedArgc
 	if rest {
 		copy(el, stack[sp:end])
@@ -318,7 +343,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*O
 	} else if keys != nil {
 		bindings := stack[sp+expectedArgc : sp+argc]
 		if len(bindings)%2 != 0 {
-			return nil, Error(ArgumentErrorKey, "Bad keyword argument(s): ", bindings)
+			return nil, NewError(ArgumentErrorKey, "Bad keyword argument(s): ", bindings)
 		}
 		copy(el, stack[sp:sp+expectedArgc]) //the required ones
 		for i := expectedArgc; i < totalArgc; i++ {
@@ -327,7 +352,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*O
 		for i := expectedArgc; i < argc; i += 2 {
 			key, err := ToSymbol(stack[sp+i])
 			if err != nil {
-				return nil, Error(ArgumentErrorKey, "Bad keyword argument: ", stack[sp+1])
+				return nil, NewError(ArgumentErrorKey, "Bad keyword argument: ", stack[sp+1])
 			}
 			gotit := false
 			for j := 0; j < extra; j++ {
@@ -338,7 +363,7 @@ func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*O
 				}
 			}
 			if !gotit {
-				return nil, Error(ArgumentErrorKey, "Undefined keyword argument: ", key)
+				return nil, NewError(ArgumentErrorKey, "Undefined keyword argument: ", key)
 			}
 		}
 	} else {
@@ -351,14 +376,14 @@ func buildFrame(env *frame, pc int, ops []int, fun *Object, argc int, stack []*O
 	return f, nil
 }
 
-func addContext(env *frame, err error) error {
-	if e, ok := err.(*Object); ok {
+func addContext(env *Frame, err error) error {
+	if _, ok := err.(*Error); ok {
 		if env.code != nil {
 			if env.code.name != "throw" {
-				e.text = env.code.name
+				//FIX e.Data = append(e.Data, env.code.name)
 			} else if env.previous != nil {
 				if env.previous.code != nil {
-					e.text = env.previous.code.name
+					//FIX e.Data = append(e.Data, env.previous.code.name)
 				}
 			}
 		}
@@ -366,9 +391,9 @@ func addContext(env *frame, err error) error {
 	return err
 }
 
-func (vm *vm) keywordCall(fun *Object, argc int, pc int, stack []*Object, sp int) (int, int, error) {
+func (vm *vm) keywordCall(fun *Keyword, argc int, pc int, stack []Value, sp int) (int, int, error) {
 	if argc != 1 {
-		return 0, 0, Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+		return 0, 0, NewError(ArgumentErrorKey, fun.Text, " expected 1 argument, got ", argc)
 	}
 	v, err := Get(stack[sp], fun)
 	if err != nil {
@@ -389,10 +414,10 @@ func argcError(name string, min int, max int, provided int) error {
 	} else {
 		s = fmt.Sprintf("%d to %d arguments", min, max)
 	}
-	return Error(ArgumentErrorKey, fmt.Sprintf("%s expected %s, got %d", name, s, provided))
+	return NewError(ArgumentErrorKey, fmt.Sprintf("%s expected %s, got %d", name, s, provided))
 }
 
-func (vm *vm) callPrimitive(prim *primitive, argv []*Object) (*Object, error) {
+func (vm *vm) callPrimitive(prim *Primitive, argv []Value) (Value, error) {
 	if prim.defaults != nil {
 		return vm.callPrimitiveWithDefaults(prim, argv)
 	}
@@ -402,14 +427,14 @@ func (vm *vm) callPrimitive(prim *primitive, argv []*Object) (*Object, error) {
 	}
 	for i, arg := range argv {
 		t := prim.args[i]
-		if t != AnyType && arg.Type != t {
-			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].Type.text))
+		if t != AnyType && arg.Type() != t {
+			return nil, NewError(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].String(), i+1, TypeNameOf(argv[i])))
 		}
 	}
 	return prim.fun(argv)
 }
 
-func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Object, error) {
+func (vm *vm) callPrimitiveWithDefaults(prim *Primitive, argv []Value) (Value, error) {
 	provided := len(argv)
 	minargc := prim.argc
 	if len(prim.defaults) == 0 {
@@ -420,15 +445,15 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Objec
 		for i := 0; i < minargc; i++ {
 			t := prim.args[i]
 			arg := argv[i]
-			if t != AnyType && arg.Type != t {
-				return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].Type.text))
+			if t != AnyType && arg.Type() != t {
+				return nil, NewError(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].String(), i+1, TypeNameOf(argv[i])))
 			}
 		}
 		if rest != AnyType {
 			for i := minargc; i < provided; i++ {
 				arg := argv[i]
-				if arg.Type != rest {
-					return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, rest.text, i+1, argv[i].Type.text))
+				if arg.Type() != rest {
+					return nil, NewError(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, rest.String(), i+1, TypeNameOf(argv[i])))
 				}
 			}
 		}
@@ -438,7 +463,7 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Objec
 	if provided < minargc {
 		return nil, argcError(prim.name, minargc, maxargc, provided)
 	}
-	newargs := make([]*Object, maxargc)
+	newargs := make([]Value, maxargc)
 	if prim.keys != nil {
 		j := 0
 		copy(newargs, argv[:minargc])
@@ -452,10 +477,10 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Objec
 			k := argv[j]
 			j++
 			if j == provided {
-				return nil, Error(ArgumentErrorKey, "mismatched keyword/value pair in argument list")
+				return nil, NewError(ArgumentErrorKey, "mismatched keyword/value pair in argument list")
 			}
-			if k.Type != KeywordType {
-				return nil, Error(ArgumentErrorKey, "expected keyword, got a "+k.Type.text)
+			if k.Type() != KeywordType {
+				return nil, NewError(ArgumentErrorKey, "expected keyword, got a "+TypeNameOf(k))
 			}
 			gotit := false
 			for i := 0; i < ndefaults; i++ {
@@ -467,7 +492,7 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Objec
 				}
 			}
 			if !gotit {
-				return nil, Error(ArgumentErrorKey, prim.name, " accepts ", prim.keys, " as keyword arg(s), not ", k)
+				return nil, NewError(ArgumentErrorKey, prim.name, " accepts ", prim.keys, " as keyword arg(s), not ", k)
 			}
 		}
 		argv = newargs
@@ -485,22 +510,22 @@ func (vm *vm) callPrimitiveWithDefaults(prim *primitive, argv []*Object) (*Objec
 	}
 	for i, arg := range argv {
 		t := prim.args[i]
-		if t != AnyType && arg.Type != t {
-			return nil, Error(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].text, i+1, argv[i].Type.text))
+		if t != AnyType && arg.Type() != t {
+			return nil, NewError(ArgumentErrorKey, fmt.Sprintf("%s expected a %s for argument %d, got a %s", prim.name, prim.args[i].String(), i+1, TypeNameOf(argv[i])))
 		}
 	}
 	return prim.fun(argv)
 }
 
-func (vm *vm) funcall(fun *Object, argc int, ops []int, savedPc int, stack []*Object, sp int, env *frame) ([]int, int, int, *frame, error) {
+func (vm *vm) funcall(callable Value, argc int, ops []int, savedPc int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeCallAgain:
-	if fun.Type == FunctionType {
+	if fun, ok := callable.(*Function); ok {
 		if fun.code != nil {
 			if interrupted || checkInterrupt() {
-				return nil, 0, 0, nil, addContext(env, Error(InterruptKey)) //not catchable
+				return nil, 0, 0, nil, addContext(env, NewError(InterruptKey)) //not catchable
 			}
 			if fun.code.defaults == nil {
-				f := new(frame)
+				f := new(Frame)
 				f.previous = env
 				f.pc = savedPc
 				f.ops = ops
@@ -508,12 +533,12 @@ opcodeCallAgain:
 				f.code = fun.code
 				expectedArgc := fun.code.argc
 				if argc != expectedArgc {
-					return nil, 0, 0, nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+					return nil, 0, 0, nil, NewError(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 				}
 				if argc <= 5 {
 					f.elements = f.firstfive[:argc]
 				} else {
-					f.elements = make([]*Object, argc)
+					f.elements = make([]Value, argc)
 				}
 				endSp := sp + argc
 				copy(f.elements, stack[sp:endSp])
@@ -539,16 +564,16 @@ opcodeCallAgain:
 		}
 		if fun == Apply {
 			if argc < 2 {
-				err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
+				err := NewError(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
 				return vm.catch(err, stack, env)
 			}
-			fun = stack[sp]
+			callable = stack[sp]
 			args := stack[sp+argc-1]
 			if !IsList(args) {
-				err := Error(ArgumentErrorKey, "apply expected a <list> as its final argument")
+				err := NewError(ArgumentErrorKey, "apply expected a <list> as its final argument")
 				return vm.catch(err, stack, env)
 			}
-			arglist := args
+			arglist := args.(*List)
 			for i := argc - 2; i > 0; i-- {
 				arglist = Cons(stack[sp+i], arglist)
 			}
@@ -557,24 +582,24 @@ opcodeCallAgain:
 			i := 0
 			sp -= argc
 			for arglist != EmptyList {
-				stack[sp+i] = arglist.car
+				stack[sp+i] = arglist.Car
 				i++
-				arglist = arglist.cdr
+				arglist = arglist.Cdr
 			}
 			goto opcodeCallAgain
 		}
 		if fun == CallCC {
 			if argc != 1 {
-				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+				err := NewError(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
 				return vm.catch(err, stack, env)
 			}
-			fun = stack[sp]
-			stack[sp] = Continuation(env, ops, savedPc, stack[sp+1:])
+			callable = stack[sp]
+			stack[sp] = NewContinuation(env, ops, savedPc, stack[sp+1:])
 			goto opcodeCallAgain
 		}
 		if fun.continuation != nil {
 			if argc != 1 {
-				err := Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc)
+				err := NewError(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc)
 				return vm.catch(err, stack, env)
 			}
 			arg := stack[sp]
@@ -596,30 +621,30 @@ opcodeCallAgain:
 		}
 		panic("unsupported instruction")
 	}
-	if fun.Type == KeywordType {
+	if kw, ok := callable.(*Keyword); ok {
 		if argc != 1 {
-			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+			err := NewError(ArgumentErrorKey, kw.Text, " expected 1 argument, got ", argc)
 			return vm.catch(err, stack, env)
 		}
-		v, err := Get(stack[sp], fun)
+		v, err := Get(stack[sp], kw)
 		if err != nil {
 			return vm.catch(err, stack, env)
 		}
 		stack[sp] = v
 		return ops, savedPc, sp, env, err
 	}
-	err := Error(ArgumentErrorKey, "Not a function: ", fun)
+	err := NewError(ArgumentErrorKey, "Not callable: ", callable)
 	return vm.catch(err, stack, env)
 }
 
-func (vm *vm) tailcall(fun *Object, argc int, ops []int, stack []*Object, sp int, env *frame) ([]int, int, int, *frame, error) {
+func (vm *vm) tailcall(callable Value, argc int, ops []int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeTailCallAgain:
-	if fun.Type == FunctionType {
+	if fun, ok := callable.(*Function); ok {
 		if fun.code != nil {
 			if fun.code.defaults == nil && fun.code == env.code { //self-tail-call - we can reuse the frame.
 				expectedArgc := fun.code.argc
 				if argc != expectedArgc {
-					return nil, 0, 0, nil, Error(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
+					return nil, 0, 0, nil, NewError(ArgumentErrorKey, "Wrong number of args to ", fun, " (expected ", expectedArgc, ", got ", argc, ")")
 				}
 				endSp := sp + argc
 				copy(env.elements, stack[sp:endSp])
@@ -643,16 +668,16 @@ opcodeTailCallAgain:
 		}
 		if fun == Apply {
 			if argc < 2 {
-				err := Error(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
+				err := NewError(ArgumentErrorKey, "apply expected at least 2 arguments, got ", argc)
 				return vm.catch(err, stack, env)
 			}
-			fun = stack[sp]
+			callable = stack[sp]
 			args := stack[sp+argc-1]
 			if !IsList(args) {
-				err := Error(ArgumentErrorKey, "apply expected its last argument to be a <list>")
+				err := NewError(ArgumentErrorKey, "apply expected its last argument to be a <list>")
 				return vm.catch(err, stack, env)
 			}
-			arglist := args
+			arglist := args.(*List)
 			for i := argc - 2; i > 0; i-- {
 				arglist = Cons(stack[sp+i], arglist)
 			}
@@ -661,15 +686,15 @@ opcodeTailCallAgain:
 			i := 0
 			sp -= argc
 			for arglist != EmptyList {
-				stack[sp+i] = arglist.car
+				stack[sp+i] = arglist.Car
 				i++
-				arglist = arglist.cdr
+				arglist = arglist.Cdr
 			}
 			goto opcodeTailCallAgain
 		}
 		if fun.continuation != nil {
 			if argc != 1 {
-				err := Error(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc)
+				err := NewError(ArgumentErrorKey, "#[continuation] expected 1 argument, got ", argc)
 				return vm.catch(err, stack, env)
 			}
 			arg := stack[sp]
@@ -682,11 +707,11 @@ opcodeTailCallAgain:
 		}
 		if fun == CallCC {
 			if argc != 1 {
-				err := Error(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
+				err := NewError(ArgumentErrorKey, "callcc expected 1 argument, got ", argc)
 				return vm.catch(err, stack, env)
 			}
-			fun = stack[sp]
-			stack[sp] = Continuation(env.previous, env.ops, env.pc, stack[sp:])
+			callable = stack[sp]
+			stack[sp] = NewContinuation(env.previous, env.ops, env.pc, stack[sp:])
 			goto opcodeTailCallAgain
 		}
 		if fun == Spawn {
@@ -700,25 +725,25 @@ opcodeTailCallAgain:
 		}
 		panic("Bad function")
 	}
-	if fun.Type == KeywordType {
+	if kw, ok := callable.(*Keyword); ok {
 		if argc != 1 {
-			err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+			err := NewError(ArgumentErrorKey, kw.Text, " expected 1 argument, got ", argc)
 			return vm.catch(err, stack, env)
 		}
-		v, err := Get(stack[sp], fun)
+		v, err := Get(stack[sp], kw)
 		if err != nil {
 			return vm.catch(err, stack, env)
 		}
 		stack[sp] = v
 		return env.ops, env.pc, sp, env.previous, nil
 	}
-	err := Error(ArgumentErrorKey, "Not a function:", fun)
+	err := NewError(ArgumentErrorKey, "Not callable:", callable)
 	return vm.catch(err, stack, env)
 }
 
-func (vm *vm) keywordTailcall(fun *Object, argc int, ops []int, stack []*Object, sp int, env *frame) ([]int, int, int, *frame, error) {
+func (vm *vm) keywordTailcall(fun *Keyword, argc int, ops []int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 	if argc != 1 {
-		err := Error(ArgumentErrorKey, fun.text, " expected 1 argument, got ", argc)
+		err := NewError(ArgumentErrorKey, fun.Text, " expected 1 argument, got ", argc)
 		return vm.catch(err, stack, env)
 	}
 	v, err := Get(stack[sp], fun)
@@ -729,8 +754,8 @@ func (vm *vm) keywordTailcall(fun *Object, argc int, ops []int, stack []*Object,
 	return env.ops, env.pc, sp, env.previous, nil
 }
 
-func execCompileTime(code *Code, arg *Object) (*Object, error) {
-	args := []*Object{arg}
+func execCompileTime(code *Code, arg Value) (Value, error) {
+	args := []Value{arg}
 	prev := verbose
 	verbose = false
 	res, err := exec(code, args)
@@ -738,32 +763,34 @@ func execCompileTime(code *Code, arg *Object) (*Object, error) {
 	return res, err
 }
 
-func (vm *vm) catch(err error, stack []*Object, env *frame) ([]int, int, int, *frame, error) {
-	errobj, ok := err.(*Object)
+func (vm *vm) catch(err error, stack []Value, env *Frame) ([]int, int, int, *Frame, error) {
+	errobj, ok := err.(Value)
 	if !ok {
-		errobj = MakeError(ErrorKey, String(err.Error()))
+		errobj = MakeError(ErrorKey, NewString(err.Error()))
 	}
-	handler := GetGlobal(Intern("*top-handler*"))
-	if handler != nil && handler.Type == FunctionType {
-		if handler.code != nil {
-			if handler.code.argc == 1 {
-				sp := len(stack) - 1
-				stack[sp] = errobj
-				return vm.funcall(handler, 1, nil, 0, stack, sp, nil)
+	ghandler := GetGlobal(Intern("*top-handler*"))
+	if ghandler != nil {
+		if handler, ok := ghandler.(*Function); ok {
+			if handler.code != nil {
+				if handler.code.argc == 1 {
+					sp := len(stack) - 1
+					stack[sp] = errobj
+					return vm.funcall(handler, 1, nil, 0, stack, sp, nil)
+				}
 			}
 		}
 	}
 	return nil, 0, 0, nil, addContext(env, err)
 }
 
-func (vm *vm) spawn(fun *Object, argc int, stack []*Object, sp int) error {
-	if fun.Type == FunctionType {
+func (vm *vm) spawn(callable Value, argc int, stack []Value, sp int) error {
+	if fun, ok := callable.(*Function); ok {
 		if fun.code != nil {
 			env, err := buildFrame(nil, 0, nil, fun, argc, stack, sp)
 			if err != nil {
 				return err
 			}
-			go func(code *Code, env *frame) {
+			go func(code *Code, env *Frame) {
 				vm := VM(defaultStackSize)
 				_, err := vm.exec(code, env)
 				if err != nil {
@@ -777,16 +804,16 @@ func (vm *vm) spawn(fun *Object, argc int, stack []*Object, sp int) error {
 		// spawning callcc, apply, and spawn instructions not supported.
 		//? spawning primitives not supported. Is that important?
 	}
-	return Error(ArgumentErrorKey, "Bad function for spawn: ", fun)
+	return NewError(ArgumentErrorKey, "Bad function for spawn: ", callable)
 }
 
-func exec(code *Code, args []*Object) (*Object, error) {
+func exec(code *Code, args []Value) (Value, error) {
 	vm := VM(defaultStackSize)
 	if len(args) != code.argc {
-		return nil, Error(ArgumentErrorKey, "Wrong number of arguments")
+		return nil, NewError(ArgumentErrorKey, "Wrong number of arguments")
 	}
-	env := new(frame)
-	env.elements = make([]*Object, len(args))
+	env := new(Frame)
+	env.elements = make([]Value, len(args))
 	copy(env.elements, args)
 	env.code = code
 	startTime := time.Now()
@@ -807,46 +834,48 @@ func exec(code *Code, args []*Object) (*Object, error) {
 	return result, err
 }
 
-func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
+func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 	if !optimize || verbose || trace {
 		return vm.instrumentedExec(code, env)
 	}
-	stack := make([]*Object, vm.stackSize)
+	stack := make([]Value, vm.stackSize)
 	sp := vm.stackSize
 	ops := code.ops
 	pc := 0
-	var val *Object
+	var val Value
 	var err error
 	for {
 		op := ops[pc]
-		if op == opcodeCall { // CALL
+		if op == opcodeCall {
 			argc := ops[pc+1]
-			fun := stack[sp]
-			if fun.primitive != nil {
-				nextSp := sp + argc
-				prim := fun.primitive
-				argv := stack[sp+1:nextSp+1]
-				if prim.defaults != nil {
-					val, err = vm.callPrimitiveWithDefaults(prim, argv)
+			callable := stack[sp]
+			if fun, ok := callable.(*Function); ok {
+				if fun.primitive != nil {
+					nextSp := sp + argc
+					prim := fun.primitive
+					argv := stack[sp+1:nextSp+1]
+					if prim.defaults != nil {
+						val, err = vm.callPrimitiveWithDefaults(prim, argv)
+					} else {
+						val, err = prim.fun(argv)
+					}
+					if err != nil {
+						ops, pc, sp, env, err = vm.catch(err, stack, env)
+						if err != nil {
+							return nil, err
+						}
+					}
+					stack[nextSp] = val
+					sp = nextSp
+					pc += 2
 				} else {
-					val, err = prim.fun(argv)
-				}
-				if err != nil {
-					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
 					if err != nil {
 						return nil, err
 					}
 				}
-				stack[nextSp] = val
-				sp = nextSp
-				pc += 2
-			} else if fun.Type == FunctionType {
-				ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
-				if err != nil {
-					return nil, err
-				}
-			} else if fun.Type == KeywordType {
-				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
+			} else if kw, ok := callable.(*Keyword); ok {
+				pc, sp, err = vm.keywordCall(kw, argc, pc+2, stack, sp+1)
 				if err != nil {
 					ops, pc, sp, env, err = vm.catch(err, stack, env)
 					if err != nil {
@@ -854,15 +883,15 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 					}
 				}
 			} else {
-				ops, pc, sp, env, err = vm.catch(Error(ArgumentErrorKey, "Not callable: ", fun), stack, env)
+				ops, pc, sp, env, err = vm.catch(NewError(ArgumentErrorKey, "Not callable: ", callable), stack, env)
 				if err != nil {
 					return nil, err
 				}
 			}
-		} else if op == opcodeGlobal { //GObjectAL
+		} else if op == opcodeGlobal {
 			sym := constants[ops[pc+1]]
 			sp--
-			stack[sp] = sym.car
+			stack[sp] = (sym.(*Symbol)).Value
 			pc += 2
 		} else if op == opcodeLocal {
 			tmpEnv := env
@@ -888,41 +917,43 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 			sp++
 			pc++
 		} else if op == opcodeTailCall {
-			fun := stack[sp]
+			callable := stack[sp]
 			argc := ops[pc+1]
-			if fun.primitive != nil {
-				nextSp := sp + argc
-				prim := fun.primitive
-				argv := stack[sp+1:nextSp+1]
-				if prim.defaults != nil {
-					val, err = vm.callPrimitiveWithDefaults(prim, argv)
+			if fun, ok := callable.(*Function); ok {
+				if fun.primitive != nil {
+					nextSp := sp + argc
+					prim := fun.primitive
+					argv := stack[sp+1:nextSp+1]
+					if prim.defaults != nil {
+						val, err = vm.callPrimitiveWithDefaults(prim, argv)
+					} else {
+						val, err = prim.fun(argv)
+					}
+					if err != nil {
+						ops, pc, sp, env, err = vm.catch(err, stack, env)
+						if err != nil {
+							return nil, err
+						}
+					}
+					stack[nextSp] = val
+					sp = nextSp
+					ops = env.ops
+					pc = env.pc
+					env = env.previous
+					if env == nil {
+						return stack[sp], nil
+					}
 				} else {
-					val, err = prim.fun(argv)
-				}
-				if err != nil {
-					ops, pc, sp, env, err = vm.catch(err, stack, env)
+					ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
 					if err != nil {
 						return nil, err
 					}
+					if env == nil {
+						return stack[sp], nil
+					}
 				}
-				stack[nextSp] = val
-				sp = nextSp
-				ops = env.ops
-				pc = env.pc
-				env = env.previous
-				if env == nil {
-					return stack[sp], nil
-				}
-			} else if fun.Type == fun.Type {
-				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
-				if err != nil {
-					return nil, err
-				}
-				if env == nil {
-					return stack[sp], nil
-				}
-			} else if fun.Type == KeywordType {
-				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
+			} else if kw, ok := callable.(*Keyword); ok {
+				ops, pc, sp, env, err = vm.keywordTailcall(kw, argc, ops, stack, sp+1, env)
 				if err != nil {
 					ops, pc, sp, env, err = vm.catch(err, stack, env)
 					if err != nil {
@@ -934,7 +965,7 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 					}
 				}
 			} else {
-				ops, pc, sp, env, err = vm.catch(Error(ArgumentErrorKey, "Not callable: ", fun), stack, env)
+				ops, pc, sp, env, err = vm.catch(NewError(ArgumentErrorKey, "Not callable: ", fun), stack, env)
 				if err != nil {
 					return nil, err
 				}
@@ -955,7 +986,7 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 			pc += 3
 		} else if op == opcodeClosure {
 			sp--
-			stack[sp] = Closure(constants[ops[pc+1]].code, env)
+			stack[sp] = Closure(constants[ops[pc+1]].(*Code), env)
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if env.previous == nil {
@@ -967,20 +998,20 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 		} else if op == opcodeJump {
 			pc += ops[pc+1]
 		} else if op == opcodeDefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			defGlobal(sym, stack[sp])
 			pc += 2
 		} else if op == opcodeUndefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			undefGlobal(sym)
 			pc += 2
 		} else if op == opcodeDefMacro {
-			sym := constants[ops[pc+1]]
-			defMacro(sym, stack[sp])
+			sym := constants[ops[pc+1]].(*Symbol)
+			defMacro(sym, stack[sp].(*Function))
 			stack[sp] = sym
 			pc += 2
 		} else if op == opcodeUse {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			err := Use(sym)
 			if err != nil {
 				ops, pc, sp, env, err = vm.catch(err, stack, env)
@@ -994,13 +1025,13 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 			}
 		} else if op == opcodeVector {
 			vlen := ops[pc+1]
-			v := Vector(stack[sp : sp+vlen]...)
+			v := NewVector(stack[sp : sp+vlen]...)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
 		} else if op == opcodeStruct {
 			vlen := ops[pc+1]
-			v, _ := Struct(stack[sp : sp+vlen])
+			v, _ := MakeStruct(stack[sp : sp+vlen])
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
@@ -1012,9 +1043,9 @@ func (vm *vm) exec(code *Code, env *frame) (*Object, error) {
 
 const stackColumn = 40
 
-func showInstruction(pc int, op int, args string, stack []*Object, sp int) {
+func showInstruction(pc int, op int, args string, stack []Value, sp int) {
 	var body string
-	body = leftJustified(fmt.Sprintf("%d ", pc), 8) + leftJustified(opsyms[op].text, 10) + args
+	body = leftJustified(fmt.Sprintf("%d ", pc), 8) + leftJustified(opsyms[op].String(), 10) + args
 	println(leftJustified(body, stackColumn), showStack(stack, sp))
 }
 
@@ -1031,7 +1062,7 @@ func truncatedObjectString(s string, limit int) string {
 		s = s[:limit] // ((defn foo (x) (if (not (stri
 		firstN := s[:limit-3]
 		for i := limit - 1; i >= 0; i-- {
-			if isWhitespace(s[i]) {
+			if IsWhitespace(s[i]) {
 				s = s[:i]
 				break
 			}
@@ -1060,9 +1091,9 @@ func truncatedObjectString(s string, limit int) string {
 	}
 	return s
 }
-func showStack(stack []*Object, sp int) string {
+func showStack(stack []Value, sp int) string {
 	end := len(stack)
-	s := "["
+	s := fmt.Sprintf("%d [", sp)
 	limit := 5
 	tail := ""
 	if end-sp > limit {
@@ -1077,12 +1108,17 @@ func showStack(stack []*Object, sp int) string {
 	return s + tail + " ]"
 }
 
-func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
-	stack := make([]*Object, vm.stackSize)
+func primopName(v Value) string {
+	f, _ := v.(*Function)
+	return f.primitive.name
+}
+
+func (vm *vm) instrumentedExec(code *Code, env *Frame) (Value, error) {
+	stack := make([]Value, vm.stackSize)
 	sp := vm.stackSize
 	ops := code.ops
 	pc := 0
-	var err error
+	var err, err2 error
 	for {
 		op := ops[pc]
 		if op == opcodeCall { // CALL
@@ -1090,27 +1126,29 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			argc := ops[pc+1]
-			fun := stack[sp]
-			if fun.primitive != nil {
-				nextSp := sp + argc
-				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
-				if err != nil {
-					ops, pc, sp, env, err = vm.catch(err, stack, env)
+			callable := stack[sp]
+			if fun, ok := callable.(*Function); ok {
+				if fun.primitive != nil {
+					nextSp := sp + argc
+					val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
+					if err != nil {
+						ops, pc, sp, env, err = vm.catch(err, stack, env)
+						if err != nil {
+							return nil, err
+						}
+					} else {
+						stack[nextSp] = val
+						sp = nextSp
+						pc += 2
+					}
+				} else {
+					ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
 					if err != nil {
 						return nil, err
 					}
-				} else {
-					stack[nextSp] = val
-					sp = nextSp
-					pc += 2
 				}
-			} else if fun.Type == FunctionType {
-				ops, pc, sp, env, err = vm.funcall(fun, argc, ops, pc+2, stack, sp+1, env)
-				if err != nil {
-					return nil, err
-				}
-			} else if fun.Type == KeywordType {
-				pc, sp, err = vm.keywordCall(fun, argc, pc+2, stack, sp+1)
+			} else if kw, ok := callable.(*Keyword); ok {
+				pc, sp, err = vm.keywordCall(kw, argc, pc+2, stack, sp+1)
 				if err != nil {
 					ops, pc, sp, env, err = vm.catch(err, stack, env)
 					if err != nil {
@@ -1118,26 +1156,26 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 					}
 				}
 			} else {
-				err := Error(ArgumentErrorKey, "Not callable: ", fun)
-				ops, pc, sp, env, err = vm.catch(err, stack, env)
-				if err != nil {
-					return nil, err
+				err := NewError(ArgumentErrorKey, "Not callable: ", fun)
+				ops, pc, sp, env, err2 = vm.catch(err, stack, env)
+				if err2 != nil {
+					return nil, err2
 				}
 			}
 		} else if op == opcodeGlobal { //GObjectAL
-			sym := constants[ops[pc+1]]
-			if sym.car == nil {
-				err := Error(ErrorKey, "Undefined symbol: ", sym)
-				ops, pc, sp, env, err = vm.catch(err, stack, env)
-				if err != nil {
-					return nil, err
+			sym := constants[ops[pc+1]].(*Symbol)
+			if sym.Value == nil {
+				err := NewError(ErrorKey, "Undefined symbol: ", sym)
+				ops, pc, sp, env, err2 = vm.catch(err, stack, env)
+				if err2 != nil {
+					return nil, err2
 				}
 			} else {
 				if trace {
-					showInstruction(pc, op, sym.text, stack, sp)
+					showInstruction(pc, op, sym.Text, stack, sp)
 				}
 				sp--
-				stack[sp] = sym.car
+				stack[sp] = sym.Value
 				pc += 2
 			}
 		} else if op == opcodeLocal {
@@ -1174,41 +1212,43 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 			pc++
 		} else if op == opcodeTailCall {
 			if interrupted || checkInterrupt() {
-				return nil, addContext(env, Error(InterruptKey)) //not catchable
+				return nil, addContext(env, NewError(InterruptKey)) //not catchable
 			}
 			if trace {
 				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
-			fun := stack[sp]
+			callable := stack[sp]
 			argc := ops[pc+1]
-			if fun.primitive != nil {
-				nextSp := sp + argc
-				val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
-				if err != nil {
-					ops, pc, sp, env, err = vm.catch(err, stack, env)
+			if fun, ok := callable.(*Function); ok {
+				if fun.primitive != nil {
+					nextSp := sp + argc
+					val, err := vm.callPrimitive(fun.primitive, stack[sp+1:nextSp+1])
+					if err != nil {
+						ops, pc, sp, env, err = vm.catch(err, stack, env)
+						if err != nil {
+							return nil, err
+						}
+					} else {
+						stack[nextSp] = val
+						sp = nextSp
+						ops = env.ops
+						pc = env.pc
+						env = env.previous
+						if env == nil {
+							return stack[sp], nil
+						}
+					}
+				} else  {
+					ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
 					if err != nil {
 						return nil, err
 					}
-				} else {
-					stack[nextSp] = val
-					sp = nextSp
-					ops = env.ops
-					pc = env.pc
-					env = env.previous
 					if env == nil {
 						return stack[sp], nil
 					}
 				}
-			} else if fun.Type == FunctionType {
-				ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
-				if err != nil {
-					return nil, err
-				}
-				if env == nil {
-					return stack[sp], nil
-				}
-			} else if fun.Type == KeywordType {
-				ops, pc, sp, env, err = vm.keywordTailcall(fun, argc, ops, stack, sp+1, env)
+			} else if kw, ok := callable.(*Keyword); ok {
+				ops, pc, sp, env, err = vm.keywordTailcall(kw, argc, ops, stack, sp+1, env)
 				if err != nil {
 					return nil, err
 				}
@@ -1216,11 +1256,11 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 					return stack[sp], nil
 				}
 			} else {
-				return nil, addContext(env, Error(ArgumentErrorKey, "Not callable: ", fun))
+				return nil, addContext(env, NewError(ArgumentErrorKey, "Not callable: ", fun))
 			}
 		} else if op == opcodeLiteral {
 			if trace {
-				showInstruction(pc, op, Write(constants[ops[pc+1]].Type), stack, sp)
+				showInstruction(pc, op, Write(constants[ops[pc+1]].Type()), stack, sp)
 			}
 			sp--
 			stack[sp] = constants[ops[pc+1]]
@@ -1243,11 +1283,11 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 				showInstruction(pc, op, "", stack, sp)
 			}
 			sp--
-			stack[sp] = Closure(constants[ops[pc+1]].code, env)
+			stack[sp] = Closure((constants[ops[pc+1]].(*Code)), env)
 			pc = pc + 2
 		} else if op == opcodeReturn {
 			if interrupted || checkInterrupt() {
-				return nil, addContext(env, Error(InterruptKey)) //not catchable
+				return nil, addContext(env, NewError(InterruptKey)) //not catchable
 			}
 			if trace {
 				showInstruction(pc, op, "", stack, sp)
@@ -1264,31 +1304,32 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 			}
 			pc += ops[pc+1]
 		} else if op == opcodeDefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			if trace {
-				showInstruction(pc, op, sym.text, stack, sp)
+				showInstruction(pc, op, sym.Text, stack, sp)
 			}
 			defGlobal(sym, stack[sp])
+			//fmt.Println(";", sym)
 			pc += 2
 		} else if op == opcodeUndefGlobal {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			if trace {
-				showInstruction(pc, op, sym.text, stack, sp)
+				showInstruction(pc, op, sym.Text, stack, sp)
 			}
 			undefGlobal(sym)
 			pc += 2
 		} else if op == opcodeDefMacro {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			if trace {
-				showInstruction(pc, op, sym.text, stack, sp)
+				showInstruction(pc, op, sym.Text, stack, sp)
 			}
-			defMacro(sym, stack[sp])
+			defMacro(sym, stack[sp].(*Function))
 			stack[sp] = sym
 			pc += 2
 		} else if op == opcodeUse {
-			sym := constants[ops[pc+1]]
+			sym := constants[ops[pc+1]].(*Symbol)
 			if trace {
-				showInstruction(pc, op, sym.text, stack, sp)
+				showInstruction(pc, op, sym.Text, stack, sp)
 			}
 			err := Use(sym)
 			if err != nil {
@@ -1305,7 +1346,7 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			vlen := ops[pc+1]
-			v := Vector(stack[sp : sp+vlen]...)
+			v := NewVector(stack[sp : sp+vlen]...)
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2
@@ -1314,7 +1355,7 @@ func (vm *vm) instrumentedExec(code *Code, env *frame) (*Object, error) {
 				showInstruction(pc, op, fmt.Sprintf("%d", ops[pc+1]), stack, sp)
 			}
 			vlen := ops[pc+1]
-			v, _ := Struct(stack[sp : sp+vlen])
+			v, _ := MakeStruct(stack[sp : sp+vlen])
 			sp = sp + vlen - 1
 			stack[sp] = v
 			pc += 2

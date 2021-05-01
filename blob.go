@@ -16,39 +16,61 @@ limitations under the License.
 
 package ell
 
+import(
+	"fmt"
+	
+	. "github.com/boynton/ell/data"
+)
+
+var BlobType Value = Intern("<blob>")
+
+type Blob struct {
+	Value []byte
+}
+
+func (b *Blob) Type() Value {
+	return BlobType
+}
+
+func (b *Blob) String() string {
+	//notation.go can handle it as an instance: #<blob>"base64 string value"
+	//but here, we would return a nonreadable thing
+	return fmt.Sprintf("#[Blob %d bytes]", len(b.Value))
+}
+func (b *Blob) Equals(another Value) bool {
+	return false //FIXME
+}
+
 // Blob - create a new blob, using the specified byte slice as the data. The data is not copied.
-func Blob(bytes []byte) *Object {
-	b := new(Object)
-	b.Type = BlobType
-	b.Value = bytes
-	return b
+func NewBlob(bytes []byte) *Blob {
+	return &Blob{Value: bytes}
 }
 
 // MakeBlob - create a new blob of the given size. It will be initialized to all zeroes
-func MakeBlob(size int) *Object {
+func MakeBlob(size int) *Blob {
 	el := make([]byte, size)
-	return Blob(el)
+	return NewBlob(el)
 }
 
 // EmptyBlob - a blob with no bytes
 var EmptyBlob = MakeBlob(0)
 
 // ToBlob - convert argument to a blob, if possible.
-func ToBlob(obj *Object) (*Object, error) {
-	switch obj.Type {
-	case BlobType:
-		return obj, nil
-	case StringType:
-		return Blob([]byte(obj.text)), nil //this copies the data
-	case VectorType:
-		return vectorToBlob(obj)
+func ToBlob(obj Value) (*Blob, error) {
+	switch p := obj.(type) {
+	case *Blob:
+		return p, nil
+	case *String:
+		return NewBlob([]byte(p.Value)), nil //this copies the data
+	case *Vector:
+		return vectorToBlob(p)
 	default:
-		return nil, Error(ArgumentErrorKey, "to-blob expected <blob> or <string>, got a ", obj.Type)
+		return nil, NewError(ArgumentErrorKey, "to-blob expected <blob> or <string>, got a ", obj.Type())
 	}
 }
 
-func vectorToBlob(obj *Object) (*Object, error) {
-	el := obj.elements
+func vectorToBlob(vec *Vector) (*Blob, error) {
+	el := vec.Elements
 	n := len(el)
 	b := make([]byte, n, n)
 	for i := 0; i < n; i++ {
@@ -58,5 +80,5 @@ func vectorToBlob(obj *Object) (*Object, error) {
 		}
 		b[i] = val
 	}
-	return Blob(b), nil
+	return NewBlob(b), nil
 }

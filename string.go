@@ -18,67 +18,66 @@ package ell
 
 import (
 	"strings"
+
+	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
 )
 
-// EmptyString
-var EmptyString = String("")
-
-// String - create a new string object
-func String(s string) *Object {
-	str := new(Object)
-	str.Type = StringType
-	str.text = s
-	return str
-}
 
 // AsStringValue - return the native string representation of the object, if possible
-func AsStringValue(obj *Object) (string, error) {
-	if !IsString(obj) {
-		return "", Error(ArgumentErrorKey, StringType, obj)
+func AsStringValue(obj Value) (string, error) {
+	if p, ok := obj.(*String); ok {
+		return p.Value, nil
 	}
-	return obj.text, nil
+	return "", NewError(ArgumentErrorKey, StringType, obj)
 }
 
 // ToString - convert the object to a string, if possible
-func ToString(a *Object) (*Object, error) {
-	switch a.Type {
-	case NullType:
-		return a, nil
-	case CharacterType:
-		return String(string([]rune{rune(a.fval)})), nil
-	case StringType:
-		return a, nil
-	case BlobType:
-		return String(string(BlobValue(a))), nil
-	case SymbolType, KeywordType, TypeType:
-		return String(a.text), nil
-	case NumberType, BooleanType:
-		return String(a.String()), nil
-	case VectorType:
+func ToString(a Value) (*String, error) {
+	switch p := a.(type) {
+	case *Character:
+		return NewString(string([]rune{p.Value})), nil
+	case *String:
+		return p, nil
+	case *Blob:
+		return NewString(string(p.Value)), nil
+	case *Symbol:
+		return NewString(p.Text), nil
+	case *Keyword:
+		return NewString(p.Name()), nil
+	case *Type:
+		return NewString(p.Name()), nil
+	case *Number:
+		return NewString(p.String()), nil
+	case *Boolean:
+		return NewString(p.String()), nil
+	case *Vector:
 		var chars []rune
-		for _, c := range a.elements {
-			if !IsCharacter(c) {
-				return nil, Error(ArgumentErrorKey, "to-string: vector element is not a <character>: ", c)
+		for _, c := range p.Elements {
+			if pc, ok := c.(*Character); ok {
+				chars = append(chars, pc.Value)
+			} else {
+				return nil, NewError(ArgumentErrorKey, "to-string: vector element is not a <character>: ", c)
 			}
-			chars = append(chars, rune(c.fval))
 		}
-		return String(string(chars)), nil
-	case ListType:
+		return NewString(string(chars)), nil
+	case *List:
 		var chars []rune
-		for a != EmptyList {
-			c := Car(a)
-			if !IsCharacter(c) {
-				return nil, Error(ArgumentErrorKey, "to-string: list element is not a <character>: ", c)
+		for p != EmptyList {
+			c := p.Car
+			if pc, ok := c.(*Character); ok {
+				chars = append(chars, pc.Value)
+			} else {
+				return nil, NewError(ArgumentErrorKey, "to-string: list element is not a <character>: ", c)
 			}
-			chars = append(chars, rune(c.fval))
-			a = a.cdr
+			p = p.Cdr
 		}
-		return String(string(chars)), nil
+		return NewString(string(chars)), nil
 	default:
-		return nil, Error(ArgumentErrorKey, "to-string: cannot convert argument to <string>: ", a)
+		return nil, NewError(ArgumentErrorKey, "to-string: cannot convert argument to <string>: ", a)
 	}
 }
 
+/*
 // StringLength - return the string length
 func StringLength(s string) int {
 	count := 0
@@ -122,123 +121,120 @@ func EncodeString(s string) string {
 	buf = append(buf, '"')
 	return string(buf)
 }
-
-// Character - return a new <character> object
-func Character(c rune) *Object {
-	char := new(Object)
-	char.Type = CharacterType
-	char.fval = float64(c)
-	return char
-}
-
+*/
+	
 // ToCharacter - convert object to a <character> object, if possible
-func ToCharacter(c *Object) (*Object, error) {
-	switch c.Type {
-	case CharacterType:
-		return c, nil
-	case StringType:
-		if len(c.text) == 1 {
-			for _, r := range c.text {
-				return Character(r), nil
+func ToCharacter(c Value) (*Character, error) {
+	switch p := c.(type) {
+	case *Character:
+		return p, nil
+	case *String:
+		if len(p.Value) == 1 {
+			for _, r := range p.Value {
+				return NewCharacter(r), nil
 			}
 		}
-	case NumberType:
-		r := rune(int(c.fval))
-		return Character(r), nil
+	case *Number:
+		r := rune(int(p.Value))
+		return NewCharacter(r), nil
 	}
-	return nil, Error(ArgumentErrorKey, "Cannot convert to <character>: ", c)
+	return nil, NewError(ArgumentErrorKey, "Cannot convert to <character>: ", c)
 }
-
+/*
 // AsCharacter - return the native rune representation of the character object, if possible
-func AsRuneValue(c *Object) (rune, error) {
+func AsRuneValue(c Object) (rune, error) {
 	if !IsCharacter(c) {
 		return 0, Error(ArgumentErrorKey, "Not a <character>", c)
 	}
 	return rune(c.fval), nil
 }
+*/
 
 // StringCharacters - return a slice of <character> objects that represent the string
-func StringCharacters(s *Object) []*Object {
-	var chars []*Object
-	for _, c := range s.text {
-		chars = append(chars, Character(c))
+func StringCharacters(s *String) []Value {
+	var chars []Value
+	for _, c := range s.Value {
+		chars = append(chars, NewCharacter(c))
 	}
 	return chars
 }
 
 // StringRef - return the <character> object at the specified string index
-func StringRef(s *Object, idx int) *Object {
+func StringRef(s *String, idx int) Value {
 	//utf8 requires a scan
-	for i, r := range s.text {
+	for i, r := range s.Value {
 		if i == idx {
-			return Character(r)
+			return NewCharacter(r)
 		}
 	}
 	return Null
 }
 
-func stringToVector(s *Object) *Object {
-	return Vector(StringCharacters(s)...)
+func StringToVector(s *String) *Vector {
+	return NewVector(StringCharacters(s)...)
 }
 
-func stringToList(s *Object) *Object {
-	return List(StringCharacters(s)...)
+func StringToList(s *String) *List {
+	return NewList(StringCharacters(s)...)
 }
 
-func StringSplit(obj *Object, delims *Object) (*Object, error) {
-	if !IsString(obj) {
-		return nil, Error(ArgumentErrorKey, "split expected a <string> for argument 1, got ", obj)
+func StringSplit(obj Value, delims Value) (*List, error) {
+	str, ok := obj.(*String)
+	if !ok {
+		return nil, NewError(ArgumentErrorKey, "split expected a <string> for argument 1, got ", obj)
 	}
-	if !IsString(delims) {
-		return nil, Error(ArgumentErrorKey, "split expected a <string> for argument 2, got ", delims)
+	del, ok := delims.(*String)
+	if !ok {
+		return nil, NewError(ArgumentErrorKey, "split expected a <string> for argument 2, got ", delims)
 	}
 	lst := EmptyList
 	tail := EmptyList
-	for _, s := range strings.Split(obj.text, delims.text) {
+	for _, s := range strings.Split(str.Value, del.Value) {
 		if lst == EmptyList {
-			lst = List(String(s))
+			lst = NewList(NewString(s))
 			tail = lst
 		} else {
-			tail.cdr = List(String(s))
-			tail = tail.cdr
+			tail.Cdr = NewList(NewString(s))
+			tail = tail.Cdr
 		}
 	}
 	return lst, nil
 }
 
-func StringJoin(seq *Object, delims *Object) (*Object, error) {
-	if !IsString(delims) {
-		return nil, Error(ArgumentErrorKey, "join expected a <string> for argument 2, got ", delims)
+func StringJoin(seq Value, delims Value) (*String, error) {
+	del, ok := delims.(*String)
+	if !ok {
+		return nil, NewError(ArgumentErrorKey, "join expected a <string> for argument 2, got ", delims)
 	}
-	switch seq.Type {
-	case ListType:
+	switch p := seq.(type) {
+	case *List:
 		result := ""
-		for seq != EmptyList {
-			o := seq.car
+		for p != EmptyList {
+			o := p.Car
 			if o != EmptyString && o != Null {
 				if result != "" {
-					result += delims.text
+					result += del.Value
 				}
 				result += o.String()
 			}
-			seq = seq.cdr
+			p = p.Cdr
 		}
-		return String(result), nil
-	case VectorType:
+		return NewString(result), nil
+	case *Vector:
 		result := ""
-		elements := seq.elements
+		elements := p.Elements
 		count := len(elements)
 		for i := 0; i < count; i++ {
 			o := elements[i]
 			if o != EmptyString && o != Null {
 				if result != "" {
-					result += delims.text
+					result += del.Value
 				}
 				result += o.String()
 			}
 		}
-		return String(result), nil
+		return NewString(result), nil
 	default:
-		return nil, Error(ArgumentErrorKey, "join expected a <list> or <vector> for argument 1, got a ", seq.Type)
+		return nil, NewError(ArgumentErrorKey, "join expected a <list> or <vector> for argument 1, got a ", seq.Type)
 	}
 }

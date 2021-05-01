@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	. "github.com/boynton/ell/data"
 )
 
 type ellHandler struct {
@@ -50,7 +52,7 @@ func (ell *ellHandler) Eval(expr string) (string, bool, error) {
 		if whole == "" {
 			return "", false, nil
 		}
-		lexpr, err := Read(String(whole), AnyType)
+		lexpr, err := ReadFromString(whole)
 		ell.buf = ""
 		if err == nil {
 			val, err := Eval(lexpr)
@@ -116,12 +118,12 @@ func (ell *ellHandler) completePrefix(expr string) (string, bool) {
 	if exprLen > 0 {
 		i := exprLen - 1
 		ch := expr[i]
-		if !isWhitespace(ch) && !isDelimiter(ch) {
+		if !IsWhitespace(ch) && !IsDelimiter(ch) {
 			if i > 0 {
 				i--
 				for {
 					ch = expr[i]
-					if isWhitespace(ch) || isDelimiter(ch) {
+					if IsWhitespace(ch) || IsDelimiter(ch) {
 						funPosition = ch == '('
 						prefix = expr[i+1:]
 						break
@@ -144,45 +146,45 @@ func (ell *ellHandler) Complete(expr string) (string, []string) {
 	var matches []string
 	addendum := ""
 	prefix, funPosition := ell.completePrefix(expr)
-	candidates := map[*Object]bool{}
+	candidates := map[string]bool{}
 	if funPosition {
 		for _, sym := range GetKeywords() {
 			str := sym.String()
 			if strings.HasPrefix(str, prefix) {
-				candidates[sym] = true
+				candidates[sym.String()] = true
 			}
 		}
 		for _, sym := range Macros() {
-			_, ok := candidates[sym]
+			_, ok := candidates[sym.String()]
 			if !ok {
 				str := sym.String()
 				if strings.HasPrefix(str, prefix) {
-					candidates[sym] = true
+					candidates[sym.String()] = true
 				}
 			}
 		}
 	}
 	for _, sym := range Globals() {
-		_, ok := candidates[sym]
+		str := sym.String()
+		_, ok := candidates[str]
 		if !ok {
-			_, ok := candidates[sym]
+			_, ok := candidates[str]
 			if !ok {
-				str := sym.String()
 				if strings.HasPrefix(str, prefix) {
 					if funPosition {
 						val := GetGlobal(sym)
 						if IsFunction(val) {
-							candidates[sym] = true
+							candidates[str] = true
 						}
 					} else {
-						candidates[sym] = true
+						candidates[str] = true
 					}
 				}
 			}
 		}
 	}
-	for sym := range candidates {
-		matches = append(matches, sym.String())
+	for str := range candidates {
+		matches = append(matches, str)
 
 	}
 	sort.Strings(matches)

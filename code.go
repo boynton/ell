@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	. "github.com/boynton/ell/data"
 )
 
 const (
@@ -65,8 +67,8 @@ var FuncSymbol = Intern("func")
 
 var opsyms = initOpsyms()
 
-func initOpsyms() []*Object {
-	syms := make([]*Object, opcodeCount)
+func initOpsyms() []Value {
+	syms := make([]Value, opcodeCount)
 	syms[opcodeLiteral] = LiteralSymbol
 	syms[opcodeLocal] = LocalSymbol
 	syms[opcodeJumpFalse] = JumpfalseSymbol
@@ -87,17 +89,18 @@ func initOpsyms() []*Object {
 	return syms
 }
 
+var CodeType Value = Intern("<code>")
+
 // Code - compiled Ell bytecode
 type Code struct {
 	name     string
 	ops      []int
 	argc     int
-	defaults []*Object
-	keys     []*Object
+	defaults []Value
+	keys     []Value
 }
 
-// MakeCode - create a new code object
-func MakeCode(argc int, defaults []*Object, keys []*Object, name string) *Object {
+func MakeCode(argc int, defaults []Value, keys []Value, name string) *Code {
 	var ops []int
 	code := &Code{
 		name,
@@ -106,11 +109,20 @@ func MakeCode(argc int, defaults []*Object, keys []*Object, name string) *Object
 		defaults, //nil for normal procs, empty for rest, and non-empty for optional/keyword
 		keys,
 	}
-	result := new(Object)
-	result.Type = CodeType
-	result.code = code
-	return result
+	return code
 }
+
+func (code *Code) Type() Value {
+	return CodeType
+}
+
+func (code1 *Code) Equals(another Value) bool {
+	if code2, ok := another.(*Code); ok {
+		return code1 == code2
+	}
+	return false
+}
+
 
 func (code *Code) signature() string {
 	//
@@ -152,7 +164,7 @@ func (code *Code) decompile(pretty bool) string {
 	var buf bytes.Buffer
 	code.decompileInto(&buf, "", pretty)
 	s := buf.String()
-	return strings.Replace(s, "("+FuncSymbol.text+" (\"\" 0 [] [])", "(code", 1)
+	return strings.Replace(s, "("+SymbolName(FuncSymbol)+" (\"\" 0 [] [])", "(code", 1)
 }
 
 func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
@@ -160,7 +172,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	offset := 0
 	max := len(code.ops)
 	prefix := " "
-	buf.WriteString(indent + "(" + FuncSymbol.text + " (")
+	buf.WriteString(indent + "(" + SymbolName(FuncSymbol) + " (")
 	buf.WriteString(fmt.Sprintf("%q ", code.name))
 	buf.WriteString(strconv.Itoa(code.argc))
 	if code.defaults != nil {
@@ -182,7 +194,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 	}
 	for offset < max {
 		op := code.ops[offset]
-		s := prefix + "(" + opsyms[op].text
+		s := prefix + "(" + SymbolName(opsyms[op])
 		switch op {
 		case opcodePop, opcodeReturn:
 			buf.WriteString(s + ")")
@@ -207,7 +219,7 @@ func (code *Code) decompileInto(buf *bytes.Buffer, indent string, pretty bool) {
 			if pretty {
 				indent2 = indent + indentAmount
 			}
-			constants[code.ops[offset+1]].code.decompileInto(buf, indent2, pretty)
+			(constants[code.ops[offset+1]].(*Code)).decompileInto(buf, indent2, pretty)
 			buf.WriteString(")")
 			offset += 2
 		default:
@@ -222,7 +234,7 @@ func (code *Code) String() string {
 	//	return fmt.Sprintf("(function (%d %v %s) %v)", code.argc, code.defaults, code.keys, code.ops)
 }
 
-func (code *Code) loadOps(lst *Object) error {
+func (code *Code) loadOps(lst *List) error {
 	for lst != EmptyList {
 		instr := Car(lst)
 		op := Car(instr)
@@ -230,16 +242,16 @@ func (code *Code) loadOps(lst *Object) error {
 		case ClosureSymbol:
 			lstFunc := Cadr(instr)
 			if Car(lstFunc) != FuncSymbol {
-				return Error(SyntaxErrorKey, instr)
+				return NewError(SyntaxErrorKey, instr)
 			}
 			lstFunc = Cdr(lstFunc)
 			funcParams := Car(lstFunc)
 			var argc int
 			var name string
-			var defaults []*Object
-			var keys []*Object
+			var defaults []Value
+			var keys []Value
 			var err error
-			if IsSymbol(funcParams) {
+			/*			if IsSymbol(funcParams) {
 				//legacy form, just the argc
 				argc, err = AsIntValue(funcParams)
 				if err != nil {
@@ -249,34 +261,36 @@ func (code *Code) loadOps(lst *Object) error {
 					argc = -argc - 1
 					defaults = make([]*Object, 0)
 				}
-			} else if IsList(funcParams) && ListLength(funcParams) == 4 {
-				tmp := funcParams
-				a := Car(tmp)
-				tmp = Cdr(tmp)
+			} else */
+			if lst, ok := funcParams.(*List); ok && lst.Length() == 4 {
+				//			if IsList(funcParams) && ListLength(funcParams) == 4 {
+				a := lst.Car
+				lst = lst.Cdr
 				name, err = AsStringValue(a)
 				if err != nil {
-					return Error(SyntaxErrorKey, funcParams)
+					return NewError(SyntaxErrorKey, funcParams)
 				}
-				a = Car(tmp)
-				tmp = Cdr(tmp)
-				argc, err = AsIntValue(a)
-				if err != nil {
-					return Error(SyntaxErrorKey, funcParams)
+				a = lst.Car
+				lst = lst.Cdr
+				if n, ok := a.(*Number); ok {
+					argc = n.IntValue()
+				} else {
+					return NewError(SyntaxErrorKey, funcParams)
 				}
-				a = Car(tmp)
-				tmp = Cdr(tmp)
-				if IsVector(a) {
-					defaults = a.elements
+				a = lst.Car
+				lst = lst.Cdr
+				if v, ok := a.(*Vector); ok {
+					defaults = v.Elements
 				}
-				a = Car(tmp)
-				if IsVector(a) {
-					keys = a.elements
+				a = lst.Car
+				if v, ok := a.(*Vector); ok {
+					keys = v.Elements
 				}
 			} else {
-				return Error(SyntaxErrorKey, funcParams)
+				return NewError(SyntaxErrorKey, funcParams)
 			}
 			fun := MakeCode(argc, defaults, keys, name)
-			fun.code.loadOps(Cdr(lstFunc))
+			fun.loadOps(Cdr(lstFunc))
 			code.emitClosure(fun)
 		case LiteralSymbol:
 			code.emitLiteral(Cadr(instr))
@@ -305,7 +319,7 @@ func (code *Code) loadOps(lst *Object) error {
 			if IsSymbol(sym) {
 				code.emitGlobal(sym)
 			} else {
-				return Error(GlobalSymbol, " argument 1 not a symbol: ", sym)
+				return NewError(GlobalSymbol, " argument 1 not a symbol: ", sym)
 			}
 		case UndefineSymbol:
 			code.emitUndefGlobal(Cadr(instr))
@@ -351,12 +365,12 @@ func (code *Code) loadOps(lst *Object) error {
 	return nil
 }
 
-func (code *Code) emitLiteral(val *Object) {
+func (code *Code) emitLiteral(val Value) {
 	code.ops = append(code.ops, opcodeLiteral)
 	code.ops = append(code.ops, putConstant(val))
 }
 
-func (code *Code) emitGlobal(sym *Object) {
+func (code *Code) emitGlobal(sym Value) {
 	code.ops = append(code.ops, opcodeGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
@@ -384,19 +398,19 @@ func (code *Code) emitSetLocal(i int, j int) {
 	code.ops = append(code.ops, i)
 	code.ops = append(code.ops, j)
 }
-func (code *Code) emitDefGlobal(sym *Object) {
+func (code *Code) emitDefGlobal(sym Value) {
 	code.ops = append(code.ops, opcodeDefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitUndefGlobal(sym *Object) {
+func (code *Code) emitUndefGlobal(sym Value) {
 	code.ops = append(code.ops, opcodeUndefGlobal)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitDefMacro(sym *Object) {
+func (code *Code) emitDefMacro(sym Value) {
 	code.ops = append(code.ops, opcodeDefMacro)
 	code.ops = append(code.ops, putConstant(sym))
 }
-func (code *Code) emitClosure(newCode *Object) {
+func (code *Code) emitClosure(newCode Value) {
 	code.ops = append(code.ops, opcodeClosure)
 	code.ops = append(code.ops, putConstant(newCode))
 }
@@ -423,7 +437,7 @@ func (code *Code) emitStruct(slen int) {
 	code.ops = append(code.ops, opcodeStruct)
 	code.ops = append(code.ops, slen)
 }
-func (code *Code) emitUse(sym *Object) {
+func (code *Code) emitUse(sym Value) {
 	code.ops = append(code.ops, opcodeUse)
 	code.ops = append(code.ops, putConstant(sym))
 }

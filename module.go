@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/boynton/cli"
+	. "github.com/boynton/ell/data"
 )
 
 var verbose bool
@@ -42,49 +43,54 @@ func SetFlags(o bool, v bool, d bool, t bool, i bool) {
 // Version - this version of ell
 var Version = "(development version)"
 
-var constantsMap = make(map[*Object]int, 0)
-var constants = make([]*Object, 0, 1000)
-var macroMap = make(map[*Object]*macro, 0)
-var primitives = make([]*primitive, 0, 1000)
+var constantsMap = make(map[Value]int, 0)
+var constants = make([]Value, 0, 1000)
+var macroMap = make(map[Value]*macro, 0)
+var primitives = make([]*Primitive, 0, 1000)
 
 // Bind the value to the global name
-func DefineGlobal(name string, obj *Object) {
+func DefineGlobal(name string, obj Value) {
 	sym := Intern(name)
-	if sym == nil {
+	if p, ok := sym.(*Symbol); ok {
+		defGlobal(p, obj)
+	} else {
 		panic("Cannot define a value for this symbol: " + name)
 	}
-	defGlobal(sym, obj)
 }
 
-func definePrimitive(name string, prim *Object) {
+func definePrimitive(name string, prim *Function) {
 	sym := Intern(name)
 	if GetGlobal(sym) != nil {
 		println("*** Warning: redefining ", name, " with a primitive")
 	}
-	defGlobal(sym, prim)
+	if p, ok := sym.(*Symbol); ok {
+		defGlobal(p, prim)
+	} else {
+		panic("Cannot define a value for this symbol: " + name)
+	}
 }
 
 // Register a primitive function to the specified global name
-func DefineFunction(name string, fun PrimitiveFunction, result *Object, args ...*Object) {
-	prim := Primitive(name, fun, result, args, nil, nil, nil)
+func DefineFunction(name string, fun PrimitiveFunction, result Value, args ...Value) {
+	prim := NewPrimitive(name, fun, result, args, nil, nil, nil)
 	definePrimitive(name, prim)
 }
 
 // Register a primitive function with Rest arguments to the specified global name
-func DefineFunctionRestArgs(name string, fun PrimitiveFunction, result *Object, rest *Object, args ...*Object) {
-	prim := Primitive(name, fun, result, args, rest, []*Object{}, nil)
+func DefineFunctionRestArgs(name string, fun PrimitiveFunction, result Value, rest Value, args ...Value) {
+	prim := NewPrimitive(name, fun, result, args, rest, []Value{}, nil)
 	definePrimitive(name, prim)
 }
 
 // Register a primitive function with optional arguments to the specified global name
-func DefineFunctionOptionalArgs(name string, fun PrimitiveFunction, result *Object, args []*Object, defaults ...*Object) {
-	prim := Primitive(name, fun, result, args, nil, defaults, nil)
+func DefineFunctionOptionalArgs(name string, fun PrimitiveFunction, result Value, args []Value, defaults ...Value) {
+	prim := NewPrimitive(name, fun, result, args, nil, defaults, nil)
 	definePrimitive(name, prim)
 }
 
 // Register a primitive function with keyword arguments to the specified global name
-func DefineFunctionKeyArgs(name string, fun PrimitiveFunction, result *Object, args []*Object, defaults []*Object, keys []*Object) {
-	prim := Primitive(name, fun, result, args, nil, defaults, keys)
+func DefineFunctionKeyArgs(name string, fun PrimitiveFunction, result Value, args []Value, defaults []Value, keys []Value) {
+	prim := NewPrimitive(name, fun, result, args, nil, defaults, keys)
 	definePrimitive(name, prim)
 }
 
@@ -94,14 +100,14 @@ func DefineMacro(name string, fun PrimitiveFunction) {
 	if GetMacro(sym) != nil {
 		println("*** Warning: redefining macro ", name, " -> ", GetMacro(sym))
 	}
-	prim := Primitive(name, fun, AnyType, []*Object{AnyType}, nil, nil, nil)
+	prim := NewPrimitive(name, fun, AnyType, []Value{AnyType}, nil, nil, nil)
 	defMacro(sym, prim)
 }
 
 // GetKeywords - return a slice of Ell primitive reserved words
-func GetKeywords() []*Object {
+func GetKeywords() []Value {
 	//keywords reserved for the base language that Ell compiles
-	keywords := []*Object{
+	keywords := []Value{
 		Intern("quote"),
 		Intern("fn"),
 		Intern("if"),
@@ -117,41 +123,41 @@ func GetKeywords() []*Object {
 }
 
 // Globals - return a slice of all defined global symbols
-func Globals() []*Object {
-	var syms []*Object
-	for _, sym := range symtab {
-		if sym.car != nil {
-			syms = append(syms, sym)
+func Globals() []*Symbol {
+	var syms []*Symbol
+	for _, sym := range Symbols() {
+		if p, ok := sym.(*Symbol); ok && p.Value != nil {
+			syms = append(syms, p)
 		}
 	}
 	return syms
 }
 
 // GetGlobal - return the global value for the specified symbol, or nil if the symbol is not defined.
-func GetGlobal(sym *Object) *Object {
-	if IsSymbol(sym) {
-		return sym.car
+func GetGlobal(sym Value) Value {
+	if p, ok := sym.(*Symbol); ok {
+		return p.Value
 	}
 	return nil
 }
 
-func defGlobal(sym *Object, val *Object) {
-	sym.car = val
+func defGlobal(sym *Symbol, val Value) {
+	sym.Value = val
 	delete(macroMap, sym)
 }
 
 // IsDefined - return true if the there is a global value defined for the symbol
-func IsDefined(sym *Object) bool {
-	return sym.car != nil
+func IsDefined(sym *Symbol) bool {
+	return sym.Value != nil
 }
 
-func undefGlobal(sym *Object) {
-	sym.car = nil
+func undefGlobal(sym *Symbol) {
+	sym.Value = nil
 }
 
 // Macros - return a slice of all defined macros
-func Macros() []*Object {
-	keys := make([]*Object, 0, len(macroMap))
+func Macros() []Value {
+	keys := make([]Value, 0, len(macroMap))
 	for k := range macroMap {
 		keys = append(keys, k)
 	}
@@ -159,7 +165,7 @@ func Macros() []*Object {
 }
 
 // GetMacro - return the macro for the symbol, or nil if not defined
-func GetMacro(sym *Object) *macro {
+func GetMacro(sym Value) *macro {
 	mac, ok := macroMap[sym]
 	if !ok {
 		return nil
@@ -167,13 +173,13 @@ func GetMacro(sym *Object) *macro {
 	return mac
 }
 
-func defMacro(sym *Object, val *Object) {
-	macroMap[sym] = Macro(sym, val)
+func defMacro(sym Value, val *Function) {
+	macroMap[sym] = NewMacro(sym, val)
 }
 
 //note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
 //so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
-func putConstant(val *Object) int {
+func putConstant(val Value) int {
 	idx, present := constantsMap[val]
 	if !present {
 		idx = len(constants)
@@ -183,13 +189,13 @@ func putConstant(val *Object) int {
 	return idx
 }
 
-func Use(sym *Object) error {
-	return Load(sym.text)
+func Use(sym *Symbol) error {
+	return Load(sym.Text)
 }
 
-func importCode(thunk *Object) (*Object, error) {
-	var args []*Object
-	result, err := exec(thunk.code, args)
+func importCode(thunk *Code) (Value, error) {
+	var args []Value
+	result, err := exec(thunk, args)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +210,7 @@ func FindModuleByName(moduleName string) (string, error) {
 	}
 	loadPath := GetGlobal(loadPathSymbol)
 	if loadPath == nil {
-		loadPath = String(".")
+		loadPath = NewString(".")
 	}
 	path := strings.Split(StringValue(loadPath), ":")
 	name := moduleName
@@ -225,7 +231,7 @@ func FindModuleByName(moduleName string) (string, error) {
 			return filename, nil
 		}
 	}
-	return "", Error(IOErrorKey, "Module not found: ", moduleName)
+	return "", NewError(IOErrorKey, "Module not found: ", moduleName)
 }
 
 func Load(name string) error {
@@ -249,7 +255,7 @@ func LoadFile(file string) error {
 	if err != nil {
 		return err
 	}
-	exprs, err := ReadAll(fileText, nil)
+	exprs, err := ReadAllFromString(fileText)
 	if err != nil {
 		return err
 	}
@@ -264,7 +270,7 @@ func LoadFile(file string) error {
 	return nil
 }
 
-func Eval(expr *Object) (*Object, error) {
+func Eval(expr Value) (Value, error) {
 	if debug {
 		println("; eval: ", Write(expr))
 	}
@@ -296,12 +302,12 @@ func FindModuleFile(name string) (string, error) {
 		return file, nil
 	}
 	if !IsFileReadable(name) {
-		return "", Error(IOErrorKey, "Cannot read file: ", name)
+		return "", NewError(IOErrorKey, "Cannot read file: ", name)
 	}
 	return name, nil
 }
 
-func compileObject(expr *Object) (string, error) {
+func compileValue(expr Value) (string, error) {
 	if debug {
 		println("; compile: ", Write(expr))
 	}
@@ -319,11 +325,11 @@ func compileObject(expr *Object) (string, error) {
 	if debug {
 		println("; compiled to: ", Write(thunk))
 	}
-	return thunk.code.decompile(true) + "\n", nil
+	return thunk.decompile(true) + "\n", nil
 }
 
 //caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
-func CompileFile(name string) (*Object, error) {
+func CompileFile(name string) (Value, error) {
 	file, err := FindModuleFile(name)
 	if err != nil {
 		return nil, err
@@ -336,19 +342,19 @@ func CompileFile(name string) (*Object, error) {
 		return nil, err
 	}
 
-	exprs, err := ReadAll(fileText, nil)
+	exprs, err := ReadAllFromString(fileText)
 	result := ";\n; code generated from " + file + "\n;\n"
 	var lvm string
 	for exprs != EmptyList {
 		expr := Car(exprs)
-		lvm, err = compileObject(expr)
+		lvm, err = compileValue(expr)
 		if err != nil {
 			return nil, err
 		}
 		result += lvm
 		exprs = Cdr(exprs)
 	}
-	return String(result), nil
+	return NewString(result), nil
 }
 
 type Extension interface {
@@ -365,7 +371,7 @@ func AddEllDirectory(dirname string) {
 	if tmp != nil {
 		loadPath = dirname + ":" + StringValue(tmp)
 	}
-	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
+	DefineGlobal(StringValue(loadPathSymbol), NewString(loadPath))
 }
 
 func Init(extns ...Extension) {
@@ -381,7 +387,7 @@ func Init(extns ...Extension) {
 		}
 	}
 	loadPath += ":@/"
-	DefineGlobal(StringValue(loadPathSymbol), String(loadPath))
+	DefineGlobal(StringValue(loadPathSymbol), NewString(loadPath))
 	InitPrimitives()
 	for _, ext := range extensions {
 		err := ext.Init()
@@ -426,6 +432,7 @@ func Main(extns ...Extension) {
 		os.Exit(1)
 	}
 	interactive := len(args) == 0
+			SetFlags(optimize, verbose, debug, trace, interactive)
 	Init(extns...)
 	if path != "" {
 		for _, p := range strings.Split(path, ":") {
@@ -442,6 +449,7 @@ func Main(extns ...Extension) {
 	}
 	if len(args) > 0 {
 		if compile {
+			SetFlags(optimize, verbose, debug, trace, interactive)
 			//just compile and print LVM code
 			for _, filename := range args {
 				lap, err := CompileFile(filename)

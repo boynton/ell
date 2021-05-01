@@ -17,14 +17,15 @@ limitations under the License.
 package ell
 
 import (
-	"bytes"
+	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
 )
 
+/*
 // VectorEqual - return true of the two vectors are equal, i.e. the same length and
 // all the elements are also equal
-func VectorEqual(v1 *Object, v2 *Object) bool {
-	el1 := v1.elements
-	el2 := v2.elements
+func VectorEqual(v1 *Vector, v2 *Vector) bool {
+	el1 := v1.Elements
+	el2 := v2.Elements
 	count := len(el1)
 	if count != len(el2) {
 		return false
@@ -37,8 +38,8 @@ func VectorEqual(v1 *Object, v2 *Object) bool {
 	return true
 }
 
-func vectorToString(vec *Object) string {
-	el := vec.elements
+func VectorToString(vec *Vector) string {
+	el := vec.Elements
 	var buf bytes.Buffer
 	buf.WriteString("[")
 	count := len(el)
@@ -55,8 +56,8 @@ func vectorToString(vec *Object) string {
 
 // MakeVector - create a new <vector> object of the specified size, with all elements initialized to
 // the specified value
-func MakeVector(size int, init *Object) *Object {
-	elements := make([]*Object, size)
+func MakeVector(size int, init Value) *Vector {
+	elements := make([]Value, size)
 	for i := 0; i < size; i++ {
 		elements[i] = init
 	}
@@ -64,41 +65,48 @@ func MakeVector(size int, init *Object) *Object {
 }
 
 // Vector - create a new <vector> object from the given element objects.
-func Vector(elements ...*Object) *Object {
+func Vector(elements ...Value) *Vector {
 	return VectorFromElements(elements, len(elements))
 }
 
 // VectorFromElements - return a new <vector> object from the given slice of elements. The slice is copied.
-func VectorFromElements(elements []*Object, count int) *Object {
-	el := make([]*Object, count)
+func VectorFromElements(elements []Value, count int) *Vector {
+	el := make([]Value, count)
 	copy(el, elements[0:count])
 	return VectorFromElementsNoCopy(el)
 }
 
 // VectorFromElementsNoCopy - create a new <vector> object from the given slice of elements. The slice is NOT copied.
-func VectorFromElementsNoCopy(elements []*Object) *Object {
-	vec := new(Object)
-	vec.Type = VectorType
-	vec.elements = elements
-	return vec
+func VectorFromElementsNoCopy(elements []Value) *Vector {
+	return &Vector{
+		Elements: elements,
+	}
 }
 
 // CopyVector - return a copy of the <vector>
-func CopyVector(vec *Object) *Object {
-	return VectorFromElements(vec.elements, len(vec.elements))
+func CopyVector(vec *Vector) *Vector {
+	return VectorFromElements(vec.Elements, len(vec.Elements))
 }
+*/
 
 // ToVector - convert the object to a <vector>, if possible
-func ToVector(obj *Object) (*Object, error) {
-	switch obj.Type {
-	case VectorType:
-		return obj, nil
-	case ListType:
-		return listToVector(obj), nil
-	case StructType:
-		return structToVector(obj), nil
-	case StringType:
-		return stringToVector(obj), nil
+func ToVector(obj Value) (*Vector, error) {
+	switch p := obj.(type) {
+	case *Vector:
+		return p, nil
+	case *List:
+		return ListToVector(p), nil
+	case *Struct:
+		return StructToVector(p), nil
+	case *String:
+		return StringToVector(p), nil
 	}
-	return nil, Error(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.Type)
+	return nil, NewError(ArgumentErrorKey, "to-vector expected <vector>, <list>, <struct>, or <string>, got a ", obj.Type())
+}
+
+func IsVector(obj Value) bool {
+	if _, ok := obj.(*Vector); ok {
+		return true
+	}
+	return false
 }

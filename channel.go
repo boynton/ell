@@ -18,21 +18,26 @@ package ell
 
 import (
 	"fmt"
+	. "github.com/boynton/ell/data"
 )
 
 // this type is similar to what an extension type (outside the ell package) would look like:
 // the Value field of Object stores a pointer to the types specific data
 
 // ChannelType - the type of Ell's channel object
-var ChannelType = Intern("<channel>")
+var ChannelType Value = Intern("<channel>")
 
-type channel struct {
+type Channel struct {
 	name    string
 	bufsize int
-	channel chan *Object // non-nil for channels
+	channel chan Value // non-nil for channels
 }
 
-func (ch *channel) String() string {
+func (ch *Channel) Type() Value {
+	return ChannelType
+}
+
+func (ch *Channel) String() string {
 	s := "#[channel"
 	if ch.name != "" {
 		s += " " + ch.name
@@ -46,24 +51,29 @@ func (ch *channel) String() string {
 	return s + "]"
 }
 
+func (ch1 *Channel) Equals(another Value) bool {
+	if ch2, ok := another.(*Channel); ok {
+		return ch1 == ch2
+	}
+	return false
+}
+
 // Channel - create a new channel with the given buffer size and name
-func Channel(bufsize int, name string) *Object {
-	return NewObject(ChannelType, &channel{name: name, bufsize: bufsize, channel: make(chan *Object, bufsize)})
+func NewChannel(bufsize int, name string) *Channel {
+	return &Channel{name: name, bufsize: bufsize, channel: make(chan Value, bufsize)}
 }
 
 // ChannelValue - return the Go channel object for the Ell channel
-func ChannelValue(obj *Object) chan *Object {
-	if obj.Value == nil {
-		return nil
+func ChannelValue(obj Value) chan Value {
+	if v, ok := obj.(*Channel); ok {
+		return v.channel
 	}
-	v, _ := obj.Value.(*channel)
-	return v.channel
+	return nil
 }
 
 // CloseChannel - close the channel object
-func CloseChannel(obj *Object) {
-	v, _ := obj.Value.(*channel)
-	if v != nil {
+func CloseChannel(obj Value) {
+	if v, ok := obj.(*Channel); ok {
 		c := v.channel
 		if c != nil {
 			v.channel = nil

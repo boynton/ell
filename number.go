@@ -20,27 +20,21 @@ import (
 	"math"
 	"math/rand"
 	"strconv"
+
+	. "github.com/boynton/ell/data" // -> "github.com/boynton/data"
 )
 
 // Zero is the Ell 0 value
-var Zero = Number(0)
+var Zero = Integer(0)
 
 // One is the Ell 1 value
-var One = Number(1)
+var One = Integer(1)
 
 // MinusOne is the Ell -1 value
-var MinusOne = Number(-1)
+var MinusOne = Integer(-1)
 
-// Number - create a Number object for the given value
-func Number(f float64) *Object {
-	num := new(Object)
-	num.Type = NumberType
-	num.fval = f
-	return num
-}
-
-func Int(n int64) *Object {
-	return Number(float64(n))
+func Int(n int64) *Number {
+	return Integer(int(n))
 }
 
 // Round - return the closest integer value to the float value
@@ -52,44 +46,50 @@ func Round(f float64) float64 {
 }
 
 // ToNumber - convert object to a number, if possible
-func ToNumber(o *Object) (*Object, error) {
-	switch o.Type {
-	case NumberType:
-		return o, nil
-	case CharacterType:
-		return Number(o.fval), nil
-	case BooleanType:
-		return Number(o.fval), nil
-	case StringType:
-		f, err := strconv.ParseFloat(o.text, 64)
+func ToNumber(o Value) (*Number, error) {
+	switch p := o.(type) {
+	case *Number:
+		return p, nil
+	case *Character:
+		return Integer(int(p.Value)), nil
+	case *Boolean:
+		if p.Value {
+			return One, nil
+		}
+		return Zero, nil
+	case *String:
+		f, err := strconv.ParseFloat(p.Value, 64)
 		if err == nil {
-			return Number(f), nil
+			return Float(f), nil
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "cannot convert to an number: ", o)
+	return nil, NewError(ArgumentErrorKey, "cannot convert to an number: ", o)
 }
 
 // ToInt - convert the object to an integer number, if possible
-func ToInt(o *Object) (*Object, error) {
-	switch o.Type {
-	case NumberType:
-		return Number(Round(o.fval)), nil
-	case CharacterType:
-		return Number(o.fval), nil
-	case BooleanType:
-		return Number(o.fval), nil
-	case StringType:
-		n, err := strconv.ParseInt(o.text, 10, 64)
+func ToInt(o Value) (*Number, error) {
+	switch p := o.(type) {
+	case *Number:
+		return Float(Round(p.Value)), nil
+	case *Character:
+		return Integer(int(p.Value)), nil
+	case *Boolean:
+		if p.Value {
+			return One, nil
+		}
+		return Zero, nil
+	case *String:
+		n, err := strconv.ParseInt(p.Value, 10, 64)
 		if err == nil {
-			return Number(float64(n)), nil
+			return Integer(int(n)), nil
 		}
 	}
-	return nil, Error(ArgumentErrorKey, "cannot convert to an integer: ", o)
+	return nil, NewError(ArgumentErrorKey, "cannot convert to an integer: ", o)
 }
 
-func IsInt(obj *Object) bool {
-	if obj.Type == NumberType {
-		f := obj.fval
+func IsInt(obj Value) bool {
+	if p, ok := obj.(*Number); ok {
+		f := p.Value
 		if math.Trunc(f) == f {
 			return true
 		}
@@ -97,52 +97,39 @@ func IsInt(obj *Object) bool {
 	return false
 }
 
-func IsFloat(obj *Object) bool {
-	if obj.Type == NumberType {
+func IsFloat(obj Value) bool {
+	if obj.Type() == NumberType {
 		return !IsInt(obj)
 	}
 	return false
 }
 
-func AsFloat64Value(obj *Object) (float64, error) {
-	if obj.Type == NumberType {
-		return obj.fval, nil
+func AsFloat64Value(obj Value) (float64, error) {
+	if p, ok := obj.(*Number); ok {
+		return p.Value, nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
+	return 0, NewError(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type())
 }
 
-func AsInt64Value(obj *Object) (int64, error) {
-	if obj.Type == NumberType {
-		return int64(obj.fval), nil
+func AsInt64Value(obj Value) (int64, error) {
+	if p, ok := obj.(*Number); ok {
+		return int64(p.Value), nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
+	return 0, NewError(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type())
 }
 
-func AsIntValue(obj *Object) (int, error) {
-	if obj.Type == NumberType {
-		return int(obj.fval), nil
+func AsIntValue(obj Value) (int, error) {
+	if p, ok := obj.(*Number); ok {
+		return int(p.Value), nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
+	return 0, NewError(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type())
 }
 
-func AsByteValue(obj *Object) (byte, error) {
-	if obj.Type == NumberType {
-		return byte(obj.fval), nil
+func AsByteValue(obj Value) (byte, error) {
+	if p, ok := obj.(*Number); ok {
+		return byte(p.Value), nil
 	}
-	return 0, Error(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type)
-}
-
-const epsilon = 0.000000001
-
-// Equal returns true if the object is equal to the argument, within epsilon
-func NumberEqual(f1 float64, f2 float64) bool {
-	if f1 == f2 {
-		return true
-	}
-	if math.Abs(f1-f2) < epsilon {
-		return true
-	}
-	return false
+	return 0, NewError(ArgumentErrorKey, "Expected a <number>, got a ", obj.Type())
 }
 
 var randomGenerator = rand.New(rand.NewSource(1))
@@ -151,20 +138,21 @@ func RandomSeed(n int64) {
 	randomGenerator = rand.New(rand.NewSource(n))
 }
 
-func Random(min float64, max float64) *Object {
-	return Number(min + (randomGenerator.Float64() * (max - min)))
+func Random(min float64, max float64) *Number {
+	return Float(min + (randomGenerator.Float64() * (max - min)))
 }
 
-func RandomList(size int, min float64, max float64) *Object {
+func RandomList(size int, min float64, max float64) *List {
+	//fix this!
 	result := EmptyList
 	tail := EmptyList
 	for i := 0; i < size; i++ {
-		tmp := List(Random(min, max))
+		tmp := NewList(Random(min, max))
 		if result == EmptyList {
 			result = tmp
 			tail = tmp
 		} else {
-			tail.cdr = tmp
+			tail.Cdr = tmp
 			tail = tmp
 		}
 	}

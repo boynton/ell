@@ -130,6 +130,82 @@
          (instance ~typesym ~(car args)))
        ~typesym)))
 
+;; range-arguments - the various optional and default values for the 3 range argument patters
+(defn range-arguments (args) 
+  (let ((argc (list-length args)))
+    (cond
+     ((= argc 0)
+      (error argument-error: "infinite ranges not supported"))
+     ((= argc 1)
+      (list 0 (car args) 1))
+     ((= argc 2)
+      (list (car args) (cadr args) 1))
+     ((= argc 3)
+      (list (car args) (cadr args) (caddr args)))
+     (else
+      (error argument-error: "wrong number of args for range: " argc)))))
+
+;;
+;; execute the body once for each value in the specified range.
+;; i.e.
+;; (dorange (sym end) ...)
+;; (dorange (sym start end) ...)
+;; (dorange (sym start end step) ...)
+;;
+(defmacro dorange (init & body)
+  (let ((sym (car init)) (args (range-arguments (cdr init))))
+    (if (>= (caddr args) 0)
+        `(let loop ((~sym ~(car args))) (if (< ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args))))))
+        `(let loop ((~sym ~(car args))) (if (> ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args)))))))))
+
+;;
+;; execute the body once for each value in the list.
+;;
+(defmacro dolist (init & body)
+  (let ((sym (car init)) (lst (cadr init)) (symlst (symbol (car init) "-list")))
+    `(let loop ((~symlst ~lst)) (if (empty? ~symlst) null (let ((~sym (car ~symlst))) ~@body (loop (cdr ~symlst)))))))
+
+;;
+;; execute the body once for each value in the vector.
+;;
+(defmacro dovector (init & body)
+  (let ((sym (car init)))
+    (if (not (= (list-length init) 2))
+        (error syntax-error: `(dovector ~init ~@body))
+        `(let ((dovecval ~(cadr init)))
+           (dorange (dovecidx (vector-length dovecval)) (let ((~sym (vector-ref dovecval dovecidx))) ~@body))))))
+
+
+;;
+;; Simple error handling. An error object is defined with a keyword and a data item
+;;
+(def *top-handler* null)
+
+(defn throw (err)
+  (if (null? *top-handler*)
+      (uncaught-error err)
+      (*top-handler* err)))
+
+(defn error (& data)
+  (throw (apply make-error data)))
+
+;; and catch simply is callcc that defines throw in the lexical scope of your code.
+(defmacro catch (& body)
+  `(callcc
+    (fn (_handler_)
+      (let ((_prev_handler_ *top-handler*))
+        (set! *top-handler*
+            (fn (err)
+              (set! *top-handler* _prev_handler_)
+              (_handler_ err)))
+        ~@body))))
+
+
+(defn sum (& args)
+  (reduce + 0 args))
+
+(defn product (& args)
+  (reduce * 1 args))
 
 ;;
 ;; Defines a struct type by emitting a constructor and a predicate based on a list of fields.
@@ -248,75 +324,6 @@
         (error argument-error: sym " is is not defined as a generic function"))
     `(add-method '~sym '~specialized-args (fn ~names ~@body))))
 
-;; range-arguments - the various optional and default values for the 3 range argument patters
-(defn range-arguments (args) 
-  (let ((argc (list-length args)))
-    (cond
-     ((= argc 0)
-      (error argument-error: "infinite ranges not supported"))
-     ((= argc 1)
-      (list 0 (car args) 1))
-     ((= argc 2)
-      (list (car args) (cadr args) 1))
-     ((= argc 3)
-      (list (car args) (cadr args) (caddr args)))
-     (else
-      (error argument-error: "wrong number of args for range: " argc)))))
-
-;;
-;; execute the body once for each value in the specified range.
-;; i.e.
-;; (dorange (sym end) ...)
-;; (dorange (sym start end) ...)
-;; (dorange (sym start end step) ...)
-;;
-(defmacro dorange (init & body)
-  (let ((sym (car init)) (args (range-arguments (cdr init))))
-    (if (>= (caddr args) 0)
-        `(let loop ((~sym ~(car args))) (if (< ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args))))))
-        `(let loop ((~sym ~(car args))) (if (> ~sym ~(cadr args)) (do ~@body (loop (+ ~sym ~(caddr args)))))))))
-
-;;
-;; execute the body once for each value in the list.
-;;
-(defmacro dolist (init & body)
-  (let ((sym (car init)) (lst (cadr init)) (symlst (symbol (car init) "-list")))
-    `(let loop ((~symlst ~lst)) (if (empty? ~symlst) null (let ((~sym (car ~symlst))) ~@body (loop (cdr ~symlst)))))))
-
-;;
-;; execute the body once for each value in the vector.
-;;
-(defmacro dovector (init & body)
-  (let ((sym (car init)))
-    (if (not (= (list-length init) 2))
-        (error syntax-error: `(dovector ~init ~@body))
-        `(let ((dovecval ~(cadr init)))
-           (dorange (dovecidx (vector-length dovecval)) (let ((~sym (vector-ref dovecval dovecidx))) ~@body))))))
-
-
-;;
-;; Simple error handling. An error object is defined with a keyword and a data item
-;;
-(def *top-handler* null)
-
-(defn throw (err)
-  (if (null? *top-handler*)
-      (uncaught-error err)
-      (*top-handler* err)))
-
-(defn error (& data)
-  (throw (apply make-error data)))
-
-;; and catch simply is callcc that defines throw in the lexical scope of your code.
-(defmacro catch (& body)
-  `(callcc
-    (fn (_handler_)
-      (let ((_prev_handler_ *top-handler*))
-        (set! *top-handler*
-            (fn (err)
-              (set! *top-handler* _prev_handler_)
-              (_handler_ err)))
-        ~@body))))
 
 
 ;;
@@ -327,9 +334,3 @@
 (defmethod length ((vec <vector>)) (vector-length vec))
 (defmethod length ((str <string>)) (string-length str))
 (defmethod length ((strct <struct>)) (struct-length strct))
-
-(defn sum (& args)
-  (reduce + 0 args))
-
-(defn product (& args)
-  (reduce * 1 args))

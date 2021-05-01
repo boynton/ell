@@ -17,84 +17,120 @@ limitations under the License.
 package ell
 
 import (
-	"bytes"
-	"fmt"
-	"strconv"
+	. "github.com/boynton/ell/data"
 )
 
 // Object is the Ell object: a union of all possible primitive types. Which fields are used depends on the variant
 // the variant is a type object i.e. Intern("<string>"). For arbitrary embedded extension types, the Value field
 // is an interface{}. It is used for Channels internally, but is generally useful for app-specific native types
 // when extending Ell.
-type Object struct {
-	Type         *Object               // i.e. <string>
-	code         *Code                 // non-nil for closure, code
+/*
+   type ObjectData struct {
+	data.BaseObject
+	Type         Object               // i.e. <string>
+	//	code         *CodeObject                 // non-nil for closure, code
 	frame        *frame                // non-nil for closure, continuation
 	primitive    *primitive            // non-nil for primitives
 	continuation *continuation         // non-nil for continuation
-	car          *Object               // non-nil for instances and lists
-	cdr          *Object               // non-nil for slists, nil for everything else
-	bindings     map[structKey]*Object // non-nil for struct
-	elements     []*Object             // non-nil for vector
-	fval         float64               // number
-	text         string                // string, symbol, keyword, type
+	//	car          Object               // non-nil for instances and lists
+	//	cdr          Object               // non-nil for slists, nil for everything else
+	//	bindings     map[structKey]*Object // non-nil for struct
+	//	elements     []*Object             // non-nil for vector
+	//	fval         float64               // number
+	//	text         string                // string, symbol, keyword, type
 	Value        interface{}           // the rest of the data for more complex things
 }
-
-// BoolValue - return native bool value of the object
-func BoolValue(obj *Object) bool {
-	if obj == True {
-		return true
-	}
-	return false
-}
+*/
 
 // RuneValue - return native rune value of the object
-func RuneValue(obj *Object) rune {
-	return rune(obj.fval)
+func RuneValue(obj Value) rune {
+	if p, ok := obj.(*Character); ok {
+		return p.Value
+	}
+	return 0
 }
 
 // IntValue - return native int value of the object
-func IntValue(obj *Object) int {
-	return int(obj.fval)
+func IntValue(obj Value) int {
+	if p, ok := obj.(*Number); ok {
+		return int(p.Value)
+	}
+	return 0
 }
 
 // Int64Value - return native int64 value of the object
-func Int64Value(obj *Object) int64 {
-	return int64(obj.fval)
+func Int64Value(obj Value) int64 {
+	if p, ok := obj.(*Number); ok {
+		return int64(p.Value)
+	}
+	return 0
 }
 
 // Float64Value - return native float64 value of the object
-func Float64Value(obj *Object) float64 {
-	return obj.fval
+func Float64Value(obj Value) float64 {
+	if p, ok := obj.(*Number); ok {
+		return p.Value
+	}
+	return 0
 }
 
 // StringValue - return native string value of the object
-func StringValue(obj *Object) string {
-	return obj.text
+func StringValue(obj Value) string {
+	switch p := obj.(type) {
+	case *String:
+		return p.Value
+	case *Symbol:
+		return p.Name()
+	case *Keyword:
+		return p.Name()
+	case *Type:
+		return p.Name()
+	default:
+		return p.String()
+	}
 }
 
+/*
 // BlobValue - return native []byte value of the object
-func BlobValue(obj *Object) []byte {
-	b, _ := obj.Value.([]byte)
-	return b
+func BlobValue(obj Object) []byte {
+	i := obj.InstanceValue()
+	if i != nil {
+		if b, ok := i.Value.([]byte); ok {
+			return b
+		}
+	}
+	return nil
+}
+*/
+
+/*
+type Object struct {
+	Variant *Type
+	Value interface{}
+}
+func (o *Object) Type() Value {
+	return o.Variant
+}
+func (o *Object) String() string {
+	return "#[" + o.Variant.Name() + "]"
+}
+func (o *Object) Value() interface{} {
+	return o.Value
 }
 
 // NewObject is the constructor for externally defined objects, where the
 // value is an interface{}.
-func NewObject(variant *Object, value interface{}) *Object {
-	lob := new(Object)
-	lob.Type = variant
-	lob.Value = value
-	return lob
+func NewObject(variant Object, value interface{}) *Object {
+	return &OpaqueObject{Type: variant, Value: value}
 }
+*/
 
 // Identical - return if two objects are identical
-func Identical(o1 *Object, o2 *Object) bool {
+func Identical(o1 Value, o2 Value) bool {
 	return o1 == o2
 }
 
-type stringable interface {
+/*type stringable interface {
 	String() string
 }
 
@@ -387,3 +423,4 @@ var HTTPErrorKey = Intern("http-error:")
 
 // InterruptKey
 var InterruptKey = Intern("interrupt:")
+*/
