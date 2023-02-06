@@ -25,8 +25,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/boynton/repl"
 	. "github.com/boynton/ell/data"
+	"github.com/boynton/repl"
 )
 
 type ellHandler struct {

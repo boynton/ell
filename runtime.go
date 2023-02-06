@@ -85,7 +85,7 @@ type Continuation struct {
 
 func Closure(code *Code, frame *Frame) *Function {
 	return &Function{
-		code: code,
+		code:  code,
 		frame: frame,
 	}
 }
@@ -97,7 +97,7 @@ func NewContinuation(frame *Frame, ops []int, pc int, stack []Value) *Function {
 	copy(cont.stack, stack)
 	cont.pc = pc
 	return &Function{
-		frame: frame,
+		frame:        frame,
 		continuation: cont,
 	}
 }
@@ -116,10 +116,10 @@ func VM(stackSize int) *vm {
 var FunctionType Value = Intern("<function>")
 
 type Function struct {
-	name string
-	code *Code
-	frame *Frame
-	primitive *Primitive
+	name         string
+	code         *Code
+	frame        *Frame
+	primitive    *Primitive
 	continuation *Continuation
 }
 
@@ -192,7 +192,6 @@ func functionSignature(f *Function) string {
 	panic("Bad function")
 }
 
-
 // PrimitiveFunction is the native go function signature for all Ell primitive functions
 type PrimitiveFunction func(argv []Value) (Value, error)
 
@@ -202,12 +201,12 @@ type Primitive struct { // <function>
 	fun       PrimitiveFunction
 	signature string
 	//	idx       int
-	argc      int       // -1 means the primitive itself checks the args (legacy mode)
-	result    Value   // if set the type of the result
-	args      []Value // if set, the length must be for total args (both required and optional). The type (or <any>) for each
-	rest      Value   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
-	defaults  []Value // if set, then that many optional args beyond argc have these default values
-	keys      []Value // if set, then it must match the size of defaults, and these are the keys
+	argc     int     // -1 means the primitive itself checks the args (legacy mode)
+	result   Value   // if set the type of the result
+	args     []Value // if set, the length must be for total args (both required and optional). The type (or <any>) for each
+	rest     Value   // if set, then any number of this type can follow the normal args. Mutually incompatible with defaults/keys
+	defaults []Value // if set, then that many optional args beyond argc have these default values
+	keys     []Value // if set, then it must match the size of defaults, and these are the keys
 }
 
 func functionSignatureFromTypes(result Value, args []Value, rest Value) string {
@@ -301,10 +300,10 @@ func (frame *Frame) String() string {
 func buildFrame(env *Frame, pc int, ops []int, fun *Function, argc int, stack []Value, sp int) (*Frame, error) {
 	f := &Frame{
 		previous: env,
-		pc: pc,
-		ops: ops,
-		locals: fun.frame,
-		code: fun.code,
+		pc:       pc,
+		ops:      ops,
+		locals:   fun.frame,
+		code:     fun.code,
 	}
 	expectedArgc := fun.code.argc
 	defaults := fun.code.defaults
@@ -853,7 +852,7 @@ func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 				if fun.primitive != nil {
 					nextSp := sp + argc
 					prim := fun.primitive
-					argv := stack[sp+1:nextSp+1]
+					argv := stack[sp+1 : nextSp+1]
 					if prim.defaults != nil {
 						val, err = vm.callPrimitiveWithDefaults(prim, argv)
 					} else {
@@ -923,7 +922,7 @@ func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 				if fun.primitive != nil {
 					nextSp := sp + argc
 					prim := fun.primitive
-					argv := stack[sp+1:nextSp+1]
+					argv := stack[sp+1 : nextSp+1]
 					if prim.defaults != nil {
 						val, err = vm.callPrimitiveWithDefaults(prim, argv)
 					} else {
@@ -1238,7 +1237,7 @@ func (vm *vm) instrumentedExec(code *Code, env *Frame) (Value, error) {
 							return stack[sp], nil
 						}
 					}
-				} else  {
+				} else {
 					ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
 					if err != nil {
 						return nil, err

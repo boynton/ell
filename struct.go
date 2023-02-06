@@ -56,7 +56,7 @@ func Put(obj Value, key Value, val Value) error {
 		p.Put(key, val)
 		return nil
 	}
-    return NewError(ArgumentErrorKey, "Expected a <struct> argument, got a ", obj.Type())
+	return NewError(ArgumentErrorKey, "Expected a <struct> argument, got a ", obj.Type())
 }
 
 func Unput(obj Value, key Value) error {
@@ -67,7 +67,7 @@ func Unput(obj Value, key Value) error {
 		p.Unput(key)
 		return nil
 	}
-    return NewError(ArgumentErrorKey, "Expected a <struct> argument, got a ", obj.Type())
+	return NewError(ArgumentErrorKey, "Expected a <struct> argument, got a ", obj.Type())
 }
 
 func sliceContains(slice []Value, obj Value) bool {

@@ -5,6 +5,9 @@
 ;; `time ell --optimize bench`
 ;;
 ;; Apple M1 (go1.16 darwin/arm64, ell v2)      2.62s
+;; Apple M1 Max (go1.19.2, darwin/arm64)       2.85s
+;; Apple M1 Max (go1.17.2, darwin/arm64)       3.04s
+;; Apple M1 (go1.17.2, darwin/arm64)           3.07s
 ;; Apple M1 (go1.16 darwin/arm64)              3.31s
 ;; Apple M1 (go1.16 linux/aarch64, docker)     3.92s
 ;; Apple M1 (go1.16 darwin/amd64, rosetta 2)   5.78s
@@ -15,15 +18,18 @@
 ;; For reference, here are some comparable numbers for the same
 ;; benchmark in scheme-5.9:
 ;;
+;; DrRacket Scheme (arm64, Apple M1 Max)       0.23
+;; DrRacket Scheme (arm64, Apple M1)           0.28
 ;; Macmini9,1 (arm64, Apple M1)                0.97
 ;; MacBookPro16,1 (x86-64, i9-9900K)           0.97
+;; MacbookPro18,4 (arm64, Apple M1 Max)        0.99
 ;; MacBookPro14,1 (x86-64, I7-7660U)           1.27
 ;; MacNookPro16,1 (x86-64, i9-9900k, rosetta2) 1.41
 ;; MacPro6,1 (x86-64, xeon e5-1650)            1.73
 ;; iMac11,1 (x86-64, i7-860)                   1.90
 ;; MacBookPro9,1 (x86-64, I7-3720QM)           1.90
 ;; Macmini3,1 (x86-64, core2-duo P7350)        3.47
-;;
+;; Chicken Scheme (64, Apple M1)               3.91
 
 (use sort)
 (use pi)

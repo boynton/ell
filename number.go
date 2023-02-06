@@ -182,4 +182,3 @@ func Float64Value(obj Value) float64 {
 	}
 	return 0
 }
-

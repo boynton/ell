@@ -22,7 +22,6 @@ import (
 	. "github.com/boynton/ell/data"
 )
 
-
 // AsStringValue - return the native string representation of the object, if possible
 func AsStringValue(obj Value) (string, error) {
 	if p, ok := obj.(*String); ok {
@@ -76,7 +75,7 @@ func ToString(a Value) (*String, error) {
 		return nil, NewError(ArgumentErrorKey, "to-string: cannot convert argument to <string>: ", a)
 	}
 }
-	
+
 // ToCharacter - convert object to a <character> object, if possible
 func ToCharacter(c Value) (*Character, error) {
 	switch p := c.(type) {
@@ -207,4 +206,3 @@ func StringValue(obj Value) string {
 		return p.String()
 	}
 }
-

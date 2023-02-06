@@ -16,9 +16,9 @@ limitations under the License.
 
 package ell
 
-import(
+import (
 	"fmt"
-	
+
 	. "github.com/boynton/ell/data"
 )
 
@@ -64,5 +64,5 @@ func Unkeyworded(symOrKeyword Value) (Value, error) {
 	if kw, ok := symOrKeyword.(*Keyword); ok {
 		return Intern(kw.Name()), nil
 	}
-    return Null, NewError(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", symOrKeyword.Type())
+	return Null, NewError(ArgumentErrorKey, "Expected <keyword> or <symbol>, got ", symOrKeyword.Type())
 }

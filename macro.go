@@ -162,7 +162,9 @@ func expandUndef(expr Value) (Value, error) {
 }
 
 // (defn f (x) (+ 1 x))
-//  ->
+//
+//	->
+//
 // (def f (fn (x) (+ 1 x)))
 func expandDefn(expr Value) (Value, error) {
 	exprLen := ListLength(expr)
@@ -567,7 +569,7 @@ func expandQQList(lst *List) (*List, error) {
 	result := NewList(Intern("concat"))
 	tail := result
 	for lst != EmptyList {
-		if item, ok := Car(lst).(*List); ok && item != EmptyList{
+		if item, ok := Car(lst).(*List); ok && item != EmptyList {
 			if item.Car == QuasiquoteSymbol {
 				return nil, NewError(MacroErrorKey, "nested quasiquote not supported")
 			}

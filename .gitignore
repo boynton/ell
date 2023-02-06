@@ -7,3 +7,4 @@ dist
 .goreleaser.yml
 
 ell.prof
+.DS_Store

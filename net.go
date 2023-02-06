@@ -209,9 +209,9 @@ var ConnectionType = Intern("<connection>")
 
 type Connection struct {
 	Name string
-	In *Channel
-	Out *Channel
-	Con net.Conn
+	In   *Channel
+	Out  *Channel
+	Con  net.Conn
 }
 
 func (c *Connection) Type() Value {
@@ -232,9 +232,9 @@ func NewConnection(con net.Conn, endpoint string) Value {
 	name := fmt.Sprintf("connection on %s", endpoint)
 	return &Connection{
 		Name: name,
-		In: inchan,
-		Out: outchan,
-		Con: con,
+		In:   inchan,
+		Out:  outchan,
+		Con:  con,
 	}
 }
 
@@ -244,7 +244,7 @@ func closeConnection(obj Value) {
 			CloseChannel(p.In)
 			CloseChannel(p.Out)
 			p.Con.Close()
-			p.Con = nil;
+			p.Con = nil
 		}
 	}
 }

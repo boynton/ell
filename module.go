@@ -177,8 +177,8 @@ func defMacro(sym Value, val *Function) {
 	macroMap[sym] = NewMacro(sym, val)
 }
 
-//note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
-//so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
+// note: unlike java, we cannot use maps or arrays as keys (they are not comparable).
+// so, we will end up with duplicates, unless we do some deep compare, when putting map or array constants
 func putConstant(val Value) int {
 	idx, present := constantsMap[val]
 	if !present {
@@ -328,7 +328,7 @@ func compileValue(expr Value) (string, error) {
 	return thunk.decompile(true) + "\n", nil
 }
 
-//caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
+// caveats: when you compile a file, you actually run it. This is so we can handle imports and macros correctly.
 func CompileFile(name string) (Value, error) {
 	file, err := FindModuleFile(name)
 	if err != nil {
@@ -432,7 +432,7 @@ func Main(extns ...Extension) {
 		os.Exit(1)
 	}
 	interactive := len(args) == 0
-			SetFlags(optimize, verbose, debug, trace, interactive)
+	SetFlags(optimize, verbose, debug, trace, interactive)
 	Init(extns...)
 	if path != "" {
 		for _, p := range strings.Split(path, ":") {

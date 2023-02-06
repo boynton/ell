@@ -16,8 +16,8 @@ limitations under the License.
 
 package ell
 
-import(
-		"fmt"
+import (
+	"fmt"
 	. "github.com/boynton/ell/data"
 )
 

@@ -16,7 +16,7 @@ limitations under the License.
 
 package ell
 
-import(
+import (
 	. "github.com/boynton/ell/data"
 )
 

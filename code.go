@@ -123,7 +123,6 @@ func (code1 *Code) Equals(another Value) bool {
 	return false
 }
 
-
 func (code *Code) signature() string {
 	//
 	//experimental: external annotations on the functions: *declarations* is a map from symbol to string
@@ -251,19 +250,7 @@ func (code *Code) loadOps(lst *List) error {
 			var defaults []Value
 			var keys []Value
 			var err error
-			/*			if IsSymbol(funcParams) {
-				//legacy form, just the argc
-				argc, err = AsIntValue(funcParams)
-				if err != nil {
-					return err
-				}
-				if argc < 0 {
-					argc = -argc - 1
-					defaults = make([]*Object, 0)
-				}
-			} else */
 			if lst, ok := funcParams.(*List); ok && lst.Length() == 4 {
-				//			if IsList(funcParams) && ListLength(funcParams) == 4 {
 				a := lst.Car
 				lst = lst.Cdr
 				name, err = AsStringValue(a)

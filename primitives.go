@@ -375,14 +375,14 @@ func numeq(n1 Value, n2 Value) bool {
 func numericPair(argv []Value) (float64, float64, error) {
 	return (argv[0].(*Number)).Value, (argv[1].(*Number)).Value, nil
 	/*	f1, err := AsFloat64Value(argv[0])
-	if err != nil {
-		return 0, 0, err
-	}
-	f2, err := AsFloat64Value(argv[1])
-	if err != nil {
-		return 0, 0, err
-	}
-	return f1, f2, nil
+		if err != nil {
+			return 0, 0, err
+		}
+		f2, err := AsFloat64Value(argv[1])
+		if err != nil {
+			return 0, 0, err
+		}
+		return f1, f2, nil
 	*/
 }
 
@@ -980,8 +980,8 @@ func ellSend(argv []Value) (Value, error) {
 	ch := ChannelValue(argv[0])
 	if ch != nil { //not closed
 		val := argv[1]
-		timeout := Float64Value(argv[2])        //FIX: timeouts in seconds, floating point
-		if NumberEqual(timeout, 0.0) { //non-blocking
+		timeout := Float64Value(argv[2]) //FIX: timeouts in seconds, floating point
+		if NumberEqual(timeout, 0.0) {   //non-blocking
 			select {
 			case ch <- val:
 				return True, nil

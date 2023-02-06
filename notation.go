@@ -26,7 +26,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	
+
 	. "github.com/boynton/ell/data"
 )
 
@@ -103,7 +103,7 @@ func SpitFile(path string, data string) error {
 
 func ReadFromString(s string) (Value, error) {
 	reader := &Reader{
-		Input: bufio.NewReader(strings.NewReader(s)),
+		Input:    bufio.NewReader(strings.NewReader(s)),
 		Position: 0,
 	}
 	reader.Extension = &EllReaderExtension{r: reader}
@@ -112,7 +112,7 @@ func ReadFromString(s string) (Value, error) {
 
 func ReadAllFromString(s string) (*List, error) {
 	reader := &Reader{
-		Input: bufio.NewReader(strings.NewReader(s)),
+		Input:    bufio.NewReader(strings.NewReader(s)),
 		Position: 0,
 	}
 	reader.Extension = &EllReaderExtension{r: reader}
