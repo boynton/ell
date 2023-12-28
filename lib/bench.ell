@@ -5,15 +5,19 @@
 ;; `time ell --optimize bench`
 ;;
 ;; Apple M1 (go1.16 darwin/arm64, ell v2)      2.62s
-;; Apple M1 Max (go1.19.2, darwin/arm64)       2.85s
+;; Apple M2 (go1.20 darwin/arm64, ell v2)      2.71s
+;; Apple M1 Max (go1.19.5, darwin/arm64)       2.85s
+;; Apple M1 Max (go1.20 darwin/arm64, ell v2)  2.90s
 ;; Apple M1 Max (go1.17.2, darwin/arm64)       3.04s
 ;; Apple M1 (go1.17.2, darwin/arm64)           3.07s
 ;; Apple M1 (go1.16 darwin/arm64)              3.31s
+;; Apple M1 Max go1.19.5 darwin/amd64/rosetta  3.74s
 ;; Apple M1 (go1.16 linux/aarch64, docker)     3.92s
 ;; Apple M1 (go1.16 darwin/amd64, rosetta 2)   5.78s
 ;; Intel Core i9-9980HK 2.4GHz                 5.81s
 ;; Intel Xeon E5-1650 v2 3.5GHz                7.61s
 ;; Intel Core i7-7660U 2.5GHz                  8.58s
+;; Intel Core i5-3210M 2.5GHz                  15.43s
 ;;
 ;; For reference, here are some comparable numbers for the same
 ;; benchmark in scheme-5.9:

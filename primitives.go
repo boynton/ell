@@ -1094,13 +1094,13 @@ func ellUUIDFromTime(argv []Value) (Value, error) {
 	return NewString(u.String()), nil
 }
 
-func Timestamp(t time.Time) Value {
+func CurrentTimestamp(t time.Time) Value {
 	format := "%d-%02d-%02dT%02d:%02d:%02d.%03dZ"
 	return NewString(fmt.Sprintf(format, t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000000))
 }
 
 func ellTimestamp(_ []Value) (Value, error) {
-	return Timestamp(time.Now().UTC()), nil
+	return CurrentTimestamp(time.Now().UTC()), nil
 }
 
 func ellBlobP(argv []Value) (Value, error) {
