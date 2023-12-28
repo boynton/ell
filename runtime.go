@@ -859,7 +859,7 @@ func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 						val, err = prim.fun(argv)
 					}
 					if err != nil {
-						ops, pc, sp, env, err = vm.catch(err, stack, env)
+						ops, pc, _, env, err = vm.catch(err, stack, env)
 						if err != nil {
 							return nil, err
 						}
@@ -929,7 +929,7 @@ func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 						val, err = prim.fun(argv)
 					}
 					if err != nil {
-						ops, pc, sp, env, err = vm.catch(err, stack, env)
+						_, _, _, env, err = vm.catch(err, stack, env)
 						if err != nil {
 							return nil, err
 						}

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,13 +15,13 @@ limitations under the License.
 */
 package data
 
-import(
+import (
 	"bytes"
 )
 
 type Struct struct {
 	Bindings map[StructKey]Value
-	Error error
+	Error    error
 }
 
 var EmptyStruct *Struct = NewStruct()
@@ -74,7 +74,7 @@ func MakeStruct(fieldvals []Value) (*Struct, error) {
 	return strct, nil
 }
 
-   // Equal returns true if the object is equal to the argument
+// Equal returns true if the object is equal to the argument
 func (s1 *Struct) Equals(another Value) bool {
 	if s2, ok := another.(*Struct); ok {
 		bindings1 := s1.Bindings
@@ -120,7 +120,7 @@ func (d *Struct) String() string {
 
 type StructKey struct {
 	Value string
-	Type string
+	Type  string
 }
 
 func newStructKey(key Value) StructKey {

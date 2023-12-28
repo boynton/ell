@@ -15,5 +15,7 @@ clean:
 proper::
 	go fmt $(PKG)
 	go vet $(PKG)
+	gofmt -s -w .
 	go fmt $(CMD)
 	go vet $(CMD)
+	gofmt -s -w cmd/$(NAME)

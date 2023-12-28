@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,14 +15,14 @@ limitations under the License.
 */
 package data
 
-import(
+import (
 	"sync"
 )
 
 // Symbols are symbolic identifiers, i.e. Intern("foo") == Intern("foo"), the same objects.
 type Symbol struct {
-	Text string //the textual representation of the Symbol
-	Value Value //A hook for a value to bound to the symbol. Used by Ell, not actually part of EllDn Spec.
+	Text  string //the textual representation of the Symbol
+	Value Value  //A hook for a value to bound to the symbol. Used by Ell, not actually part of EllDn Spec.
 }
 
 func (data *Symbol) Type() Value {
@@ -77,7 +77,6 @@ func IsValidSymbolName(name string) bool {
 	return len(name) > 0
 }
 
-
 func IsValidKeywordName(s string) bool {
 	n := len(s)
 	if n > 1 && s[n-1] == ':' {
@@ -123,8 +122,7 @@ func ToKeyword(o Value) (Value, error) { //return *Keyword instead?
 	return nil, NewError(ArgumentErrorKey, "to-keyword expected a <keyword>, <type>, <symbol>, or <string>, got a ", o.Type())
 }
 
-
-//The following may be something to allow to be pluggable by different runtimes, as it is global mutable state.
+// The following may be something to allow to be pluggable by different runtimes, as it is global mutable state.
 var symtabMutex sync.Mutex
 var symtab map[string]Value = initSymtableTable()
 
@@ -135,11 +133,11 @@ func initSymtableTable() map[string]Value {
 }
 
 func Symbols() []Value {
-    syms := make([]Value, 0, len(symtab))
-    for _, sym := range symtab {
-        syms = append(syms, sym)
-    }
-    return syms
+	syms := make([]Value, 0, len(symtab))
+	for _, sym := range symtab {
+		syms = append(syms, sym)
+	}
+	return syms
 }
 
 func Intern(name string) Value {

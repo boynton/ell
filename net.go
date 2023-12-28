@@ -301,13 +301,13 @@ func tcpWriter(con net.Conn, outchan Value) {
 			data := []byte(p.Value)
 			count := len(data)
 			header := make([]byte, 8)
-			n := binary.PutVarint(header, int64(count))
-			n, err := con.Write(header[:n])
-			if err != nil {
+			nvar := binary.PutVarint(header, int64(count))
+			_, er := con.Write(header[:nvar])
+			if er != nil {
 				CloseChannel(outchan)
 				return
 			}
-			n, err = con.Write([]byte(data))
+			n, err := con.Write([]byte(data))
 			if n != len(data) || err != nil {
 				CloseChannel(outchan)
 				return

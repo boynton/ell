@@ -343,6 +343,9 @@ func CompileFile(name string) (Value, error) {
 	}
 
 	exprs, err := ReadAllFromString(fileText)
+	if err != nil {
+		return nil, err
+	}
 	result := ";\n; code generated from " + file + "\n;\n"
 	var lvm string
 	for exprs != EmptyList {

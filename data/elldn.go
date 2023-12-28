@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,7 @@ limitations under the License.
 */
 package data
 
-import(
+import (
 	"bufio"
 	"bytes"
 	"io"
@@ -28,8 +28,8 @@ type ReaderExtension interface {
 }
 
 type Reader struct {
-	Input  *bufio.Reader
-	Position int
+	Input     *bufio.Reader
+	Position  int
 	Extension ReaderExtension
 }
 
@@ -64,7 +64,6 @@ func (reader *Reader) ReadAll() (*List, error) {
 	}
 	return lst, nil
 }
-
 
 func IsWhitespace(b byte) bool {
 	return b == ' ' || b == '\n' || b == '\t' || b == '\r' || b == ','
@@ -211,7 +210,6 @@ func (dr *Reader) DecodeVector() (Value, error) {
 	return NewVector(items...), nil
 }
 
-
 func (dr *Reader) SkipToData(skipColon bool) (byte, error) {
 	c, err := dr.GetChar()
 	for err == nil {
@@ -288,9 +286,9 @@ func (dr *Reader) DecodeSequence(endChar byte) ([]Value, error) {
 			return items, nil
 		}
 		dr.UngetChar()
-		element, err := dr.ReadValue()
-		if err != nil {
-			return nil, err
+		element, er := dr.ReadValue()
+		if er != nil {
+			return nil, er
 		}
 		items = append(items, element)
 		c, err = dr.GetChar()
@@ -433,8 +431,8 @@ type WriterExtension interface {
 }
 
 type Writer struct {
-	Json bool
-	Indent string
+	Json      bool
+	Indent    string
 	Extension WriterExtension
 }
 
@@ -506,7 +504,6 @@ func (writer *Writer) writeToString(obj Value) (string, error) {
 	}
 	return elldn, nil
 }
-
 
 func (writer *Writer) WriteData(o Value, json bool, indent string, indentSize string) (string, error) {
 	//an error is never returned for non-json

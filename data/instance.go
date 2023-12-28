@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,7 @@ limitations under the License.
 */
 package data
 
-import(
+import (
 	"fmt"
 )
 
@@ -23,10 +23,10 @@ import(
 // The 'type' of an instance is determined by a tag, i.e. it is not a primitive type
 type Instance struct {
 	TypeTag Value
-	Value Value
+	Value   Value
 }
 
-//this is not a primitive type, it is determined by the tag.
+// this is not a primitive type, it is determined by the tag.
 func (data *Instance) Type() Value {
 	return data.TypeTag
 }
@@ -55,6 +55,6 @@ func NewInstance(tag Value, value Value) (Value, error) {
 	}
 	return &Instance{
 		TypeTag: tag,
-		Value: value,
+		Value:   value,
 	}, nil
 }
