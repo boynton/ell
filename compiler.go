@@ -18,6 +18,7 @@ package ell
 
 import (
 	"fmt"
+
 	. "github.com/boynton/ell/data"
 )
 
@@ -138,9 +139,6 @@ func compileMacro(target *Code, env *List, expr Value, isTail bool, ignoreResult
 		return NewError(SyntaxErrorKey, expr)
 	}
 	err := compileExpr(target, env, Caddr(expr), false, false, sym.String())
-	if err != nil {
-		return err
-	}
 	if err == nil {
 		target.emitDefMacro(sym)
 		if ignoreResult {

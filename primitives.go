@@ -19,13 +19,14 @@ package ell
 // the primitive functions for the languages
 import (
 	"fmt"
-	"github.com/pborman/uuid"
 	"math"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/pborman/uuid"
 
 	. "github.com/boynton/ell/data"
 )
@@ -361,15 +362,6 @@ func ellEqualP(argv []Value) (Value, error) {
 		return True, nil
 	}
 	return False, nil
-}
-
-func numeq(n1 Value, n2 Value) bool {
-	if f1, ok := n1.(*Number); ok {
-		if f2, ok := n2.(*Number); ok {
-			return NumberEqual(f1.Value, f2.Value)
-		}
-	}
-	return false
 }
 
 func numericPair(argv []Value) (float64, float64, error) {
@@ -1148,7 +1140,14 @@ func ellListen(argv []Value) (Value, error) {
 func ellConnect(argv []Value) (Value, error) {
 	host := StringValue(argv[0])
 	port := IntValue(argv[1])
-	endpoint := fmt.Sprintf("%s:%d", host, port)
+	var endpoint string
+	if strings.Contains(host, ":") {
+		// IPv6 address
+		endpoint = fmt.Sprintf("[%s]:%d", host, port)
+	} else {
+		// IPv4 address
+		endpoint = fmt.Sprintf("%s:%d", host, port)
+	}
 	con, err := net.Dial("tcp", endpoint)
 	if err != nil {
 		return nil, err
