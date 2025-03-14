@@ -4,6 +4,12 @@
 ;;
 ;; `time ell --optimize bench`
 ;;
+;; Updated benchmark. Now sorts a 200,000 element list, and does pi to 2000 digits.
+;; Apple M4 Max (go1.24 darwin/arm64, ell v2)  5.433s
+;;   This compares to LeeScheme:               1.840s (i.e. about 3x slower than the C implementation)
+;;
+;; Older numbers:
+;; Apple M4 Max (go1.24 darwin/arm64, ell v2)  1.97s
 ;; Apple M1 (go1.16 darwin/arm64, ell v2)      2.62s
 ;; Apple M2 (go1.20 darwin/arm64, ell v2)      2.71s
 ;; Apple M1 Max (go1.19.5, darwin/arm64)       2.85s
@@ -45,10 +51,10 @@
     (reverse tmp)))
 
 (defn benchmark ()
-  (let ((foo (make-foo 100000)))
+  (let ((foo (make-foo 200000)))
     (sort foo <)
     (sort foo >)
-    (pi 1000 5)))
+    (pi 2000 5)))
 
 (let loop ((i 5))
   (if (> i 0)
