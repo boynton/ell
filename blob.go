@@ -72,7 +72,7 @@ func ToBlob(obj Value) (*Blob, error) {
 func vectorToBlob(vec *Vector) (*Blob, error) {
 	el := vec.Elements
 	n := len(el)
-	b := make([]byte, n, n)
+	b := make([]byte, n)
 	for i := 0; i < n; i++ {
 		val, err := AsByteValue(el[i])
 		if err != nil {

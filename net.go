@@ -265,7 +265,7 @@ func tcpReader(conn net.Conn, inchan Value) {
 			CloseChannel(inchan)
 			return
 		}
-		buf := make([]byte, count, count)
+		buf := make([]byte, count)
 		cur := buf[:]
 		remaining := int(count)
 		offset := 0

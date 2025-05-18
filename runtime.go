@@ -636,7 +636,7 @@ opcodeCallAgain:
 	return vm.catch(err, stack, env)
 }
 
-func (vm *vm) tailcall(callable Value, argc int, ops []int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+func (vm *vm) tailcall(callable Value, argc int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 opcodeTailCallAgain:
 	if fun, ok := callable.(*Function); ok {
 		if fun.code != nil {
@@ -740,7 +740,7 @@ opcodeTailCallAgain:
 	return vm.catch(err, stack, env)
 }
 
-func (vm *vm) keywordTailcall(fun *Keyword, argc int, ops []int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
+func (vm *vm) keywordTailcall(fun *Keyword, argc int, stack []Value, sp int, env *Frame) ([]int, int, int, *Frame, error) {
 	if argc != 1 {
 		err := NewError(ArgumentErrorKey, fun.Text, " expected 1 argument, got ", argc)
 		return vm.catch(err, stack, env)
@@ -943,7 +943,7 @@ func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 						return stack[sp], nil
 					}
 				} else {
-					ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
+					ops, pc, sp, env, err = vm.tailcall(fun, argc, stack, sp+1, env)
 					if err != nil {
 						return nil, err
 					}
@@ -952,7 +952,7 @@ func (vm *vm) exec(code *Code, env *Frame) (Value, error) {
 					}
 				}
 			} else if kw, ok := callable.(*Keyword); ok {
-				ops, pc, sp, env, err = vm.keywordTailcall(kw, argc, ops, stack, sp+1, env)
+				ops, pc, sp, env, err = vm.keywordTailcall(kw, argc, stack, sp+1, env)
 				if err != nil {
 					ops, pc, sp, env, err = vm.catch(err, stack, env)
 					if err != nil {
@@ -1238,7 +1238,7 @@ func (vm *vm) instrumentedExec(code *Code, env *Frame) (Value, error) {
 						}
 					}
 				} else {
-					ops, pc, sp, env, err = vm.tailcall(fun, argc, ops, stack, sp+1, env)
+					ops, pc, sp, env, err = vm.tailcall(fun, argc, stack, sp+1, env)
 					if err != nil {
 						return nil, err
 					}
@@ -1247,7 +1247,7 @@ func (vm *vm) instrumentedExec(code *Code, env *Frame) (Value, error) {
 					}
 				}
 			} else if kw, ok := callable.(*Keyword); ok {
-				ops, pc, sp, env, err = vm.keywordTailcall(kw, argc, ops, stack, sp+1, env)
+				ops, pc, sp, env, err = vm.keywordTailcall(kw, argc, stack, sp+1, env)
 				if err != nil {
 					return nil, err
 				}

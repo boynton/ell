@@ -5,11 +5,14 @@
 ;; `time ell --optimize bench`
 ;;
 ;; Updated benchmark. Now sorts a 200,000 element list, and does pi to 2000 digits.
-;; Apple M4 Max (go1.24 darwin/arm64, ell v2)  5.433s
+;;
+;; Apple M4 Max (go1.24.2, ell-1.05)           5.323s
 ;;   This compares to LeeScheme:               1.840s (i.e. about 3x slower than the C implementation)
 ;;
 ;; Older numbers:
-;; Apple M4 Max (go1.24 darwin/arm64, ell v2)  1.97s
+;; Apple M4 (go1.24 darwin/arm64, ell v2)      1.94s
+;; Apple M4 Max (go1.24 darwin/arm64, ell v2)  1.95s
+;; Apple M3 Pro (go1.24 darwin/arm64, ell v2)  2.43s
 ;; Apple M1 (go1.16 darwin/arm64, ell v2)      2.62s
 ;; Apple M2 (go1.20 darwin/arm64, ell v2)      2.71s
 ;; Apple M1 Max (go1.19.5, darwin/arm64)       2.85s
