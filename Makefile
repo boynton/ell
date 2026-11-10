@@ -19,3 +19,6 @@ proper::
 	go fmt $(CMD)
 	go vet $(CMD)
 	gofmt -s -w cmd/$(NAME)
+
+bench:: all
+	time ./bin/ell --optimize bench

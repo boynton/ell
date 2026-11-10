@@ -6,6 +6,9 @@
 ;;
 ;; Updated benchmark. Now sorts a 200,000 element list, and does pi to 2000 digits.
 ;;
+;; Apple M4 Max (go 1.27.2, ell-1.06)          5.047s (with small int cache)
+;; Apple M4 Max (go 1.25.4, ell-1.05)          5.093s
+;; Apple M4 Max (go 1.25.1, ell-1.05)          5.196s
 ;; Apple M4 Max (go1.24.2, ell-1.05)           5.323s
 ;;   This compares to LeeScheme:               1.840s (i.e. about 3x slower than the C implementation)
 ;;

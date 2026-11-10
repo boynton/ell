@@ -28,7 +28,26 @@ func Float(f float64) *Number {
 	return &Number{Value: f}
 }
 
+// smallInts caches the *Number boxing of small non-negative integers, the values
+// most often produced by loop counters, indices and lengths. Reusing them keeps
+// those allocations out of the hot loop.
+// Numbers are immutable (Value is only ever read, never mutated), so sharing is safe.
+// Float() is deliberately not cached: most floats come from arithmetic on values
+// outside this range.
+const smallIntLimit = 1024
+
+var smallInts = func() [smallIntLimit]*Number {
+	var t [smallIntLimit]*Number
+	for i := range t {
+		t[i] = &Number{Value: float64(i)}
+	}
+	return t
+}()
+
 func Integer(i int) *Number {
+	if i >= 0 && i < smallIntLimit {
+		return smallInts[i]
+	}
 	return &Number{Value: float64(i)}
 }
 
